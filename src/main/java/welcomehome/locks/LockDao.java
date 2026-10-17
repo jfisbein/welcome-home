@@ -1,6 +1,7 @@
 package welcomehome.locks;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -29,6 +30,28 @@ class LockDao {
                 .param("ownerId", ownerId)
                 .query(OwnerLock.class)
                 .list();
+    }
+
+    Optional<OwnerLock> find(UUID ownerId, UUID lockId) {
+        return jdbc.sql("""
+                        SELECT id, nuki_smartlock_id, name, time_zone, active
+                        FROM lock
+                        WHERE owner_id = :ownerId AND id = :lockId
+                        """)
+                .param("ownerId", ownerId)
+                .param("lockId", lockId)
+                .query(OwnerLock.class)
+                .optional();
+    }
+
+    /** @return whether the owner has that lock */
+    boolean updateSettings(UUID ownerId, UUID lockId, String name, String timeZone) {
+        return jdbc.sql("UPDATE lock SET name = :name, time_zone = :timeZone WHERE owner_id = :ownerId AND id = :lockId")
+                .param("name", name)
+                .param("timeZone", timeZone)
+                .param("ownerId", ownerId)
+                .param("lockId", lockId)
+                .update() == 1;
     }
 
     /**

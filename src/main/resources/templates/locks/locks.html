@@ -15,6 +15,9 @@
             <span th:if="${synced.added == 0 and synced.deactivated == 0}">No hay cambios.</span>
         </p>
     </article>
+    <article th:if="${updated}">
+        <p th:text="|Guardados los cambios de ${updated}.|">Guardados los cambios de Casa.</p>
+    </article>
     <article th:if="${syncError}" role="alert">
         <p th:if="${syncError == 'not-connected'}">
             Para sincronizar, primero <a th:href="@{/nuki/connection}">conecta tu cuenta de Nuki</a>.
@@ -32,6 +35,7 @@
             <th scope="col">Nombre</th>
             <th scope="col">Zona horaria</th>
             <th scope="col">Estado</th>
+            <th scope="col"></th>
         </tr>
         </thead>
         <tbody>
@@ -39,6 +43,7 @@
             <td th:text="${lock.name}">Casa</td>
             <td th:text="${lock.timeZone}">Europe/Madrid</td>
             <td th:text="${lock.active} ? 'Activa' : 'Ya no está en tu cuenta de Nuki'">Activa</td>
+            <td><a th:href="@{/locks/{id}(id=${lock.id})}">Editar</a></td>
         </tr>
         </tbody>
     </table>

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head(${lock.name})}"></head>
+<body>
+<main class="container">
+    <nav th:replace="~{fragments/layout :: nav}"></nav>
+    <h1 th:text="${lock.name}">Casa</h1>
+
+    <form th:action="@{/locks/{id}(id=${lock.id})}" th:method="patch">
+        <label>
+            Nombre
+            <input type="text" name="name" maxlength="100" required th:value="${name}"
+                   th:attr="aria-invalid=${nameError} ? 'true' : null">
+            <small th:if="${nameError}">Escribe un nombre de hasta 100 caracteres.</small>
+            <small th:unless="${nameError}">Es el que verán tus invitados.</small>
+        </label>
+        <label>
+            Zona horaria
+            <select name="timeZone" required th:attr="aria-invalid=${timeZoneError} ? 'true' : null">
+                <option th:each="zone : ${timeZones}" th:value="${zone}" th:text="${zone}"
+                        th:selected="${zone == timeZone}">Europe/Madrid</option>
+            </select>
+            <small th:if="${timeZoneError}">Elige una zona horaria de la lista.</small>
+            <small th:unless="${timeZoneError}">
+                Las fechas de los enlaces se introducen y se muestran en esta zona. Cambiarla no cambia cuándo son
+                válidos los enlaces que ya existen, solo cómo se muestran.
+            </small>
+        </label>
+        <button type="submit">Guardar</button>
+    </form>
+    <p><a th:href="@{/locks}">Volver a cerraduras</a></p>
+</main>
+</body>
+</html>
