@@ -1,0 +1,7 @@
+# Only what the build needs. Keysets never go into the image: they are mounted at run time.
+*
+!gradlew
+!gradle/
+!settings.gradle.kts
+!build.gradle.kts
+!src/

@@ -133,6 +133,26 @@ Attempts hold IP addresses, which are personal data, so they are kept for `welco
 - The session cookie is `Secure`, `HttpOnly` and `SameSite=Lax`. The dev profile drops `Secure`, since `http://localhost` has no HTTPS.
 - Guests' tokens never reach the logs. Spring logs request paths at DEBUG, so `logback-spring.xml` masks every `/o/{token}` as `/o/***` in all messages, and the body of `POST /api/open` prints without its token. Tomcat's access log stays off.
 
+## Docker image
+
+```sh
+docker build -t welcome-home .
+```
+
+The `Dockerfile` builds the jar with JDK 25 and runs it on a JRE 25 (`eclipse-temurin`, Ubuntu Noble) as the unprivileged user `app` (uid 10001), from Spring Boot's layers, so a new release only changes the application layer. Tests do not run in the image build. `.dockerignore` lets in only the build files and `src/`, so keysets never end up in the image.
+
+The container listens on 8080 and is configured with environment variables:
+
+| Variable                                                   | Value                                              |
+|------------------------------------------------------------|----------------------------------------------------|
+| `BASE_URL`                                                 | the public URL, such as `https://welcome-home.alcornoque.top` |
+| `TZ`                                                       | the server's time zone, for the daily jobs, such as `Europe/Madrid` |
+| `SPRING_DATASOURCE_URL`, `_USERNAME`, `_PASSWORD`          | Postgres as `app_user`                             |
+| `SPRING_LIQUIBASE_USER`, `SPRING_LIQUIBASE_PASSWORD`       | Postgres as `migrator`                             |
+| `AEAD_KEYSET_FILE`, `MAC_KEYSET_FILE`                      | paths of the mounted keysets                       |
+
+The keysets are mounted read-only and must be readable by uid 10001. The image has no curl or wget; a health check can use bash: `exec 3<>/dev/tcp/localhost/8080; printf 'GET /actuator/health HTTP/1.0\r\n\r\n' >&3; grep -q UP <&3`.
+
 ## Modules
 
 Packages under `welcomehome`, verified with Spring Modulith (`ModularityTests`):
