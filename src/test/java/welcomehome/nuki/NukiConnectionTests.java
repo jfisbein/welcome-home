@@ -172,6 +172,23 @@ class NukiConnectionTests {
         assertThat(mvc.get().uri("/nuki/connection").with(owner("deleted@example.com"))).hasStatus(HttpStatus.FORBIDDEN);
     }
 
+    @Test
+    void panelAsksAnOwnerWithoutConnectionToConnectNuki() {
+        assertThat(mvc.get().uri("/").with(owner(ALICE))).bodyText().contains("Conecta tu cuenta de Nuki");
+    }
+
+    @Test
+    void panelWarnsWhenNukiRejectedTheToken() {
+        nukiAccepts(TOKEN);
+        connect(ALICE, TOKEN);
+        assertThat(mvc.get().uri("/").with(owner(ALICE)))
+                .bodyText().doesNotContain("Conecta tu cuenta de Nuki", "Nuki ha rechazado");
+
+        migrator.sql("UPDATE nuki_connection SET status = 'DISCONNECTED'").update();
+
+        assertThat(mvc.get().uri("/").with(owner(ALICE))).bodyText().contains("Nuki ha rechazado tu API token");
+    }
+
     private MvcTestResult connect(String email, String apiToken) {
         return mvc.put().uri("/nuki/connection").with(owner(email)).with(csrf()).param("apiToken", apiToken).exchange();
     }

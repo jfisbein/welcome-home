@@ -9,7 +9,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestDatabaseConfiguration;
 
 @IntegrationTest
 @AutoConfigureMockMvc
@@ -17,6 +19,9 @@ class WebSecurityTests {
 
     @Autowired
     MockMvcTester mvc;
+
+    @Autowired
+    PostgreSQLContainer postgres;
 
     @Test
     void anonymousVisitorIsSentToLogin() {
@@ -41,6 +46,10 @@ class WebSecurityTests {
 
     @Test
     void signedInOwnerSeesThePanel() {
+        TestDatabaseConfiguration.asMigrator(postgres)
+                .sql("INSERT INTO owner (email) VALUES ('alice@example.com') ON CONFLICT DO NOTHING")
+                .update();
+
         assertThat(mvc.get().uri("/").with(user("alice@example.com").roles(OwnerUserDetailsService.OWNER)))
                 .hasStatusOk()
                 .bodyText().contains("alice@example.com");

@@ -5,11 +5,13 @@ import java.util.Arrays;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
- * Entry point of welcome-home.
+ * Entry point of welcome-home. Scheduling runs the daily jobs, such as the Nuki connection check.
  */
 @SpringBootApplication
+@EnableScheduling
 public class WelcomeHomeApplication {
 
     WelcomeHomeApplication() {

@@ -35,7 +35,7 @@ class SecurityHeadersTests {
     @Test
     void noPageSendsAReferrer() {
         assertThat(mvc.get().uri("/invite/unknown")).headers().hasValue("Referrer-Policy", "no-referrer");
-        assertThat(mvc.get().uri("/").with(user("alice@example.com")))
+        assertThat(mvc.get().uri("/login").with(user("alice@example.com")))
                 .headers().hasValue("Referrer-Policy", "no-referrer");
     }
 

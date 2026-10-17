@@ -1,6 +1,7 @@
 package welcomehome.nuki;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -43,6 +44,31 @@ class NukiConnectionDao {
                 .param("ownerId", ownerId)
                 .param("apiTokenEncrypted", apiTokenEncrypted)
                 .update();
+    }
+
+    /**
+     * Disconnects the owner's connection if it still holds the given token: a token pasted while the
+     * rejected one was in use stays connected.
+     */
+    void disconnect(UUID ownerId, byte[] rejectedApiTokenEncrypted) {
+        jdbc.sql("""
+                        UPDATE nuki_connection SET status = 'DISCONNECTED', last_checked_at = now()
+                        WHERE owner_id = :ownerId AND api_token_encrypted = :rejected
+                        """)
+                .param("ownerId", ownerId)
+                .param("rejected", rejectedApiTokenEncrypted)
+                .update();
+    }
+
+    void markChecked(UUID ownerId) {
+        jdbc.sql("UPDATE nuki_connection SET last_checked_at = now() WHERE owner_id = :ownerId AND status = 'OK'")
+                .param("ownerId", ownerId)
+                .update();
+    }
+
+    /** From owner, which has no Row-Level Security: without an owner context nuki_connection shows no rows. */
+    List<UUID> allOwnerIds() {
+        return jdbc.sql("SELECT id FROM owner ORDER BY created_at").query(UUID.class).list();
     }
 
     record StoredConnection(byte[] apiTokenEncrypted, ConnectionStatus status, @Nullable LocalDateTime lastCheckedAt) {

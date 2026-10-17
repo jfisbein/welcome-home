@@ -6,6 +6,18 @@
     <nav th:replace="~{fragments/layout :: nav}"></nav>
     <h1>Hola</h1>
     <p>Has entrado como <strong th:text="${email}">propietario@example.com</strong>.</p>
+
+    <article th:if="${nukiConnection == null}">
+        <p>Conecta tu cuenta de Nuki para crear enlaces que abran tu puerta.</p>
+        <a th:href="@{/nuki/connection}" role="button">Conectar Nuki</a>
+    </article>
+    <article th:if="${nukiConnection != null and nukiConnection.status.name() == 'DISCONNECTED'}" role="alert">
+        <p>
+            <strong>Nuki ha rechazado tu API token.</strong> Mientras no pegues uno nuevo, los enlaces no pueden
+            abrir la puerta.
+        </p>
+        <a th:href="@{/nuki/connection}" role="button">Pegar un API token nuevo</a>
+    </article>
 </main>
 </body>
 </html>

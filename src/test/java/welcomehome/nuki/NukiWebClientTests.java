@@ -131,7 +131,7 @@ class NukiWebClientTests {
         nuki.stubFor(post("/smartlock/17/action").willReturn(status(403)));
 
         assertFailsWith(Reason.ACCESS_DENIED, () -> client.listLocks(TOKEN));
-        assertFailsWith(Reason.ACCESS_DENIED, () -> client.unlatch(TOKEN, LOCK_ID));
+        assertFailsWith(Reason.MISSING_PERMISSION, () -> client.unlatch(TOKEN, LOCK_ID));
         nuki.verify(1, getRequestedFor(urlPathEqualTo("/smartlock")));
         nuki.verify(1, postRequestedFor(urlPathEqualTo("/smartlock/17/action")));
     }

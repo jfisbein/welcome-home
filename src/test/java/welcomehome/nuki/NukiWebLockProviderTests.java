@@ -15,6 +15,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.util.UUID;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +25,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
 import welcomehome.TestDatabaseConfiguration;
+import welcomehome.db.OwnerTransactions;
 import welcomehome.nuki.LockProviderException.Reason;
 
 /** Same configuration as NukiConnectionTests, so both share one application context. */
@@ -40,6 +42,12 @@ class NukiWebLockProviderTests {
 
     @Autowired
     NukiConnections connections;
+
+    @Autowired
+    NukiConnectionDao connectionDao;
+
+    @Autowired
+    OwnerTransactions ownerTransactions;
 
     @Autowired
     WireMockServer nuki;
@@ -106,6 +114,52 @@ class NukiWebLockProviderTests {
         nuki.verify(0, anyRequestedFor(anyUrl()));
     }
 
+    @Test
+    void tokenThatNukiRejectsDisconnectsTheOwner() {
+        connectWith(alice, ALICES_TOKEN);
+        nuki.stubFor(get("/smartlock/17").willReturn(status(401)));
+
+        assertFailsWith(Reason.ACCESS_DENIED, () -> locks.getState(alice, 17));
+
+        assertThat(connectionStatus(alice)).isEqualTo("DISCONNECTED");
+        nuki.resetRequests();
+        assertNotConnected(alice);
+        nuki.verify(0, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
+    void missingPermissionOrUnavailableNukiKeepTheConnection() {
+        connectWith(alice, ALICES_TOKEN);
+        nuki.stubFor(get(urlPathEqualTo("/smartlock/17/log")).willReturn(status(403)));
+        nuki.stubFor(get("/smartlock/17").willReturn(status(503)));
+
+        assertFailsWith(Reason.MISSING_PERMISSION, () -> locks.getRecentLog(alice, 17));
+        assertFailsWith(Reason.UNAVAILABLE, () -> locks.getState(alice, 17));
+
+        assertThat(connectionStatus(alice)).isEqualTo("OK");
+    }
+
+    @Test
+    void tokenPastedWhileTheRejectedOneWasInUseStaysConnected() {
+        connectWith(alice, ALICES_TOKEN);
+        var rejected = migrator.sql("SELECT api_token_encrypted FROM nuki_connection").query(byte[].class).single();
+        connectWith(alice, BOBS_TOKEN);
+
+        ownerTransactions.run(alice, () -> connectionDao.disconnect(alice, rejected));
+
+        assertThat(connectionStatus(alice)).isEqualTo("OK");
+    }
+
+    private String connectionStatus(UUID ownerId) {
+        return migrator.sql("SELECT status FROM nuki_connection WHERE owner_id = ?").param(ownerId)
+                .query(String.class).single();
+    }
+
+    private static void assertFailsWith(Reason reason, ThrowingCallable call) {
+        assertThatThrownBy(call)
+                .isInstanceOfSatisfying(LockProviderException.class, e -> assertThat(e.reason()).isEqualTo(reason));
+    }
+
     private void connectWith(UUID ownerId, String token) {
         nuki.stubFor(get("/smartlock").withHeader("Authorization", equalTo("Bearer " + token))
                 .willReturn(okJson("[{\"smartlockId\": 17, \"type\": 5, \"name\": \"Casa\", \"serverState\": 0}]")));
@@ -113,9 +167,7 @@ class NukiWebLockProviderTests {
     }
 
     private void assertNotConnected(UUID ownerId) {
-        assertThatThrownBy(() -> locks.unlatch(ownerId, 17))
-                .isInstanceOfSatisfying(LockProviderException.class,
-                        e -> assertThat(e.reason()).isEqualTo(Reason.NOT_CONNECTED));
+        assertFailsWith(Reason.NOT_CONNECTED, () -> locks.unlatch(ownerId, 17));
     }
 
     private UUID insertOwner(String email) {

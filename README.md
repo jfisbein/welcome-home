@@ -63,6 +63,8 @@ The `nuki` module is the only one that talks to Nuki, through the Nuki Web API (
 
 Owners connect at `/nuki/connection` by pasting an API token generated in Nuki Web (Menu → API) with permission to view their locks, operate them and read their log. The token is stored only after `GET /smartlock` accepts it, encrypted for its owner, and it is never shown again. Pasting a new token replaces the old one and reconnects a disconnected account.
 
+When Nuki answers 401 to a stored token, the connection becomes `DISCONNECTED`: links stop opening and the owner's panel asks for a new token. A job checks every connection daily (`welcomehome.nuki.check-cron`, 08:00 server time by default), so that the owner learns about a revoked token before a guest does. A 403 (a permission missing) or an unanswered call does not disconnect.
+
 Calls time out and are retried with exponential backoff: on rate limiting (429, honoring `Retry-After`), and for reads also on server errors and timeouts. The unlatch action is retried only when Nuki cannot have run it (429, or no connection made), so a door never opens twice. The defaults, under `welcomehome.nuki.*`:
 
 | Property          | Default               |

@@ -2,8 +2,8 @@ package welcomehome.nuki;
 
 /**
  * A {@link LockProvider} call failed. The reason tells callers what to show: an owner can fix
- * {@link Reason#NOT_CONNECTED} and {@link Reason#ACCESS_DENIED} by connecting Nuki again, and a guest sees
- * "not available" for any of them.
+ * {@link Reason#NOT_CONNECTED}, {@link Reason#ACCESS_DENIED} and {@link Reason#MISSING_PERMISSION} by
+ * pasting a new API token, and a guest sees "not available" for any of them.
  */
 public class LockProviderException extends RuntimeException {
 
@@ -11,8 +11,10 @@ public class LockProviderException extends RuntimeException {
     public enum Reason {
         /** The owner has no Nuki connection, or it is disconnected. */
         NOT_CONNECTED,
-        /** Nuki rejected the owner's credentials: they were revoked or lack a permission. */
+        /** Nuki rejected the owner's credentials (401): they were revoked. The connection is now disconnected. */
         ACCESS_DENIED,
+        /** Nuki accepted the credentials but they lack the permission for this call (403). */
+        MISSING_PERMISSION,
         /** The lock is not in the owner's Nuki account. */
         LOCK_NOT_FOUND,
         /** Nuki did not answer in time, answered with an error or kept rate limiting. */

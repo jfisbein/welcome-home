@@ -127,8 +127,11 @@ class NukiWebClient {
                 return result;
             } catch (RestClientResponseException e) {
                 var status = HttpStatus.resolve(e.getStatusCode().value());
-                if (status == HttpStatus.UNAUTHORIZED || status == HttpStatus.FORBIDDEN) {
+                if (status == HttpStatus.UNAUTHORIZED) {
                     throw new LockProviderException(Reason.ACCESS_DENIED, e);
+                }
+                if (status == HttpStatus.FORBIDDEN) {
+                    throw new LockProviderException(Reason.MISSING_PERMISSION, e);
                 }
                 if (status == HttpStatus.NOT_FOUND) {
                     throw new LockProviderException(Reason.LOCK_NOT_FOUND, e);
