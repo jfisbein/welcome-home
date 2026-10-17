@@ -208,6 +208,21 @@ class OpenDoorTests {
     }
 
     @Test
+    void theGuestsIpAddressIsTheOneCloudflareReports() {
+        var link = insertLink("now() - interval '2 days'", "now() - interval '1 day'");
+
+        assertThat(mvc.post().uri("/api/open").with(csrf())
+                .header("CF-Connecting-IP", ip)
+                .header("X-Forwarded-For", "203.0.113.66")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"token\": \"" + signer.sign(link, 1) + "\"}"))
+                .hasStatus(HttpStatus.GONE);
+
+        assertThat(lastEvent()).as("X-Forwarded-For starts with whatever the client sent")
+                .isEqualTo("DENIED|expired|" + ip);
+    }
+
+    @Test
     void anIpAddressGetsTenAttemptsPerMinute() {
         for (int attempt = 1; attempt <= 10; attempt++) {
             assertThat(open("nonsense")).as("attempt " + attempt).hasStatus(HttpStatus.NOT_FOUND);

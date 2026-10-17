@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Spring Boot's console logging, with guests' tokens masked in every message. -->
+<configuration>
+    <conversionRule conversionWord="m" converterClass="welcomehome.access.logging.GuestTokenMaskingConverter"/>
+    <conversionRule conversionWord="msg" converterClass="welcomehome.access.logging.GuestTokenMaskingConverter"/>
+    <conversionRule conversionWord="message" converterClass="welcomehome.access.logging.GuestTokenMaskingConverter"/>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>

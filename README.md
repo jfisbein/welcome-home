@@ -114,6 +114,8 @@ Rate limits are kept in memory, which is enough for a single instance, and set i
 | `welcomehome.access.rate-limit.per-link`  | `5`     |
 | `welcomehome.access.rate-limit.period`    | `1m`    |
 
+The guest's IP address, for the rate limit and the history, comes from `CF-Connecting-IP`, which Cloudflare sets on every request, overwriting what the client sent. `X-Forwarded-For` would not do: it starts with whatever the client sent. Trusting the header is safe because the tunnel is the only way in; if the app were ever reachable otherwise, set `welcomehome.access.client-ip-header` blank to use the address the request came from.
+
 ## Web security
 
 - CSRF: every POST needs Spring Security's token; pages put it in a meta tag for `static/js/webauthn.js`.
@@ -121,6 +123,7 @@ Rate limits are kept in memory, which is enough for a single instance, and set i
 - `Referrer-Policy: no-referrer`, so that invitation and access tokens in URLs never leak to other sites.
 - HSTS for a year, sent only over HTTPS. Behind Cloudflare Tunnel the app learns that a request came over HTTPS from `X-Forwarded-Proto` (`server.forward-headers-strategy=framework`).
 - The session cookie is `Secure`, `HttpOnly` and `SameSite=Lax`. The dev profile drops `Secure`, since `http://localhost` has no HTTPS.
+- Guests' tokens never reach the logs. Spring logs request paths at DEBUG, so `logback-spring.xml` masks every `/o/{token}` as `/o/***` in all messages, and the body of `POST /api/open` prints without its token. Tomcat's access log stays off.
 
 ## Modules
 

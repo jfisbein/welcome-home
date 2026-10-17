@@ -13,7 +13,7 @@ import welcomehome.access.AccessProperties.RateLimit;
 class RateLimiterTests {
 
     final RateLimiter limiter = new RateLimiter(new AccessProperties(new RateLimit(2, 3, Duration.ofHours(1)),
-            new Confirmation(Duration.ofSeconds(15), Duration.ofSeconds(2))));
+            new Confirmation(Duration.ofSeconds(15), Duration.ofSeconds(2)), null));
 
     @Test
     void limitsComeFromTheConfiguration() {
