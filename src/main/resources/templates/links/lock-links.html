@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Enlaces de ' + ${lock.name})}"></head>
+<body>
+<main class="container">
+    <nav th:replace="~{fragments/layout :: nav}"></nav>
+    <h1 th:text="|Enlaces de ${lock.name}|">Enlaces de Casa</h1>
+
+    <article th:if="${createdUrl}">
+        <header><strong th:text="|Enlace creado para ${createdLabel}|">Enlace creado para Ana</strong></header>
+        <p th:text="|Abre la puerta del ${#temporals.format(createdFrom, 'd/M/yyyy HH:mm')} al ${#temporals.format(createdUntil, 'd/M/yyyy HH:mm')} (${lock.timeZone}).|">
+            Abre la puerta del 1/11/2026 15:00 al 3/11/2026 11:00 (Europe/Madrid).
+        </p>
+        <fieldset role="group">
+            <input id="link-url" type="text" readonly th:value="${createdUrl}" aria-label="Enlace para el invitado">
+            <button type="button" data-copy="link-url">Copiar</button>
+        </fieldset>
+    </article>
+
+    <p th:unless="${lock.active}" role="alert">
+        Esta cerradura ya no está en tu cuenta de Nuki: no se pueden crear enlaces para ella.
+    </p>
+
+    <form th:if="${lock.active}" th:action="@{/locks/{id}/links(id=${lock.id})}" method="post">
+        <h2>Nuevo enlace</h2>
+        <label>
+            Para quién es
+            <input type="text" name="label" maxlength="100" required th:value="${label}"
+                   th:attr="aria-invalid=${labelError} ? 'true' : null"
+                   placeholder="Por ejemplo: Ana, fin de semana">
+            <small th:if="${labelError}">Escribe para quién es el enlace (hasta 100 caracteres).</small>
+        </label>
+        <div class="grid">
+            <label>
+                Desde
+                <input type="datetime-local" name="validFrom" required th:value="${validFrom}"
+                       th:attr="aria-invalid=${validFromError} ? 'true' : null">
+                <small th:if="${validFromError}">Indica la fecha y hora de inicio.</small>
+            </label>
+            <label>
+                Hasta
+                <input type="datetime-local" name="validUntil" required th:value="${validUntil}"
+                       th:attr="aria-invalid=${validUntilError} ? 'true' : null">
+                <small th:if="${validUntilError == 'invalid'}">Indica la fecha y hora de fin.</small>
+                <small th:if="${validUntilError == 'before-start'}">El fin tiene que ser posterior al inicio.</small>
+                <small th:if="${validUntilError == 'past'}">El fin ya ha pasado.</small>
+            </label>
+        </div>
+        <p><small th:text="|Horas en la zona horaria de la cerradura: ${lock.timeZone}.|">
+            Horas en la zona horaria de la cerradura: Europe/Madrid.</small></p>
+        <button type="submit">Crear enlace</button>
+    </form>
+    <p><a th:href="@{/locks/{id}(id=${lock.id})}" th:text="|Volver a ${lock.name}|">Volver a Casa</a></p>
+</main>
+<script th:src="@{/js/copy.js}"></script>
+</body>
+</html>

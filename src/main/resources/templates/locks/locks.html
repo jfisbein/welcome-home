@@ -43,7 +43,10 @@
             <td th:text="${lock.name}">Casa</td>
             <td th:text="${lock.timeZone}">Europe/Madrid</td>
             <td th:text="${lock.active} ? 'Activa' : 'Ya no está en tu cuenta de Nuki'">Activa</td>
-            <td><a th:href="@{/locks/{id}(id=${lock.id})}">Editar</a></td>
+            <td>
+                <a th:href="@{/locks/{id}/links(id=${lock.id})}">Enlaces</a> ·
+                <a th:href="@{/locks/{id}(id=${lock.id})}">Editar</a>
+            </td>
         </tr>
         </tbody>
     </table>

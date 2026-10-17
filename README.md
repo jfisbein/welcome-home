@@ -86,6 +86,10 @@ Each lock's settings page (`GET /locks/{id}`, saved with `PATCH /locks/{id}`) ch
 
 The same page shows the lock's live state from Nuki: position, connectivity, battery and Auto Lock. Without Auto Lock the door stays unlocked after a guest opens it, so the page warns about it, unless the owner ticks that the door is relocked some other way (for example, with home automation). If Nuki cannot be reached, the page still shows the settings.
 
+## Access links
+
+A lock's links page (`GET /locks/{id}/links`) creates links (`POST /locks/{id}/links`): a label, and a start and an end entered in the lock's time zone and stored in UTC. A link's URL is `{BASE_URL}/o/{link_id}.{mac}`, where the MAC covers the link id and its `token_version` (see `LinkTokenSigner`). The database stores no token: the URL is computed again when needed, and incrementing `token_version` invalidates every earlier URL. Inactive locks get no new links.
+
 ## Web security
 
 - CSRF: every POST needs Spring Security's token; pages put it in a meta tag for `static/js/webauthn.js`.

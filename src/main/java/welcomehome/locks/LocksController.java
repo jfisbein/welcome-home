@@ -15,7 +15,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import welcomehome.auth.CurrentOwner;
-import welcomehome.db.OwnerTransactions;
 import welcomehome.nuki.LockProvider;
 import welcomehome.nuki.LockProviderException;
 
@@ -29,24 +28,21 @@ class LocksController {
 
     private static final String EDIT_VIEW = "locks/edit";
 
+    private final Locks locks;
     private final LockSync lockSync;
     private final LockSettings lockSettings;
-    private final LockDao locks;
     private final LockProvider lockProvider;
-    private final OwnerTransactions ownerTransactions;
 
-    LocksController(LockSync lockSync, LockSettings lockSettings, LockDao locks, LockProvider lockProvider,
-                    OwnerTransactions ownerTransactions) {
+    LocksController(Locks locks, LockSync lockSync, LockSettings lockSettings, LockProvider lockProvider) {
+        this.locks = locks;
         this.lockSync = lockSync;
         this.lockSettings = lockSettings;
-        this.locks = locks;
         this.lockProvider = lockProvider;
-        this.ownerTransactions = ownerTransactions;
     }
 
     @GetMapping
     String locks(CurrentOwner owner, Model model) {
-        model.addAttribute("locks", ownerTransactions.execute(owner.id(), () -> locks.findAll(owner.id())));
+        model.addAttribute("locks", locks.findAll(owner.id()));
         return "locks/locks";
     }
 
@@ -66,7 +62,7 @@ class LocksController {
 
     @GetMapping("/{lockId}")
     String edit(CurrentOwner owner, @PathVariable UUID lockId, Model model) {
-        var lock = lockSettings.find(owner.id(), lockId).orElseThrow(LocksController::notFound);
+        var lock = locks.find(owner.id(), lockId).orElseThrow(LocksController::notFound);
         model.addAttribute("name", lock.name());
         model.addAttribute("timeZone", lock.timeZone());
         model.addAttribute("relockingHandledElsewhere", lock.relockingHandledElsewhere());
@@ -78,7 +74,7 @@ class LocksController {
                   @RequestParam(defaultValue = "") String timeZone,
                   @RequestParam(defaultValue = "false") boolean relockingHandledElsewhere,
                   Model model, HttpServletResponse response, RedirectAttributes redirect) {
-        var lock = lockSettings.find(owner.id(), lockId).orElseThrow(LocksController::notFound);
+        var lock = locks.find(owner.id(), lockId).orElseThrow(LocksController::notFound);
         var normalizedName = LockSettings.normalizeName(name);
         var validTimeZone = LockSettings.isTimeZone(timeZone);
         if (normalizedName.isEmpty() || !validTimeZone) {

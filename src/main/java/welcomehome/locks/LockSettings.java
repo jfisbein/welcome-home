@@ -38,10 +38,6 @@ class LockSettings {
         this.ownerTransactions = ownerTransactions;
     }
 
-    Optional<OwnerLock> find(UUID ownerId, UUID lockId) {
-        return ownerTransactions.execute(ownerId, () -> locks.find(ownerId, lockId));
-    }
-
     /**
      * @param name     a name already checked with {@link #normalizeName}
      * @param timeZone a time zone already checked with {@link #isTimeZone}
