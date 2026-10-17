@@ -39,7 +39,6 @@ class NukiWebClient {
     /** Nuki Box and Nuki Opener: not smart locks. */
     private static final Set<Integer> NOT_LOCKS = Set.of(1, 2);
     private static final int SERVER_STATE_OK = 0;
-    private static final int COMPLETED = 0;
 
     private final RestClient rest;
     private final NukiProperties properties;
@@ -106,7 +105,7 @@ class NukiWebClient {
                 .body(new ParameterizedTypeReference<>() {
                 }));
         return entries.stream()
-                .map(entry -> new LockLogEntry(entry.date(), action(entry.action()), entry.state() == COMPLETED))
+                .map(entry -> new LockLogEntry(entry.date(), action(entry.action()), actionState(entry.state())))
                 .toList();
     }
 
@@ -195,6 +194,15 @@ class NukiWebClient {
             case 2, 4, 7 -> LockStatus.MOVING;
             case 254 -> LockStatus.MOTOR_BLOCKED;
             default -> LockStatus.UNKNOWN;
+        };
+    }
+
+    static LockActionState actionState(int nukiState) {
+        return switch (nukiState) {
+            case 0 -> LockActionState.SUCCEEDED;
+            case 1 -> LockActionState.MOTOR_BLOCKED;
+            case 10 -> LockActionState.REJECTED_NIGHT_MODE;
+            default -> LockActionState.FAILED;
         };
     }
 

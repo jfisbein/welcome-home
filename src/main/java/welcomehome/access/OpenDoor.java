@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 import welcomehome.access.GuestLinks.GuestLink;
 import welcomehome.audit.AccessEvent;
 import welcomehome.audit.AccessEvents;
-import welcomehome.audit.AccessResult;
 import welcomehome.links.LinkStatus;
 import welcomehome.locks.Locks;
 import welcomehome.nuki.ConnectionStatus;
@@ -28,7 +27,8 @@ import welcomehome.nuki.NukiConnections;
  * </ol>
  * Only then is the door unlatched, in the context of the owner that resolve_link returned, which the
  * verified MAC vouches for, and once per lock at a time: concurrent guests share one action and its result.
- * Every attempt with a valid link is recorded in the owner's history.
+ * The result waits for the lock's log to confirm the unlatch. Every attempt with a valid link is recorded in
+ * the owner's history.
  */
 @Service
 class OpenDoor {
@@ -39,16 +39,19 @@ class OpenDoor {
     private final NukiConnections nukiConnections;
     private final LockProvider lockProvider;
     private final LockActions lockActions;
+    private final UnlatchConfirmation confirmation;
     private final AccessEvents accessEvents;
 
     OpenDoor(RateLimiter rateLimiter, GuestLinks guestLinks, Locks locks, NukiConnections nukiConnections,
-             LockProvider lockProvider, LockActions lockActions, AccessEvents accessEvents) {
+             LockProvider lockProvider, LockActions lockActions, UnlatchConfirmation confirmation,
+             AccessEvents accessEvents) {
         this.rateLimiter = rateLimiter;
         this.guestLinks = guestLinks;
         this.locks = locks;
         this.nukiConnections = nukiConnections;
         this.lockProvider = lockProvider;
         this.lockActions = lockActions;
+        this.confirmation = confirmation;
         this.accessEvents = accessEvents;
     }
 
@@ -62,14 +65,9 @@ class OpenDoor {
         }
         var guestLink = found.get();
         var result = checkAndUnlatch(guestLink);
-        var accessResult = switch (result) {
-            case REQUESTED -> AccessResult.OK;
-            case NUKI_ERROR -> AccessResult.ERROR;
-            default -> AccessResult.DENIED;
-        };
         var link = guestLink.link();
-        accessEvents.record(new AccessEvent(link.ownerId(), link.linkId(), link.lockId(), accessResult, result.code, ip,
-                userAgent));
+        accessEvents.record(new AccessEvent(link.ownerId(), link.linkId(), link.lockId(), result.accessResult,
+                result.code, ip, userAgent));
         return result;
     }
 
@@ -98,15 +96,16 @@ class OpenDoor {
             return OpenResult.UNAVAILABLE;
         }
         var nukiSmartlockId = lock.get().nukiSmartlockId();
-        return lockActions.runOnce(link.lockId(), () -> unlatch(link.ownerId(), nukiSmartlockId));
+        return lockActions.runOnce(link.lockId(), () -> unlatchAndConfirm(link.ownerId(), nukiSmartlockId));
     }
 
-    private OpenResult unlatch(UUID ownerId, long nukiSmartlockId) {
+    private OpenResult unlatchAndConfirm(UUID ownerId, long nukiSmartlockId) {
+        var requestedAt = Instant.now();
         try {
             lockProvider.unlatch(ownerId, nukiSmartlockId);
-            return OpenResult.REQUESTED;
         } catch (LockProviderException e) {
             return e.reason() == LockProviderException.Reason.UNAVAILABLE ? OpenResult.NUKI_ERROR : OpenResult.UNAVAILABLE;
         }
+        return confirmation.await(ownerId, nukiSmartlockId, requestedAt);
     }
 }

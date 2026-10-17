@@ -115,15 +115,19 @@ class NukiWebClientTests {
                   {"id": "c", "smartlockId": 17, "date": "2026-10-17T11:03:45.000Z", "action": 240, "trigger": 0, "state": 0},
                   {"id": "b", "smartlockId": 17, "date": "2026-10-17T11:03:30.000Z", "action": 3, "trigger": 4, "state": 0},
                   {"id": "a", "smartlockId": 17, "date": "2026-10-17T09:00:00.000Z", "action": 1, "trigger": 5, "state": 1},
+                  {"id": "y", "smartlockId": 17, "date": "2026-10-17T08:30:00.000Z", "action": 3, "trigger": 4, "state": 10},
+                  {"id": "x", "smartlockId": 17, "date": "2026-10-17T08:15:00.000Z", "action": 3, "trigger": 4, "state": 4},
                   {"id": "z", "smartlockId": 17, "date": "2026-10-17T08:00:00.000Z", "action": 4, "trigger": 2, "state": 0}
                 ]
                 """)));
 
         assertThat(client.getRecentLog(TOKEN, LOCK_ID)).containsExactly(
-                new LockLogEntry(Instant.parse("2026-10-17T11:03:45Z"), LockAction.DOOR_OPENED, true),
-                new LockLogEntry(Instant.parse("2026-10-17T11:03:30Z"), LockAction.UNLATCH, true),
-                new LockLogEntry(Instant.parse("2026-10-17T09:00:00Z"), LockAction.UNLOCK, false),
-                new LockLogEntry(Instant.parse("2026-10-17T08:00:00Z"), LockAction.OTHER, true));
+                new LockLogEntry(Instant.parse("2026-10-17T11:03:45Z"), LockAction.DOOR_OPENED, LockActionState.SUCCEEDED),
+                new LockLogEntry(Instant.parse("2026-10-17T11:03:30Z"), LockAction.UNLATCH, LockActionState.SUCCEEDED),
+                new LockLogEntry(Instant.parse("2026-10-17T09:00:00Z"), LockAction.UNLOCK, LockActionState.MOTOR_BLOCKED),
+                new LockLogEntry(Instant.parse("2026-10-17T08:30:00Z"), LockAction.UNLATCH, LockActionState.REJECTED_NIGHT_MODE),
+                new LockLogEntry(Instant.parse("2026-10-17T08:15:00Z"), LockAction.UNLATCH, LockActionState.FAILED),
+                new LockLogEntry(Instant.parse("2026-10-17T08:00:00Z"), LockAction.OTHER, LockActionState.SUCCEEDED));
     }
 
     @Test

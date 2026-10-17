@@ -5,6 +5,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.anyUrl;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
@@ -15,6 +16,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -89,16 +92,61 @@ class OpenDoorTests {
     }
 
     @Test
-    void activeLinkUnlatchesTheDoorWithTheOwnersNukiConnection() {
+    void activeLinkUnlatchesTheDoorAndTheLocksLogConfirmsIt() {
         nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));
+        lockLogShowsUnlatch(0);
         var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
 
-        assertThat(open(signer.sign(link, 1))).hasStatusOk().bodyJson().extractingPath("$.result").isEqualTo("requested");
+        assertThat(open(signer.sign(link, 1))).hasStatusOk().bodyJson().extractingPath("$.result").isEqualTo("opened");
 
         nuki.verify(1, postRequestedFor(urlPathEqualTo("/smartlock/17/action"))
                 .withHeader("Authorization", equalTo("Bearer " + ALICES_NUKI_TOKEN))
                 .withRequestBody(equalToJson("{\"action\": 3}")));
-        assertThat(lastEvent()).isEqualTo("OK|requested|" + ip + "|Guest browser");
+        assertThat(lastEvent()).isEqualTo("OK|opened|" + ip + "|Guest browser");
+    }
+
+    @Test
+    void confirmationWaitsUntilTheUnlatchShowsUpInTheLog() {
+        nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));
+        nuki.stubFor(get(urlPathEqualTo("/smartlock/17/log")).inScenario("log").whenScenarioStateIs("Started")
+                .willReturn(okJson(log(Instant.now().minus(Duration.ofHours(1)), 3, 0))).willSetStateTo("once"));
+        nuki.stubFor(get(urlPathEqualTo("/smartlock/17/log")).inScenario("log").whenScenarioStateIs("once")
+                .willReturn(okJson("not json")).willSetStateTo("twice"));
+        nuki.stubFor(get(urlPathEqualTo("/smartlock/17/log")).inScenario("log").whenScenarioStateIs("twice")
+                .willReturn(okJson(log(Instant.now(), 3, 0))));
+        var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
+
+        assertThat(open(signer.sign(link, 1))).hasStatusOk().bodyJson().extractingPath("$.result").isEqualTo("opened");
+
+        nuki.verify(3, getRequestedFor(urlPathEqualTo("/smartlock/17/log")));
+    }
+
+    @Test
+    void unlatchMissingFromTheLogIsNotConfirmed() {
+        nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));
+        nuki.stubFor(get(urlPathEqualTo("/smartlock/17/log"))
+                .willReturn(okJson(log(Instant.now().minus(Duration.ofHours(1)), 3, 0))));
+        var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
+
+        assertThat(open(signer.sign(link, 1))).hasStatus(HttpStatus.ACCEPTED)
+                .bodyJson().extractingPath("$.result").isEqualTo("not-confirmed");
+        assertThat(lastEvent()).startsWith("OK|not-confirmed|");
+    }
+
+    @Test
+    void failedOrNightModeUnlatchesAreReported() {
+        nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));
+        var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
+
+        lockLogShowsUnlatch(1);
+        assertThat(open(signer.sign(link, 1))).hasStatus(HttpStatus.SERVICE_UNAVAILABLE)
+                .bodyJson().extractingPath("$.result").isEqualTo("lock-failed");
+        assertThat(lastEvent()).startsWith("ERROR|lock-failed|");
+
+        lockLogShowsUnlatch(10);
+        assertThat(open(signer.sign(link, 1))).hasStatus(HttpStatus.SERVICE_UNAVAILABLE)
+                .bodyJson().extractingPath("$.result").isEqualTo("night-mode");
+        assertThat(lastEvent()).startsWith("ERROR|night-mode|");
     }
 
     @Test
@@ -189,12 +237,13 @@ class OpenDoorTests {
     @Test
     void simultaneousOpeningsOfALockSendOneActionAndShareItsResult() throws Exception {
         nuki.stubFor(post("/smartlock/17/action").willReturn(status(204).withFixedDelay(1000)));
+        lockLogShowsUnlatch(0);
         var tokens = new String[] {
                 signer.sign(insertLink("now() - interval '1 hour'", "now() + interval '1 day'"), 1),
                 signer.sign(insertLink("now() - interval '1 hour'", "now() + interval '1 day'"), 1),
                 signer.sign(insertLink("now() - interval '1 hour'", "now() + interval '1 day'"), 1)};
 
-        assertThat(openAtOnce(tokens)).containsOnly("requested").hasSize(3);
+        assertThat(openAtOnce(tokens)).containsOnly("opened").hasSize(3);
 
         nuki.verify(1, postRequestedFor(urlPathEqualTo("/smartlock/17/action")));
         assertThat(migrator.sql("SELECT result FROM access_event").query(String.class).list())
@@ -267,6 +316,17 @@ class OpenDoorTests {
         assertThat(open(signer.sign(link, 1))).as(result).hasStatus(status)
                 .bodyJson().extractingPath("$.result").isEqualTo(result);
         assertThat(lastEvent()).startsWith("DENIED|" + result + "|");
+    }
+
+    /** The lock's log shows an unlatch from now, which ended with the given Nuki completion state. */
+    private void lockLogShowsUnlatch(int nukiState) {
+        nuki.stubFor(get(urlPathEqualTo("/smartlock/17/log")).willReturn(okJson(log(Instant.now(), 3, nukiState))));
+    }
+
+    private static String log(Instant date, int nukiAction, int nukiState) {
+        return """
+                [{"id": "1", "smartlockId": 17, "date": "%s", "action": %d, "trigger": 4, "state": %d}]
+                """.formatted(date, nukiAction, nukiState);
     }
 
     /** The latest event as "result|reason|ip|userAgent". */

@@ -1,7 +1,10 @@
 "use strict";
 
 const MESSAGES = {
-    "requested": "Hemos pedido a la cerradura que abra. Empuja la puerta cuando la oigas.",
+    "opened": "Puerta abierta: empújala.",
+    "not-confirmed": "Hemos pedido a la cerradura que abra, pero no lo ha confirmado. Prueba a empujar la puerta; si no abre, inténtalo de nuevo.",
+    "lock-failed": "La cerradura no ha podido abrir. Inténtalo de nuevo; si sigue fallando, avisa a quien te ha enviado el enlace.",
+    "night-mode": "La cerradura está en modo nocturno y no abre a distancia. Avisa a quien te ha enviado el enlace.",
     "invalid": "Este enlace no abre ninguna puerta.",
     "too-many-attempts": "Demasiados intentos. Espera un minuto y vuelve a probar.",
     "revoked": "Este enlace se ha revocado.",
@@ -37,6 +40,6 @@ button.addEventListener("click", async () => {
     message.hidden = false;
     button.removeAttribute("aria-busy");
     button.textContent = "Abrir";
-    // Trying again makes sense only when the lock or Nuki failed.
-    button.disabled = !(result === "nuki-error" || result === "too-many-attempts");
+    // Trying again makes sense only when the lock or Nuki failed, or the opening was not confirmed.
+    button.disabled = !["nuki-error", "too-many-attempts", "not-confirmed", "lock-failed"].includes(result);
 });

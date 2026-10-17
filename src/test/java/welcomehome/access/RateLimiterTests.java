@@ -7,11 +7,13 @@ import java.util.UUID;
 import java.util.function.BooleanSupplier;
 
 import org.junit.jupiter.api.Test;
+import welcomehome.access.AccessProperties.Confirmation;
 import welcomehome.access.AccessProperties.RateLimit;
 
 class RateLimiterTests {
 
-    final RateLimiter limiter = new RateLimiter(new AccessProperties(new RateLimit(2, 3, Duration.ofHours(1))));
+    final RateLimiter limiter = new RateLimiter(new AccessProperties(new RateLimit(2, 3, Duration.ofHours(1)),
+            new Confirmation(Duration.ofSeconds(15), Duration.ofSeconds(2))));
 
     @Test
     void limitsComeFromTheConfiguration() {

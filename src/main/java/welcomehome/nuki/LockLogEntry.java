@@ -7,7 +7,16 @@ import java.time.Instant;
  *
  * @param occurredAt when it happened
  * @param action     what happened
- * @param succeeded  whether the action completed: false when the motor was blocked, it was canceled, and so on
+ * @param state      how it ended
  */
-public record LockLogEntry(Instant occurredAt, LockAction action, boolean succeeded) {
+public record LockLogEntry(Instant occurredAt, LockAction action, LockActionState state) {
+
+    /**
+     * Tells whether the action completed.
+     *
+     * @return whether the state is {@link LockActionState#SUCCEEDED}
+     */
+    public boolean succeeded() {
+        return state == LockActionState.SUCCEEDED;
+    }
 }

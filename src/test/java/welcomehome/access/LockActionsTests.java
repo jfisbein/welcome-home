@@ -36,7 +36,7 @@ class LockActionsTests {
             for (int i = 0; i < 4; i++) {
                 others.add(executor.submit(() -> lockActions.runOnce(lockId, () -> {
                     actions.incrementAndGet();
-                    return OpenResult.REQUESTED;
+                    return OpenResult.OPENED;
                 })));
             }
             Thread.sleep(200);
@@ -67,13 +67,13 @@ class LockActionsTests {
         try (var executor = Executors.newSingleThreadExecutor()) {
             var blocked = executor.submit(() -> lockActions.runOnce(UUID.randomUUID(), () -> {
                 await(release);
-                return OpenResult.REQUESTED;
+                return OpenResult.OPENED;
             }));
 
             assertThat(lockActions.runOnce(UUID.randomUUID(), () -> OpenResult.EXPIRED)).isEqualTo(OpenResult.EXPIRED);
 
             release.countDown();
-            assertThat(blocked.get(5, TimeUnit.SECONDS)).isEqualTo(OpenResult.REQUESTED);
+            assertThat(blocked.get(5, TimeUnit.SECONDS)).isEqualTo(OpenResult.OPENED);
         }
     }
 
@@ -85,7 +85,7 @@ class LockActionsTests {
             throw new IllegalStateException("boom");
         })).isInstanceOf(IllegalStateException.class);
 
-        assertThat(lockActions.runOnce(lockId, () -> OpenResult.REQUESTED)).isEqualTo(OpenResult.REQUESTED);
+        assertThat(lockActions.runOnce(lockId, () -> OpenResult.OPENED)).isEqualTo(OpenResult.OPENED);
     }
 
     private static void await(CountDownLatch latch) {

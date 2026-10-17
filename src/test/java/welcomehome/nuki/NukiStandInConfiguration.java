@@ -26,6 +26,9 @@ public class NukiStandInConfiguration {
         return registry -> {
             registry.add("welcomehome.nuki.base-url", nukiStandIn::baseUrl);
             registry.add("welcomehome.nuki.initial-backoff", () -> "10ms");
+            // Confirming an opening reads the stand-in's log: no need to wait as for a real lock.
+            registry.add("welcomehome.access.confirmation.interval", () -> "100ms");
+            registry.add("welcomehome.access.confirmation.timeout", () -> "1s");
         };
     }
 }
