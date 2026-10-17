@@ -69,7 +69,8 @@ class NukiWebClient {
                 }));
         return smartlocks.stream()
                 .filter(smartlock -> !NOT_LOCKS.contains(smartlock.type()))
-                .map(smartlock -> new SmartLock(smartlock.smartlockId(), smartlock.name()))
+                .map(smartlock -> new SmartLock(smartlock.smartlockId(), smartlock.name(),
+                        smartlock.config() == null ? null : NukiTimeZones.byId(smartlock.config().timezoneId())))
                 .toList();
     }
 
@@ -210,7 +211,11 @@ class NukiWebClient {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     record NukiSmartlock(long smartlockId, int type, String name, int serverState, @Nullable NukiState state,
-                         @Nullable NukiAdvancedConfig advancedConfig) {
+                         @Nullable NukiConfig config, @Nullable NukiAdvancedConfig advancedConfig) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record NukiConfig(@Nullable Integer timezoneId) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

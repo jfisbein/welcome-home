@@ -50,14 +50,15 @@ class NukiWebClientTests {
     void listsTheSmartLocksOfTheAccountButNotOpenersOrBoxes() {
         nuki.stubFor(get("/smartlock").withHeader("Authorization", equalTo("Bearer " + TOKEN)).willReturn(okJson("""
                 [
-                  {"smartlockId": 17, "type": 5, "name": "Casa", "serverState": 0},
-                  {"smartlockId": 18, "type": 4, "name": "Garaje", "serverState": 0},
+                  {"smartlockId": 17, "type": 5, "name": "Casa", "serverState": 0, "config": {"timezoneId": 37}},
+                  {"smartlockId": 18, "type": 4, "name": "Garaje", "serverState": 0, "config": {"timezoneId": 65535}},
                   {"smartlockId": 19, "type": 2, "name": "Portal", "serverState": 0},
                   {"smartlockId": 20, "type": 1, "name": "Buzón", "serverState": 0}
                 ]
                 """)));
 
-        assertThat(client.listLocks(TOKEN)).containsExactly(new SmartLock(17, "Casa"), new SmartLock(18, "Garaje"));
+        assertThat(client.listLocks(TOKEN))
+                .containsExactly(new SmartLock(17, "Casa", "Europe/Berlin"), new SmartLock(18, "Garaje", null));
     }
 
     @Test

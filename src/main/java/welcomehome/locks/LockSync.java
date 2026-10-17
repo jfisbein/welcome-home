@@ -14,7 +14,7 @@ import welcomehome.nuki.NukiConnections;
 
 /**
  * Brings an owner's locks in line with their Nuki account. New locks are imported with their Nuki name
- * and the server's time zone, which the owner can change; locks no longer in the account become inactive
+ * and time zone (the server's, if Nuki reports none), which the owner can change; locks no longer in the account become inactive
  * but keep their links; locks that come back become active again.
  */
 @Service
@@ -42,7 +42,7 @@ class LockSync {
                 .orElseThrow(() -> new LockProviderException(Reason.NOT_CONNECTED));
         // Outside the transaction: no database connection is held while waiting for Nuki.
         var smartLocks = lockProvider.listLocks(ownerId);
-        var defaultTimeZone = ZoneId.systemDefault().getId();
+        var serverTimeZone = ZoneId.systemDefault().getId();
         return ownerTransactions.execute(ownerId, () -> {
             var known = locks.findAll(ownerId).stream()
                     .collect(Collectors.toMap(OwnerLock::nukiSmartlockId, lock -> lock));
@@ -52,7 +52,8 @@ class LockSync {
                 if (!known.containsKey(smartLock.smartlockId())) {
                     added++;
                 }
-                locks.upsert(ownerId, connection.id(), smartLock.smartlockId(), smartLock.name(), defaultTimeZone);
+                var timeZone = smartLock.timeZone() != null ? smartLock.timeZone() : serverTimeZone;
+                locks.upsert(ownerId, connection.id(), smartLock.smartlockId(), smartLock.name(), timeZone);
             }
             int deactivated = 0;
             for (var lock : known.values()) {

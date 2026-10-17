@@ -39,7 +39,7 @@ class LockSyncTests {
     static final String BOB = "bob@example.com";
     static final String CASA_AND_GARAJE = """
             [
-              {"smartlockId": 17, "type": 5, "name": "Casa", "serverState": 0},
+              {"smartlockId": 17, "type": 5, "name": "Casa", "serverState": 0, "config": {"timezoneId": 40}},
               {"smartlockId": 18, "type": 4, "name": "Garaje", "serverState": 0}
             ]
             """;
@@ -69,15 +69,15 @@ class LockSyncTests {
     }
 
     @Test
-    void firstSyncImportsTheLocksWithTheirNukiNames() {
+    void firstSyncImportsTheLocksWithTheirNukiNamesAndTimeZones() {
         connectNuki(ALICE, CASA_AND_GARAJE);
 
         var result = sync(ALICE);
 
         assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/locks");
         assertThat(result.getMvcResult().getFlashMap().get("synced")).isEqualTo(new SyncResult(2, 0));
-        assertThat(locks()).containsExactly(
-                "17|Casa|" + ZoneId.systemDefault().getId() + "|true|connected",
+        assertThat(locks()).as("Garaje reports no time zone, so it gets the server's").containsExactly(
+                "17|Casa|Europe/London|true|connected",
                 "18|Garaje|" + ZoneId.systemDefault().getId() + "|true|connected");
         assertThat(mvc.get().uri("/locks").with(owner(ALICE))).bodyText().contains("Casa", "Garaje");
     }

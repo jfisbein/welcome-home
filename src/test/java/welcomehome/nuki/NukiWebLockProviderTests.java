@@ -74,7 +74,7 @@ class NukiWebLockProviderTests {
         connectWith(bob, BOBS_TOKEN);
         nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));
 
-        assertThat(locks.listLocks(bob)).containsExactly(new SmartLock(17, "Casa"));
+        assertThat(locks.listLocks(bob)).containsExactly(new SmartLock(17, "Casa", null));
         locks.unlatch(alice, 17);
 
         nuki.verify(1, postRequestedFor(urlPathEqualTo("/smartlock/17/action"))
