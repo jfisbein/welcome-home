@@ -22,7 +22,7 @@ class LockDao {
 
     List<OwnerLock> findAll(UUID ownerId) {
         return jdbc.sql("""
-                        SELECT id, nuki_smartlock_id, name, time_zone, active
+                        SELECT id, nuki_smartlock_id, name, time_zone, active, relocking_handled_elsewhere
                         FROM lock
                         WHERE owner_id = :ownerId
                         ORDER BY active DESC, name
@@ -34,7 +34,7 @@ class LockDao {
 
     Optional<OwnerLock> find(UUID ownerId, UUID lockId) {
         return jdbc.sql("""
-                        SELECT id, nuki_smartlock_id, name, time_zone, active
+                        SELECT id, nuki_smartlock_id, name, time_zone, active, relocking_handled_elsewhere
                         FROM lock
                         WHERE owner_id = :ownerId AND id = :lockId
                         """)
@@ -45,10 +45,15 @@ class LockDao {
     }
 
     /** @return whether the owner has that lock */
-    boolean updateSettings(UUID ownerId, UUID lockId, String name, String timeZone) {
-        return jdbc.sql("UPDATE lock SET name = :name, time_zone = :timeZone WHERE owner_id = :ownerId AND id = :lockId")
+    boolean updateSettings(UUID ownerId, UUID lockId, String name, String timeZone, boolean relockingHandledElsewhere) {
+        return jdbc.sql("""
+                        UPDATE lock SET name = :name, time_zone = :timeZone,
+                                        relocking_handled_elsewhere = :relockingHandledElsewhere
+                        WHERE owner_id = :ownerId AND id = :lockId
+                        """)
                 .param("name", name)
                 .param("timeZone", timeZone)
+                .param("relockingHandledElsewhere", relockingHandledElsewhere)
                 .param("ownerId", ownerId)
                 .param("lockId", lockId)
                 .update() == 1;

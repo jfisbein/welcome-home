@@ -16,10 +16,12 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import welcomehome.auth.CurrentOwner;
 import welcomehome.db.OwnerTransactions;
+import welcomehome.nuki.LockProvider;
 import welcomehome.nuki.LockProviderException;
 
 /**
- * The owner's locks: their list, their sync with Nuki and their settings. Another owner's lock is not found.
+ * The owner's locks: their list, their sync with Nuki, and each lock's page with its live state and its
+ * settings. Another owner's lock is not found.
  */
 @Controller
 @RequestMapping("/locks")
@@ -30,12 +32,15 @@ class LocksController {
     private final LockSync lockSync;
     private final LockSettings lockSettings;
     private final LockDao locks;
+    private final LockProvider lockProvider;
     private final OwnerTransactions ownerTransactions;
 
-    LocksController(LockSync lockSync, LockSettings lockSettings, LockDao locks, OwnerTransactions ownerTransactions) {
+    LocksController(LockSync lockSync, LockSettings lockSettings, LockDao locks, LockProvider lockProvider,
+                    OwnerTransactions ownerTransactions) {
         this.lockSync = lockSync;
         this.lockSettings = lockSettings;
         this.locks = locks;
+        this.lockProvider = lockProvider;
         this.ownerTransactions = ownerTransactions;
     }
 
@@ -62,35 +67,53 @@ class LocksController {
     @GetMapping("/{lockId}")
     String edit(CurrentOwner owner, @PathVariable UUID lockId, Model model) {
         var lock = lockSettings.find(owner.id(), lockId).orElseThrow(LocksController::notFound);
-        model.addAttribute("lock", lock);
         model.addAttribute("name", lock.name());
         model.addAttribute("timeZone", lock.timeZone());
-        model.addAttribute("timeZones", LockSettings.TIME_ZONES);
-        return EDIT_VIEW;
+        model.addAttribute("relockingHandledElsewhere", lock.relockingHandledElsewhere());
+        return editView(owner, lock, model);
     }
 
     @PatchMapping("/{lockId}")
     String update(CurrentOwner owner, @PathVariable UUID lockId, @RequestParam(defaultValue = "") String name,
-                  @RequestParam(defaultValue = "") String timeZone, Model model, HttpServletResponse response,
-                  RedirectAttributes redirect) {
+                  @RequestParam(defaultValue = "") String timeZone,
+                  @RequestParam(defaultValue = "false") boolean relockingHandledElsewhere,
+                  Model model, HttpServletResponse response, RedirectAttributes redirect) {
         var lock = lockSettings.find(owner.id(), lockId).orElseThrow(LocksController::notFound);
         var normalizedName = LockSettings.normalizeName(name);
         var validTimeZone = LockSettings.isTimeZone(timeZone);
         if (normalizedName.isEmpty() || !validTimeZone) {
             response.setStatus(HttpStatus.BAD_REQUEST.value());
-            model.addAttribute("lock", lock);
             model.addAttribute("name", name);
             model.addAttribute("timeZone", timeZone);
-            model.addAttribute("timeZones", LockSettings.TIME_ZONES);
+            model.addAttribute("relockingHandledElsewhere", relockingHandledElsewhere);
             model.addAttribute("nameError", normalizedName.isEmpty());
             model.addAttribute("timeZoneError", !validTimeZone);
-            return EDIT_VIEW;
+            return editView(owner, lock, model);
         }
-        if (!lockSettings.update(owner.id(), lockId, normalizedName.get(), timeZone)) {
+        if (!lockSettings.update(owner.id(), lockId, normalizedName.get(), timeZone, relockingHandledElsewhere)) {
             throw notFound();
         }
         redirect.addFlashAttribute("updated", normalizedName.get());
         return "redirect:/locks";
+    }
+
+    /** The lock's page, with its live state from Nuki when it can be read: Nuki failing never hides the settings. */
+    private String editView(CurrentOwner owner, OwnerLock lock, Model model) {
+        model.addAttribute("lock", lock);
+        model.addAttribute("timeZones", LockSettings.TIME_ZONES);
+        if (lock.active()) {
+            try {
+                model.addAttribute("state", lockProvider.getState(owner.id(), lock.nukiSmartlockId()));
+            } catch (LockProviderException e) {
+                model.addAttribute("stateError", switch (e.reason()) {
+                    case NOT_CONNECTED -> "not-connected";
+                    case ACCESS_DENIED, MISSING_PERMISSION -> "rejected";
+                    case LOCK_NOT_FOUND -> "not-found";
+                    case UNAVAILABLE -> "unavailable";
+                });
+            }
+        }
+        return EDIT_VIEW;
     }
 
     private static ResponseStatusException notFound() {

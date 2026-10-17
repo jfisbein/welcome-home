@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="011-lock-relocking-handled-elsewhere" author="welcome-home">
+        <comment>
+            The owner relocks the door some other way than Nuki's Auto Lock, for example with home automation,
+            so the panel does not warn that Auto Lock is off.
+        </comment>
+
+        <addColumn tableName="lock">
+            <column name="relocking_handled_elsewhere" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

@@ -84,6 +84,8 @@ Calls time out and are retried with exponential backoff: on rate limiting (429, 
 
 Each lock's settings page (`GET /locks/{id}`, saved with `PATCH /locks/{id}`) changes its name, which guests see, and its time zone, one of the IANA region zones or UTC. Link dates are entered and shown in the lock's time zone but stored in UTC, so changing the time zone changes how existing links are shown, not when they are valid.
 
+The same page shows the lock's live state from Nuki: position, connectivity, battery and Auto Lock. Without Auto Lock the door stays unlocked after a guest opens it, so the page warns about it, unless the owner ticks that the door is relocked some other way (for example, with home automation). If Nuki cannot be reached, the page still shows the settings.
+
 ## Web security
 
 - CSRF: every POST needs Spring Security's token; pages put it in a meta tag for `static/js/webauthn.js`.

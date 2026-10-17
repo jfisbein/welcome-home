@@ -10,8 +10,9 @@ import org.springframework.stereotype.Service;
 import welcomehome.db.OwnerTransactions;
 
 /**
- * What an owner configures on a lock: its name and its time zone. Links store their start and end in UTC,
- * so changing the time zone changes how they are shown, not when they are valid.
+ * What an owner configures on a lock: its name, its time zone and whether the door is relocked some other
+ * way than Auto Lock. Links store their start and end in UTC, so changing the time zone changes how they
+ * are shown, not when they are valid.
  */
 @Service
 class LockSettings {
@@ -46,8 +47,9 @@ class LockSettings {
      * @param timeZone a time zone already checked with {@link #isTimeZone}
      * @return whether the owner has that lock
      */
-    boolean update(UUID ownerId, UUID lockId, String name, String timeZone) {
-        return ownerTransactions.execute(ownerId, () -> locks.updateSettings(ownerId, lockId, name, timeZone));
+    boolean update(UUID ownerId, UUID lockId, String name, String timeZone, boolean relockingHandledElsewhere) {
+        return ownerTransactions.execute(ownerId,
+                () -> locks.updateSettings(ownerId, lockId, name, timeZone, relockingHandledElsewhere));
     }
 
     /** @return the name without surrounding spaces, or empty if it is blank or too long */
