@@ -98,6 +98,12 @@ The same page lists the lock's links with their state, computed and never stored
 
 "Editar" (`GET /links/{id}`, saved with `PATCH /links/{id}`) changes a link's label and dates, with the same checks as creating one; an expired link can be extended this way. Its URL stays the same. Revoked links cannot be edited.
 
+## Guest page
+
+`GET /o/{token}` is public. It reads the link id from the token, finds the link with `resolve_link` (no owner context needed) and trusts it only if the token's MAC is valid for the link's current `token_version`. A malformed token, an unknown link and a wrong or outdated MAC all get the same "Enlace no válido" page (404), so that guests cannot tell which links exist. The page shows the lock's name and the link's validity in the lock's time zone, never the owner's label, and an "Abrir" button only while the link is active and its lock too.
+
+A GET never opens the door, nor calls `LockProvider` at all: messaging apps fetch links to preview them. Opening is a POST after the guest presses the button. The page asks search engines not to index it (`X-Robots-Tag` and `<meta name="robots">`).
+
 ## Web security
 
 - CSRF: every POST needs Spring Security's token; pages put it in a meta tag for `static/js/webauthn.js`.

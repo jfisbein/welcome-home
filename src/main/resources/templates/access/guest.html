@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head(${lockName})}"></head>
+<body>
+<main class="container">
+    <article>
+        <header><h1 th:text="${lockName}">Casa</h1></header>
+        <p th:text="|Este enlace abre la puerta del ${#temporals.format(validFrom, 'd/M/yyyy HH:mm')} al ${#temporals.format(validUntil, 'd/M/yyyy HH:mm')} (hora de ${timeZone}).|">
+            Este enlace abre la puerta del 1/11/2030 15:00 al 3/11/2030 11:00 (hora de Europe/Madrid).
+        </p>
+
+        <th:block th:if="${canOpen}">
+            <button type="button" id="open">Abrir</button>
+            <p><small>Pulsa cuando estés delante de la puerta y empújala al oír la cerradura.</small></p>
+        </th:block>
+
+        <p th:if="${status.name() == 'PENDING'}" role="alert"
+           th:text="|Este enlace todavía no es válido. Podrás abrir a partir del ${#temporals.format(validFrom, 'd/M/yyyy HH:mm')}.|">
+            Este enlace todavía no es válido.
+        </p>
+        <p th:if="${status.name() == 'EXPIRED'}" role="alert">Este enlace ha caducado.</p>
+        <p th:if="${status.name() == 'REVOKED'}" role="alert">Este enlace se ha revocado.</p>
+        <p th:if="${status.name() == 'ACTIVE' and !lockActive}" role="alert">
+            Esta puerta no está disponible ahora mismo. Avisa a quien te ha enviado el enlace.
+        </p>
+    </article>
+</main>
+</body>
+</html>
