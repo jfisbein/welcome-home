@@ -2,6 +2,7 @@ package welcomehome.admin;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
@@ -31,6 +32,29 @@ class InvitationDao {
                 .param("validitySeconds", validity.toSeconds())
                 .query(InsertedInvitation.class)
                 .single();
+    }
+
+    Optional<RedeemableInvitation> findRedeemable(byte[] tokenHash) {
+        return jdbc.sql("""
+                        SELECT id, grants_admin, expires_at
+                        FROM invitation
+                        WHERE token_hash = :tokenHash AND used_at IS NULL AND expires_at > now()
+                        """)
+                .param("tokenHash", tokenHash)
+                .query(RedeemableInvitation.class)
+                .optional();
+    }
+
+    /** A single UPDATE: of two concurrent redemptions of the same invitation, only one changes a row. */
+    Optional<RedeemableInvitation> markUsed(byte[] tokenHash) {
+        return jdbc.sql("""
+                        UPDATE invitation SET used_at = now()
+                        WHERE token_hash = :tokenHash AND used_at IS NULL AND expires_at > now()
+                        RETURNING id, grants_admin, expires_at
+                        """)
+                .param("tokenHash", tokenHash)
+                .query(RedeemableInvitation.class)
+                .optional();
     }
 
     record InsertedInvitation(UUID id, OffsetDateTime expiresAt) {

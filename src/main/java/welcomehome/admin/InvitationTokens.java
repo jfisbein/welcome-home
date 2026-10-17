@@ -12,6 +12,9 @@ import java.util.Base64;
  */
 final class InvitationTokens {
 
+    /** Longer input is not a token and is not even hashed. Real tokens have 43 characters. */
+    static final int MAX_LENGTH = 100;
+
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private InvitationTokens() {

@@ -2,6 +2,7 @@ package welcomehome.admin;
 
 import java.net.URI;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
@@ -43,5 +44,31 @@ public class InvitationService {
                 inserted.id(),
                 URI.create(baseUrl + "/invite/" + token),
                 inserted.expiresAt().toInstant());
+    }
+
+    /**
+     * Looks up an invitation that can still be redeemed, without using it.
+     *
+     * @param token the token from the invitation link
+     * @return the invitation, or empty if the token is unknown, used or expired
+     */
+    public Optional<RedeemableInvitation> findRedeemable(String token) {
+        return isPlausible(token) ? invitations.findRedeemable(InvitationTokens.hash(token)) : Optional.empty();
+    }
+
+    /**
+     * Uses an invitation, atomically: of two concurrent calls with the same token, only one succeeds.
+     * Call it in the transaction that creates the owner, so that a failed registration rolls it back and
+     * leaves the invitation usable.
+     *
+     * @param token the token from the invitation link
+     * @return the invitation just used, or empty if the token is unknown, used or expired
+     */
+    public Optional<RedeemableInvitation> redeem(String token) {
+        return isPlausible(token) ? invitations.markUsed(InvitationTokens.hash(token)) : Optional.empty();
+    }
+
+    private static boolean isPlausible(String token) {
+        return token != null && !token.isEmpty() && token.length() <= InvitationTokens.MAX_LENGTH;
     }
 }
