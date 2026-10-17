@@ -57,6 +57,21 @@ Admins invite further owners from the admin panel (`/admin/owners`, linked from 
 
 The app needs `BASE_URL` (its public URL, e.g. `https://welcome.example`) to build invitation and access links. Its host is also the passkeys' relying party: passkeys created for one domain do not work on another.
 
+## Nuki
+
+The `nuki` module is the only one that talks to Nuki, through the Nuki Web API ([definition](https://api.nuki.io/static/swagger/swagger.json)) with each owner's API token. Other modules use the `LockProvider` interface.
+
+Calls time out and are retried with exponential backoff: on rate limiting (429, honoring `Retry-After`), and for reads also on server errors and timeouts. The unlatch action is retried only when Nuki cannot have run it (429, or no connection made), so a door never opens twice. The defaults, under `welcomehome.nuki.*`:
+
+| Property          | Default               |
+|-------------------|-----------------------|
+| `base-url`        | `https://api.nuki.io` |
+| `connect-timeout` | `5s`                  |
+| `read-timeout`    | `10s`                 |
+| `max-attempts`    | `3`                   |
+| `initial-backoff` | `500ms`, doubling     |
+| `max-backoff`     | `5s`                  |
+
 ## Web security
 
 - CSRF: every POST needs Spring Security's token; pages put it in a meta tag for `static/js/webauthn.js`.
