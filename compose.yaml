@@ -1,0 +1,18 @@
+# Development only: Postgres for ./gradlew bootRun. Production gets its own compose file.
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: welcome_home
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      MIGRATOR_PASSWORD: migrator
+      APP_USER_PASSWORD: app_user
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - ./docker/db-init:/docker-entrypoint-initdb.d:ro
+      - db-data:/var/lib/postgresql/data
+
+volumes:
+  db-data:

@@ -10,11 +10,21 @@ App web privada donde varios propietarios conectan su cuenta Nuki y generan enla
 ## Uso
 
 ```sh
-./gradlew build      # compila y ejecuta los tests
-./gradlew bootRun    # arranca la app en http://localhost:8080
+./gradlew build          # compila y ejecuta los tests (levanta Postgres con Testcontainers)
+docker compose up -d     # Postgres de desarrollo en localhost:5432
+./gradlew bootRun        # arranca la app con el perfil dev en http://localhost:8080
 ```
 
 Comprobación rápida: `curl http://localhost:8080/actuator/health`.
+
+## Base de datos
+
+`docker/db-init/01-create-roles.sh` crea dos roles al iniciar un Postgres vacío:
+
+- `migrator`: propietario de la base de datos y del esquema; con él se ejecutan las migraciones.
+- `app_user`: el usuario de la app; sin propiedad ni `BYPASSRLS`, solo recibe los permisos que le dan las migraciones.
+
+El script solo se ejecuta con el volumen vacío. Para recrear la base de datos de desarrollo: `docker compose down -v`.
 
 ## Módulos
 
