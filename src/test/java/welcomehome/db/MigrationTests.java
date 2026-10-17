@@ -24,4 +24,18 @@ class MigrationTests {
 
         assertThat(owner).isEqualTo("migrator");
     }
+
+    @Test
+    void createsInitialSchema() {
+        var tables = jdbc.sql("""
+                        SELECT tablename FROM pg_tables
+                        WHERE schemaname = 'public' AND tablename NOT LIKE 'databasechangelog%'
+                        """)
+                .query(String.class)
+                .list();
+
+        assertThat(tables).containsExactlyInAnyOrder(
+                "owner", "invitation", "user_entities", "user_credentials",
+                "nuki_connection", "lock", "access_link", "access_event");
+    }
 }
