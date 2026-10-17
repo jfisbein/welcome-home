@@ -9,6 +9,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import welcomehome.links.LinkStatus;
 
 /**
  * The page a guest's URL opens. It only informs: messaging apps fetch links to preview them, so a GET never
@@ -41,8 +42,10 @@ class GuestController {
         model.addAttribute("validFrom", link.validFrom().atZoneSameInstant(zone));
         model.addAttribute("validUntil", link.validUntil().atZoneSameInstant(zone));
         model.addAttribute("status", guestLink.status());
-        model.addAttribute("lockActive", link.lockActive());
-        model.addAttribute("canOpen", guestLink.canOpen());
+        var active = guestLink.status() == LinkStatus.ACTIVE;
+        var available = active && guestLinks.doorAvailable(link);
+        model.addAttribute("canOpen", available);
+        model.addAttribute("unavailable", active && !available);
         return "access/guest";
     }
 }

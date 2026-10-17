@@ -10,10 +10,8 @@ import welcomehome.audit.AccessEvent;
 import welcomehome.audit.AccessEvents;
 import welcomehome.links.LinkStatus;
 import welcomehome.locks.Locks;
-import welcomehome.nuki.ConnectionStatus;
 import welcomehome.nuki.LockProvider;
 import welcomehome.nuki.LockProviderException;
-import welcomehome.nuki.NukiConnections;
 
 /**
  * Opens a door for a guest. The checks run in this order, cheapest and least revealing first:
@@ -22,8 +20,7 @@ import welcomehome.nuki.NukiConnections;
  *     <li>the link exists, its MAC is valid and it is not revoked;</li>
  *     <li>rate limit per link;</li>
  *     <li>within the link's dates;</li>
- *     <li>the lock is active;</li>
- *     <li>the owner's Nuki connection is OK.</li>
+ *     <li>the door is available: its lock is active and the owner's Nuki connection is OK.</li>
  * </ol>
  * Only then is the door unlatched, in the context of the owner that resolve_link returned, which the
  * verified MAC vouches for, and once per lock at a time: concurrent guests share one action and its result.
@@ -36,19 +33,16 @@ class OpenDoor {
     private final RateLimiter rateLimiter;
     private final GuestLinks guestLinks;
     private final Locks locks;
-    private final NukiConnections nukiConnections;
     private final LockProvider lockProvider;
     private final LockActions lockActions;
     private final UnlatchConfirmation confirmation;
     private final AccessEvents accessEvents;
 
-    OpenDoor(RateLimiter rateLimiter, GuestLinks guestLinks, Locks locks, NukiConnections nukiConnections,
-             LockProvider lockProvider, LockActions lockActions, UnlatchConfirmation confirmation,
-             AccessEvents accessEvents) {
+    OpenDoor(RateLimiter rateLimiter, GuestLinks guestLinks, Locks locks, LockProvider lockProvider,
+             LockActions lockActions, UnlatchConfirmation confirmation, AccessEvents accessEvents) {
         this.rateLimiter = rateLimiter;
         this.guestLinks = guestLinks;
         this.locks = locks;
-        this.nukiConnections = nukiConnections;
         this.lockProvider = lockProvider;
         this.lockActions = lockActions;
         this.confirmation = confirmation;
@@ -85,14 +79,11 @@ class OpenDoor {
         if (guestLink.status() == LinkStatus.EXPIRED) {
             return OpenResult.EXPIRED;
         }
-        if (!link.lockActive()) {
+        if (!guestLinks.doorAvailable(link)) {
             return OpenResult.UNAVAILABLE;
         }
-        var connected = nukiConnections.find(link.ownerId())
-                .filter(connection -> connection.status() == ConnectionStatus.OK)
-                .isPresent();
         var lock = locks.find(link.ownerId(), link.lockId());
-        if (!connected || lock.isEmpty()) {
+        if (lock.isEmpty()) {
             return OpenResult.UNAVAILABLE;
         }
         var nukiSmartlockId = lock.get().nukiSmartlockId();

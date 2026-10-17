@@ -21,7 +21,7 @@
         </p>
         <p th:if="${status.name() == 'EXPIRED'}" role="alert">Este enlace ha caducado.</p>
         <p th:if="${status.name() == 'REVOKED'}" role="alert">Este enlace se ha revocado.</p>
-        <p th:if="${status.name() == 'ACTIVE' and !lockActive}" role="alert">
+        <p th:if="${unavailable}" role="alert">
             Esta puerta no está disponible ahora mismo. Avisa a quien te ha enviado el enlace.
         </p>
     </article>

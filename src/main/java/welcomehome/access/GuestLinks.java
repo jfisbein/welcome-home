@@ -6,6 +6,8 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 import welcomehome.crypto.LinkTokenSigner;
 import welcomehome.links.LinkStatus;
+import welcomehome.nuki.ConnectionStatus;
+import welcomehome.nuki.NukiConnections;
 
 /**
  * Turns the token of a guest's URL into a link the app can trust: it resolves the link and accepts it only
@@ -16,10 +18,12 @@ class GuestLinks {
 
     private final LinkTokenSigner signer;
     private final ResolvedLinkDao resolvedLinks;
+    private final NukiConnections nukiConnections;
 
-    GuestLinks(LinkTokenSigner signer, ResolvedLinkDao resolvedLinks) {
+    GuestLinks(LinkTokenSigner signer, ResolvedLinkDao resolvedLinks, NukiConnections nukiConnections) {
         this.signer = signer;
         this.resolvedLinks = resolvedLinks;
+        this.nukiConnections = nukiConnections;
     }
 
     /**
@@ -37,16 +41,21 @@ class GuestLinks {
     }
 
     /**
+     * Tells whether a link's door can be opened at all, whatever the link's dates: its lock is active and its
+     * owner's Nuki connection is OK. It reads only the database, so the guest page can ask too.
+     */
+    boolean doorAvailable(ResolvedLink link) {
+        return link.lockActive() && nukiConnections.find(link.ownerId())
+                .filter(connection -> connection.status() == ConnectionStatus.OK)
+                .isPresent();
+    }
+
+    /**
      * A link whose token was verified.
      *
      * @param link   the link and its lock
      * @param status the link's state
      */
     record GuestLink(ResolvedLink link, LinkStatus status) {
-
-        /** @return whether the guest may try to open the door now */
-        boolean canOpen() {
-            return status == LinkStatus.ACTIVE && link.lockActive();
-        }
     }
 }

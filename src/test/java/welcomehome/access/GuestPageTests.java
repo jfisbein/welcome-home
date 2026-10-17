@@ -27,6 +27,10 @@ import welcomehome.nuki.LockProvider;
 class GuestPageTests {
 
     static final String OPEN_BUTTON = "id=\"open\"";
+    static final String NOT_YET_VALID = "Este enlace todavía no es válido.";
+    static final String EXPIRED = "Este enlace ha caducado.";
+    static final String REVOKED = "Este enlace se ha revocado.";
+    static final String UNAVAILABLE = "Esta puerta no está disponible ahora mismo.";
 
     @Autowired
     MockMvcTester mvc;
@@ -45,7 +49,7 @@ class GuestPageTests {
     UUID lockId;
 
     @BeforeEach
-    void insertALock() {
+    void insertAConnectedLock() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         migrator.sql("DELETE FROM owner").update();
         var ownerId = migrator.sql("INSERT INTO owner (email) VALUES ('alice@example.com') RETURNING id")
@@ -55,6 +59,9 @@ class GuestPageTests {
                         VALUES (?, 17, 'Casa de Alice', 'America/New_York') RETURNING id
                         """)
                 .param(ownerId).query(UUID.class).single();
+        // The page reads only the connection's status: the token is never decrypted.
+        migrator.sql("INSERT INTO nuki_connection (owner_id, api_token_encrypted, status) VALUES (?, '\\x00', 'OK')")
+                .param(ownerId).update();
     }
 
     @AfterEach
@@ -81,21 +88,48 @@ class GuestPageTests {
         var link = insertLink("'2040-11-01T19:00:00Z'", "'2040-11-03T16:00:00Z'", false);
 
         assertThat(body(guestPage(signer.sign(link, 1))))
-                .contains("todavía no es válido", "a partir del 1/11/2040 15:00")
+                .contains(NOT_YET_VALID, "a partir del 1/11/2040 15:00")
                 .doesNotContain(OPEN_BUTTON);
     }
 
     @Test
-    void expiredRevokedOrUnavailableLinksOfferNoButton() {
+    void expiredOrRevokedLinksOfferNoButton() {
         var expired = insertLink("now() - interval '2 days'", "now() - interval '1 day'", false);
         var revoked = insertLink("now() - interval '1 day'", "now() + interval '1 day'", true);
 
-        assertThat(body(guestPage(signer.sign(expired, 1)))).contains("ha caducado").doesNotContain(OPEN_BUTTON);
-        assertThat(body(guestPage(signer.sign(revoked, 1)))).contains("se ha revocado").doesNotContain(OPEN_BUTTON);
+        assertThat(body(guestPage(signer.sign(expired, 1)))).contains(EXPIRED).doesNotContain(OPEN_BUTTON);
+        assertThat(body(guestPage(signer.sign(revoked, 1)))).contains(REVOKED).doesNotContain(OPEN_BUTTON);
+    }
 
-        var active = insertLink("now() - interval '1 day'", "now() + interval '1 day'", false);
+    @Test
+    void inactiveLockOrMissingNukiConnectionIsUnavailableBeforeTheGuestTries() {
+        var token = signer.sign(insertLink("now() - interval '1 day'", "now() + interval '1 day'", false), 1);
+
         migrator.sql("UPDATE lock SET active = false").update();
-        assertThat(body(guestPage(signer.sign(active, 1)))).contains("no está disponible").doesNotContain(OPEN_BUTTON);
+        assertUnavailable(token);
+
+        migrator.sql("UPDATE lock SET active = true").update();
+        migrator.sql("UPDATE nuki_connection SET status = 'DISCONNECTED'").update();
+        assertUnavailable(token);
+
+        migrator.sql("DELETE FROM nuki_connection").update();
+        assertUnavailable(token);
+    }
+
+    @Test
+    void unavailabilityDoesNotHideTheLinksOwnState() {
+        migrator.sql("DELETE FROM nuki_connection").update();
+        var expired = insertLink("now() - interval '2 days'", "now() - interval '1 day'", false);
+
+        assertThat(body(guestPage(signer.sign(expired, 1)))).contains(EXPIRED).doesNotContain(UNAVAILABLE);
+    }
+
+    @Test
+    void openButtonShowsTheSameMessagesAsThePage() {
+        var script = mvc.get().uri("/js/open.js").exchange();
+
+        assertThat(script).hasStatusOk();
+        assertThat(body(script)).contains(NOT_YET_VALID, EXPIRED, REVOKED, UNAVAILABLE);
     }
 
     @Test
@@ -123,6 +157,10 @@ class GuestPageTests {
         var link = insertLink("now() - interval '1 day'", "now() + interval '1 day'", false);
 
         assertThat(guestPage(signer.sign(link, 1))).hasStatusOk();
+    }
+
+    private void assertUnavailable(String token) {
+        assertThat(body(guestPage(token))).contains(UNAVAILABLE).doesNotContain(OPEN_BUTTON);
     }
 
     private MvcTestResult guestPage(String token) {
