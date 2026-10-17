@@ -11,6 +11,7 @@
 
         <th:block th:if="${canOpen}">
             <button type="button" id="open">Abrir</button>
+            <p id="open-result" role="status" hidden></p>
             <p><small>Pulsa cuando estés delante de la puerta y empújala al oír la cerradura.</small></p>
         </th:block>
 
@@ -25,5 +26,6 @@
         </p>
     </article>
 </main>
+<script th:if="${canOpen}" th:src="@{/js/open.js}"></script>
 </body>
 </html>

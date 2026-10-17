@@ -48,7 +48,8 @@ class SecurityConfiguration {
     SecurityFilterChain securityFilterChain(HttpSecurity http) {
         http
                 .authorizeHttpRequests(requests -> requests
-                        .requestMatchers("/login", "/invite/**", "/o/**", "/css/**", "/js/**", "/actuator/health")
+                        .requestMatchers("/login", "/invite/**", "/o/**", "/api/open", "/css/**", "/js/**",
+                                "/actuator/health")
                         .permitAll()
                         .requestMatchers("/admin/**").hasRole(OwnerUserDetailsService.ADMIN)
                         .anyRequest().authenticated())
