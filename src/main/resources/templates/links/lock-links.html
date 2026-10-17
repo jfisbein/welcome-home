@@ -31,6 +31,11 @@
         </fieldset>
     </article>
 
+    <article th:if="${updatedLabel}">
+        <p th:text="|Guardados los cambios del enlace de ${updatedLabel}. Su URL no cambia.|">
+            Guardados los cambios del enlace de Ana. Su URL no cambia.</p>
+    </article>
+
     <article th:if="${revokedLabel}">
         <p th:text="|Enlace de ${revokedLabel} revocado: ya no abre la puerta.|">Enlace de Ana revocado: ya no abre la puerta.</p>
     </article>
@@ -60,6 +65,7 @@
                     <span th:case="'REVOKED'">Revocado</span>
                 </td>
                 <td>
+                    <a th:if="${link.status.name() != 'REVOKED'}" th:href="@{/links/{id}(id=${link.id})}">Editar</a>
                     <th:block th:if="${link.status.usable}">
                         <button type="button" class="outline" th:data-copy-text="${link.url}">Copiar</button>
                         <button type="button" class="outline secondary" hidden th:data-share-url="${link.url}"
@@ -84,31 +90,7 @@
 
     <form th:if="${lock.active}" th:action="@{/locks/{id}/links(id=${lock.id})}" method="post">
         <h2>Nuevo enlace</h2>
-        <label>
-            Para quién es
-            <input type="text" name="label" maxlength="100" required th:value="${label}"
-                   th:attr="aria-invalid=${labelError} ? 'true' : null"
-                   placeholder="Por ejemplo: Ana, fin de semana">
-            <small th:if="${labelError}">Escribe para quién es el enlace (hasta 100 caracteres).</small>
-        </label>
-        <div class="grid">
-            <label>
-                Desde
-                <input type="datetime-local" name="validFrom" required th:value="${validFrom}"
-                       th:attr="aria-invalid=${validFromError} ? 'true' : null">
-                <small th:if="${validFromError}">Indica la fecha y hora de inicio.</small>
-            </label>
-            <label>
-                Hasta
-                <input type="datetime-local" name="validUntil" required th:value="${validUntil}"
-                       th:attr="aria-invalid=${validUntilError} ? 'true' : null">
-                <small th:if="${validUntilError == 'invalid'}">Indica la fecha y hora de fin.</small>
-                <small th:if="${validUntilError == 'before-start'}">El fin tiene que ser posterior al inicio.</small>
-                <small th:if="${validUntilError == 'past'}">El fin ya ha pasado.</small>
-            </label>
-        </div>
-        <p><small th:text="|Horas en la zona horaria de la cerradura: ${lock.timeZone}.|">
-            Horas en la zona horaria de la cerradura: Europe/Madrid.</small></p>
+        <th:block th:replace="~{links/fields :: fields(${lock.timeZone})}"></th:block>
         <button type="submit">Crear enlace</button>
     </form>
     <p><a th:href="@{/locks/{id}(id=${lock.id})}" th:text="|Volver a ${lock.name}|">Volver a Casa</a></p>

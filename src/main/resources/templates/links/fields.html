@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- The link form's fields, shared by creating and editing a link. Reads label, validFrom, validUntil and their errors. -->
+<th:block th:fragment="fields(timeZone)">
+    <label>
+        Para quién es
+        <input type="text" name="label" maxlength="100" required th:value="${label}"
+               th:attr="aria-invalid=${labelError} ? 'true' : null"
+               placeholder="Por ejemplo: Ana, fin de semana">
+        <small th:if="${labelError}">Escribe para quién es el enlace (hasta 100 caracteres).</small>
+    </label>
+    <div class="grid">
+        <label>
+            Desde
+            <input type="datetime-local" name="validFrom" required th:value="${validFrom}"
+                   th:attr="aria-invalid=${validFromError} ? 'true' : null">
+            <small th:if="${validFromError}">Indica la fecha y hora de inicio.</small>
+        </label>
+        <label>
+            Hasta
+            <input type="datetime-local" name="validUntil" required th:value="${validUntil}"
+                   th:attr="aria-invalid=${validUntilError} ? 'true' : null">
+            <small th:if="${validUntilError == 'invalid'}">Indica la fecha y hora de fin.</small>
+            <small th:if="${validUntilError == 'before-start'}">El fin tiene que ser posterior al inicio.</small>
+            <small th:if="${validUntilError == 'past'}">El fin ya ha pasado.</small>
+        </label>
+    </div>
+    <p><small th:text="|Horas en la zona horaria de la cerradura: ${timeZone}.|">
+        Horas en la zona horaria de la cerradura: Europe/Madrid.</small></p>
+</th:block>
+</body>
+</html>

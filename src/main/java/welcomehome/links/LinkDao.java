@@ -79,7 +79,38 @@ class LinkDao {
                 .optional();
     }
 
+    /** A link that is not revoked, with what editing it needs from its lock. */
+    Optional<EditableLink> findEditable(UUID ownerId, UUID linkId) {
+        return jdbc.sql("""
+                        SELECT l.id, l.lock_id, k.name AS lock_name, k.time_zone, l.label, l.valid_from, l.valid_until
+                        FROM access_link l JOIN lock k ON k.owner_id = l.owner_id AND k.id = l.lock_id
+                        WHERE l.owner_id = :ownerId AND l.id = :linkId AND l.revoked_at IS NULL
+                        """)
+                .param("ownerId", ownerId)
+                .param("linkId", linkId)
+                .query(EditableLink.class)
+                .optional();
+    }
+
+    /** @return whether the owner has that link and it is not revoked */
+    boolean update(UUID ownerId, UUID linkId, String label, Instant validFrom, Instant validUntil) {
+        return jdbc.sql("""
+                        UPDATE access_link SET label = :label, valid_from = :validFrom, valid_until = :validUntil
+                        WHERE owner_id = :ownerId AND id = :linkId AND revoked_at IS NULL
+                        """)
+                .param("label", label)
+                .param("validFrom", OffsetDateTime.ofInstant(validFrom, ZoneOffset.UTC))
+                .param("validUntil", OffsetDateTime.ofInstant(validUntil, ZoneOffset.UTC))
+                .param("ownerId", ownerId)
+                .param("linkId", linkId)
+                .update() == 1;
+    }
+
     record InsertedLink(UUID id, int tokenVersion) {
+    }
+
+    record EditableLink(UUID id, UUID lockId, String lockName, String timeZone, String label, OffsetDateTime validFrom,
+                        OffsetDateTime validUntil) {
     }
 
     record RegeneratedLink(UUID id, int tokenVersion, UUID lockId, String label) {

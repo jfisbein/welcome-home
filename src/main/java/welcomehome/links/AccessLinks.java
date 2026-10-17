@@ -10,6 +10,7 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import welcomehome.db.OwnerTransactions;
+import welcomehome.links.LinkDao.EditableLink;
 import welcomehome.links.LinkDao.RevokedLink;
 import welcomehome.locks.OwnerLock;
 
@@ -19,8 +20,6 @@ import welcomehome.locks.OwnerLock;
  */
 @Service
 class AccessLinks {
-
-    static final int MAX_LABEL_LENGTH = 100;
 
     private final LinkDao links;
     private final LinkUrls urls;
@@ -33,7 +32,7 @@ class AccessLinks {
     }
 
     /**
-     * @param label      a label already checked by the caller: 1 to {@link #MAX_LABEL_LENGTH} characters
+     * @param label      a label already checked with {@link LinkForm}
      * @param validFrom  when the link starts to open the door
      * @param validUntil when it stops, after {@code validFrom}
      * @return the new link's URL, to give to the guest
@@ -54,6 +53,22 @@ class AccessLinks {
      */
     Optional<RevokedLink> revoke(UUID ownerId, UUID linkId) {
         return ownerTransactions.execute(ownerId, () -> links.revoke(ownerId, linkId));
+    }
+
+    /** @return the link, or empty if the owner has no such link or it is revoked */
+    Optional<EditableLink> findEditable(UUID ownerId, UUID linkId) {
+        return ownerTransactions.execute(ownerId, () -> links.findEditable(ownerId, linkId));
+    }
+
+    /**
+     * Changes a link's label and dates. Its URL stays the same, since it depends only on the link's id and
+     * token version.
+     *
+     * @param label a label already checked with {@link LinkForm}
+     * @return whether the owner has that link and it is not revoked
+     */
+    boolean update(UUID ownerId, UUID linkId, String label, Instant validFrom, Instant validUntil) {
+        return ownerTransactions.execute(ownerId, () -> links.update(ownerId, linkId, label, validFrom, validUntil));
     }
 
     /**

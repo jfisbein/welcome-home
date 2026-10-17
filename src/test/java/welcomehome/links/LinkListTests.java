@@ -76,7 +76,10 @@ class LinkListTests {
         var url = IntegrationTest.BASE_URL + "/o/" + signer.sign(active, 3);
         assertThat(body).contains("data-copy-text=\"" + url + "\"", "data-share-url=\"" + url + "\"")
                 .doesNotContain(signer.sign(active, 1))
-                .doesNotContain(expired.toString())
+                .as("an expired link can be edited, to extend it, but not copied")
+                .doesNotContain("/o/" + expired)
+                .contains("/links/" + expired + "\"")
+                .as("a revoked link is offered for nothing")
                 .doesNotContain(revoked.toString());
     }
 

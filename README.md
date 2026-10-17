@@ -96,6 +96,8 @@ The same page lists the lock's links with their state, computed and never stored
 
 "Regenerar" (`POST /links/{id}/regenerate`), for a URL that leaked, increments the link's `token_version`: every earlier URL stops working and the page shows the new one. Dates, label and state stay the same; revoked links are not regenerated.
 
+"Editar" (`GET /links/{id}`, saved with `PATCH /links/{id}`) changes a link's label and dates, with the same checks as creating one; an expired link can be extended this way. Its URL stays the same. Revoked links cannot be edited.
+
 ## Web security
 
 - CSRF: every POST needs Spring Security's token; pages put it in a meta tag for `static/js/webauthn.js`.

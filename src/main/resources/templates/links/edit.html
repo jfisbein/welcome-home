@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Editar enlace')}"></head>
+<body>
+<main class="container">
+    <nav th:replace="~{fragments/layout :: nav}"></nav>
+    <h1 th:text="|Enlace de ${link.label}|">Enlace de Ana</h1>
+    <p th:text="|Abre ${link.lockName}. Si cambias las fechas o la etiqueta, la URL sigue siendo la misma.|">
+        Abre Casa. Si cambias las fechas o la etiqueta, la URL sigue siendo la misma.
+    </p>
+
+    <form th:action="@{/links/{id}(id=${link.id})}" th:method="patch">
+        <th:block th:replace="~{links/fields :: fields(${link.timeZone})}"></th:block>
+        <button type="submit">Guardar</button>
+    </form>
+    <p><a th:href="@{/locks/{id}/links(id=${link.lockId})}" th:text="|Volver a los enlaces de ${link.lockName}|">
+        Volver a los enlaces de Casa</a></p>
+</main>
+</body>
+</html>
