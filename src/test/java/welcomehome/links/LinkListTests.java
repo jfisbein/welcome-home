@@ -79,8 +79,9 @@ class LinkListTests {
                 .as("an expired link can be edited, to extend it, but not copied")
                 .doesNotContain("/o/" + expired)
                 .contains("/links/" + expired + "\"")
-                .as("a revoked link is offered for nothing")
-                .doesNotContain(revoked.toString());
+                .as("a revoked link is offered for nothing but its history")
+                .doesNotContain("/links/" + revoked, signer.sign(revoked, 1))
+                .contains("/history?link=" + revoked + "\"");
     }
 
     @Test

@@ -116,6 +116,10 @@ Rate limits are kept in memory, which is enough for a single instance, and set i
 
 The guest's IP address, for the rate limit and the history, comes from `CF-Connecting-IP`, which Cloudflare sets on every request, overwriting what the client sent. `X-Forwarded-For` would not do: it starts with whatever the client sent. Trusting the header is safe because the tunnel is the only way in; if the app were ever reachable otherwise, set `welcomehome.access.client-ip-header` blank to use the address the request came from.
 
+## History
+
+`GET /locks/{id}/history` lists the guests' attempts on a lock, newest first, in the lock's time zone: when, with which link, the outcome in words (for example "Denegado: caducado" or "Error: modo nocturno") and the guest's IP address. `?link={id}` narrows it to one link; the lock page and each link in the list lead there. Pages hold 50 attempts; "Anteriores" adds `before=` with the date of the last one shown, so a page never shifts as new attempts come in. Row-Level Security keeps each owner to their own history, and a lock or link of someone else's is a 404.
+
 ## Web security
 
 - CSRF: every POST needs Spring Security's token; pages put it in a meta tag for `static/js/webauthn.js`.

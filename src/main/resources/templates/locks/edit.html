@@ -5,7 +5,10 @@
 <main class="container">
     <nav th:replace="~{fragments/layout :: nav}"></nav>
     <h1 th:text="${lock.name}">Casa</h1>
-    <p><a th:href="@{/locks/{id}/links(id=${lock.id})}" role="button">Enlaces de esta cerradura</a></p>
+    <p class="actions">
+        <a th:href="@{/locks/{id}/links(id=${lock.id})}" role="button">Enlaces de esta cerradura</a>
+        <a th:href="@{/locks/{id}/history(id=${lock.id})}" role="button" class="secondary">Historial</a>
+    </p>
 
     <section>
         <h2>Estado</h2>

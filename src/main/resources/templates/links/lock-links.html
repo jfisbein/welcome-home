@@ -66,6 +66,7 @@
                 </td>
                 <td class="actions">
                     <a th:if="${link.status.name() != 'REVOKED'}" th:href="@{/links/{id}(id=${link.id})}">Editar</a>
+                    <a th:href="@{/locks/{lockId}/history(lockId=${lock.id},link=${link.id})}">Historial</a>
                     <th:block th:if="${link.status.usable}">
                         <button type="button" class="outline" th:data-copy-text="${link.url}">Copiar</button>
                         <button type="button" class="outline secondary" hidden th:data-share-url="${link.url}"

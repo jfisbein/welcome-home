@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Historial de ' + ${lock.name})}"></head>
+<body>
+<main class="container">
+    <nav th:replace="~{fragments/layout :: nav}"></nav>
+    <h1 th:text="|Historial de ${lock.name}|">Historial de Casa</h1>
+    <p th:if="${filtered}">
+        <span th:text="|Solo el enlace de ${linkLabel}.|">Solo el enlace de Ana.</span>
+        <a th:href="@{/locks/{id}/history(id=${lock.id})}">Ver toda la cerradura</a>
+    </p>
+    <p th:text="|Hora de ${lock.timeZone}.|">Hora de Europe/Madrid.</p>
+
+    <p th:if="${events.isEmpty()}">Todavía no hay intentos de abrir.</p>
+    <div class="overflow-auto" th:unless="${events.isEmpty()}">
+        <table>
+            <thead>
+            <tr>
+                <th scope="col">Fecha</th>
+                <th scope="col">Enlace</th>
+                <th scope="col">Resultado</th>
+                <th scope="col">IP</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="event : ${events}">
+                <td th:text="${#temporals.format(event.occurredAt, 'd/M/yyyy HH:mm:ss')}">1/11/2030 15:02:13</td>
+                <td><a th:href="@{/locks/{id}/history(id=${lock.id},link=${event.linkId})}"
+                       th:text="${event.linkLabel}">Ana</a></td>
+                <td th:switch="${event.result.name()}">
+                    <strong th:case="'OK'" th:text="${event.outcome}">Abierta</strong>
+                    <span th:case="*" th:text="${event.outcome}">Denegado: caducado</span>
+                </td>
+                <td th:text="${event.ip}">192.0.2.10</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <p class="actions">
+        <a th:if="${paged}" th:href="${newerUrl}">Más recientes</a>
+        <a th:if="${olderUrl}" th:href="${olderUrl}">Anteriores</a>
+    </p>
+    <p><a th:href="@{/locks/{id}(id=${lock.id})}" th:text="|Volver a ${lock.name}|">Volver a Casa</a></p>
+</main>
+</body>
+</html>
