@@ -14,10 +14,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
+import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -179,6 +187,32 @@ class OpenDoorTests {
     }
 
     @Test
+    void simultaneousOpeningsOfALockSendOneActionAndShareItsResult() throws Exception {
+        nuki.stubFor(post("/smartlock/17/action").willReturn(status(204).withFixedDelay(1000)));
+        var tokens = new String[] {
+                signer.sign(insertLink("now() - interval '1 hour'", "now() + interval '1 day'"), 1),
+                signer.sign(insertLink("now() - interval '1 hour'", "now() + interval '1 day'"), 1),
+                signer.sign(insertLink("now() - interval '1 hour'", "now() + interval '1 day'"), 1)};
+
+        assertThat(openAtOnce(tokens)).containsOnly("requested").hasSize(3);
+
+        nuki.verify(1, postRequestedFor(urlPathEqualTo("/smartlock/17/action")));
+        assertThat(migrator.sql("SELECT result FROM access_event").query(String.class).list())
+                .as("each guest's attempt is recorded")
+                .containsExactly("OK", "OK", "OK");
+    }
+
+    @Test
+    void guestsWaitingForAFailedActionGetTheSameError() throws Exception {
+        nuki.stubFor(post("/smartlock/17/action").willReturn(status(503).withFixedDelay(1000)));
+        var token = signer.sign(insertLink("now() - interval '1 hour'", "now() + interval '1 day'"), 1);
+
+        assertThat(openAtOnce(token, token)).containsOnly("nuki-error").hasSize(2);
+
+        nuki.verify(1, postRequestedFor(urlPathEqualTo("/smartlock/17/action")));
+    }
+
+    @Test
     void openingRequiresTheCsrfTokenOfTheGuestPage() {
         var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
 
@@ -188,10 +222,39 @@ class OpenDoorTests {
         nuki.verify(0, anyRequestedFor(anyUrl()));
     }
 
+    /** Opens with every token at the same time, each from its own IP address, and returns the results. */
+    private List<String> openAtOnce(String... tokens) throws Exception {
+        var start = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(tokens.length)) {
+            var results = new ArrayList<Future<String>>();
+            for (var token : tokens) {
+                var from = "10.252.%d.%d".formatted(rand(), rand());
+                results.add(executor.submit(() -> {
+                    start.await();
+                    return JsonPath.read(body(open(token, from)), "$.result");
+                }));
+            }
+            start.countDown();
+            var codes = new ArrayList<String>();
+            for (var result : results) {
+                codes.add(result.get(10, TimeUnit.SECONDS));
+            }
+            return codes;
+        }
+    }
+
+    private static String body(MvcTestResult result) {
+        return new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8);
+    }
+
     private MvcTestResult open(String token) {
+        return open(token, ip);
+    }
+
+    private MvcTestResult open(String token, String from) {
         return mvc.post().uri("/api/open").with(csrf())
                 .with(request -> {
-                    request.setRemoteAddr(ip);
+                    request.setRemoteAddr(from);
                     return request;
                 })
                 .header("User-Agent", "Guest browser")

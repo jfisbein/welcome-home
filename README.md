@@ -104,7 +104,7 @@ The same page lists the lock's links with their state, computed and never stored
 
 A GET never opens the door, nor calls `LockProvider` at all: messaging apps fetch links to preview them. Opening is a POST after the guest presses the button. The page asks search engines not to index it (`X-Robots-Tag` and `<meta name="robots">`).
 
-Pressing "Abrir" sends `POST /api/open` with the token in the body. The checks run in this order: rate limit per IP address; the link exists, its MAC is valid and it is not revoked; rate limit per link; within its dates; the lock is active; the owner's Nuki connection is OK. Only then is the door unlatched, in the context of the owner that `resolve_link` returned. Every attempt with a valid link is recorded in the owner's history (`access_event`), with the guest's IP address and browser.
+Pressing "Abrir" sends `POST /api/open` with the token in the body. The checks run in this order: rate limit per IP address; the link exists, its MAC is valid and it is not revoked; rate limit per link; within its dates; the lock is active; the owner's Nuki connection is OK. Only then is the door unlatched, in the context of the owner that `resolve_link` returned. Only one action runs per lock at a time: a guest who presses "Abrir" while the same lock is being opened waits for that action and gets its result, so Nuki receives a single action. Every attempt with a valid link is recorded in the owner's history (`access_event`), with the guest's IP address and browser.
 
 Rate limits are kept in memory, which is enough for a single instance, and set in `application.properties`:
 
