@@ -1,4 +1,4 @@
-# Development only: Postgres for ./gradlew bootRun. Production gets its own compose file.
+# Development only: Postgres for ./gradlew bootRun. Production: deploy/compose.yaml.
 services:
   db:
     image: postgres:17
@@ -11,7 +11,7 @@ services:
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
-      - ./docker/db-init:/docker-entrypoint-initdb.d:ro
+      - ./deploy/db-init:/docker-entrypoint-initdb.d:ro
       - db-data:/var/lib/postgresql/data
 
 volumes:

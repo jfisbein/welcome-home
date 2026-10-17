@@ -1,0 +1,111 @@
+# Production stack for Dockge: copy this directory to the stack's folder and create ./secrets first (see
+# "Production" in the README). No port is published: the Cloudflare tunnel is the only way in.
+name: welcome-home
+
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: welcome_home
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      MIGRATOR_PASSWORD_FILE: /run/secrets/migrator_password
+      APP_USER_PASSWORD_FILE: /run/secrets/app_user_password
+    secrets:
+      - postgres_password
+      - migrator_password
+      - app_user_password
+    volumes:
+      - ./db-init:/docker-entrypoint-initdb.d:ro
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d welcome_home"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    image: ghcr.io/jfisbein/welcome-home:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      BASE_URL: https://welcome-home.alcornoque.top
+      TZ: Europe/Madrid
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/welcome_home
+      SPRING_DATASOURCE_USERNAME: app_user
+      SPRING_LIQUIBASE_USER: migrator
+      # Each file in this directory is the property its name says: the database passwords.
+      SPRING_CONFIG_IMPORT: configtree:/run/secrets/config/
+      AEAD_KEYSET_FILE: /run/secrets/aead_keyset
+      MAC_KEYSET_FILE: /run/secrets/mac_keyset
+    secrets:
+      - source: app_user_password
+        target: /run/secrets/config/spring.datasource.password
+      - source: migrator_password
+        target: /run/secrets/config/spring.liquibase.password
+      - aead_keyset
+      - mac_keyset
+    networks:
+      - backend
+      - frontend
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      # The image has no curl or wget.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/8080 && printf 'GET /actuator/health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.9.3
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN_FILE: /run/secrets/tunnel_token
+    secrets:
+      - tunnel_token
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - frontend
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  # The database has no way out; the app reaches Nuki and the tunnel reaches the app through frontend.
+  backend:
+    internal: true
+  frontend: {}
+
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password
+  migrator_password:
+    file: ./secrets/migrator_password
+  app_user_password:
+    file: ./secrets/app_user_password
+  aead_keyset:
+    file: ./secrets/aead-keyset.json
+  mac_keyset:
+    file: ./secrets/mac-keyset.json
+  tunnel_token:
+    file: ./secrets/tunnel_token
+
+volumes:
+  db-data:

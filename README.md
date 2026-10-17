@@ -20,7 +20,7 @@ Quick check: `curl http://localhost:8080/actuator/health`.
 
 ## Database
 
-`docker/db-init/01-create-roles.sh` creates two roles when an empty Postgres starts:
+`deploy/db-init/01-create-roles.sh` creates two roles when an empty Postgres starts:
 
 - `migrator`: owns the database and the schema; migrations run as this role.
 - `app_user`: the application's user; no ownership and no `BYPASSRLS`, only the grants that migrations give it.
@@ -152,6 +152,29 @@ The container listens on 8080 and is configured with environment variables:
 | `AEAD_KEYSET_FILE`, `MAC_KEYSET_FILE`                      | paths of the mounted keysets                       |
 
 The keysets are mounted read-only and must be readable by uid 10001. The image has no curl or wget; a health check can use bash: `exec 3<>/dev/tcp/localhost/8080; printf 'GET /actuator/health HTTP/1.0\r\n\r\n' >&3; grep -q UP <&3`.
+
+## Production
+
+Every push to `main` that passes `./gradlew build` publishes the image to GHCR as `ghcr.io/jfisbein/welcome-home`, tagged `latest` and `sha-<commit>` (`.github/workflows/image.yml`).
+
+`deploy/` is the Dockge stack: copy it to the stack's folder on the server. `compose.yaml` runs three services and publishes no port:
+
+- `db`: Postgres 17. `db-init/01-create-roles.sh` creates `migrator` and `app_user` on the first start. Its network is internal: it has no way out.
+- `app`: the image, with a read-only file system, no capabilities, `TZ=Europe/Madrid` and `BASE_URL=https://welcome-home.alcornoque.top`. It reads its database passwords as properties from `/run/secrets/config/` (`spring.config.import=configtree:`), not from environment variables.
+- `cloudflared`: connects the tunnel, whose public hostname `welcome-home.alcornoque.top` points to `http://app:8080`. The tunnel is the only way in, which is what makes `CF-Connecting-IP` and `X-Forwarded-Proto` trustworthy.
+
+Before the first `docker compose up`, create `secrets/` next to `compose.yaml`:
+
+| File                 | Content                                                  |
+|----------------------|----------------------------------------------------------|
+| `postgres_password`  | Postgres superuser's password, such as `openssl rand -base64 24` |
+| `migrator_password`  | `migrator`'s password                                    |
+| `app_user_password`  | `app_user`'s password                                    |
+| `aead-keyset.json`   | the AEAD keyset (`./gradlew generateKeysets`)            |
+| `mac-keyset.json`    | the MAC keyset                                           |
+| `tunnel_token`       | the Cloudflare tunnel's token                            |
+
+Write the passwords without a trailing newline (`printf`, or `tr -d '\n'`). Compose mounts each file with its host permissions and the containers run as different users (Postgres 999, the app 10001, cloudflared 65532), so: `chmod 700 secrets` (only root on the host can read them) and `chmod 444 secrets/*` (each container sees only its own). The database passwords are only read on the first start, when the volume is empty.
 
 ## Modules
 

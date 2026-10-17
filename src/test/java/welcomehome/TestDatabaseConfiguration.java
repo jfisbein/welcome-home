@@ -22,7 +22,7 @@ public class TestDatabaseConfiguration {
     PostgreSQLContainer postgres() {
         return new PostgreSQLContainer("postgres:17")
                 .withCopyFileToContainer(
-                        MountableFile.forHostPath("docker/db-init/01-create-roles.sh"),
+                        MountableFile.forHostPath("deploy/db-init/01-create-roles.sh"),
                         "/docker-entrypoint-initdb.d/01-create-roles.sh")
                 .withEnv("APP_USER_PASSWORD", APP_USER_PASSWORD)
                 .withEnv("MIGRATOR_PASSWORD", MIGRATOR_PASSWORD);

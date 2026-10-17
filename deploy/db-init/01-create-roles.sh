@@ -2,12 +2,16 @@
 # Creates the database roles on the first start of an empty Postgres:
 #   migrator: owns the database and schema; Liquibase runs as this role.
 #   app_user: the application; no ownership, no BYPASSRLS. Its table grants come from Liquibase.
+# Passwords come from the environment in development, and from secret files (*_FILE) in production.
 set -e
+
+migrator_password="${MIGRATOR_PASSWORD:-$(cat "$MIGRATOR_PASSWORD_FILE")}"
+app_user_password="${APP_USER_PASSWORD:-$(cat "$APP_USER_PASSWORD_FILE")}"
 
 psql -v ON_ERROR_STOP=1 \
      -v db="$POSTGRES_DB" \
-     -v migrator_password="$MIGRATOR_PASSWORD" \
-     -v app_user_password="$APP_USER_PASSWORD" \
+     -v migrator_password="$migrator_password" \
+     -v app_user_password="$app_user_password" \
      --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<'EOSQL'
 CREATE ROLE migrator LOGIN PASSWORD :'migrator_password';
 CREATE ROLE app_user LOGIN PASSWORD :'app_user_password';
