@@ -1,0 +1,20 @@
+/* What Pico CSS does not cover. */
+
+/* A row of buttons and small forms, such as a link's actions: side by side, wrapping on narrow screens. */
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.actions form {
+    margin: 0;
+}
+
+.actions button,
+.actions [role="button"] {
+    width: auto;
+    margin: 0;
+    padding: 0.25rem 0.75rem;
+}

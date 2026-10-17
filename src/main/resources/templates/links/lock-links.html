@@ -64,7 +64,7 @@
                     <span th:case="'EXPIRED'">Caducado</span>
                     <span th:case="'REVOKED'">Revocado</span>
                 </td>
-                <td>
+                <td class="actions">
                     <a th:if="${link.status.name() != 'REVOKED'}" th:href="@{/links/{id}(id=${link.id})}">Editar</a>
                     <th:block th:if="${link.status.usable}">
                         <button type="button" class="outline" th:data-copy-text="${link.url}">Copiar</button>
