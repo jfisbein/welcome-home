@@ -1,0 +1,30 @@
+package welcomehome.auth;
+
+import java.util.Optional;
+import java.util.UUID;
+
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.stereotype.Repository;
+
+/**
+ * The owner table has no owner_id and no Row-Level Security: authentication reads it by email.
+ */
+@Repository
+class OwnerAccountDao {
+
+    private final JdbcClient jdbc;
+
+    OwnerAccountDao(JdbcClient jdbc) {
+        this.jdbc = jdbc;
+    }
+
+    Optional<OwnerAccount> findByEmail(String email) {
+        return jdbc.sql("SELECT id, email, is_admin FROM owner WHERE email = :email")
+                .param("email", email)
+                .query(OwnerAccount.class)
+                .optional();
+    }
+
+    record OwnerAccount(UUID id, String email, boolean isAdmin) {
+    }
+}

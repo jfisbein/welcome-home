@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Entrar')}"></head>
+<body>
+<main class="container">
+    <article>
+        <header><h1>welcome-home</h1></header>
+        <p th:if="${param.logout}">Has cerrado la sesión.</p>
+        <p>Entra con la passkey de tu dispositivo.</p>
+        <button id="passkey-login" type="button">Entrar con passkey</button>
+        <p id="login-error" role="alert" hidden>No se ha podido entrar con la passkey. Inténtalo de nuevo.</p>
+    </article>
+</main>
+<script th:src="@{/js/webauthn.js}"></script>
+<script th:src="@{/js/login.js}"></script>
+</body>
+</html>
