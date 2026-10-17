@@ -2,6 +2,8 @@ package welcomehome;
 
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.test.context.DynamicPropertyRegistrar;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.MountableFile;
@@ -33,5 +35,15 @@ public class TestDatabaseConfiguration {
             registry.add("spring.datasource.username", () -> "app_user");
             registry.add("spring.datasource.password", () -> APP_USER_PASSWORD);
         };
+    }
+
+    /**
+     * Connects as the schema owner, for test setup that app_user is not allowed to do.
+     *
+     * @param postgres the test database container
+     * @return a client that runs its statements as migrator
+     */
+    public static JdbcClient asMigrator(PostgreSQLContainer postgres) {
+        return JdbcClient.create(new DriverManagerDataSource(postgres.getJdbcUrl(), "migrator", MIGRATOR_PASSWORD));
     }
 }

@@ -1,42 +1,45 @@
 # welcome-home
 
-App web privada donde varios propietarios conectan su cuenta Nuki y generan enlaces únicos, con rango de fechas, que abren la puerta sin app ni códigos.
+A private web app where several owners connect their Nuki account and create unique, date-bound links that open the door without an app or codes.
 
-## Requisitos
+## Requirements
 
 - JDK 25
-- Docker (para los tests con Testcontainers)
+- Docker (Postgres for development and Testcontainers for tests)
 
-## Uso
+## Usage
 
 ```sh
-./gradlew build          # compila y ejecuta los tests (levanta Postgres con Testcontainers)
-docker compose up -d     # Postgres de desarrollo en localhost:5432
-./gradlew bootRun        # arranca la app con el perfil dev en http://localhost:8080
+./gradlew build          # compile and run the tests (starts Postgres with Testcontainers)
+docker compose up -d     # development Postgres on localhost:5432
+./gradlew bootRun        # start the app with the dev profile on http://localhost:8080
 ```
 
-Comprobación rápida: `curl http://localhost:8080/actuator/health`.
+Quick check: `curl http://localhost:8080/actuator/health`.
 
-## Base de datos
+## Database
 
-`docker/db-init/01-create-roles.sh` crea dos roles al iniciar un Postgres vacío:
+`docker/db-init/01-create-roles.sh` creates two roles when an empty Postgres starts:
 
-- `migrator`: propietario de la base de datos y del esquema; con él se ejecutan las migraciones.
-- `app_user`: el usuario de la app; sin propiedad ni `BYPASSRLS`, solo recibe los permisos que le dan las migraciones.
+- `migrator`: owns the database and the schema; migrations run as this role.
+- `app_user`: the application's user; no ownership and no `BYPASSRLS`, only the grants that migrations give it.
 
-El script solo se ejecuta con el volumen vacío. Para recrear la base de datos de desarrollo: `docker compose down -v`.
+Owner data is isolated with Row-Level Security. `OwnerTransactions` runs each owner's work in a transaction that sets `app.owner_id` with `set_config(..., true)`, so the setting ends with the transaction.
 
-## Módulos
+The script only runs on an empty volume. To recreate the development database: `docker compose down -v`.
 
-Paquetes bajo `welcomehome`, verificados con Spring Modulith (`ModularityTests`):
+## Modules
 
-| Módulo   | Responsabilidad                                              |
-|----------|--------------------------------------------------------------|
-| `auth`   | Registro y login de propietarios con passkeys                |
-| `admin`  | Invitaciones y listado de propietarios                       |
-| `crypto` | Keysets, cifrado del API token de Nuki y firma de enlaces    |
-| `nuki`   | Cliente de la Nuki Web API detrás de `LockProvider`          |
-| `locks`  | Cerraduras: sincronización, configuración y estado           |
-| `links`  | Enlaces de acceso: crear, revocar, regenerar y editar        |
-| `access` | Flujo del invitado: valida el enlace y abre la puerta        |
-| `audit`  | Eventos de acceso y su retención                             |
+Packages under `welcomehome`, verified with Spring Modulith (`ModularityTests`):
+
+| Module   | Responsibility                                                    |
+|----------|-------------------------------------------------------------------|
+| `auth`   | Owner registration and login with passkeys                        |
+| `admin`  | Invitations and the owner list                                    |
+| `crypto` | Keysets, encryption of Nuki API tokens and signing of links       |
+| `nuki`   | Nuki Web API client behind `LockProvider`                         |
+| `locks`  | Locks: sync, configuration and state                              |
+| `links`  | Access links: create, revoke, regenerate and edit                 |
+| `access` | Guest flow: validates the link and opens the door                 |
+| `audit`  | Access events and their retention                                 |
+| `db`     | Shared database infrastructure: owner-bound transactions for RLS  |
