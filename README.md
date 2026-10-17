@@ -11,6 +11,7 @@ A private web app where several owners connect their Nuki account and create uni
 
 ```sh
 ./gradlew build          # compile, run the tests (Postgres with Testcontainers) and check javadoc
+./gradlew generateKeysets  # once: development keysets in secrets/ (git-ignored)
 docker compose up -d     # development Postgres on localhost:5432
 ./gradlew bootRun        # start the app with the dev profile on http://localhost:8080
 ```
@@ -29,6 +30,17 @@ Liquibase runs the changesets in `src/main/resources/db/changelog/` at startup a
 Owner data is isolated with Row-Level Security. `OwnerTransactions` runs each owner's work in a transaction that sets `app.owner_id` with `set_config(..., true)`, so the setting ends with the transaction.
 
 The script only runs on an empty volume. To recreate the development database: `docker compose down -v`.
+
+## Keysets
+
+The app needs two Tink keysets and does not start without them:
+
+| Variable           | Keyset                    | Used for                     |
+|--------------------|---------------------------|------------------------------|
+| `AEAD_KEYSET_FILE` | AES-256-GCM               | Encrypting Nuki API tokens   |
+| `MAC_KEYSET_FILE`  | HMAC-SHA256, 128-bit tag  | Signing access links         |
+
+`./gradlew generateKeysets` writes both to `secrets/`, readable only by the current user, and never overwrites existing files. In production they are Docker secrets, backed up separately from the database: losing them means pasting every Nuki API token again and regenerating every access link.
 
 ## Modules
 

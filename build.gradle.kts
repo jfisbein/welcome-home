@@ -31,6 +31,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
     implementation("org.springframework.boot:spring-boot-starter-liquibase")
     implementation("org.springframework.modulith:spring-modulith-starter-core")
+    implementation("com.google.crypto.tink:tink:1.23.0")
     runtimeOnly("org.postgresql:postgresql")
 
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
@@ -59,4 +60,12 @@ tasks.check {
 
 tasks.bootRun {
     systemProperty("spring.profiles.active", "dev")
+}
+
+tasks.register<JavaExec>("generateKeysets") {
+    group = "application"
+    description = "Generates the AEAD and MAC keysets into secrets/. Never overwrites existing files."
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass = "welcomehome.crypto.KeysetGenerator"
+    args("secrets")
 }

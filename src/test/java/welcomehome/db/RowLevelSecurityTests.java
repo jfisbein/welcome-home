@@ -10,15 +10,13 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import welcomehome.IntegrationTest;
 import welcomehome.TestDatabaseConfiguration;
 
-@SpringBootTest
-@Import(TestDatabaseConfiguration.class)
+@IntegrationTest
 class RowLevelSecurityTests {
 
     static final List<String> OWNER_TABLES = List.of("nuki_connection", "lock", "access_link", "access_event");

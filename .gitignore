@@ -1,3 +1,6 @@
+### Keysets (./gradlew generateKeysets) ###
+/secrets/
+
 ### Gradle ###
 .gradle/
 build/
