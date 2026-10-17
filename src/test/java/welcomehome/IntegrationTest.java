@@ -13,7 +13,10 @@ import org.springframework.context.annotation.Import;
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-@SpringBootTest
+@SpringBootTest(properties = "welcomehome.base-url=" + IntegrationTest.BASE_URL)
 @Import({TestDatabaseConfiguration.class, TestKeysetsConfiguration.class})
 public @interface IntegrationTest {
+
+    /** The public URL of the app in tests. */
+    String BASE_URL = "https://welcome.example";
 }

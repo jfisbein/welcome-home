@@ -42,6 +42,17 @@ The app needs two Tink keysets and does not start without them:
 
 `./gradlew generateKeysets` writes both to `secrets/`, readable only by the current user, and never overwrites existing files. In production they are Docker secrets, backed up separately from the database: losing them means pasting every Nuki API token again and regenerating every access link.
 
+## First admin
+
+Owners register only through single-use invitations, valid for 72 hours. The first admin's invitation comes from a one-off command that prints the link and exits; it refuses when an admin already exists:
+
+```sh
+./gradlew bootRun --args='--bootstrap-admin'          # development
+docker compose run --rm app --bootstrap-admin         # production
+```
+
+The app needs `BASE_URL` (its public URL, e.g. `https://welcome.example`) to build invitation and access links.
+
 ## Modules
 
 Packages under `welcomehome`, verified with Spring Modulith (`ModularityTests`):
