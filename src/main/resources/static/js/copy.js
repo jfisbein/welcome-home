@@ -1,15 +1,17 @@
 "use strict";
 
-// A button with data-copy="<input id>" copies that input's value.
-document.querySelectorAll("[data-copy]").forEach(button => {
+// A button with data-copy="<input id>" copies that input's value; one with data-copy-text copies that text.
+document.querySelectorAll("[data-copy], [data-copy-text]").forEach(button => {
     button.addEventListener("click", async () => {
-        const input = document.getElementById(button.dataset.copy);
+        const input = button.dataset.copy ? document.getElementById(button.dataset.copy) : null;
         try {
-            await navigator.clipboard.writeText(input.value);
+            await navigator.clipboard.writeText(input ? input.value : button.dataset.copyText);
             button.textContent = "Copiado";
         } catch (e) {
             console.error(e);
-            input.select();
+            if (input) {
+                input.select();
+            }
         }
     });
 });

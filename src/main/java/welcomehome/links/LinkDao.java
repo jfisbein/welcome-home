@@ -3,8 +3,10 @@ package welcomehome.links;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.UUID;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -37,6 +39,23 @@ class LinkDao {
                 .single();
     }
 
+    List<StoredLink> findByLock(UUID ownerId, UUID lockId) {
+        return jdbc.sql("""
+                        SELECT id, label, token_version, valid_from, valid_until, revoked_at
+                        FROM access_link
+                        WHERE owner_id = :ownerId AND lock_id = :lockId
+                        ORDER BY valid_from DESC
+                        """)
+                .param("ownerId", ownerId)
+                .param("lockId", lockId)
+                .query(StoredLink.class)
+                .list();
+    }
+
     record InsertedLink(UUID id, int tokenVersion) {
+    }
+
+    record StoredLink(UUID id, String label, int tokenVersion, OffsetDateTime validFrom, OffsetDateTime validUntil,
+                      @Nullable OffsetDateTime revokedAt) {
     }
 }

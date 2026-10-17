@@ -14,8 +14,46 @@
         <fieldset role="group">
             <input id="link-url" type="text" readonly th:value="${createdUrl}" aria-label="Enlace para el invitado">
             <button type="button" data-copy="link-url">Copiar</button>
+            <button type="button" class="secondary" hidden th:data-share-url="${createdUrl}"
+                    th:data-share-title="|Abrir ${lock.name}|">Compartir</button>
         </fieldset>
     </article>
+
+    <section>
+        <h2>Enlaces</h2>
+        <p th:if="${links.isEmpty()}">Esta cerradura todavía no tiene enlaces.</p>
+        <table th:unless="${links.isEmpty()}">
+            <thead>
+            <tr>
+                <th scope="col">Para</th>
+                <th scope="col">Validez</th>
+                <th scope="col">Estado</th>
+                <th scope="col"></th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="link : ${links}">
+                <td th:text="${link.label}">Ana</td>
+                <td th:text="|${#temporals.format(link.validFrom, 'd/M/yyyy HH:mm')} – ${#temporals.format(link.validUntil, 'd/M/yyyy HH:mm')}|">
+                    1/11/2030 15:00 – 3/11/2030 11:00
+                </td>
+                <td th:switch="${link.status.name()}">
+                    <span th:case="'PENDING'">Pendiente</span>
+                    <span th:case="'ACTIVE'"><strong>Activo</strong></span>
+                    <span th:case="'EXPIRED'">Caducado</span>
+                    <span th:case="'REVOKED'">Revocado</span>
+                </td>
+                <td>
+                    <th:block th:if="${link.status.usable}">
+                        <button type="button" class="outline" th:data-copy-text="${link.url}">Copiar</button>
+                        <button type="button" class="outline secondary" hidden th:data-share-url="${link.url}"
+                                th:data-share-title="|Abrir ${lock.name}|">Compartir</button>
+                    </th:block>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </section>
 
     <p th:unless="${lock.active}" role="alert">
         Esta cerradura ya no está en tu cuenta de Nuki: no se pueden crear enlaces para ella.
@@ -53,5 +91,6 @@
     <p><a th:href="@{/locks/{id}(id=${lock.id})}" th:text="|Volver a ${lock.name}|">Volver a Casa</a></p>
 </main>
 <script th:src="@{/js/copy.js}"></script>
+<script th:src="@{/js/share.js}"></script>
 </body>
 </html>

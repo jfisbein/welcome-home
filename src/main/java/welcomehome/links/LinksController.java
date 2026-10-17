@@ -50,7 +50,7 @@ class LinksController {
         model.addAttribute("label", "");
         model.addAttribute("validFrom", INPUT_FORMAT.format(now));
         model.addAttribute("validUntil", INPUT_FORMAT.format(now.plusDays(1)));
-        return view(lock, model);
+        return view(owner, lock, model);
     }
 
     @PostMapping
@@ -60,7 +60,7 @@ class LinksController {
         var lock = findLock(owner, lockId);
         if (!lock.active()) {
             response.setStatus(HttpStatus.CONFLICT.value());
-            return view(lock, model);
+            return view(owner, lock, model);
         }
         var zone = ZoneId.of(lock.timeZone());
         var strippedLabel = label.strip();
@@ -83,7 +83,7 @@ class LinksController {
             model.addAttribute("labelError", labelError);
             model.addAttribute("validFromError", from.isEmpty());
             model.addAttribute("validUntilError", untilError);
-            return view(lock, model);
+            return view(owner, lock, model);
         }
         var url = accessLinks.create(owner.id(), lock.id(), strippedLabel, from.get(), until.get());
         redirect.addFlashAttribute("createdUrl", url);
@@ -93,8 +93,9 @@ class LinksController {
         return "redirect:/locks/" + lock.id() + "/links";
     }
 
-    private String view(OwnerLock lock, Model model) {
+    private String view(CurrentOwner owner, OwnerLock lock, Model model) {
         model.addAttribute("lock", lock);
+        model.addAttribute("links", accessLinks.list(owner.id(), lock));
         return VIEW;
     }
 
