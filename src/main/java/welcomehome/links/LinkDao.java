@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
@@ -52,7 +53,23 @@ class LinkDao {
                 .list();
     }
 
+    /** Revokes the link now, or keeps the first revocation if it already was revoked. */
+    Optional<RevokedLink> revoke(UUID ownerId, UUID linkId) {
+        return jdbc.sql("""
+                        UPDATE access_link SET revoked_at = coalesce(revoked_at, now())
+                        WHERE owner_id = :ownerId AND id = :linkId
+                        RETURNING lock_id, label
+                        """)
+                .param("ownerId", ownerId)
+                .param("linkId", linkId)
+                .query(RevokedLink.class)
+                .optional();
+    }
+
     record InsertedLink(UUID id, int tokenVersion) {
+    }
+
+    record RevokedLink(UUID lockId, String label) {
     }
 
     record StoredLink(UUID id, String label, int tokenVersion, OffsetDateTime validFrom, OffsetDateTime validUntil,

@@ -5,10 +5,12 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import welcomehome.db.OwnerTransactions;
+import welcomehome.links.LinkDao.RevokedLink;
 import welcomehome.locks.OwnerLock;
 
 /**
@@ -40,6 +42,15 @@ class AccessLinks {
         var inserted = ownerTransactions.execute(ownerId,
                 () -> links.insert(ownerId, lockId, label, validFrom, validUntil));
         return urls.url(inserted.id(), inserted.tokenVersion());
+    }
+
+    /**
+     * Revokes a link at once: from now on it opens nothing, whatever its dates. Revocation cannot be undone.
+     *
+     * @return the revoked link's lock and label, or empty if the owner has no such link
+     */
+    Optional<RevokedLink> revoke(UUID ownerId, UUID linkId) {
+        return ownerTransactions.execute(ownerId, () -> links.revoke(ownerId, linkId));
     }
 
     /** The lock's links, usable ones first, each group with the latest start first. */

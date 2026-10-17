@@ -19,6 +19,10 @@
         </fieldset>
     </article>
 
+    <article th:if="${revokedLabel}">
+        <p th:text="|Enlace de ${revokedLabel} revocado: ya no abre la puerta.|">Enlace de Ana revocado: ya no abre la puerta.</p>
+    </article>
+
     <section>
         <h2>Enlaces</h2>
         <p th:if="${links.isEmpty()}">Esta cerradura todavía no tiene enlaces.</p>
@@ -48,6 +52,9 @@
                         <button type="button" class="outline" th:data-copy-text="${link.url}">Copiar</button>
                         <button type="button" class="outline secondary" hidden th:data-share-url="${link.url}"
                                 th:data-share-title="|Abrir ${lock.name}|">Compartir</button>
+                        <form th:action="@{/links/{id}/revoke(id=${link.id})}" method="post">
+                            <button type="submit" class="outline contrast">Revocar</button>
+                        </form>
                     </th:block>
                 </td>
             </tr>
