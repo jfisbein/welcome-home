@@ -9,9 +9,10 @@ import org.springframework.test.context.DynamicPropertyRegistrar;
 
 /**
  * A stand-in for the Nuki Web API, for integration tests: the application calls it instead of Nuki.
+ * Test classes that import it with the same other annotations share one application context.
  */
 @TestConfiguration(proxyBeanMethods = false)
-class NukiStandInConfiguration {
+public class NukiStandInConfiguration {
 
     @Bean(destroyMethod = "stop")
     WireMockServer nukiStandIn() {

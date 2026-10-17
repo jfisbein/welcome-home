@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Cerraduras')}"></head>
+<body>
+<main class="container">
+    <nav th:replace="~{fragments/layout :: nav}"></nav>
+    <h1>Cerraduras</h1>
+
+    <article th:if="${synced}">
+        <p>
+            Sincronizado con Nuki.
+            <span th:if="${synced.added > 0}" th:text="|Nuevas: ${synced.added}.|">Nuevas: 1.</span>
+            <span th:if="${synced.deactivated > 0}"
+                  th:text="|Ya no están en tu cuenta de Nuki: ${synced.deactivated}.|">Ya no están: 1.</span>
+            <span th:if="${synced.added == 0 and synced.deactivated == 0}">No hay cambios.</span>
+        </p>
+    </article>
+    <article th:if="${syncError}" role="alert">
+        <p th:if="${syncError == 'not-connected'}">
+            Para sincronizar, primero <a th:href="@{/nuki/connection}">conecta tu cuenta de Nuki</a>.
+        </p>
+        <p th:if="${syncError == 'rejected'}">
+            Nuki no ha aceptado tu API token. <a th:href="@{/nuki/connection}">Revisa la conexión con Nuki</a>.
+        </p>
+        <p th:if="${syncError == 'unavailable'}">Nuki no responde ahora mismo. Inténtalo de nuevo en unos minutos.</p>
+    </article>
+
+    <p th:if="${locks.isEmpty()}">Todavía no tienes cerraduras. Sincroniza para importarlas desde tu cuenta de Nuki.</p>
+    <table th:if="${!locks.isEmpty()}">
+        <thead>
+        <tr>
+            <th scope="col">Nombre</th>
+            <th scope="col">Zona horaria</th>
+            <th scope="col">Estado</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="lock : ${locks}">
+            <td th:text="${lock.name}">Casa</td>
+            <td th:text="${lock.timeZone}">Europe/Madrid</td>
+            <td th:text="${lock.active} ? 'Activa' : 'Ya no está en tu cuenta de Nuki'">Activa</td>
+        </tr>
+        </tbody>
+    </table>
+
+    <form th:action="@{/locks/sync}" method="post">
+        <button type="submit">Sincronizar con Nuki</button>
+    </form>
+</main>
+</body>
+</html>

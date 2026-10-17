@@ -12,6 +12,7 @@
 <nav th:fragment="nav">
     <ul><li><a th:href="@{/}"><strong>welcome-home</strong></a></li></ul>
     <ul>
+        <li><a th:href="@{/locks}">Cerraduras</a></li>
         <li><a th:href="@{/nuki/connection}">Nuki</a></li>
         <li th:if="${isAdmin}"><a th:href="@{/admin/owners}">Administración</a></li>
         <li>

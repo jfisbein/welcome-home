@@ -78,6 +78,10 @@ Calls time out and are retried with exponential backoff: on rate limiting (429, 
 | `initial-backoff` | `500ms`, doubling     |
 | `max-backoff`     | `5s`                  |
 
+## Locks
+
+`/locks` lists the owner's locks; "Sincronizar con Nuki" (`POST /locks/sync`) brings them in line with the Nuki account. New locks are imported with their Nuki name and the server's time zone (Nuki reports only its own time zone index), which the owner can change. Later syncs keep those choices. Locks no longer in the account become inactive, keeping their links; if they come back, they are active again. Each sync also links the locks to the owner's current Nuki connection.
+
 ## Web security
 
 - CSRF: every POST needs Spring Security's token; pages put it in a meta tag for `static/js/webauthn.js`.

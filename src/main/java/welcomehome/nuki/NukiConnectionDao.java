@@ -24,7 +24,7 @@ class NukiConnectionDao {
 
     Optional<StoredConnection> find(UUID ownerId) {
         return jdbc.sql("""
-                        SELECT api_token_encrypted, status, last_checked_at::timestamp AS last_checked_at
+                        SELECT id, api_token_encrypted, status, last_checked_at::timestamp AS last_checked_at
                         FROM nuki_connection
                         WHERE owner_id = :ownerId
                         """)
@@ -78,6 +78,6 @@ class NukiConnectionDao {
         return jdbc.sql("SELECT id FROM owner ORDER BY created_at").query(UUID.class).list();
     }
 
-    record StoredConnection(byte[] apiTokenEncrypted, ConnectionStatus status, @Nullable LocalDateTime lastCheckedAt) {
+    record StoredConnection(UUID id, byte[] apiTokenEncrypted, ConnectionStatus status, @Nullable LocalDateTime lastCheckedAt) {
     }
 }

@@ -11,6 +11,9 @@
             Nuki conectado. Cerraduras encontradas:
             <strong th:text="${#strings.listJoin(connectedLocks, ', ')}">Casa</strong>.
         </p>
+        <form th:if="${!connectedLocks.isEmpty()}" th:action="@{/locks/sync}" method="post">
+            <button type="submit">Importar cerraduras</button>
+        </form>
         <p th:if="${connectedLocks.isEmpty()}">
             Nuki conectado, pero no hemos encontrado ninguna cerradura en tu cuenta.
         </p>

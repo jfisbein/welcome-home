@@ -43,7 +43,7 @@ public class NukiConnections {
      */
     public Optional<NukiConnection> find(UUID ownerId) {
         return ownerTransactions.execute(ownerId, () -> connections.find(ownerId))
-                .map(stored -> new NukiConnection(stored.status(), stored.lastCheckedAt()));
+                .map(stored -> new NukiConnection(stored.id(), stored.status(), stored.lastCheckedAt()));
     }
 
     /**
