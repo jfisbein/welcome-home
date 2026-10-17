@@ -3,7 +3,7 @@
 <head th:replace="~{fragments/layout :: head('Panel')}"></head>
 <body>
 <main class="container">
-    <nav th:replace="~{fragments/layout :: nav(${isAdmin})}"></nav>
+    <nav th:replace="~{fragments/layout :: nav}"></nav>
     <h1>Hola</h1>
     <p>Has entrado como <strong th:text="${email}">propietario@example.com</strong>.</p>
 </main>

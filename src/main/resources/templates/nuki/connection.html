@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Nuki')}"></head>
+<body>
+<main class="container">
+    <nav th:replace="~{fragments/layout :: nav}"></nav>
+    <h1>Conexión con Nuki</h1>
+
+    <article th:if="${connectedLocks}">
+        <p th:if="${!connectedLocks.isEmpty()}">
+            Nuki conectado. Cerraduras encontradas:
+            <strong th:text="${#strings.listJoin(connectedLocks, ', ')}">Casa</strong>.
+        </p>
+        <p th:if="${connectedLocks.isEmpty()}">
+            Nuki conectado, pero no hemos encontrado ninguna cerradura en tu cuenta.
+        </p>
+    </article>
+
+    <p th:if="${connection == null}">Todavía no has conectado tu cuenta de Nuki.</p>
+    <p th:if="${connection != null and connection.status.name() == 'OK'}">
+        Conectado.
+        <span th:if="${connection.lastCheckedAt}"
+              th:text="|Última comprobación: ${#temporals.format(connection.lastCheckedAt, 'd/M/yyyy HH:mm')}.|">
+            Última comprobación: 17/10/2026 16:40.
+        </span>
+    </p>
+    <p th:if="${connection != null and connection.status.name() == 'DISCONNECTED'}" role="alert">
+        Nuki ha rechazado tu API token y los enlaces no pueden abrir la puerta. Pega uno nuevo para volver a conectar.
+    </p>
+
+    <form th:action="@{/nuki/connection}" th:method="put">
+        <p>
+            En Nuki Web, entra en Menú → API y genera un API token con permiso para ver tus cerraduras, abrirlas
+            y ver su registro. Después pégalo aquí: se guarda cifrado y no se vuelve a mostrar.
+        </p>
+        <label>
+            API token
+            <input type="password" name="apiToken" autocomplete="off" required
+                   th:attr="aria-invalid=${error} ? 'true' : null">
+            <small th:if="${error == 'rejected'}">
+                Nuki no ha aceptado este API token. Comprueba que esté completo y que tenga esos permisos.
+            </small>
+            <small th:if="${error == 'unavailable'}">
+                Nuki no responde ahora mismo. Inténtalo de nuevo en unos minutos.
+            </small>
+        </label>
+        <button type="submit" th:text="${connection == null} ? 'Conectar' : 'Cambiar API token'">Conectar</button>
+    </form>
+</main>
+</body>
+</html>

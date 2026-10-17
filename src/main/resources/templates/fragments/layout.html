@@ -9,10 +9,11 @@
     <link rel="stylesheet" th:href="@{/css/pico.min.css}">
 </head>
 <body>
-<nav th:fragment="nav(showAdmin)">
+<nav th:fragment="nav">
     <ul><li><a th:href="@{/}"><strong>welcome-home</strong></a></li></ul>
     <ul>
-        <li th:if="${showAdmin}"><a th:href="@{/admin/owners}">Administración</a></li>
+        <li><a th:href="@{/nuki/connection}">Nuki</a></li>
+        <li th:if="${isAdmin}"><a th:href="@{/admin/owners}">Administración</a></li>
         <li>
             <form th:action="@{/logout}" method="post">
                 <button type="submit" class="secondary">Salir</button>

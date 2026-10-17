@@ -1,0 +1,202 @@
+package welcomehome.nuki;
+
+import static com.github.tomakehurst.wiremock.client.WireMock.anyRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.anyUrl;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
+import static com.github.tomakehurst.wiremock.client.WireMock.status;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.UUID;
+
+import com.github.tomakehurst.wiremock.WireMockServer;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.test.web.servlet.assertj.MvcTestResult;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+import welcomehome.IntegrationTest;
+import welcomehome.TestDatabaseConfiguration;
+import welcomehome.crypto.CryptoService;
+
+@IntegrationTest
+@AutoConfigureMockMvc
+@Import(NukiStandInConfiguration.class)
+class NukiConnectionTests {
+
+    static final String ALICE = "alice@example.com";
+    static final String TOKEN = "0123456789abcdef0123456789abcdef";
+    static final String NEW_TOKEN = "fedcba9876543210fedcba9876543210";
+
+    @Autowired
+    MockMvcTester mvc;
+
+    @Autowired
+    WireMockServer nuki;
+
+    @Autowired
+    CryptoService crypto;
+
+    @Autowired
+    PostgreSQLContainer postgres;
+
+    JdbcClient migrator;
+    UUID aliceId;
+
+    @BeforeEach
+    void insertAliceAndBob() {
+        nuki.resetAll();
+        migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        migrator.sql("DELETE FROM owner").update();
+        aliceId = insertOwner(ALICE);
+        insertOwner("bob@example.com");
+    }
+
+    @Test
+    void anonymousVisitorIsSentToLogin() {
+        assertThat(mvc.get().uri("/nuki/connection"))
+                .hasStatus(HttpStatus.FOUND)
+                .redirectedUrl().endsWith("/login");
+    }
+
+    @Test
+    void ownerWithoutConnectionIsAskedForAToken() {
+        assertThat(mvc.get().uri("/nuki/connection").with(owner(ALICE)))
+                .hasStatusOk()
+                .bodyText().contains("Todavía no has conectado", "API token");
+    }
+
+    @Test
+    void tokenThatNukiAcceptsIsStoredEncrypted() {
+        nukiAccepts(TOKEN);
+
+        var result = connect(ALICE, "  " + TOKEN + "\n");
+
+        assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/nuki/connection");
+        assertThat(result.getMvcResult().getFlashMap().get("connectedLocks")).isEqualTo(List.of("Casa"));
+        var stored = storedToken(aliceId);
+        assertThat(new String(stored, StandardCharsets.ISO_8859_1)).doesNotContain(TOKEN);
+        assertThat(crypto.decryptApiToken(aliceId, stored)).isEqualTo(TOKEN);
+        assertThat(migrator.sql("SELECT status FROM nuki_connection").query(String.class).single()).isEqualTo("OK");
+        assertThat(mvc.get().uri("/nuki/connection").with(owner(ALICE)))
+                .bodyText().contains("Conectado.", "Última comprobación");
+    }
+
+    @Test
+    void pageNamesTheLocksJustFound() {
+        assertThat(mvc.get().uri("/nuki/connection").with(owner(ALICE)).flashAttr("connectedLocks", List.of("Casa")))
+                .bodyText().contains("Cerraduras encontradas", "Casa");
+    }
+
+    @Test
+    void htmlFormSendsThePutAsAPostWithHiddenMethod() {
+        nukiAccepts(TOKEN);
+
+        assertThat(mvc.post().uri("/nuki/connection").with(owner(ALICE)).with(csrf())
+                .param("_method", "put").param("apiToken", TOKEN))
+                .hasStatus(HttpStatus.FOUND);
+        assertThat(storedToken(aliceId)).isNotNull();
+    }
+
+    @Test
+    void tokenThatNukiRejectsIsNotStored() {
+        nuki.stubFor(get("/smartlock").willReturn(status(401)));
+
+        var result = connect(ALICE, TOKEN);
+
+        assertThat(result).hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyText().contains("Nuki no ha aceptado este API token").doesNotContain(TOKEN);
+        assertNoConnection();
+    }
+
+    @Test
+    void nothingIsStoredWhileNukiDoesNotAnswer() {
+        nuki.stubFor(get("/smartlock").willReturn(status(503)));
+
+        assertThat(connect(ALICE, TOKEN))
+                .hasStatus(HttpStatus.SERVICE_UNAVAILABLE)
+                .bodyText().contains("Nuki no responde");
+        assertNoConnection();
+    }
+
+    @Test
+    void inputThatCannotBeATokenIsRejectedWithoutAskingNuki() {
+        for (var input : new String[] {"", "   ", "two words", "x".repeat(1001)}) {
+            assertThat(connect(ALICE, input)).as(input).hasStatus(HttpStatus.BAD_REQUEST);
+        }
+        nuki.verify(0, anyRequestedFor(anyUrl()));
+        assertNoConnection();
+    }
+
+    @Test
+    void newTokenReplacesTheOldOneAndReconnects() {
+        nukiAccepts(TOKEN);
+        connect(ALICE, TOKEN);
+        migrator.sql("UPDATE nuki_connection SET status = 'DISCONNECTED'").update();
+        assertThat(mvc.get().uri("/nuki/connection").with(owner(ALICE))).bodyText().contains("Nuki ha rechazado");
+
+        nukiAccepts(NEW_TOKEN);
+        assertThat(connect(ALICE, NEW_TOKEN)).hasStatus(HttpStatus.FOUND);
+
+        assertThat(crypto.decryptApiToken(aliceId, storedToken(aliceId))).isEqualTo(NEW_TOKEN);
+        assertThat(migrator.sql("SELECT status FROM nuki_connection").query(String.class).list()).containsExactly("OK");
+    }
+
+    @Test
+    void ownerDoesNotSeeAnotherOwnersConnection() {
+        nukiAccepts(TOKEN);
+        connect("bob@example.com", TOKEN);
+
+        assertThat(mvc.get().uri("/nuki/connection").with(owner(ALICE))).bodyText().contains("Todavía no has conectado");
+    }
+
+    @Test
+    void connectingRequiresTheCsrfToken() {
+        assertThat(mvc.put().uri("/nuki/connection").with(owner(ALICE)).param("apiToken", TOKEN))
+                .hasStatus(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void signedInUserWithoutOwnerIsForbidden() {
+        assertThat(mvc.get().uri("/nuki/connection").with(owner("deleted@example.com"))).hasStatus(HttpStatus.FORBIDDEN);
+    }
+
+    private MvcTestResult connect(String email, String apiToken) {
+        return mvc.put().uri("/nuki/connection").with(owner(email)).with(csrf()).param("apiToken", apiToken).exchange();
+    }
+
+    private void nukiAccepts(String token) {
+        nuki.stubFor(get("/smartlock").withHeader("Authorization", equalTo("Bearer " + token))
+                .willReturn(okJson("[{\"smartlockId\": 17, \"type\": 5, \"name\": \"Casa\", \"serverState\": 0}]")));
+    }
+
+    private byte[] storedToken(UUID ownerId) {
+        return migrator.sql("SELECT api_token_encrypted FROM nuki_connection WHERE owner_id = ?")
+                .param(ownerId)
+                .query(byte[].class)
+                .single();
+    }
+
+    private void assertNoConnection() {
+        assertThat(migrator.sql("SELECT count(*) FROM nuki_connection").query(Long.class).single()).isZero();
+    }
+
+    private UUID insertOwner(String email) {
+        return migrator.sql("INSERT INTO owner (email) VALUES (?) RETURNING id").param(email).query(UUID.class).single();
+    }
+
+    private static RequestPostProcessor owner(String email) {
+        return user(email).roles("OWNER");
+    }
+}

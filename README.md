@@ -59,7 +59,9 @@ The app needs `BASE_URL` (its public URL, e.g. `https://welcome.example`) to bui
 
 ## Nuki
 
-The `nuki` module is the only one that talks to Nuki, through the Nuki Web API ([definition](https://api.nuki.io/static/swagger/swagger.json)) with each owner's API token. Other modules use the `LockProvider` interface.
+The `nuki` module is the only one that talks to Nuki, through the Nuki Web API ([definition](https://api.nuki.io/static/swagger/swagger.json)) with each owner's API token. Other modules use the `LockProvider` interface, which takes an owner id: the module finds and decrypts that owner's token itself, so tokens never leave it in clear.
+
+Owners connect at `/nuki/connection` by pasting an API token generated in Nuki Web (Menu → API) with permission to view their locks, operate them and read their log. The token is stored only after `GET /smartlock` accepts it, encrypted for its owner, and it is never shown again. Pasting a new token replaces the old one and reconnects a disconnected account.
 
 Calls time out and are retried with exponential backoff: on rate limiting (429, honoring `Retry-After`), and for reads also on server errors and timeouts. The unlatch action is retried only when Nuki cannot have run it (429, or no connection made), so a door never opens twice. The defaults, under `welcomehome.nuki.*`:
 
