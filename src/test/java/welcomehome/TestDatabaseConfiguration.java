@@ -10,7 +10,7 @@ import org.testcontainers.utility.MountableFile;
 
 /**
  * Postgres in a container, initialised with the same role script as the real database.
- * The application connects as app_user, never as the container's superuser.
+ * Liquibase migrates as migrator and the application connects as app_user, never as the container's superuser.
  */
 @TestConfiguration(proxyBeanMethods = false)
 public class TestDatabaseConfiguration {
@@ -34,6 +34,8 @@ public class TestDatabaseConfiguration {
             registry.add("spring.datasource.url", postgres::getJdbcUrl);
             registry.add("spring.datasource.username", () -> "app_user");
             registry.add("spring.datasource.password", () -> APP_USER_PASSWORD);
+            registry.add("spring.liquibase.user", () -> "migrator");
+            registry.add("spring.liquibase.password", () -> MIGRATOR_PASSWORD);
         };
     }
 

@@ -10,7 +10,7 @@ A private web app where several owners connect their Nuki account and create uni
 ## Usage
 
 ```sh
-./gradlew build          # compile and run the tests (starts Postgres with Testcontainers)
+./gradlew build          # compile, run the tests (Postgres with Testcontainers) and check javadoc
 docker compose up -d     # development Postgres on localhost:5432
 ./gradlew bootRun        # start the app with the dev profile on http://localhost:8080
 ```
@@ -23,6 +23,8 @@ Quick check: `curl http://localhost:8080/actuator/health`.
 
 - `migrator`: owns the database and the schema; migrations run as this role.
 - `app_user`: the application's user; no ownership and no `BYPASSRLS`, only the grants that migrations give it.
+
+Liquibase runs the changesets in `src/main/resources/db/changelog/` at startup as `migrator` (`spring.liquibase.user` / `spring.liquibase.password`), while the app connects as `app_user` (`spring.datasource.username` / `spring.datasource.password`). Outside the dev profile, set them with the `SPRING_LIQUIBASE_*` and `SPRING_DATASOURCE_*` environment variables.
 
 Owner data is isolated with Row-Level Security. `OwnerTransactions` runs each owner's work in a transaction that sets `app.owner_id` with `set_config(..., true)`, so the setting ends with the transaction.
 

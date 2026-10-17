@@ -29,6 +29,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
+    implementation("org.springframework.boot:spring-boot-starter-liquibase")
     implementation("org.springframework.modulith:spring-modulith-starter-core")
     runtimeOnly("org.postgresql:postgresql")
 
@@ -43,6 +44,17 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+// Public API must be documented: missing or broken javadoc fails `check`.
+tasks.javadoc {
+    val javadocOptions = options as StandardJavadocDocletOptions
+    javadocOptions.addBooleanOption("Xdoclint:all", true)
+    javadocOptions.addBooleanOption("Werror", true)
+}
+
+tasks.check {
+    dependsOn(tasks.javadoc)
 }
 
 tasks.bootRun {

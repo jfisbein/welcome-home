@@ -1,0 +1,3 @@
+# Master changelog: includes the changesets under changes/ in order. Runs as migrator, never as app_user.
+# Rule: every new table with owner_id brings its ENABLE ROW LEVEL SECURITY and policy in the same changeset.
+databaseChangeLog: []
