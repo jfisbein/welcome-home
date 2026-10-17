@@ -94,6 +94,8 @@ The same page lists the lock's links with their state, computed and never stored
 
 "Revocar" (`POST /links/{id}/revoke`) revokes a link at once and for good: from then on it opens nothing, whatever its dates. Revoking again keeps the first revocation time.
 
+"Regenerar" (`POST /links/{id}/regenerate`), for a URL that leaked, increments the link's `token_version`: every earlier URL stops working and the page shows the new one. Dates, label and state stay the same; revoked links are not regenerated.
+
 ## Web security
 
 - CSRF: every POST needs Spring Security's token; pages put it in a meta tag for `static/js/webauthn.js`.

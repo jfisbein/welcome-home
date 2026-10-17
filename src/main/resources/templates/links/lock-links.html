@@ -19,6 +19,18 @@
         </fieldset>
     </article>
 
+    <article th:if="${regeneratedUrl}">
+        <header><strong th:text="|Nuevo enlace para ${regeneratedLabel}|">Nuevo enlace para Ana</strong></header>
+        <p>El enlace anterior ya no abre la puerta. Envía este en su lugar; las fechas no cambian.</p>
+        <fieldset role="group">
+            <input id="regenerated-url" type="text" readonly th:value="${regeneratedUrl}"
+                   aria-label="Nuevo enlace para el invitado">
+            <button type="button" data-copy="regenerated-url">Copiar</button>
+            <button type="button" class="secondary" hidden th:data-share-url="${regeneratedUrl}"
+                    th:data-share-title="|Abrir ${lock.name}|">Compartir</button>
+        </fieldset>
+    </article>
+
     <article th:if="${revokedLabel}">
         <p th:text="|Enlace de ${revokedLabel} revocado: ya no abre la puerta.|">Enlace de Ana revocado: ya no abre la puerta.</p>
     </article>
@@ -52,6 +64,10 @@
                         <button type="button" class="outline" th:data-copy-text="${link.url}">Copiar</button>
                         <button type="button" class="outline secondary" hidden th:data-share-url="${link.url}"
                                 th:data-share-title="|Abrir ${lock.name}|">Compartir</button>
+                        <form th:action="@{/links/{id}/regenerate(id=${link.id})}" method="post">
+                            <button type="submit" class="outline secondary"
+                                    title="Si el enlace se ha filtrado: el anterior deja de funcionar">Regenerar</button>
+                        </form>
                         <form th:action="@{/links/{id}/revoke(id=${link.id})}" method="post">
                             <button type="submit" class="outline contrast">Revocar</button>
                         </form>

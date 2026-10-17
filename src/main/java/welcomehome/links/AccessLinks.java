@@ -44,6 +44,9 @@ class AccessLinks {
         return urls.url(inserted.id(), inserted.tokenVersion());
     }
 
+    record RegeneratedUrl(UUID lockId, String label, URI url) {
+    }
+
     /**
      * Revokes a link at once: from now on it opens nothing, whatever its dates. Revocation cannot be undone.
      *
@@ -51,6 +54,17 @@ class AccessLinks {
      */
     Optional<RevokedLink> revoke(UUID ownerId, UUID linkId) {
         return ownerTransactions.execute(ownerId, () -> links.revoke(ownerId, linkId));
+    }
+
+    /**
+     * Gives a link a new URL, for when the old one leaked: incrementing its token version makes every earlier
+     * URL invalid. Its dates, label and state stay the same.
+     *
+     * @return the link's lock, label and new URL, or empty if the owner has no such link or it is revoked
+     */
+    Optional<RegeneratedUrl> regenerate(UUID ownerId, UUID linkId) {
+        return ownerTransactions.execute(ownerId, () -> links.incrementTokenVersion(ownerId, linkId))
+                .map(link -> new RegeneratedUrl(link.lockId(), link.label(), urls.url(link.id(), link.tokenVersion())));
     }
 
     /** The lock's links, usable ones first, each group with the latest start first. */

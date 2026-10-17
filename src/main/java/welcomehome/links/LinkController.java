@@ -31,4 +31,13 @@ class LinkController {
         redirect.addFlashAttribute("revokedLabel", revoked.label());
         return "redirect:/locks/" + revoked.lockId() + "/links";
     }
+
+    @PostMapping("/regenerate")
+    String regenerate(CurrentOwner owner, @PathVariable UUID linkId, RedirectAttributes redirect) {
+        var regenerated = accessLinks.regenerate(owner.id(), linkId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        redirect.addFlashAttribute("regeneratedUrl", regenerated.url());
+        redirect.addFlashAttribute("regeneratedLabel", regenerated.label());
+        return "redirect:/locks/" + regenerated.lockId() + "/links";
+    }
 }

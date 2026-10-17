@@ -66,7 +66,23 @@ class LinkDao {
                 .optional();
     }
 
+    /** Invalidates every earlier URL of a link that is not revoked. */
+    Optional<RegeneratedLink> incrementTokenVersion(UUID ownerId, UUID linkId) {
+        return jdbc.sql("""
+                        UPDATE access_link SET token_version = token_version + 1
+                        WHERE owner_id = :ownerId AND id = :linkId AND revoked_at IS NULL
+                        RETURNING id, token_version, lock_id, label
+                        """)
+                .param("ownerId", ownerId)
+                .param("linkId", linkId)
+                .query(RegeneratedLink.class)
+                .optional();
+    }
+
     record InsertedLink(UUID id, int tokenVersion) {
+    }
+
+    record RegeneratedLink(UUID id, int tokenVersion, UUID lockId, String label) {
     }
 
     record RevokedLink(UUID lockId, String label) {
