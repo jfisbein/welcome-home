@@ -7,6 +7,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.status;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
@@ -44,6 +45,9 @@ class NukiConnectionTests {
 
     @Autowired
     WireMockServer nuki;
+
+    @Autowired
+    LockProvider locks;
 
     @Autowired
     CryptoService crypto;
@@ -187,6 +191,82 @@ class NukiConnectionTests {
         migrator.sql("UPDATE nuki_connection SET status = 'DISCONNECTED'").update();
 
         assertThat(mvc.get().uri("/").with(owner(ALICE))).bodyText().contains("Nuki ha rechazado tu API token");
+    }
+
+    @Test
+    void disconnectingDeletesTheTokenButKeepsLocksAndLinks() {
+        nukiAccepts(TOKEN);
+        connect(ALICE, TOKEN);
+        var lockId = migrator.sql("""
+                        INSERT INTO lock (owner_id, connection_id, nuki_smartlock_id, name, time_zone)
+                        SELECT owner_id, id, 17, 'Casa', 'Europe/Madrid' FROM nuki_connection
+                        RETURNING id
+                        """)
+                .query(UUID.class)
+                .single();
+        migrator.sql("""
+                        INSERT INTO access_link (owner_id, lock_id, label, valid_from, valid_until)
+                        VALUES (?, ?, 'Invitado', now(), now() + interval '1 day')
+                        """)
+                .params(aliceId, lockId)
+                .update();
+        var linkBefore = link();
+
+        var result = mvc.delete().uri("/nuki/connection").with(owner(ALICE)).with(csrf()).exchange();
+
+        assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/nuki/connection");
+        assertNoConnection();
+        assertThat(migrator.sql("SELECT connection_id IS NULL FROM lock").query(Boolean.class).single()).isTrue();
+        assertThat(link()).isEqualTo(linkBefore);
+        nuki.resetRequests();
+        assertThatThrownBy(() -> locks.unlatch(aliceId, 17))
+                .isInstanceOfSatisfying(LockProviderException.class,
+                        e -> assertThat(e.reason()).isEqualTo(LockProviderException.Reason.NOT_CONNECTED));
+        nuki.verify(0, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
+    void pageConfirmsTheDisconnection() {
+        assertThat(mvc.get().uri("/nuki/connection").with(owner(ALICE)).flashAttr("disconnected", true))
+                .bodyText().contains("Nuki desconectado", "Todavía no has conectado");
+    }
+
+    @Test
+    void htmlFormSendsTheDeleteAsAPostWithHiddenMethod() {
+        nukiAccepts(TOKEN);
+        connect(ALICE, TOKEN);
+
+        assertThat(mvc.post().uri("/nuki/connection").with(owner(ALICE)).with(csrf()).param("_method", "delete"))
+                .hasStatus(HttpStatus.FOUND);
+        assertNoConnection();
+    }
+
+    @Test
+    void disconnectingTouchesOnlyTheOwnersOwnConnection() {
+        nukiAccepts(TOKEN);
+        connect(ALICE, TOKEN);
+        connect("bob@example.com", TOKEN);
+
+        mvc.delete().uri("/nuki/connection").with(owner(ALICE)).with(csrf()).exchange();
+
+        assertThat(migrator.sql("SELECT o.email FROM nuki_connection c JOIN owner o ON o.id = c.owner_id")
+                .query(String.class).list()).containsExactly("bob@example.com");
+    }
+
+    @Test
+    void disconnectingRequiresTheCsrfToken() {
+        nukiAccepts(TOKEN);
+        connect(ALICE, TOKEN);
+
+        assertThat(mvc.delete().uri("/nuki/connection").with(owner(ALICE))).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(storedToken(aliceId)).isNotNull();
+    }
+
+    /** Everything that decides a link's state and its URL. */
+    private String link() {
+        return migrator.sql("SELECT concat_ws('|', lock_id, token_version, valid_from, valid_until, revoked_at) FROM access_link")
+                .query(String.class)
+                .single();
     }
 
     private MvcTestResult connect(String email, String apiToken) {

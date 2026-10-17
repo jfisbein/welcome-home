@@ -65,6 +65,8 @@ Owners connect at `/nuki/connection` by pasting an API token generated in Nuki W
 
 When Nuki answers 401 to a stored token, the connection becomes `DISCONNECTED`: links stop opening and the owner's panel asks for a new token. A job checks every connection daily (`welcomehome.nuki.check-cron`, 08:00 server time by default), so that the owner learns about a revoked token before a guest does. A 403 (a permission missing) or an unanswered call does not disconnect.
 
+Disconnecting (`DELETE /nuki/connection`, the "Desconectar Nuki" button) deletes the token. Locks and links stay as they are, without any change of state, but cannot open the door until the owner connects again: guests see "not available".
+
 Calls time out and are retried with exponential backoff: on rate limiting (429, honoring `Retry-After`), and for reads also on server errors and timeouts. The unlatch action is retried only when Nuki cannot have run it (429, or no connection made), so a door never opens twice. The defaults, under `welcomehome.nuki.*`:
 
 | Property          | Default               |

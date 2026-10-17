@@ -16,6 +16,13 @@
         </p>
     </article>
 
+    <article th:if="${disconnected}">
+        <p>
+            Nuki desconectado: hemos borrado tu API token. Si no vas a volver a usarlo, bórralo también en
+            Nuki Web.
+        </p>
+    </article>
+
     <p th:if="${connection == null}">Todavía no has conectado tu cuenta de Nuki.</p>
     <p th:if="${connection != null and connection.status.name() == 'OK'}">
         Conectado.
@@ -46,6 +53,17 @@
         </label>
         <button type="submit" th:text="${connection == null} ? 'Conectar' : 'Cambiar API token'">Conectar</button>
     </form>
+
+    <section th:if="${connection != null}">
+        <h2>Desconectar</h2>
+        <p>
+            Borra tu API token de welcome-home. Tus cerraduras y enlaces se conservan, pero los enlaces no podrán
+            abrir la puerta hasta que vuelvas a conectar Nuki.
+        </p>
+        <form th:action="@{/nuki/connection}" th:method="delete">
+            <button type="submit" class="secondary">Desconectar Nuki</button>
+        </form>
+    </section>
 </main>
 </body>
 </html>

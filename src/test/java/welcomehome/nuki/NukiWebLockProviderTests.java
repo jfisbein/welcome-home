@@ -145,7 +145,7 @@ class NukiWebLockProviderTests {
         var rejected = migrator.sql("SELECT api_token_encrypted FROM nuki_connection").query(byte[].class).single();
         connectWith(alice, BOBS_TOKEN);
 
-        ownerTransactions.run(alice, () -> connectionDao.disconnect(alice, rejected));
+        ownerTransactions.run(alice, () -> connectionDao.markDisconnected(alice, rejected));
 
         assertThat(connectionStatus(alice)).isEqualTo("OK");
     }

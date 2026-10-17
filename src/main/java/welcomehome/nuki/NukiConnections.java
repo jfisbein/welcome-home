@@ -67,6 +67,14 @@ public class NukiConnections {
     }
 
     /**
+     * Deletes the owner's connection and its API token. Locks and links stay as they are, but cannot open
+     * the door until the owner connects Nuki again.
+     */
+    void remove(UUID ownerId) {
+        ownerTransactions.run(ownerId, () -> connections.delete(ownerId));
+    }
+
+    /**
      * Calls Nuki with the owner's stored API token. If Nuki rejects the token, the connection is
      * disconnected, unless the owner has stored another token in the meantime.
      *
@@ -88,7 +96,7 @@ public class NukiConnections {
             return call.apply(apiToken);
         } catch (LockProviderException e) {
             if (e.reason() == Reason.ACCESS_DENIED) {
-                ownerTransactions.run(ownerId, () -> connections.disconnect(ownerId, stored.apiTokenEncrypted()));
+                ownerTransactions.run(ownerId, () -> connections.markDisconnected(ownerId, stored.apiTokenEncrypted()));
             }
             throw e;
         }
