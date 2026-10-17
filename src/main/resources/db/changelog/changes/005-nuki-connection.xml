@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="005-nuki-connection" author="welcome-home">
+        <comment>
+            One Nuki connection per owner. The API token is encrypted with AEAD, using owner_id as associated data.
+        </comment>
+
+        <createTable tableName="nuki_connection">
+            <column name="id" type="uuid" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" primaryKeyName="nuki_connection_pkey"/>
+            </column>
+            <column name="owner_id" type="uuid">
+                <constraints nullable="false"
+                             unique="true" uniqueConstraintName="nuki_connection_owner_id_key"
+                             foreignKeyName="nuki_connection_owner_id_fkey"
+                             referencedTableName="owner" referencedColumnNames="id" deleteCascade="true"/>
+            </column>
+            <column name="api_token_encrypted" type="bytea">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_checked_at" type="timestamptz"/>
+            <column name="created_at" type="timestamptz" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!-- Target of the composite foreign keys that keep references inside one owner. -->
+        <addUniqueConstraint constraintName="nuki_connection_owner_id_id_key"
+                             tableName="nuki_connection" columnNames="owner_id, id"/>
+
+        <sql>
+            ALTER TABLE nuki_connection ADD CONSTRAINT nuki_connection_status_check
+                CHECK (status IN ('OK', 'DISCONNECTED'));
+
+            ALTER TABLE nuki_connection ENABLE ROW LEVEL SECURITY;
+            CREATE POLICY owner_isolation ON nuki_connection
+                USING (owner_id = current_owner_id())
+                WITH CHECK (owner_id = current_owner_id());
+
+            GRANT SELECT, INSERT, UPDATE, DELETE ON nuki_connection TO app_user;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

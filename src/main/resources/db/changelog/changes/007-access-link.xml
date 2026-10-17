@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        No token is stored: the link is {id}.{mac}, with mac = HMAC(key, id || token_version).
+        The state (PENDING, ACTIVE, EXPIRED, REVOKED) is computed from the dates and revoked_at.
+    -->
+    <changeSet id="007-access-link" author="welcome-home">
+        <comment>Access links. They are never deleted: they are revoked with revoked_at.</comment>
+
+        <createTable tableName="access_link">
+            <column name="id" type="uuid" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" primaryKeyName="access_link_pkey"/>
+            </column>
+            <column name="owner_id" type="uuid">
+                <constraints nullable="false"
+                             foreignKeyName="access_link_owner_id_fkey"
+                             referencedTableName="owner" referencedColumnNames="id" deleteCascade="true"/>
+            </column>
+            <column name="lock_id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="label" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="token_version" type="integer" defaultValueNumeric="1">
+                <constraints nullable="false"/>
+            </column>
+            <column name="valid_from" type="timestamptz">
+                <constraints nullable="false"/>
+            </column>
+            <column name="valid_until" type="timestamptz">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamptz" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+            <column name="revoked_at" type="timestamptz"/>
+        </createTable>
+
+        <addUniqueConstraint constraintName="access_link_owner_id_id_key"
+                             tableName="access_link" columnNames="owner_id, id"/>
+
+        <addForeignKeyConstraint constraintName="access_link_lock_fkey"
+                                 baseTableName="access_link" baseColumnNames="owner_id, lock_id"
+                                 referencedTableName="lock" referencedColumnNames="owner_id, id"
+                                 onDelete="CASCADE"/>
+
+        <createIndex indexName="access_link_lock_idx" tableName="access_link">
+            <column name="owner_id"/>
+            <column name="lock_id"/>
+        </createIndex>
+
+        <sql>
+            ALTER TABLE access_link ADD CONSTRAINT access_link_validity_check
+                CHECK (valid_until > valid_from);
+
+            ALTER TABLE access_link ENABLE ROW LEVEL SECURITY;
+            CREATE POLICY owner_isolation ON access_link
+                USING (owner_id = current_owner_id())
+                WITH CHECK (owner_id = current_owner_id());
+
+            GRANT SELECT, INSERT, UPDATE ON access_link TO app_user;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

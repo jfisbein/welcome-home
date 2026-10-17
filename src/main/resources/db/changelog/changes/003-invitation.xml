@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="003-invitation" author="welcome-home">
+        <comment>
+            No owner_id and no Row-Level Security: only the auth and admin modules use it.
+            created_by is NULL for the bootstrap admin invitation.
+        </comment>
+
+        <createTable tableName="invitation">
+            <column name="id" type="uuid" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" primaryKeyName="invitation_pkey"/>
+            </column>
+            <column name="token_hash" type="bytea">
+                <constraints nullable="false" unique="true" uniqueConstraintName="invitation_token_hash_key"/>
+            </column>
+            <column name="note" type="text"/>
+            <column name="created_by" type="uuid"/>
+            <column name="created_at" type="timestamptz" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expires_at" type="timestamptz">
+                <constraints nullable="false"/>
+            </column>
+            <column name="used_at" type="timestamptz"/>
+        </createTable>
+
+        <addForeignKeyConstraint constraintName="invitation_created_by_fkey"
+                                 baseTableName="invitation" baseColumnNames="created_by"
+                                 referencedTableName="owner" referencedColumnNames="id"
+                                 onDelete="SET NULL"/>
+
+        <sql>
+            GRANT SELECT, INSERT, UPDATE ON invitation TO app_user;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

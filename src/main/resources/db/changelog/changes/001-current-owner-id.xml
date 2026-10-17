@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="001-current-owner-id" author="welcome-home">
+        <comment>
+            The owner whose rows the current transaction may use, set by OwnerTransactions.
+            NULL when no owner is set, so Row-Level Security policies fail closed.
+        </comment>
+        <sql splitStatements="false">
+            CREATE FUNCTION current_owner_id() RETURNS uuid
+                LANGUAGE sql
+                STABLE
+            AS $$
+                SELECT nullif(current_setting('app.owner_id', true), '')::uuid
+            $$;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

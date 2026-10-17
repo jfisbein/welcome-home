@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="008-access-event" author="welcome-home">
+        <comment>Access events. Append-only: never updated, only purged after the retention period.</comment>
+
+        <createTable tableName="access_event">
+            <column name="id" type="uuid" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" primaryKeyName="access_event_pkey"/>
+            </column>
+            <column name="owner_id" type="uuid">
+                <constraints nullable="false"
+                             foreignKeyName="access_event_owner_id_fkey"
+                             referencedTableName="owner" referencedColumnNames="id" deleteCascade="true"/>
+            </column>
+            <column name="link_id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="lock_id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="occurred_at" type="timestamptz" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+            <column name="result" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reason" type="text"/>
+            <column name="ip" type="inet"/>
+            <column name="user_agent" type="text"/>
+            <column name="nuki_response" type="jsonb"/>
+        </createTable>
+
+        <addForeignKeyConstraint constraintName="access_event_link_fkey"
+                                 baseTableName="access_event" baseColumnNames="owner_id, link_id"
+                                 referencedTableName="access_link" referencedColumnNames="owner_id, id"
+                                 onDelete="CASCADE"/>
+        <addForeignKeyConstraint constraintName="access_event_lock_fkey"
+                                 baseTableName="access_event" baseColumnNames="owner_id, lock_id"
+                                 referencedTableName="lock" referencedColumnNames="owner_id, id"
+                                 onDelete="CASCADE"/>
+
+        <createIndex indexName="access_event_lock_idx" tableName="access_event">
+            <column name="owner_id"/>
+            <column name="lock_id"/>
+            <column name="occurred_at" descending="true"/>
+        </createIndex>
+        <createIndex indexName="access_event_link_idx" tableName="access_event">
+            <column name="owner_id"/>
+            <column name="link_id"/>
+            <column name="occurred_at" descending="true"/>
+        </createIndex>
+
+        <sql>
+            ALTER TABLE access_event ADD CONSTRAINT access_event_result_check
+                CHECK (result IN ('OK', 'DENIED', 'ERROR'));
+
+            ALTER TABLE access_event ENABLE ROW LEVEL SECURITY;
+            CREATE POLICY owner_isolation ON access_event
+                USING (owner_id = current_owner_id())
+                WITH CHECK (owner_id = current_owner_id());
+
+            GRANT SELECT, INSERT, DELETE ON access_event TO app_user;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

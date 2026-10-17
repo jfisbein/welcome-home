@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Foreign keys include owner_id because foreign key checks skip Row-Level Security:
+        this way a row can only reference rows of the same owner.
+    -->
+    <changeSet id="006-lock" author="welcome-home">
+        <comment>
+            Locks are never deleted: a lock that disappears from the Nuki account gets active = false.
+            connection_id becomes NULL when the owner disconnects Nuki.
+        </comment>
+
+        <createTable tableName="lock">
+            <column name="id" type="uuid" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" primaryKeyName="lock_pkey"/>
+            </column>
+            <column name="owner_id" type="uuid">
+                <constraints nullable="false"
+                             foreignKeyName="lock_owner_id_fkey"
+                             referencedTableName="owner" referencedColumnNames="id" deleteCascade="true"/>
+            </column>
+            <column name="connection_id" type="uuid"/>
+            <column name="nuki_smartlock_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="name" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="time_zone" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="active" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint constraintName="lock_owner_id_id_key"
+                             tableName="lock" columnNames="owner_id, id"/>
+        <addUniqueConstraint constraintName="lock_owner_id_nuki_smartlock_id_key"
+                             tableName="lock" columnNames="owner_id, nuki_smartlock_id"/>
+
+        <sql>
+            -- No Liquibase tag for SET NULL on only one column of a composite foreign key.
+            ALTER TABLE lock ADD CONSTRAINT lock_connection_fkey
+                FOREIGN KEY (owner_id, connection_id) REFERENCES nuki_connection (owner_id, id)
+                ON DELETE SET NULL (connection_id);
+
+            ALTER TABLE lock ENABLE ROW LEVEL SECURITY;
+            CREATE POLICY owner_isolation ON lock
+                USING (owner_id = current_owner_id())
+                WITH CHECK (owner_id = current_owner_id());
+
+            GRANT SELECT, INSERT, UPDATE ON lock TO app_user;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

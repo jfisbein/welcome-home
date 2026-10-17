@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="002-owner" author="welcome-home">
+        <comment>No owner_id and no Row-Level Security: only the auth and admin modules use it.</comment>
+
+        <createTable tableName="owner">
+            <column name="id" type="uuid" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" primaryKeyName="owner_pkey"/>
+            </column>
+            <column name="email" type="text">
+                <constraints nullable="false" unique="true" uniqueConstraintName="owner_email_key"/>
+            </column>
+            <column name="is_admin" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamptz" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <sql>
+            ALTER TABLE owner ADD CONSTRAINT owner_email_check CHECK (email = lower(email));
+
+            GRANT SELECT, INSERT, DELETE ON owner TO app_user;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

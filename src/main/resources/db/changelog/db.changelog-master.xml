@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Master changelog: includes the changesets under changes/ in order. Runs as migrator, never as app_user.
+    Rule: every new table with owner_id brings its ENABLE ROW LEVEL SECURITY and policy in the same changeset.
+-->
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <include file="changes/001-current-owner-id.xml" relativeToChangelogFile="true"/>
+    <include file="changes/002-owner.xml" relativeToChangelogFile="true"/>
+    <include file="changes/003-invitation.xml" relativeToChangelogFile="true"/>
+    <include file="changes/004-webauthn.xml" relativeToChangelogFile="true"/>
+    <include file="changes/005-nuki-connection.xml" relativeToChangelogFile="true"/>
+    <include file="changes/006-lock.xml" relativeToChangelogFile="true"/>
+    <include file="changes/007-access-link.xml" relativeToChangelogFile="true"/>
+    <include file="changes/008-access-event.xml" relativeToChangelogFile="true"/>
+
+</databaseChangeLog>
