@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Propietarios')}"></head>
+<body>
+<main class="container">
+    <nav th:replace="~{fragments/layout :: nav(true)}"></nav>
+    <h1>Propietarios</h1>
+    <p><a th:href="@{/admin/invitations}" role="button">Invitar a un propietario</a></p>
+    <table>
+        <thead>
+        <tr>
+            <th scope="col">Email</th>
+            <th scope="col">Alta</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="owner : ${owners}">
+            <td th:text="${owner.email}">propietario@example.com</td>
+            <td th:text="${#temporals.format(owner.registeredOn, 'd/M/yyyy')}">1/1/2026</td>
+        </tr>
+        </tbody>
+    </table>
+</main>
+</body>
+</html>

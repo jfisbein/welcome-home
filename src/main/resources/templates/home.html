@@ -3,16 +3,7 @@
 <head th:replace="~{fragments/layout :: head('Panel')}"></head>
 <body>
 <main class="container">
-    <nav>
-        <ul><li><strong>welcome-home</strong></li></ul>
-        <ul>
-            <li>
-                <form th:action="@{/logout}" method="post">
-                    <button type="submit" class="secondary">Salir</button>
-                </form>
-            </li>
-        </ul>
-    </nav>
+    <nav th:replace="~{fragments/layout :: nav(${isAdmin})}"></nav>
     <h1>Hola</h1>
     <p>Has entrado como <strong th:text="${email}">propietario@example.com</strong>.</p>
 </main>

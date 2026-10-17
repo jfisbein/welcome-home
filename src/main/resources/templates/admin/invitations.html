@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Invitar')}"></head>
+<body>
+<main class="container">
+    <nav th:replace="~{fragments/layout :: nav(true)}"></nav>
+    <h1>Invitar a un propietario</h1>
+
+    <article th:if="${invitation}">
+        <header><strong>Invitación creada</strong></header>
+        <p>
+            Envía este enlace a <strong th:text="${invitedNote}">Ana</strong>. Sirve una sola vez y caduca en
+            72 horas. No se volverá a mostrar.
+        </p>
+        <fieldset role="group">
+            <input id="invitation-url" type="text" readonly th:value="${invitation.url}" aria-label="Enlace de invitación">
+            <button type="button" data-copy="invitation-url">Copiar</button>
+        </fieldset>
+    </article>
+
+    <form th:action="@{/admin/invitations}" method="post">
+        <label>
+            Para quién es
+            <input type="text" name="note" maxlength="100" required th:value="${note}"
+                   th:attr="aria-invalid=${noteError} ? 'true' : null"
+                   placeholder="Un recordatorio para ti, por ejemplo: Ana, piso de la playa">
+            <small th:if="${noteError}">Escribe para quién es la invitación (hasta 100 caracteres).</small>
+        </label>
+        <label>
+            <input type="checkbox" name="grantsAdmin" value="true">
+            También podrá invitar a otros propietarios (admin)
+        </label>
+        <button type="submit">Crear invitación</button>
+    </form>
+    <p><a th:href="@{/admin/owners}">Volver a propietarios</a></p>
+</main>
+<script th:src="@{/js/admin.js}"></script>
+</body>
+</html>

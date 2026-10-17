@@ -21,7 +21,7 @@ import org.springframework.security.web.webauthn.management.Webauthn4JRelyingPar
 /**
  * Owners sign in only with passkeys. The relying party is the host of the public URL, so passkeys
  * registered on one domain do not work on another. Login and invitation registration share the same
- * {@link WebAuthnRelyingPartyOperations}.
+ * {@link WebAuthnRelyingPartyOperations}. The admin panel under {@code /admin} is for admins only.
  */
 @Configuration(proxyBeanMethods = false)
 class SecurityConfiguration {
@@ -31,6 +31,7 @@ class SecurityConfiguration {
         http
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers("/login", "/invite/**", "/css/**", "/js/**", "/actuator/health").permitAll()
+                        .requestMatchers("/admin/**").hasRole(OwnerUserDetailsService.ADMIN)
                         .anyRequest().authenticated())
                 .webAuthn(webAuthn -> webAuthn.disableDefaultRegistrationPage(true))
                 .exceptionHandling(exceptions -> exceptions
