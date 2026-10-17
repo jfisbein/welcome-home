@@ -17,5 +17,6 @@
     <include file="changes/006-lock.xml" relativeToChangelogFile="true"/>
     <include file="changes/007-access-link.xml" relativeToChangelogFile="true"/>
     <include file="changes/008-access-event.xml" relativeToChangelogFile="true"/>
+    <include file="changes/009-resolve-link.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

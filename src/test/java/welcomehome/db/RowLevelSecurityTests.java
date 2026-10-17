@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -99,8 +100,33 @@ class RowLevelSecurityTests {
                 .hasMessageContaining("access_link_lock_fkey");
     }
 
+    @Test
+    void resolveLinkReturnsTheLinkAndItsLockWithoutOwnerContext() {
+        var link = resolveLink(bob.linkId());
+
+        assertThat(link).contains(new ResolvedLink(bob.linkId(), bob.ownerId(), bob.lockId(), 1, "Home", true));
+    }
+
+    @Test
+    void resolveLinkReturnsNothingForAnUnknownLink() {
+        assertThat(resolveLink(UUID.randomUUID())).isEmpty();
+    }
+
+    private Optional<ResolvedLink> resolveLink(UUID linkId) {
+        return jdbc.sql("""
+                        SELECT link_id, owner_id, lock_id, token_version, lock_name, lock_active
+                        FROM resolve_link(:linkId)
+                        """)
+                .param("linkId", linkId)
+                .query(ResolvedLink.class)
+                .optional();
+    }
+
     private List<UUID> ownerIds(String table) {
         return jdbc.sql("SELECT owner_id FROM " + table).query(UUID.class).list();
+    }
+
+    record ResolvedLink(UUID linkId, UUID ownerId, UUID lockId, int tokenVersion, String lockName, boolean lockActive) {
     }
 
     /** One owner with one row in every table that has owner_id, inserted as migrator. */

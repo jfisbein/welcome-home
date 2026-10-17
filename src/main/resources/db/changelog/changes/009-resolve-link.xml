@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        The guest flow's only way past Row-Level Security. It runs as its owner, migrator, which owns the
+        tables and is therefore not subject to RLS. The application must verify the link's MAC before using
+        anything it returns, and then use owner_id to open an owner transaction.
+        search_path is fixed so that no other schema can shadow the tables.
+    -->
+    <changeSet id="009-resolve-link" author="welcome-home">
+        <comment>Returns one access link and its lock without an owner context, for the guest flow.</comment>
+
+        <sql splitStatements="false">
+            CREATE FUNCTION resolve_link(requested_link_id uuid)
+                RETURNS TABLE (
+                    link_id        uuid,
+                    owner_id       uuid,
+                    lock_id        uuid,
+                    token_version  integer,
+                    valid_from     timestamptz,
+                    valid_until    timestamptz,
+                    revoked_at     timestamptz,
+                    lock_name      text,
+                    lock_time_zone text,
+                    lock_active    boolean
+                )
+                LANGUAGE sql
+                STABLE
+                SECURITY DEFINER
+                SET search_path = pg_catalog, pg_temp
+            AS $$
+                SELECT link.id, link.owner_id, link.lock_id, link.token_version,
+                       link.valid_from, link.valid_until, link.revoked_at,
+                       lock.name, lock.time_zone, lock.active
+                FROM public.access_link link
+                JOIN public.lock lock ON lock.owner_id = link.owner_id AND lock.id = link.lock_id
+                WHERE link.id = requested_link_id
+            $$;
+        </sql>
+
+        <sql>
+            REVOKE ALL ON FUNCTION resolve_link(uuid) FROM PUBLIC;
+            GRANT EXECUTE ON FUNCTION resolve_link(uuid) TO app_user;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>
