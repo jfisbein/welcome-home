@@ -39,6 +39,8 @@ dependencies {
 
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
     testImplementation("org.springframework.boot:spring-boot-starter-security-test")
+    // Passkey authenticator emulator; same version as the webauthn4j-core used by Spring Security.
+    testImplementation("com.webauthn4j:webauthn4j-test:0.31.9.RELEASE")
     testImplementation("org.springframework.boot:spring-boot-starter-jdbc-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.springframework.modulith:spring-modulith-starter-test")

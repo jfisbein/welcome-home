@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Invitación')}"></head>
+<body>
+<main class="container">
+    <article>
+        <header><h1>Bienvenido a welcome-home</h1></header>
+        <p>Indica tu email y crea una passkey en este dispositivo. La usarás para entrar, sin contraseña.</p>
+        <form id="registration">
+            <label>
+                Email
+                <input type="email" name="email" autocomplete="email" required>
+            </label>
+            <button type="submit">Crear passkey</button>
+        </form>
+        <p id="registration-error" role="alert" hidden></p>
+    </article>
+</main>
+<script th:src="@{/js/webauthn.js}"></script>
+<script th:src="@{/js/invitation.js}"></script>
+</body>
+</html>

@@ -27,9 +27,43 @@ const WebAuthn = (() => {
             body: body === undefined ? undefined : JSON.stringify(body)
         });
         if (!response.ok) {
-            throw new Error(`${url}: HTTP ${response.status}`);
+            const problem = await response.json().catch(() => ({}));
+            const error = new Error(`${url}: HTTP ${response.status}`);
+            error.code = problem.error;
+            throw error;
         }
         return response.json();
+    }
+
+    /**
+     * Creates a passkey from an invitation and returns the URL to go to next.
+     * baseUrl is the invitation's path; the server answers on its /options and /register.
+     */
+    async function register(baseUrl, email) {
+        const options = await postJson(`${baseUrl}/options`, {email});
+        const credential = await navigator.credentials.create({
+            publicKey: {
+                ...options,
+                user: {...options.user, id: fromBase64Url(options.user.id)},
+                challenge: fromBase64Url(options.challenge),
+                excludeCredentials: (options.excludeCredentials || [])
+                    .map(excluded => ({...excluded, id: fromBase64Url(excluded.id)}))
+            }
+        });
+        const response = credential.response;
+        const result = await postJson(`${baseUrl}/register`, {
+            id: credential.id,
+            rawId: toBase64Url(credential.rawId),
+            type: credential.type,
+            response: {
+                attestationObject: toBase64Url(response.attestationObject),
+                clientDataJSON: toBase64Url(response.clientDataJSON),
+                transports: response.getTransports ? response.getTransports() : []
+            },
+            clientExtensionResults: credential.getClientExtensionResults(),
+            authenticatorAttachment: credential.authenticatorAttachment
+        });
+        return result.redirectUrl;
     }
 
     /** Signs in with a passkey and returns the URL to go to next. */
@@ -63,5 +97,5 @@ const WebAuthn = (() => {
         return result.redirectUrl;
     }
 
-    return {authenticate};
+    return {authenticate, register};
 })();

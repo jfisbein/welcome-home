@@ -25,6 +25,14 @@ class OwnerAccountDao {
                 .optional();
     }
 
+    UUID insert(String email, boolean isAdmin) {
+        return jdbc.sql("INSERT INTO owner (email, is_admin) VALUES (:email, :isAdmin) RETURNING id")
+                .param("email", email)
+                .param("isAdmin", isAdmin)
+                .query(UUID.class)
+                .single();
+    }
+
     record OwnerAccount(UUID id, String email, boolean isAdmin) {
     }
 }

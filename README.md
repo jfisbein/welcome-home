@@ -51,7 +51,9 @@ Owners register only through single-use invitations, valid for 72 hours. The fir
 docker compose run --rm app --bootstrap-admin         # production
 ```
 
-The app needs `BASE_URL` (its public URL, e.g. `https://welcome.example`) to build invitation and access links.
+Opening an invitation link asks for an email and creates a passkey on that device; owners then sign in with it at `/login`. There are no passwords.
+
+The app needs `BASE_URL` (its public URL, e.g. `https://welcome.example`) to build invitation and access links. Its host is also the passkeys' relying party: passkeys created for one domain do not work on another.
 
 ## Modules
 
