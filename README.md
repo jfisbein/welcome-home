@@ -57,6 +57,14 @@ Admins invite further owners from the admin panel (`/admin/owners`, linked from 
 
 The app needs `BASE_URL` (its public URL, e.g. `https://welcome.example`) to build invitation and access links. Its host is also the passkeys' relying party: passkeys created for one domain do not work on another.
 
+## Web security
+
+- CSRF: every POST needs Spring Security's token; pages put it in a meta tag for `static/js/webauthn.js`.
+- Content Security Policy: only the app's own scripts, styles and images (plus `data:` images for Pico CSS), nothing inline, no framing. Cloudflare features that inject scripts (Rocket Loader, email obfuscation, automatic Web Analytics) are blocked by it and must stay off.
+- `Referrer-Policy: no-referrer`, so that invitation and access tokens in URLs never leak to other sites.
+- HSTS for a year, sent only over HTTPS. Behind Cloudflare Tunnel the app learns that a request came over HTTPS from `X-Forwarded-Proto` (`server.forward-headers-strategy=framework`).
+- The session cookie is `Secure`, `HttpOnly` and `SameSite=Lax`. The dev profile drops `Secure`, since `http://localhost` has no HTTPS.
+
 ## Modules
 
 Packages under `welcomehome`, verified with Spring Modulith (`ModularityTests`):
