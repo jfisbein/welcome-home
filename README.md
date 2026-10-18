@@ -157,7 +157,16 @@ The keysets are mounted read-only and must be readable by uid 10001. The image h
 
 ## Production
 
-Every push to `main` that passes `./gradlew build` publishes the image to GHCR as `ghcr.io/jfisbein/welcome-home`, tagged `latest` and `sha-<commit>` (`.github/workflows/image.yml`).
+`.github/workflows/image.yml` runs `./gradlew build` on every pull request, push to `main` and version tag, and builds the image. Only after a push is the image published to GHCR as `ghcr.io/jfisbein/welcome-home`:
+
+| Event                   | Image tags                                              |
+|-------------------------|---------------------------------------------------------|
+| pull request            | none: the image is built, which checks the `Dockerfile` |
+| push to `main`          | `edge`                                                  |
+| tag `v1.2.3`            | `v1.2.3`, `v1` and `latest`                             |
+| tag `v1.3.0-rc.1`       | `v1.3.0-rc.1` only: a prerelease moves neither `v1` nor `latest` |
+
+A release is a tag on `main`: `git tag v1.2.3 && git push origin v1.2.3`. `deploy/compose.yaml` names the release that runs, such as `v1.0.0`: to upgrade or roll back, change it and redeploy.
 
 `deploy/` is the Dockge stack: copy it to the stack's folder on the server. `compose.yaml` runs four services and publishes no port:
 
