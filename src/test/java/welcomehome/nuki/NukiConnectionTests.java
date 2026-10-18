@@ -86,7 +86,8 @@ class NukiConnectionTests {
         assertThat(mvc.get().uri("/nuki/connection").with(owner(ALICE)))
                 .bodyText().contains("<details open", "Cómo conseguir el API token",
                         "<a href=\"https://web.nuki.io\" target=\"_blank\" rel=\"noopener noreferrer\">",
-                        "smartlock.readOnly", "smartlock.action", "smartlock.log");
+                        "Generar token de API", "Ver dispositivos", "Gestionar dispositivos",
+                        "Ver protocolos de cierre y obtener notificaciones de protocolo");
 
         nukiAccepts(TOKEN);
         connect(ALICE, TOKEN);
