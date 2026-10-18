@@ -52,7 +52,7 @@ class SecurityConfiguration {
         http
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers("/login", "/invite/**", "/o/**", "/api/open", "/css/**", "/js/**",
-                                "/actuator/health")
+                                "/favicon.ico", "/favicon.svg", "/apple-touch-icon.png", "/actuator/health")
                         .permitAll()
                         .requestMatchers("/admin/**").hasRole(OwnerUserDetailsService.ADMIN)
                         .anyRequest().authenticated())

@@ -45,6 +45,15 @@ class WebSecurityTests {
     }
 
     @Test
+    void iconsArePublicAndEveryPageLinksThem() {
+        for (var icon : new String[] {"/favicon.ico", "/favicon.svg", "/apple-touch-icon.png"}) {
+            assertThat(mvc.get().uri(icon)).as(icon).hasStatusOk();
+        }
+        assertThat(mvc.get().uri("/login")).bodyText()
+                .contains("href=\"/favicon.ico\"", "href=\"/favicon.svg\"", "href=\"/apple-touch-icon.png\"");
+    }
+
+    @Test
     void signedInOwnerSeesThePanel() {
         TestDatabaseConfiguration.asMigrator(postgres)
                 .sql("INSERT INTO owner (email) VALUES ('alice@example.com') ON CONFLICT DO NOTHING")
