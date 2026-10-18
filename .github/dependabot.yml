@@ -1,0 +1,53 @@
+# Weekly version updates; each pull request runs the Image workflow (build, tests, image build).
+# Minor and patch updates come grouped, one pull request per ecosystem; major ones come one by one.
+version: 2
+
+updates:
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Europe/Madrid
+    groups:
+      gradle:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Europe/Madrid
+    groups:
+      github-actions:
+        update-types: [minor, patch]
+
+  # The Dockerfile's JDK and JRE images.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Europe/Madrid
+    ignore:
+      # A new Java version is a decision of its own, together with the toolchain in build.gradle.kts.
+      - dependency-name: eclipse-temurin
+        update-types: [version-update:semver-major]
+
+  # Postgres for development and in production, cloudflared in production.
+  - package-ecosystem: docker-compose
+    directories: [/, /deploy]
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Europe/Madrid
+    groups:
+      docker-compose:
+        update-types: [minor, patch]
+    ignore:
+      # A new major Postgres needs a dump and restore of the data, not just a new image.
+      - dependency-name: postgres
+        update-types: [version-update:semver-major]
+      # Our own image: each release pull request sets its version.
+      - dependency-name: ghcr.io/jfisbein/welcome-home
