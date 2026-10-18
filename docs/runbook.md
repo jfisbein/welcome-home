@@ -103,7 +103,8 @@ The link's **Historial** shows whether, when and from which IP address it was us
 |---------|---------------|
 | The site does not load | `docker compose ps`: `cloudflared` running and `app` healthy? `docker compose logs cloudflared` for the tunnel, and the tunnel's status in Cloudflare Zero Trust. |
 | `app` does not turn healthy | `docker compose logs app`: a missing or unreadable keyset or secret, or the database, is named in the error. |
-| `backup` unhealthy | No dump in the last 25 hours: `docker compose logs backup`. Check that `backups/` belongs to 999 and that the disk has room. |
+| `backup` restarting, "/backups is not writable by uid 999" | `backups/` did not exist before the first start, so Docker created it for root: `chown 999:999 backups && chmod 700 backups`, then `docker compose restart backup`. |
+| `backup` unhealthy | No dump in the last 25 hours: `docker compose logs backup`, and check that the disk has room. |
 | Guests see "Esta puerta no está disponible ahora mismo" | The lock is inactive, or the owner's Nuki connection is disconnected: the owner's panel says which, and pasting a new API token fixes the latter. |
 | "Abrir" fails for every guest | Cloudflare's Bot Fight Mode or a WAF rule may be challenging `POST /api/open`: check Security → Events in Cloudflare. Otherwise `docker compose logs app` shows what Nuki answered. |
 | An owner lost their passkey | An admin creates a passkey recovery link for them in `/admin/owners` ("Nueva passkey") and sends it; the owner keeps their other passkeys. If the one who lost it is the only admin: `docker compose run --rm app --recover-owner=<email>` on the server. A passkey kept in a synced password manager (such as Vaultwarden) survives a lost device. |

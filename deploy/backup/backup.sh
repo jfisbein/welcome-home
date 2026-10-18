@@ -12,6 +12,12 @@ export PGPASSWORD
 # Dumps hold personal data: only their owner can read them.
 umask 077
 
+# If ./backups did not exist, Docker created it for root: say how to fix that rather than fail in pg_dump.
+if [ ! -w /backups ]; then
+    echo "/backups is not writable by uid $(id -u): run 'chown $(id -u):$(id -g) backups' next to compose.yaml" >&2
+    exit 1
+fi
+
 backup() {
     name="/backups/welcome_home-$(date +%Y%m%d-%H%M%S).dump"
     # Written under another name first, so a copy taken meanwhile never sees half a dump. Errors are returned
