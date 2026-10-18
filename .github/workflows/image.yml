@@ -58,7 +58,7 @@ jobs:
             type=semver,pattern={{raw}}
             type=semver,pattern=v{{major}},enable=${{ !contains(github.ref_name, '-') }}
 
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
