@@ -100,3 +100,10 @@ tasks.register<JavaExec>("generateKeysets") {
     mainClass = "welcomehome.crypto.KeysetGenerator"
     args("secrets")
 }
+
+tasks.register<JavaExec>("rotateAeadKeyset") {
+    group = "application"
+    description = "Adds a new primary key to an AEAD keyset: ./gradlew rotateAeadKeyset --args=<keyset file>"
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass = "welcomehome.crypto.KeysetRotator"
+}

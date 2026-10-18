@@ -39,7 +39,7 @@ final class Keysets {
                     "Keyset file not found or not readable: " + file.toAbsolutePath() + " (" + environmentVariable + ")");
         }
         try {
-            return TinkJsonProtoKeysetFormat.parseKeyset(Files.readString(file), InsecureSecretKeyAccess.get());
+            return parse(Files.readString(file));
         } catch (IOException e) {
             throw new UncheckedIOException("Cannot read keyset " + file.toAbsolutePath(), e);
         } catch (GeneralSecurityException e) {
@@ -47,8 +47,15 @@ final class Keysets {
         }
     }
 
-    static String generateJson(Parameters parameters) throws GeneralSecurityException {
-        var keyset = KeysetHandle.generateNew(parameters);
+    static KeysetHandle parse(String json) throws GeneralSecurityException {
+        return TinkJsonProtoKeysetFormat.parseKeyset(json, InsecureSecretKeyAccess.get());
+    }
+
+    static String toJson(KeysetHandle keyset) throws GeneralSecurityException {
         return TinkJsonProtoKeysetFormat.serializeKeyset(keyset, InsecureSecretKeyAccess.get());
+    }
+
+    static String generateJson(Parameters parameters) throws GeneralSecurityException {
+        return toJson(KeysetHandle.generateNew(parameters));
     }
 }

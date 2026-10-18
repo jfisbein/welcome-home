@@ -44,7 +44,7 @@ The app needs two Tink keysets and does not start without them:
 | `AEAD_KEYSET_FILE` | AES-256-GCM               | Encrypting Nuki API tokens   |
 | `MAC_KEYSET_FILE`  | HMAC-SHA256, 128-bit tag  | Signing access links         |
 
-`./gradlew generateKeysets` writes both to `secrets/`, readable only by the current user, and never overwrites existing files. In production they are Docker secrets, backed up separately from the database: losing them means pasting every Nuki API token again and regenerating every access link.
+`./gradlew generateKeysets` writes both to `secrets/`, readable only by the current user, and never overwrites existing files. In production they are Docker secrets, backed up separately from the database: losing them means pasting every Nuki API token again and regenerating every access link. `./gradlew rotateAeadKeyset --args=<file>` adds a new primary key to an AEAD keyset; the earlier keys keep decrypting the tokens stored with them.
 
 ## First admin
 
@@ -167,6 +167,8 @@ The keysets are mounted read-only and must be readable by uid 10001. The image h
 | tag `v1.3.0-rc.1`       | `v1.3.0-rc.1` only: a prerelease moves neither `v1` nor `latest` |
 
 A release is a tag on `main`: `git tag v1.2.3 && git push origin v1.2.3`. `deploy/compose.yaml` names the release that runs, such as `v1.0.0`: to upgrade or roll back, change it and redeploy.
+
+[`docs/runbook.md`](docs/runbook.md) covers running it: first start, releases, rollback, restoring a dump, rotating the AEAD keyset and what to check when something fails.
 
 `deploy/` is the Dockge stack: copy it to the stack's folder on the server. `compose.yaml` runs four services and publishes no port:
 
