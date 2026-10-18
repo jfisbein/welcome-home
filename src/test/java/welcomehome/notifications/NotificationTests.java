@@ -10,7 +10,6 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Executors;
@@ -127,6 +126,9 @@ class NotificationTests {
     @Test
     void refusedAttemptsWithALinkAreToldOnceInAWhile() throws Exception {
         record(linkId, AccessResult.DENIED, "expired");
+        assertThat(text(theOnlyEmail())).contains("el enlace ha caducado", "regenéralo o revócalo");
+
+        // Emails are sent on other threads: one attempt at a time, so that the first one is the one told.
         record(linkId, AccessResult.DENIED, "too-many-attempts");
         record(insertLink("Bea"), AccessResult.DENIED, "revoked");
 
@@ -134,8 +136,6 @@ class NotificationTests {
         assertNoMoreThan(2);
         assertThat(subjects()).containsExactlyInAnyOrder(
                 "Casa: intento denegado con el enlace de Ana", "Casa: intento denegado con el enlace de Bea");
-        assertThat(Arrays.stream(mail.getReceivedMessages()).map(NotificationTests::text))
-                .anySatisfy(text -> assertThat(text).contains("el enlace ha caducado", "regenéralo o revócalo"));
     }
 
     @Test
