@@ -20,9 +20,9 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 @ConfigurationProperties("welcomehome.nuki")
 record NukiProperties(
         @DefaultValue("https://api.nuki.io") URI baseUrl,
-        @DefaultValue("5s") Duration connectTimeout,
-        @DefaultValue("10s") Duration readTimeout,
+        @DefaultValue("PT5S") Duration connectTimeout,
+        @DefaultValue("PT10S") Duration readTimeout,
         @DefaultValue("3") int maxAttempts,
-        @DefaultValue("500ms") Duration initialBackoff,
-        @DefaultValue("5s") Duration maxBackoff) {
+        @DefaultValue("PT0.5S") Duration initialBackoff,
+        @DefaultValue("PT5S") Duration maxBackoff) {
 }

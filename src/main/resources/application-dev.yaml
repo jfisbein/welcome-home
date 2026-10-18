@@ -1,0 +1,21 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/welcome_home
+    username: app_user
+    password: app_user
+  liquibase:
+    user: migrator
+    password: migrator
+
+server:
+  servlet:
+    session:
+      cookie:
+        # http://localhost has no HTTPS.
+        secure: false
+
+welcomehome:
+  base-url: http://localhost:8080
+  crypto:
+    aead-keyset-file: secrets/aead-keyset.json
+    mac-keyset-file: secrets/mac-keyset.json

@@ -74,11 +74,11 @@ Calls time out and are retried with exponential backoff: on rate limiting (429, 
 | Property          | Default               |
 |-------------------|-----------------------|
 | `base-url`        | `https://api.nuki.io` |
-| `connect-timeout` | `5s`                  |
-| `read-timeout`    | `10s`                 |
+| `connect-timeout` | `PT5S`                |
+| `read-timeout`    | `PT10S`               |
 | `max-attempts`    | `3`                   |
-| `initial-backoff` | `500ms`, doubling     |
-| `max-backoff`     | `5s`                  |
+| `initial-backoff` | `PT0.5S`, doubling    |
+| `max-backoff`     | `PT5S`                |
 
 ## Locks
 
@@ -106,15 +106,15 @@ The same page lists the lock's links with their state, computed and never stored
 
 A GET never opens the door, nor calls `LockProvider` at all: messaging apps fetch links to preview them. Opening is a POST after the guest presses the button. The page asks search engines not to index it (`X-Robots-Tag` and `<meta name="robots">`).
 
-Pressing "Abrir" sends `POST /api/open` with the token in the body. The checks run in this order: rate limit per IP address; the link exists, its MAC is valid and it is not revoked; rate limit per link; within its dates; the lock is active; the owner's Nuki connection is OK. Only then is the door unlatched, in the context of the owner that `resolve_link` returned. Nuki runs actions asynchronously, so after it accepts the unlatch the app reads the lock's log until an unlatch from after the request shows up: the guest learns whether the door opened, whether the lock failed (for example, motor blocked) or refused it in night mode, or that the lock did not confirm in time (`welcomehome.access.confirmation.timeout`, 15 s, read every `interval`, 2 s). Only one action runs per lock at a time: a guest who presses "Abrir" while the same lock is being opened waits for that action and gets its result, so Nuki receives a single action. Every attempt with a valid link is recorded in the owner's history (`access_event`), with the guest's IP address and browser.
+Pressing "Abrir" sends `POST /api/open` with the token in the body. The checks run in this order: rate limit per IP address; the link exists, its MAC is valid and it is not revoked; rate limit per link; within its dates; the lock is active; the owner's Nuki connection is OK. Only then is the door unlatched, in the context of the owner that `resolve_link` returned. Nuki runs actions asynchronously, so after it accepts the unlatch the app reads the lock's log until an unlatch from after the request shows up: the guest learns whether the door opened, whether the lock failed (for example, motor blocked) or refused it in night mode, or that the lock did not confirm in time (`welcomehome.access.confirmation.timeout`, `PT15S`, read every `interval`, `PT2S`). Only one action runs per lock at a time: a guest who presses "Abrir" while the same lock is being opened waits for that action and gets its result, so Nuki receives a single action. Every attempt with a valid link is recorded in the owner's history (`access_event`), with the guest's IP address and browser.
 
-Rate limits are kept in memory, which is enough for a single instance, and set in `application.properties`:
+Rate limits are kept in memory, which is enough for a single instance, and set in `application.yaml`:
 
 | Property                                  | Default |
 |-------------------------------------------|---------|
 | `welcomehome.access.rate-limit.per-ip`    | `10`    |
 | `welcomehome.access.rate-limit.per-link`  | `5`     |
-| `welcomehome.access.rate-limit.period`    | `1m`    |
+| `welcomehome.access.rate-limit.period`    | `PT1M`  |
 
 The guest's IP address, for the rate limit and the history, comes from `CF-Connecting-IP`, which Cloudflare sets on every request, overwriting what the client sent. `X-Forwarded-For` would not do: it starts with whatever the client sent. Trusting the header is safe because the tunnel is the only way in; if the app were ever reachable otherwise, set `welcomehome.access.client-ip-header` blank to use the address the request came from.
 
@@ -122,7 +122,7 @@ The guest's IP address, for the rate limit and the history, comes from `CF-Conne
 
 `GET /locks/{id}/history` lists the guests' attempts on a lock, newest first, in the lock's time zone: when, with which link, the outcome in words (for example "Denegado: caducado" or "Error: modo nocturno") and the guest's IP address. `?link={id}` narrows it to one link; the lock page and each link in the list lead there. Pages hold 50 attempts; "Anteriores" adds `before=` with the date of the last one shown, so a page never shifts as new attempts come in. Row-Level Security keeps each owner to their own history, and a lock or link of someone else's is a 404.
 
-Attempts hold IP addresses, which are personal data, so they are kept for `welcomehome.audit.retention` (`365d`) only. A job deletes older ones every night (`welcomehome.audit.purge-cron`, `0 30 3 * * *`, in the server's time zone), each owner in their own transaction under Row-Level Security.
+Attempts hold IP addresses, which are personal data, so they are kept for `welcomehome.audit.retention` (`P365D`) only. A job deletes older ones every night (`welcomehome.audit.purge-cron`, `0 30 3 * * *`, in the server's time zone), each owner in their own transaction under Row-Level Security.
 
 ## Web security
 

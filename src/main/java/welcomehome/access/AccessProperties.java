@@ -28,7 +28,7 @@ record AccessProperties(@NestedConfigurationProperty @DefaultValue RateLimit rat
      * @param perLink attempts per link, from any IP address
      * @param period  the period the limits apply to; spent attempts come back gradually over it
      */
-    record RateLimit(@DefaultValue("10") int perIp, @DefaultValue("5") int perLink, @DefaultValue("1m") Duration period) {
+    record RateLimit(@DefaultValue("10") int perIp, @DefaultValue("5") int perLink, @DefaultValue("PT1M") Duration period) {
     }
 
     /**
@@ -38,6 +38,6 @@ record AccessProperties(@NestedConfigurationProperty @DefaultValue RateLimit rat
      * @param timeout  how long to wait for the lock's log to show the unlatch
      * @param interval the wait between two reads of the log
      */
-    record Confirmation(@DefaultValue("15s") Duration timeout, @DefaultValue("2s") Duration interval) {
+    record Confirmation(@DefaultValue("PT15S") Duration timeout, @DefaultValue("PT2S") Duration interval) {
     }
 }

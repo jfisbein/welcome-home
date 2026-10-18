@@ -11,5 +11,5 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param retention how long guests' attempts are kept: they hold IP addresses, which are personal data
  */
 @ConfigurationProperties("welcomehome.audit")
-record AuditProperties(@DefaultValue("365d") Duration retention) {
+record AuditProperties(@DefaultValue("P365D") Duration retention) {
 }

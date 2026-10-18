@@ -28,7 +28,7 @@ import org.springframework.security.web.webauthn.management.Webauthn4JRelyingPar
  * <p>CSRF protection is Spring Security's default: every POST needs the token, which pages put in a meta tag
  * for static/js/webauthn.js. On top of Spring Security's default headers, a strict Content Security Policy
  * (only the app's own scripts and styles, nothing inline), no referrer, so that tokens in URLs never leak,
- * and HSTS for a year, sent only over HTTPS. The session cookie is set in application.properties.
+ * and HSTS for a year, sent only over HTTPS. The session cookie is set in application.yaml.
  */
 @Configuration(proxyBeanMethods = false)
 class SecurityConfiguration {

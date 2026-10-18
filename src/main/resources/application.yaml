@@ -1,0 +1,49 @@
+spring:
+  application:
+    name: welcome-home
+  mvc:
+    hiddenmethod:
+      filter:
+        # HTML forms send PUT and DELETE as POST with a hidden _method field.
+        enabled: true
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.xml
+
+server:
+  # Behind Cloudflare Tunnel: X-Forwarded-Proto tells the app that the request came over HTTPS, which HSTS,
+  # secure cookies and https URLs rely on. Trustworthy because the tunnel is the only way in.
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      # The session cookie: only over HTTPS, not readable from JavaScript, not sent on cross-site subrequests.
+      cookie:
+        secure: true
+        http-only: true
+        same-site: lax
+
+welcomehome:
+  # Public URL of the app, used to build invitation and access links.
+  base-url: ${BASE_URL:}
+  crypto:
+    aead-keyset-file: ${AEAD_KEYSET_FILE:}
+    mac-keyset-file: ${MAC_KEYSET_FILE:}
+  nuki:
+    # Daily check of every owner's Nuki connection, in the server's time zone.
+    check-cron: "0 0 8 * * *"
+  access:
+    # Attempts to open a door allowed per period, per guest IP address and per link.
+    rate-limit:
+      per-ip: 10
+      per-link: 5
+      period: PT1M
+    # After Nuki accepts an unlatch, how long to wait for the lock's log to confirm it, and how often to look.
+    confirmation:
+      timeout: PT15S
+      interval: PT2S
+    # Where the guest's IP address comes from: Cloudflare sets this header on every request. Blank to use the
+    # address the request came from, if the app is ever reachable other than through the tunnel.
+    client-ip-header: CF-Connecting-IP
+  audit:
+    # Guests' attempts are kept this long (they hold IP addresses), and purged daily, in the server's time zone.
+    retention: P365D
+    purge-cron: "0 30 3 * * *"
