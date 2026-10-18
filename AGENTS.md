@@ -167,6 +167,8 @@ Release: a pull request that bumps `version` in `build.gradle.kts` and the image
 
 **Other ideas**, roughly by value:
 
+- Verifying the owner's email by sending them a link, now that the app sends email. Today the email typed when registering is trusted as is: a typo means notifications go nowhere, or to someone else. A sketch: after registering, send a single-use link (a random token stored only as a hash, like invitations) and record `owner.email_verified_at` when it is opened; send notifications only to verified addresses, and show unverified owners a banner with a "send again" button.
+
 - Two people registering with the same email at the same moment, from two invitations: both pass the check in `OwnerRegistration.start`, and the unique constraint `owner_email_key` stops the second in `finish`, so no duplicate account is ever created, but that person gets a generic error instead of "Ya hay una cuenta con este email". Catching the constraint violation in `finish` as `RegistrationException(Reason.EMAIL_TAKEN)` would fix it.
 
 - Re-encrypting stored Nuki tokens after an AEAD rotation, so that old keys can be dropped without owners pasting tokens again.
