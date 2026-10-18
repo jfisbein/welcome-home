@@ -108,7 +108,7 @@ services:
       start_interval: 10s
 
   cloudflared:
-    image: cloudflare/cloudflared:2026.9.3
+    image: cloudflare/cloudflared:2026.10.0
     restart: unless-stopped
     command: tunnel --no-autoupdate run
     environment:
