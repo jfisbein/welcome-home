@@ -1,17 +1,16 @@
 # Weekly version updates; each pull request runs the Image workflow (build, tests, image build).
-# Minor and patch updates come grouped, one pull request per ecosystem; major ones come one by one.
+# Gradle dependencies come one pull request each; for Actions and Compose, minor and patch updates come
+# grouped, and major ones one by one.
 version: 2
 
 updates:
+  # One pull request per dependency.
   - package-ecosystem: gradle
     directory: /
     schedule:
       interval: weekly
       day: monday
       timezone: Europe/Madrid
-    groups:
-      gradle:
-        update-types: [minor, patch]
 
   - package-ecosystem: github-actions
     directory: /
