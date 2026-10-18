@@ -2,6 +2,8 @@
 
 A private web app where several owners connect their Nuki account and create unique, date-bound links that open the door without an app or codes.
 
+To maintain it, start with [AGENTS.md](AGENTS.md): requirements, architecture, decisions, testing strategy and next steps.
+
 ## Requirements
 
 - JDK 25
