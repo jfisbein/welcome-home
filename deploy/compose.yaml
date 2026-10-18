@@ -45,11 +45,19 @@ services:
       SPRING_CONFIG_IMPORT: configtree:/run/secrets/config/
       AEAD_KEYSET_FILE: /run/secrets/aead_keyset
       MAC_KEYSET_FILE: /run/secrets/mac_keyset
+      # Owners' emails, through SMTP2GO with STARTTLS; the sender must be verified there.
+      SPRING_MAIL_HOST: mail.smtp2go.com
+      SPRING_MAIL_PORT: "2525"
+      NOTIFICATIONS_FROM: "welcome-home <avisos@alcornoque.top>"
     secrets:
       - source: app_user_password
         target: /run/secrets/config/spring.datasource.password
       - source: migrator_password
         target: /run/secrets/config/spring.liquibase.password
+      - source: smtp_username
+        target: /run/secrets/config/spring.mail.username
+      - source: smtp_password
+        target: /run/secrets/config/spring.mail.password
       - aead_keyset
       - mac_keyset
     networks:
@@ -146,6 +154,10 @@ secrets:
     file: ./secrets/mac-keyset.json
   tunnel_token:
     file: ./secrets/tunnel_token
+  smtp_username:
+    file: ./secrets/smtp_username
+  smtp_password:
+    file: ./secrets/smtp_password
 
 volumes:
   db-data:

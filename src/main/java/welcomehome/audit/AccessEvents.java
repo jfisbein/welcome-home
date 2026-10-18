@@ -1,11 +1,15 @@
 package welcomehome.audit;
 
+import java.time.OffsetDateTime;
+
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import welcomehome.db.OwnerTransactions;
 
 /**
- * Records guests' attempts to open a door, in the link owner's history.
+ * Records guests' attempts to open a door, in the link owner's history, and publishes each one as an
+ * {@link AccessAttempted}.
  */
 @Service
 public class AccessEvents {
@@ -15,10 +19,12 @@ public class AccessEvents {
 
     private final JdbcClient jdbc;
     private final OwnerTransactions ownerTransactions;
+    private final ApplicationEventPublisher events;
 
-    AccessEvents(JdbcClient jdbc, OwnerTransactions ownerTransactions) {
+    AccessEvents(JdbcClient jdbc, OwnerTransactions ownerTransactions, ApplicationEventPublisher events) {
         this.jdbc = jdbc;
         this.ownerTransactions = ownerTransactions;
+        this.events = events;
     }
 
     /**
@@ -32,17 +38,23 @@ public class AccessEvents {
             userAgent = userAgent.substring(0, MAX_USER_AGENT_LENGTH);
         }
         var trimmedUserAgent = userAgent;
-        ownerTransactions.run(event.ownerId(), () -> jdbc.sql("""
-                        INSERT INTO access_event (owner_id, link_id, lock_id, result, reason, ip, user_agent)
-                        VALUES (:ownerId, :linkId, :lockId, :result, :reason, CAST(:ip AS inet), :userAgent)
-                        """)
-                .param("ownerId", event.ownerId())
-                .param("linkId", event.linkId())
-                .param("lockId", event.lockId())
-                .param("result", event.result().name())
-                .param("reason", event.reason())
-                .param("ip", event.ip())
-                .param("userAgent", trimmedUserAgent)
-                .update());
+        ownerTransactions.run(event.ownerId(), () -> {
+            var occurredAt = jdbc.sql("""
+                            INSERT INTO access_event (owner_id, link_id, lock_id, result, reason, ip, user_agent)
+                            VALUES (:ownerId, :linkId, :lockId, :result, :reason, CAST(:ip AS inet), :userAgent)
+                            RETURNING occurred_at
+                            """)
+                    .param("ownerId", event.ownerId())
+                    .param("linkId", event.linkId())
+                    .param("lockId", event.lockId())
+                    .param("result", event.result().name())
+                    .param("reason", event.reason())
+                    .param("ip", event.ip())
+                    .param("userAgent", trimmedUserAgent)
+                    .query(OffsetDateTime.class)
+                    .single();
+            events.publishEvent(new AccessAttempted(event.ownerId(), event.linkId(), event.lockId(), event.result(),
+                    event.reason(), occurredAt.toInstant()));
+        });
     }
 }

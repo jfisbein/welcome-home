@@ -140,6 +140,23 @@ The guest's IP address, for the rate limit and the history, comes from `CF-Conne
 
 Attempts hold IP addresses, which are personal data, so they are kept for `welcomehome.audit.retention` (`P365D`) only. A job deletes older ones every night (`welcomehome.audit.purge-cron`, `0 30 3 * * *`, in the server's time zone), each owner in their own transaction under Row-Level Security.
 
+## Notifications
+
+Owners get emails about their locks and choose which ones at `/notifications` ("Avisos" in the menu); an owner who never chose gets them all:
+
+| Kind | When | Example subject |
+|------|------|-----------------|
+| Opened | a guest opens the door | "Casa: Ana ha abierto la puerta" |
+| Failed | a guest with a valid link cannot get in: the lock failed, night mode, not confirmed, Nuki did not answer, or the door is unavailable | "Casa: Ana no ha podido abrir la puerta" |
+| Denied | a guest's link is refused: not valid yet, expired, revoked, or too many attempts | "Casa: intento denegado con el enlace de Ana" |
+| Disconnected | Nuki rejects the owner's API token | "Nuki ha rechazado tu API token" |
+
+Each email says when, in the lock's time zone, and links to the history. About refused attempts there is at most one email per link per hour (`welcomehome.notifications.denied-quiet-period`), so that a leaked link being tried does not flood the owner. The page also sends a test email.
+
+`audit` publishes an `AccessAttempted` event for every recorded attempt, and `nuki` a `NukiDisconnected` event when a connection goes from OK to disconnected; `notifications` listens after the transaction commits, on another thread, so a guest never waits for an email, and an email that cannot be sent is logged and dropped. The preferences are in `notification_preference`, under Row-Level Security.
+
+Emails go through any SMTP server, set with `spring.mail.host`, `spring.mail.port`, `spring.mail.username` and `spring.mail.password`, with STARTTLS required and 10 s timeouts, from `welcomehome.notifications.from` (`NOTIFICATIONS_FROM`). Without a host or a sender nothing is sent, and the page says so: that is the case in development.
+
 ## Web security
 
 - CSRF: every POST needs Spring Security's token; pages put it in a meta tag for `static/js/webauthn.js`.
@@ -201,6 +218,8 @@ Before the first `docker compose up`, create `secrets/` next to `compose.yaml`:
 | `aead-keyset.json`   | the AEAD keyset (`./gradlew generateKeysets`)            |
 | `mac-keyset.json`    | the MAC keyset                                           |
 | `tunnel_token`       | the Cloudflare tunnel's token                            |
+| `smtp_username`      | the SMTP user for owners' emails (SMTP2GO)               |
+| `smtp_password`      | its password                                             |
 
 Write the passwords without a trailing newline (`printf`, or `tr -d '\n'`). Compose mounts each file with its host permissions and the containers run as different users (Postgres 999, the app 10001, cloudflared 65532), so: `chmod 700 secrets` (only root on the host can read them) and `chmod 444 secrets/*` (each container sees only its own). The database passwords are only read on the first start, when the volume is empty.
 
@@ -237,4 +256,5 @@ Packages under `welcomehome`, verified with Spring Modulith (`ModularityTests`):
 | `links`  | Access links: create, revoke, regenerate and edit                 |
 | `access` | Guest flow: validates the link and opens the door                 |
 | `audit`  | Access events and their retention                                 |
+| `notifications` | Emails to owners about their locks, by their preferences   |
 | `db`     | Shared database infrastructure: owner-bound transactions for RLS  |

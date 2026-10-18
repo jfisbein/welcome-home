@@ -5,12 +5,15 @@ import java.util.Arrays;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
- * Entry point of welcome-home. Scheduling runs the daily jobs, such as the Nuki connection check.
+ * Entry point of welcome-home. Scheduling runs the daily jobs, such as the Nuki connection check; async
+ * execution runs the event listeners that send emails, away from the request that published the event.
  */
 @SpringBootApplication
+@EnableAsync
 @EnableScheduling
 public class WelcomeHomeApplication {
 

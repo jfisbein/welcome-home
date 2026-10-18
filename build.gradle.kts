@@ -37,6 +37,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
     implementation("org.springframework.boot:spring-boot-starter-liquibase")
+    implementation("org.springframework.boot:spring-boot-starter-mail")
     implementation("org.springframework.modulith:spring-modulith-starter-core")
     implementation("com.google.crypto.tink:tink:1.23.0")
     implementation("com.bucket4j:bucket4j_jdk17-core:8.21.0")
@@ -50,6 +51,8 @@ dependencies {
     testImplementation("com.webauthn4j:webauthn4j-test:0.31.9.RELEASE")
     // Nuki Web API stand-in; the standalone jar shades its Jetty, so it does not clash with Spring's.
     testImplementation("org.wiremock:wiremock-standalone:3.13.2")
+    // SMTP server stand-in for the owners' notifications.
+    testImplementation("com.icegreen:greenmail:2.1.14")
     testImplementation("org.springframework.boot:spring-boot-starter-jdbc-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.springframework.modulith:spring-modulith-starter-test")

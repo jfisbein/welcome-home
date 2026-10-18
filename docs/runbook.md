@@ -24,13 +24,16 @@ How to run welcome-home in production. It runs as a Dockge stack on `docker.frit
    done
    # the two keysets, as secrets/aead-keyset.json and secrets/mac-keyset.json
    printf '%s' '<tunnel token>' > secrets/tunnel_token
+   printf '%s' '<SMTP2GO user>' > secrets/smtp_username
+   printf '%s' '<SMTP2GO password>' > secrets/smtp_password
    chmod 444 secrets/*
    install -d -o 999 -g 999 -m 700 backups
    ```
 
 5. **Start.** Deploy the stack. `db`, `app` and `backup` turn healthy within a minute or two, and `cloudflared` starts once `app` is. `https://welcome-home.alcornoque.top/actuator/health` answers `{"status":"UP"}` from outside.
 6. **First admin.** `docker compose run --rm app --bootstrap-admin` prints an invitation link, valid for 72 hours. Open it on your phone or computer, enter your email and create the passkey. Further owners are invited from `/admin/owners`.
-7. **Off-site copy.** In zerobyte, a daily job after 04:00 that backs up the stack's `backups/` folder to B2, keeping 30 days of snapshots.
+7. **Emails.** In SMTP2GO, verify the sender domain `alcornoque.top` (its DNS records) and create an SMTP user; its name and password are `secrets/smtp_username` and `smtp_password`. The sender is `NOTIFICATIONS_FROM` in `compose.yaml`. Check with "Enviarme un email de prueba" at `/notifications`.
+8. **Off-site copy.** In zerobyte, a daily job after 04:00 that backs up the stack's `backups/` folder to B2, keeping 30 days of snapshots.
 
 ## Release and upgrade
 

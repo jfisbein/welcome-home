@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="013-notification-preference" author="welcome-home">
+        <comment>
+            Which emails an owner gets. An owner without a row gets them all.
+        </comment>
+
+        <createTable tableName="notification_preference">
+            <column name="owner_id" type="uuid">
+                <constraints primaryKey="true" primaryKeyName="notification_preference_pkey"
+                             foreignKeyName="notification_preference_owner_id_fkey"
+                             referencedTableName="owner" referencedColumnNames="id" deleteCascade="true"/>
+            </column>
+            <column name="opened" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="failed" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="denied" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="disconnected" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <sql>
+            ALTER TABLE notification_preference ENABLE ROW LEVEL SECURITY;
+            CREATE POLICY owner_isolation ON notification_preference
+                USING (owner_id = current_owner_id())
+                WITH CHECK (owner_id = current_owner_id());
+
+            GRANT SELECT, INSERT, UPDATE ON notification_preference TO app_user;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

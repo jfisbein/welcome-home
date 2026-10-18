@@ -6,6 +6,7 @@ import java.util.UUID;
 import java.util.function.Function;
 
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import welcomehome.crypto.CryptoService;
 import welcomehome.crypto.DecryptionFailedException;
@@ -27,13 +28,15 @@ public class NukiConnections {
     private final NukiConnectionDao connections;
     private final CryptoService crypto;
     private final OwnerTransactions ownerTransactions;
+    private final ApplicationEventPublisher events;
 
     NukiConnections(NukiWebClient nuki, NukiConnectionDao connections, CryptoService crypto,
-                    OwnerTransactions ownerTransactions) {
+                    OwnerTransactions ownerTransactions, ApplicationEventPublisher events) {
         this.nuki = nuki;
         this.connections = connections;
         this.crypto = crypto;
         this.ownerTransactions = ownerTransactions;
+        this.events = events;
     }
 
     /**
@@ -97,7 +100,11 @@ public class NukiConnections {
             return call.apply(apiToken);
         } catch (LockProviderException e) {
             if (e.reason() == Reason.ACCESS_DENIED) {
-                ownerTransactions.run(ownerId, () -> connections.markDisconnected(ownerId, stored.apiTokenEncrypted()));
+                ownerTransactions.run(ownerId, () -> {
+                    if (connections.markDisconnected(ownerId, stored.apiTokenEncrypted())) {
+                        events.publishEvent(new NukiDisconnected(ownerId));
+                    }
+                });
             }
             throw e;
         }

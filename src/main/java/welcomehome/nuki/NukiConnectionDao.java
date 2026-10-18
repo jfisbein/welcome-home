@@ -47,17 +47,19 @@ class NukiConnectionDao {
     }
 
     /**
-     * Disconnects the owner's connection if it still holds the given token: a token pasted while the
-     * rejected one was in use stays connected.
+     * Disconnects the owner's connection if it still holds the given token and is still connected: a token
+     * pasted while the rejected one was in use stays connected.
+     *
+     * @return whether the connection went from OK to disconnected
      */
-    void markDisconnected(UUID ownerId, byte[] rejectedApiTokenEncrypted) {
-        jdbc.sql("""
+    boolean markDisconnected(UUID ownerId, byte[] rejectedApiTokenEncrypted) {
+        return jdbc.sql("""
                         UPDATE nuki_connection SET status = 'DISCONNECTED', last_checked_at = now()
-                        WHERE owner_id = :ownerId AND api_token_encrypted = :rejected
+                        WHERE owner_id = :ownerId AND api_token_encrypted = :rejected AND status = 'OK'
                         """)
                 .param("ownerId", ownerId)
                 .param("rejected", rejectedApiTokenEncrypted)
-                .update();
+                .update() == 1;
     }
 
     /** Locks keep their row: their connection_id becomes NULL, and their links do not change. */

@@ -25,6 +25,7 @@ Functional:
 - A guest's GET never acts on the lock: only a POST after pressing the button unlatches (link previews in WhatsApp, Telegram or Slack make GETs). The guest learns whether the door opened, failed, or was refused in night mode.
 - Every attempt with a valid link is recorded with IP address and browser; attempts are purged after a retention (365 days).
 - Owners who lose their passkey get a recovery link (admin panel or `--recover-owner`); they keep their other passkeys.
+- Owners get emails about their locks (opened, failed, denied, Nuki disconnected) and choose which ones.
 
 Non-functional:
 
@@ -34,7 +35,7 @@ Non-functional:
 - Single instance: rate limits, the per-lock mutex and scheduled jobs live in memory in one process.
 - GDPR: guests' IP addresses expire; a deleted owner's data is gone from backups after their 30-day retention.
 
-Out of scope so far: OAuth2 with Nuki, geofencing, notifications or email, use limits, recurring schedules, Nuki Opener, native apps.
+Out of scope so far: OAuth2 with Nuki, geofencing, push notifications, use limits, recurring schedules, Nuki Opener, native apps.
 
 ## Stack
 
@@ -48,7 +49,8 @@ Out of scope so far: OAuth2 with Nuki, geofencing, notifications or email, use l
 | Nuki                 | Nuki Web API over `RestClient`, with timeouts and backoff                           |
 | Rate limiting, cache | Bucket4j and Caffeine, in memory                                                    |
 | Static analysis      | Error Prone + NullAway (JSpecify mode), javadoc doclint as errors                   |
-| Tests                | JUnit 5, AssertJ, Testcontainers (Postgres), WireMock (Nuki), webauthn4j-test       |
+| Email                | Spring Mail over SMTP (SMTP2GO in production)                                       |
+| Tests                | JUnit 5, AssertJ, Testcontainers (Postgres), WireMock (Nuki), GreenMail (SMTP), webauthn4j-test |
 | Runtime              | Docker (JRE 25, non-root), Docker Compose in Dockge, cloudflared, GHCR, GitHub Actions |
 
 ## Architecture
@@ -65,13 +67,14 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 | `locks`  | Import (`LockSync`), settings and state of each owner's locks                                               |
 | `links`  | Access links: create, list, edit, regenerate, revoke (`AccessLinks`, `LinkStatus`, `LinkUrls`)            |
 | `access` | The guest flow: guest page, `POST /api/open` (`OpenDoor`), rate limits, client IP, per-lock mutex (`LockActions`), unlatch confirmation |
-| `audit`  | Access events, history pages, purge job                                                                     |
+| `audit`  | Access events, history pages, purge job; publishes `AccessAttempted`                                       |
+| `notifications` | Emails to owners (opened, failed, denied, Nuki disconnected) by their preferences, sent after commit on another thread (`OwnerNotifier`) |
 
 **Guest flow** (`access.OpenDoor`): rate limit per IP → the link exists, its MAC is valid and it is not revoked (`resolve_link`, a `SECURITY DEFINER` function, is the only way to read a link without an owner context) → rate limit per link → within its dates → lock active → owner's Nuki connection OK → in the owner's context, unlatch under the lock's mutex (a second guest waits and gets the same result) → read the lock's log until the unlatch shows up (15 s) → record the event.
 
 **`LockProvider`** (`listLocks`, `getState`, `unlatch`, `getRecentLog`, all by owner id) isolates Nuki: tokens are decrypted inside `nuki` and never leave it. Another way to reach a lock (Nuki Bridge, MQTT, OAuth2) is another implementation or a change inside `nuki`, without touching the rest.
 
-**Data model** (`src/main/resources/db/changelog/changes/`): `owner`, `invitation` (also recovery links: `recovers_owner_id`), `nuki_connection`, `lock`, `access_link` (`token_version`), `access_event`, and Spring Security's `user_entities` and `user_credentials`. Every table with `owner_id` has Row-Level Security with a policy that fails closed (`owner_id = nullif(current_setting('app.owner_id', true), '')::uuid`). `owner` and `invitation` have no `owner_id` and no RLS: only `auth` and `admin` use them. Neither do the passkey tables, keyed by the owner's email: `auth` joins `user_entities` by email in every query.
+**Data model** (`src/main/resources/db/changelog/changes/`): `owner`, `invitation` (also recovery links: `recovers_owner_id`), `nuki_connection`, `lock`, `access_link` (`token_version`), `access_event`, `notification_preference`, and Spring Security's `user_entities` and `user_credentials`. Every table with `owner_id` has Row-Level Security with a policy that fails closed (`owner_id = nullif(current_setting('app.owner_id', true), '')::uuid`). `owner` and `invitation` have no `owner_id` and no RLS: only `auth` and `admin` use them. Neither do the passkey tables, keyed by the owner's email: `auth` joins `user_entities` by email in every query.
 
 **Roles in Postgres**: `migrator` owns the schema and runs Liquibase; the app connects as `app_user`, with no ownership and no `BYPASSRLS`. No `FORCE ROW LEVEL SECURITY`, so that `resolve_link` (owned by `migrator`) sees the link. Roles come from `deploy/db-init/01-create-roles.sh`, used by development, tests and production alike.
 
@@ -98,6 +101,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 | Database passwords as files (`configtree:`), keysets as Docker secrets | No secrets in environment variables or in the image. |
 | Keysets backed up apart from the dumps (Vaultwarden) | A stolen dump alone does not expose the Nuki tokens. |
 | Releases are `vX.Y.Z` tags; production pins the version | What runs is always known; rollback is changing a number. |
+| Emails are sent after commit, on another thread, and dropped if they fail | A guest never waits for SMTP, and a mail problem never fails an opening. At most one email about refused attempts per link per hour. |
 
 ## Conventions
 
@@ -119,6 +123,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 - **Isolation**: `OwnerIsolationTests` (every id route answers 404 for another owner and changes nothing), `MigrationTests` (every `owner_id` table has RLS and its policy), `RowLevelSecurityTests` (what `app_user` sees with and without an owner context), `ModularityTests` (module boundaries), `AdminPanelTests` (admins see no locks or links).
 - **Guest flow**: `OpenDoorTests` (order of checks, results, confirmation, concurrency, client IP), `LockActionsTests` (one action per lock), `TokenLoggingTests` (tokens never logged), `GuestPageTests` (a GET never calls the lock provider).
 - **Commands**: `CommandLineTests` starts the app without the web server.
+- **Emails**: `MailStandInConfiguration` starts GreenMail as the SMTP server; `NotificationTests` checks each kind of email, preferences, the per-link quiet period and that two simultaneous rejections send one email.
 - **Practice**: each change is checked with a mutation test by hand (break the code, see a test fail, restore it), and deployment changes are tried on a local copy of the production stack (`COMPOSE_PROJECT_NAME=...` to stay apart from the development database).
 
 Never call Nuki's unlatch for real outside a guest pressing "Abrir": it opens a real door. Development uses a real Nuki token only for read-only calls.
@@ -163,7 +168,6 @@ Release: a pull request that bumps `version` in `build.gradle.kts` and the image
 **Other ideas**, roughly by value:
 
 - Re-encrypting stored Nuki tokens after an AEAD rotation, so that old keys can be dropped without owners pasting tokens again.
-- Notifications to the owner when a link is used (email or push).
 - Links with a maximum number of uses or a recurring schedule (`access_link` columns).
 - Geofence as a deterrent (browsers accept fake locations: store only distance and accuracy, and tell the guest first).
 - Nuki Opener, a local Nuki Bridge or MQTT adapter as another `LockProvider`, Nuki webhooks instead of polling the log.

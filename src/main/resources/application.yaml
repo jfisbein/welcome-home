@@ -8,6 +8,15 @@ spring:
         enabled: true
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.xml
+  # The SMTP server for owners' emails: spring.mail.host, port, username and password come from the
+  # environment. Without a host no email is sent.
+  mail:
+    properties:
+      mail.smtp.starttls.enable: true
+      mail.smtp.starttls.required: true
+      mail.smtp.connectiontimeout: 10000
+      mail.smtp.timeout: 10000
+      mail.smtp.writetimeout: 10000
 
 server:
   # Behind Cloudflare Tunnel: X-Forwarded-Proto tells the app that the request came over HTTPS, which HSTS,
@@ -43,6 +52,12 @@ welcomehome:
     # Where the guest's IP address comes from: Cloudflare sets this header on every request. Blank to use the
     # address the request came from, if the app is ever reachable other than through the tunnel.
     client-ip-header: CF-Connecting-IP
+  notifications:
+    # The sender of owners' emails, an address the SMTP service accepts, such as
+    # "welcome-home <avisos@example.com>". Without it no email is sent.
+    from: ${NOTIFICATIONS_FROM:}
+    # After an email about a refused attempt with a link, none about that link for this long.
+    denied-quiet-period: PT1H
   audit:
     # Guests' attempts are kept this long (they hold IP addresses), and purged daily, in the server's time zone.
     retention: P365D

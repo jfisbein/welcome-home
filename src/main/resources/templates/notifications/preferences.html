@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Avisos')}"></head>
+<body>
+<main class="container">
+    <nav th:replace="~{fragments/layout :: nav}"></nav>
+    <h1>Avisos por email</h1>
+
+    <article th:unless="${emailConfigured}" role="alert">
+        <p>El envío de emails no está configurado en el servidor: puedes elegir tus avisos, pero no llegará ninguno.</p>
+    </article>
+    <article th:if="${saved}"><p>Guardado.</p></article>
+    <article th:if="${testSent}"><p th:text="|Email de prueba enviado a ${email}.|">Email de prueba enviado.</p></article>
+    <article th:if="${testFailed}" role="alert">
+        <p>No se ha podido enviar el email de prueba. Avisa a quien administra welcome-home.</p>
+    </article>
+
+    <p th:text="|Te los enviamos a ${email}.|">Te los enviamos a ana@example.com.</p>
+    <form th:action="@{/notifications}" th:method="put">
+        <fieldset>
+            <legend>Avísame cuando…</legend>
+            <label>
+                <input type="checkbox" name="opened" value="true" th:checked="${preferences.opened}">
+                un invitado abre la puerta
+            </label>
+            <label>
+                <input type="checkbox" name="failed" value="true" th:checked="${preferences.failed}">
+                un invitado no puede abrir: la cerradura o Nuki fallan, o la puerta no está disponible
+            </label>
+            <label>
+                <input type="checkbox" name="denied" value="true" th:checked="${preferences.denied}">
+                se deniega un intento: enlace caducado, revocado, aún no válido o demasiados intentos (como mucho
+                un aviso por enlace cada hora)
+            </label>
+            <label>
+                <input type="checkbox" name="disconnected" value="true" th:checked="${preferences.disconnected}">
+                Nuki rechaza mi API token y los enlaces dejan de abrir
+            </label>
+        </fieldset>
+        <button type="submit">Guardar</button>
+    </form>
+
+    <form th:if="${emailConfigured}" th:action="@{/notifications/test}" method="post">
+        <button type="submit" class="secondary">Enviarme un email de prueba</button>
+    </form>
+</main>
+</body>
+</html>

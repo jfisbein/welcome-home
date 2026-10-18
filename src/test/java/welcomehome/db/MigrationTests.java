@@ -33,7 +33,7 @@ class MigrationTests {
 
         assertThat(tables).containsExactlyInAnyOrder(
                 "owner", "invitation", "user_entities", "user_credentials",
-                "nuki_connection", "lock", "access_link", "access_event");
+                "nuki_connection", "lock", "access_link", "access_event", "notification_preference");
     }
 
     @Test
