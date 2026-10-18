@@ -38,11 +38,27 @@
         Nuki ha rechazado tu API token y los enlaces no pueden abrir la puerta. Pega uno nuevo para volver a conectar.
     </p>
 
+    <details th:open="${connection == null}">
+        <summary>Cómo conseguir el API token</summary>
+        <ol>
+            <li>Entra en <a href="https://web.nuki.io" target="_blank" rel="noopener noreferrer">Nuki Web</a> con tu cuenta de Nuki.</li>
+            <li>Abre el menú y entra en <strong>API</strong>. Si es la primera vez, activa la Web API.</li>
+            <li>En <strong>API Tokens</strong>, genera uno nuevo; ponle una descripción como «welcome-home».</li>
+            <li>
+                Dale solo estos tres permisos, que son los que usa welcome-home:
+                <ul>
+                    <li>ver tus cerraduras (<code>smartlock.readOnly</code>),</li>
+                    <li>abrirlas (<code>smartlock.action</code>),</li>
+                    <li>ver su registro de actividad (<code>smartlock.log</code>).</li>
+                </ul>
+                No le des los de gestionar la cuenta, las cerraduras o sus autorizaciones.
+            </li>
+            <li>Copia el token y pégalo aquí debajo.</li>
+        </ol>
+    </details>
+
     <form th:action="@{/nuki/connection}" th:method="put">
-        <p>
-            En Nuki Web, entra en Menú → API y genera un API token con permiso para ver tus cerraduras, abrirlas
-            y ver su registro. Después pégalo aquí: se guarda cifrado y no se vuelve a mostrar.
-        </p>
+        <p>Se guarda cifrado y no se vuelve a mostrar.</p>
         <label>
             API token
             <input type="password" name="apiToken" autocomplete="off" required

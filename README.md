@@ -73,7 +73,7 @@ The app needs `BASE_URL` (its public URL, e.g. `https://welcome.example`) to bui
 
 The `nuki` module is the only one that talks to Nuki, through the Nuki Web API ([definition](https://api.nuki.io/static/swagger/swagger.json)) with each owner's API token. Other modules use the `LockProvider` interface, which takes an owner id: the module finds and decrypts that owner's token itself, so tokens never leave it in clear.
 
-Owners connect at `/nuki/connection` by pasting an API token generated in Nuki Web (Menu → API) with permission to view their locks, operate them and read their log. The token is stored only after `GET /smartlock` accepts it, encrypted for its owner, and it is never shown again. Pasting a new token replaces the old one and reconnects a disconnected account.
+Owners connect at `/nuki/connection` by pasting an API token generated in Nuki Web (Menu → API); the page explains how, step by step. The token needs only `smartlock.readOnly`, `smartlock.action` and `smartlock.log`: view the locks, operate them and read their log. The token is stored only after `GET /smartlock` accepts it, encrypted for its owner, and it is never shown again. Pasting a new token replaces the old one and reconnects a disconnected account.
 
 When Nuki answers 401 to a stored token, the connection becomes `DISCONNECTED`: links stop opening and the owner's panel asks for a new token. A job checks every connection daily (`welcomehome.nuki.check-cron`, 08:00 server time by default), so that the owner learns about a revoked token before a guest does. A 403 (a permission missing) or an unanswered call does not disconnect.
 
@@ -106,7 +106,7 @@ The same page lists the lock's links with their state, computed and never stored
 
 "Revocar" (`POST /links/{id}/revoke`) revokes a link at once and for good: from then on it opens nothing, whatever its dates. Revoking again keeps the first revocation time.
 
-"Regenerar" (`POST /links/{id}/regenerate`), for a URL that leaked, increments the link's `token_version`: every earlier URL stops working and the page shows the new one. Dates, label and state stay the same; revoked links are not regenerated.
+"Regenerar" (`POST /links/{id}/regenerate`), for a URL that leaked, asks first, and so does "Revocar": the browser shows what will happen before the form is sent (`data-confirm`, `confirm.js`). It increments the link's `token_version`: every earlier URL stops working and the page shows the new one. Dates, label and state stay the same; revoked links are not regenerated.
 
 "Editar" (`GET /links/{id}`, saved with `PATCH /links/{id}`) changes a link's label and dates, with the same checks as creating one; an expired link can be extended this way. Its URL stays the same. Revoked links cannot be edited.
 

@@ -85,6 +85,16 @@ class LinkListTests {
     }
 
     @Test
+    void regeneratingOrRevokingAsksFirstWhatItDoes() {
+        insertLink(lockId, "Bea", "now() - interval '1 day'", "now() + interval '1 day'", false);
+
+        assertThat(page()).contains(
+                "data-confirm=\"El enlace actual de Bea dejará de funcionar ahora mismo",
+                "data-confirm=\"El enlace de Bea dejará de abrir la puerta para siempre",
+                "/js/confirm.js");
+    }
+
+    @Test
     void validityIsShownInTheLocksTimeZone() {
         migrator.sql("UPDATE lock SET time_zone = 'America/New_York' WHERE id = ?").param(lockId).update();
         insertLink(lockId, "Ana", "'2030-11-01T19:00:00Z'", "'2030-11-03T16:00:00Z'", false);

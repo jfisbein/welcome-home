@@ -71,11 +71,13 @@
                         <button type="button" class="outline" th:data-copy-text="${link.url}">Copiar</button>
                         <button type="button" class="outline secondary" hidden th:data-share-url="${link.url}"
                                 th:data-share-title="|Abrir ${lock.name}|">Compartir</button>
-                        <form th:action="@{/links/{id}/regenerate(id=${link.id})}" method="post">
+                        <form th:action="@{/links/{id}/regenerate(id=${link.id})}" method="post"
+                              th:data-confirm="|El enlace actual de ${link.label} dejará de funcionar ahora mismo y tendrás que enviarle el nuevo. Las fechas no cambian. ¿Regenerarlo?|">
                             <button type="submit" class="outline secondary"
                                     title="Si el enlace se ha filtrado: el anterior deja de funcionar">Regenerar</button>
                         </form>
-                        <form th:action="@{/links/{id}/revoke(id=${link.id})}" method="post">
+                        <form th:action="@{/links/{id}/revoke(id=${link.id})}" method="post"
+                              th:data-confirm="|El enlace de ${link.label} dejará de abrir la puerta para siempre. ¿Revocarlo?|">
                             <button type="submit" class="outline contrast">Revocar</button>
                         </form>
                     </th:block>
@@ -98,5 +100,6 @@
 </main>
 <script th:src="@{/js/copy.js}"></script>
 <script th:src="@{/js/share.js}"></script>
+<script th:src="@{/js/confirm.js}"></script>
 </body>
 </html>
