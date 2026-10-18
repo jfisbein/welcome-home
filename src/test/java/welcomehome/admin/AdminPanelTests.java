@@ -46,6 +46,7 @@ class AdminPanelTests {
 
     JdbcClient migrator;
     UUID adminId;
+    UUID bobId;
 
     @BeforeEach
     void insertAnAdminAndAnOwnerWithALockAndALink() {
@@ -57,7 +58,7 @@ class AdminPanelTests {
                 .param(ADMIN_EMAIL)
                 .query(UUID.class)
                 .single();
-        var bobId = migrator.sql("INSERT INTO owner (email) VALUES (?) RETURNING id")
+        bobId = migrator.sql("INSERT INTO owner (email) VALUES (?) RETURNING id")
                 .param(OWNER_EMAIL)
                 .query(UUID.class)
                 .single();
@@ -89,6 +90,8 @@ class AdminPanelTests {
         assertThat(mvc.get().uri("/admin/owners").with(owner())).hasStatus(HttpStatus.FORBIDDEN);
         assertThat(mvc.get().uri("/admin/invitations").with(owner())).hasStatus(HttpStatus.FORBIDDEN);
         assertThat(mvc.post().uri("/admin/invitations").with(owner()).with(csrf()).param("note", "Carol"))
+                .hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(mvc.post().uri("/admin/recoveries").with(owner()).with(csrf()).param("email", ADMIN_EMAIL))
                 .hasStatus(HttpStatus.FORBIDDEN);
         assertThat(jdbc.sql("SELECT count(*) FROM invitation").query(Long.class).single()).isZero();
     }
@@ -160,6 +163,40 @@ class AdminPanelTests {
     @Test
     void creatingAnInvitationRequiresTheCsrfToken() {
         assertThat(mvc.post().uri("/admin/invitations").with(admin()).param("note", "Carol"))
+                .hasStatus(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void adminCreatesAPasskeyRecoveryLinkForAnOwnerAndSeesItOnce() {
+        assertThat(mvc.get().uri("/admin/owners").with(admin())).bodyText().contains("Nueva passkey");
+
+        var result = mvc.post().uri("/admin/recoveries").with(admin()).with(csrf()).param("email", OWNER_EMAIL).exchange();
+
+        assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/admin/owners");
+        var created = (CreatedInvitation) result.getMvcResult().getFlashMap().get("recovery");
+        assertThat(invitations.findRedeemable(tokenOf(created))).hasValueSatisfying(recovery -> {
+            assertThat(recovery.recoversOwnerId()).isEqualTo(bobId);
+            assertThat(recovery.grantsAdmin()).isFalse();
+        });
+        assertThat(jdbc.sql("SELECT created_by FROM invitation").query(UUID.class).single()).isEqualTo(adminId);
+
+        assertThat(mvc.get().uri("/admin/owners").with(admin())
+                .flashAttr("recovery", created).flashAttr("recoveredEmail", OWNER_EMAIL))
+                .bodyText().contains(created.url().toString(), "conservará las que ya tiene");
+        assertThat(mvc.get().uri("/admin/owners").with(admin()))
+                .bodyText().doesNotContain(created.url().toString());
+    }
+
+    @Test
+    void recoveryLinkForAnUnknownEmailIsNotCreated() {
+        assertThat(mvc.post().uri("/admin/recoveries").with(admin()).with(csrf()).param("email", "nobody@example.com"))
+                .hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(jdbc.sql("SELECT count(*) FROM invitation").query(Long.class).single()).isZero();
+    }
+
+    @Test
+    void creatingARecoveryLinkRequiresTheCsrfToken() {
+        assertThat(mvc.post().uri("/admin/recoveries").with(admin()).param("email", OWNER_EMAIL))
                 .hasStatus(HttpStatus.FORBIDDEN);
     }
 

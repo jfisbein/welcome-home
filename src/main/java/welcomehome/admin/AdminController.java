@@ -1,6 +1,7 @@
 package welcomehome.admin;
 
 import java.security.Principal;
+import java.util.UUID;
 
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
@@ -10,11 +11,13 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /**
- * The admin panel: the owner list and new invitations. Only admins reach it (see the security
- * configuration), and it shows owners' emails and registration dates, nothing of their locks or links.
+ * The admin panel: the owner list, new invitations and passkey recovery links. Only admins reach it (see the
+ * security configuration), and it shows owners' emails and registration dates, nothing of their locks or
+ * links.
  */
 @Controller
 @RequestMapping("/admin")
@@ -57,10 +60,26 @@ class AdminController {
             model.addAttribute("note", note);
             return "admin/invitations";
         }
-        var adminId = owners.findIdByEmail(admin.getName())
-                .orElseThrow(() -> new IllegalStateException("The signed-in admin is not an owner"));
-        redirect.addFlashAttribute("invitation", invitations.createInvitation(adminId, strippedNote, grantsAdmin));
+        redirect.addFlashAttribute("invitation", invitations.createInvitation(adminId(admin), strippedNote, grantsAdmin));
         redirect.addFlashAttribute("invitedNote", strippedNote);
         return "redirect:/admin/invitations";
+    }
+
+    /**
+     * Creates a passkey recovery link for an owner and redirects to the owner list, which shows it once, like
+     * an invitation's.
+     */
+    @PostMapping("/recoveries")
+    String createRecovery(@RequestParam String email, Principal admin, RedirectAttributes redirect) {
+        var ownerId = owners.findIdByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        redirect.addFlashAttribute("recovery", invitations.createPasskeyRecovery(adminId(admin), ownerId));
+        redirect.addFlashAttribute("recoveredEmail", email);
+        return "redirect:/admin/owners";
+    }
+
+    private UUID adminId(Principal admin) {
+        return owners.findIdByEmail(admin.getName())
+                .orElseThrow(() -> new IllegalStateException("The signed-in admin is not an owner"));
     }
 }

@@ -1,10 +1,13 @@
 package welcomehome.auth;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.web.webauthn.api.AttestationConveyancePreference;
 import org.springframework.security.web.webauthn.api.AuthenticatorAttestationResponse;
 import org.springframework.security.web.webauthn.api.AuthenticatorSelectionCriteria;
@@ -14,24 +17,30 @@ import org.springframework.security.web.webauthn.api.ImmutableAuthenticationExte
 import org.springframework.security.web.webauthn.api.ImmutablePublicKeyCredentialUserEntity;
 import org.springframework.security.web.webauthn.api.PublicKeyCredential;
 import org.springframework.security.web.webauthn.api.PublicKeyCredentialCreationOptions;
+import org.springframework.security.web.webauthn.api.PublicKeyCredentialDescriptor;
 import org.springframework.security.web.webauthn.api.PublicKeyCredentialParameters;
 import org.springframework.security.web.webauthn.api.PublicKeyCredentialRpEntity;
+import org.springframework.security.web.webauthn.api.PublicKeyCredentialUserEntity;
 import org.springframework.security.web.webauthn.api.ResidentKeyRequirement;
 import org.springframework.security.web.webauthn.api.UserVerificationRequirement;
 import org.springframework.security.web.webauthn.management.ImmutableRelyingPartyRegistrationRequest;
 import org.springframework.security.web.webauthn.management.PublicKeyCredentialUserEntityRepository;
 import org.springframework.security.web.webauthn.management.RelyingPartyPublicKey;
+import org.springframework.security.web.webauthn.management.UserCredentialRepository;
 import org.springframework.security.web.webauthn.management.WebAuthnRelyingPartyOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import welcomehome.admin.InvitationService;
+import welcomehome.admin.RedeemableInvitation;
+import welcomehome.auth.OwnerAccountDao.OwnerAccount;
 import welcomehome.auth.RegistrationException.Reason;
 
 /**
- * Registers a new owner from an invitation, in two steps that mirror the passkey ceremony:
- * {@link #start} checks the invitation and the email and returns the passkey creation options without
- * writing anything; {@link #finish} verifies the new passkey and, in one transaction, redeems the
- * invitation and stores the owner and the passkey. A failure at any point leaves the invitation usable.
+ * Registers a new owner from an invitation, or adds a passkey to an existing owner from a passkey recovery
+ * link, in two steps that mirror the passkey ceremony: {@link #start} checks the invitation (and, for a new
+ * owner, the email) and returns the passkey creation options without writing anything; {@link #finish}
+ * verifies the new passkey and, in one transaction, redeems the invitation and stores the passkey, and the
+ * new owner. A failure at any point leaves the invitation usable. A recovered owner keeps their passkeys.
  */
 @Service
 class OwnerRegistration {
@@ -44,37 +53,82 @@ class OwnerRegistration {
     private final InvitationService invitations;
     private final OwnerAccountDao owners;
     private final PublicKeyCredentialUserEntityRepository userEntities;
+    private final UserCredentialRepository userCredentials;
     private final WebAuthnRelyingPartyOperations relyingPartyOperations;
     private final PublicKeyCredentialRpEntity relyingParty;
 
     OwnerRegistration(InvitationService invitations, OwnerAccountDao owners,
-                      PublicKeyCredentialUserEntityRepository userEntities,
+                      PublicKeyCredentialUserEntityRepository userEntities, UserCredentialRepository userCredentials,
                       WebAuthnRelyingPartyOperations relyingPartyOperations, PublicKeyCredentialRpEntity relyingParty) {
         this.invitations = invitations;
         this.owners = owners;
         this.userEntities = userEntities;
+        this.userCredentials = userCredentials;
         this.relyingPartyOperations = relyingPartyOperations;
         this.relyingParty = relyingParty;
     }
 
-    PendingRegistration start(String invitationToken, String email) {
-        if (invitations.findRedeemable(invitationToken).isEmpty()) {
-            throw new RegistrationException(Reason.INVITATION_NOT_REDEEMABLE);
+    /** The owner a passkey recovery link is for, or empty for an invitation to register as a new owner. */
+    Optional<OwnerAccount> recoveredOwner(RedeemableInvitation invitation) {
+        var ownerId = invitation.recoversOwnerId();
+        return ownerId == null ? Optional.empty() : owners.findById(ownerId);
+    }
+
+    /**
+     * Checks the invitation and returns the passkey creation options.
+     *
+     * @param email the new owner's email; ignored for a passkey recovery link, which names its owner
+     */
+    PendingRegistration start(String invitationToken, @Nullable String email) {
+        var invitation = invitations.findRedeemable(invitationToken)
+                .orElseThrow(() -> new RegistrationException(Reason.INVITATION_NOT_REDEEMABLE));
+        if (invitation.recoversOwnerId() == null) {
+            return startNewOwner(invitationToken, email);
         }
+        var owner = recoveredOwner(invitation)
+                .orElseThrow(() -> new RegistrationException(Reason.INVITATION_NOT_REDEEMABLE));
+        return startRecovery(invitationToken, owner);
+    }
+
+    private PendingRegistration startNewOwner(String invitationToken, @Nullable String email) {
         var normalizedEmail = normalize(email);
         if (owners.findByEmail(normalizedEmail).isPresent() || userEntities.findByUsername(normalizedEmail) != null) {
             throw new RegistrationException(Reason.EMAIL_TAKEN);
         }
-        var user = ImmutablePublicKeyCredentialUserEntity.builder()
+        return new PendingRegistration(invitationToken, normalizedEmail, null,
+                creationOptions(newUserEntity(normalizedEmail), List.of()));
+    }
+
+    private PendingRegistration startRecovery(String invitationToken, OwnerAccount owner) {
+        var existing = userEntities.findByUsername(owner.email());
+        var user = existing != null ? existing : newUserEntity(owner.email());
+        // The authenticator refuses to create a second passkey where the owner already has one.
+        var ownPasskeys = userCredentials.findByUserId(user.getId()).stream()
+                .map(passkey -> PublicKeyCredentialDescriptor.builder()
+                        .id(passkey.getCredentialId())
+                        .transports(passkey.getTransports())
+                        .build())
+                .toList();
+        return new PendingRegistration(invitationToken, owner.email(), owner.id(),
+                creationOptions(user, ownPasskeys));
+    }
+
+    private static PublicKeyCredentialUserEntity newUserEntity(String email) {
+        return ImmutablePublicKeyCredentialUserEntity.builder()
                 .id(Bytes.random())
-                .name(normalizedEmail)
-                .displayName(normalizedEmail)
+                .name(email)
+                .displayName(email)
                 .build();
+    }
+
+    private PublicKeyCredentialCreationOptions creationOptions(PublicKeyCredentialUserEntity user,
+                                                               List<PublicKeyCredentialDescriptor> excluded) {
         // The same choices as Spring Security's own registration: discoverable passkeys, no attestation.
-        var options = PublicKeyCredentialCreationOptions.builder()
+        return PublicKeyCredentialCreationOptions.builder()
                 .rp(relyingParty)
                 .user(user)
                 .challenge(Bytes.random())
+                .excludeCredentials(excluded)
                 .pubKeyCredParams(PublicKeyCredentialParameters.EdDSA, PublicKeyCredentialParameters.ES256,
                         PublicKeyCredentialParameters.RS256)
                 .authenticatorSelection(AuthenticatorSelectionCriteria.builder()
@@ -86,17 +140,16 @@ class OwnerRegistration {
                         ImmutableAuthenticationExtensionsClientInput.credProps))
                 .timeout(Duration.ofMinutes(5))
                 .build();
-        return new PendingRegistration(invitationToken, normalizedEmail, options);
     }
 
     @Transactional
     RegisteredOwner finish(PendingRegistration pending, PublicKeyCredential<AuthenticatorAttestationResponse> passkey) {
         var invitation = invitations.redeem(pending.invitationToken())
                 .orElseThrow(() -> new RegistrationException(Reason.INVITATION_NOT_REDEEMABLE));
-        if (owners.findByEmail(pending.email()).isPresent()) {
-            throw new RegistrationException(Reason.EMAIL_TAKEN);
-        }
-        var ownerId = owners.insert(pending.email(), invitation.grantsAdmin());
+        var owner = pending.recoveredOwnerId() == null
+                ? insertOwner(pending.email(), invitation.grantsAdmin())
+                : owners.findById(pending.recoveredOwnerId())
+                        .orElseThrow(() -> new RegistrationException(Reason.INVITATION_NOT_REDEEMABLE));
         userEntities.save(pending.options().getUser());
         try {
             relyingPartyOperations.registerCredential(new ImmutableRelyingPartyRegistrationRequest(
@@ -104,10 +157,17 @@ class OwnerRegistration {
         } catch (RuntimeException e) {
             throw new RegistrationException(Reason.PASSKEY_REJECTED, e);
         }
-        return new RegisteredOwner(ownerId, pending.email(), invitation.grantsAdmin());
+        return new RegisteredOwner(owner.id(), owner.email(), owner.isAdmin());
     }
 
-    private static String normalize(String email) {
+    private OwnerAccount insertOwner(String email, boolean isAdmin) {
+        if (owners.findByEmail(email).isPresent()) {
+            throw new RegistrationException(Reason.EMAIL_TAKEN);
+        }
+        return new OwnerAccount(owners.insert(email, isAdmin), email, isAdmin);
+    }
+
+    private static String normalize(@Nullable String email) {
         var normalized = email == null ? "" : email.strip().toLowerCase(Locale.ROOT);
         if (normalized.length() > MAX_EMAIL_LENGTH || !EMAIL.matcher(normalized).matches()) {
             throw new RegistrationException(Reason.INVALID_EMAIL);
@@ -115,8 +175,12 @@ class OwnerRegistration {
         return normalized;
     }
 
-    /** A registration between the two steps, kept in the visitor's session. */
-    record PendingRegistration(String invitationToken, String email, PublicKeyCredentialCreationOptions options) {
+    /**
+     * A registration between the two steps, kept in the visitor's session. {@code recoveredOwnerId} is the
+     * owner who gets the passkey, or {@code null} for a new owner.
+     */
+    record PendingRegistration(String invitationToken, String email, @Nullable UUID recoveredOwnerId,
+                               PublicKeyCredentialCreationOptions options) {
     }
 
     record RegisteredOwner(UUID id, String email, boolean isAdmin) {

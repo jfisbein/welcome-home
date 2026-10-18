@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Nueva passkey')}"></head>
+<body>
+<main class="container">
+    <article>
+        <header><h1>Nueva passkey</h1></header>
+        <p>
+            Crea una passkey en este dispositivo para entrar como
+            <strong th:text="${email}">ana@example.com</strong>. Las passkeys que ya tengas siguen funcionando.
+        </p>
+        <form id="registration">
+            <button type="submit">Crear passkey</button>
+        </form>
+        <p id="registration-error" role="alert" hidden></p>
+    </article>
+</main>
+<script th:src="@{/js/webauthn.js}"></script>
+<script th:src="@{/js/invitation.js}"></script>
+</body>
+</html>

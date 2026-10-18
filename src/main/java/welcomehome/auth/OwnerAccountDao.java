@@ -25,6 +25,13 @@ class OwnerAccountDao {
                 .optional();
     }
 
+    Optional<OwnerAccount> findById(UUID id) {
+        return jdbc.sql("SELECT id, email, is_admin FROM owner WHERE id = :id")
+                .param("id", id)
+                .query(OwnerAccount.class)
+                .optional();
+    }
+
     UUID insert(String email, boolean isAdmin) {
         return jdbc.sql("INSERT INTO owner (email, is_admin) VALUES (:email, :isAdmin) RETURNING id")
                 .param("email", email)

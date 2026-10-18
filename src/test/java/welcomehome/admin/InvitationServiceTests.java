@@ -24,7 +24,7 @@ class InvitationServiceTests {
 
     @Test
     void buildsTheLinkWithoutADoubleSlash() {
-        when(invitations.insert(any(), any(), any(), any(Boolean.class), any()))
+        when(invitations.insert(any(), any(), any(), any(Boolean.class), any(), any()))
                 .thenReturn(new InvitationDao.InsertedInvitation(UUID.randomUUID(), OffsetDateTime.now(ZoneOffset.UTC)));
         var service = new InvitationService(invitations, "https://welcome.example/");
 

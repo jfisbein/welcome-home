@@ -5,21 +5,44 @@
 <main class="container">
     <nav th:replace="~{fragments/layout :: nav}"></nav>
     <h1>Propietarios</h1>
+
+    <article th:if="${recovery}">
+        <header><strong>Enlace de nueva passkey creado</strong></header>
+        <p>
+            Envía este enlace a <strong th:text="${recoveredEmail}">ana@example.com</strong> para que cree una
+            passkey nueva; conservará las que ya tiene. Sirve una sola vez y caduca en 72 horas. No se volverá a
+            mostrar.
+        </p>
+        <fieldset role="group">
+            <input id="recovery-url" type="text" readonly th:value="${recovery.url}" aria-label="Enlace de nueva passkey">
+            <button type="button" data-copy="recovery-url">Copiar</button>
+        </fieldset>
+    </article>
+
     <p><a th:href="@{/admin/invitations}" role="button">Invitar a un propietario</a></p>
     <table>
         <thead>
         <tr>
             <th scope="col">Email</th>
             <th scope="col">Alta</th>
+            <th scope="col"></th>
         </tr>
         </thead>
         <tbody>
         <tr th:each="owner : ${owners}">
             <td th:text="${owner.email}">propietario@example.com</td>
             <td th:text="${#temporals.format(owner.registeredOn, 'd/M/yyyy')}">1/1/2026</td>
+            <td>
+                <form th:action="@{/admin/recoveries}" method="post">
+                    <input type="hidden" name="email" th:value="${owner.email}">
+                    <button type="submit" class="outline secondary"
+                            title="Si ha perdido su passkey: un enlace para crear otra">Nueva passkey</button>
+                </form>
+            </td>
         </tr>
         </tbody>
     </table>
 </main>
+<script th:src="@{/js/copy.js}"></script>
 </body>
 </html>

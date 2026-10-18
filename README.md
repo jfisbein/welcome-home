@@ -48,7 +48,7 @@ The app needs two Tink keysets and does not start without them:
 
 ## First admin
 
-Owners register only through single-use invitations, valid for 72 hours. The first admin's invitation comes from a one-off command that prints the link and exits; it refuses when an admin already exists:
+Owners register only through single-use invitations, valid for 72 hours. The first admin's invitation comes from a one-off command that prints the link and exits, without starting the web server; it refuses when an admin already exists:
 
 ```sh
 ./gradlew bootRun --args='--bootstrap-admin'          # development
@@ -58,6 +58,14 @@ docker compose run --rm app --bootstrap-admin         # production
 Opening an invitation link asks for an email and creates a passkey on that device; owners then sign in with it at `/login`. There are no passwords.
 
 Admins invite further owners from the admin panel (`/admin/owners`, linked from the owner's panel): each invitation has a note on who it is for and may make the new owner an admin too. Its link is shown only once, since only a hash of the token is stored. The panel lists owners' emails and registration dates, never their locks or links: Row-Level Security applies to admins like to any other owner.
+
+An owner who lost their passkey gets a passkey recovery link: from the admin panel ("Nueva passkey", next to each owner), or from the server for an admin who cannot sign in at all:
+
+```sh
+docker compose run --rm app --recover-owner=ana@example.com
+```
+
+It is an invitation that names its owner: single use, valid for 72 hours, shown once. Opening it creates a passkey on that device for that owner, who keeps the passkeys they had, and signs them in. Whoever has the link signs in as that owner, so an admin who creates one can; the link records which admin created it.
 
 The app needs `BASE_URL` (its public URL, e.g. `https://welcome.example`) to build invitation and access links. Its host is also the passkeys' relying party: passkeys created for one domain do not work on another.
 

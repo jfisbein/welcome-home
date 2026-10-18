@@ -58,7 +58,7 @@ class InvitationRegistrationTests {
     void unknownInvitationShowsItIsNotValid() {
         assertThat(mvc.get().uri("/invite/unknown"))
                 .hasStatus(HttpStatus.NOT_FOUND)
-                .bodyText().contains("Invitación no válida");
+                .bodyText().contains("Enlace no válido");
     }
 
     @Test

@@ -24,10 +24,18 @@ public class WelcomeHomeApplication {
      */
     public static void main(String[] args) {
         var application = new SpringApplication(WelcomeHomeApplication.class);
-        // The one-off --bootstrap-admin command (see admin.BootstrapAdmin) runs without the web server.
-        if (Arrays.asList(args).contains("--bootstrap-admin")) {
+        if (runsACommand(args)) {
             application.setWebApplicationType(WebApplicationType.NONE);
         }
         application.run(args);
+    }
+
+    /**
+     * Whether the arguments ask for one of the one-off commands, which run without the web server:
+     * {@code --bootstrap-admin} and {@code --recover-owner=<email>} (see admin.BootstrapAdmin and
+     * admin.PasskeyRecoveryCommand).
+     */
+    static boolean runsACommand(String... args) {
+        return Arrays.stream(args).anyMatch(arg -> arg.equals("--bootstrap-admin") || arg.startsWith("--recover-owner"));
     }
 }

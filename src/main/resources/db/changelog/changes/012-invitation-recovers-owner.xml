@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="012-invitation-recovers-owner" author="welcome-home">
+        <comment>
+            A passkey recovery link: redeeming it adds a passkey to this owner instead of registering a new one.
+            It never grants admin.
+        </comment>
+
+        <addColumn tableName="invitation">
+            <column name="recovers_owner_id" type="uuid"/>
+        </addColumn>
+        <addForeignKeyConstraint constraintName="invitation_recovers_owner_id_fkey"
+                                 baseTableName="invitation" baseColumnNames="recovers_owner_id"
+                                 referencedTableName="owner" referencedColumnNames="id"
+                                 onDelete="CASCADE"/>
+        <sql>
+            ALTER TABLE invitation ADD CONSTRAINT invitation_recovery_grants_nothing_check
+                CHECK (recovers_owner_id IS NULL OR NOT grants_admin);
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

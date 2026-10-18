@@ -5,6 +5,7 @@ import java.time.Duration;
 import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcOperations;
@@ -44,7 +45,9 @@ class SecurityConfiguration {
 
     static final Duration HSTS_MAX_AGE = Duration.ofDays(365);
 
+    /** Only with the web server: the one-off commands run without it, and without HttpSecurity. */
     @Bean
+    @ConditionalOnWebApplication
     SecurityFilterChain securityFilterChain(HttpSecurity http) {
         http
                 .authorizeHttpRequests(requests -> requests

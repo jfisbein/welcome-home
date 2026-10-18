@@ -5,6 +5,7 @@ import java.util.Map;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +18,7 @@ import org.springframework.security.web.webauthn.api.PublicKeyCredential;
 import org.springframework.security.web.webauthn.authentication.WebAuthnAuthentication;
 import org.springframework.security.web.webauthn.jackson.WebauthnJacksonModule;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,8 +34,10 @@ import welcomehome.auth.OwnerRegistration.PendingRegistration;
 import welcomehome.auth.RegistrationException.Reason;
 
 /**
- * The invitation link: the page asks for an email and creates a passkey, then the new owner is signed in.
- * The passkey JSON uses Spring Security's WebAuthn format, read and written with its Jackson module.
+ * The invitation link: the page asks for an email and creates a passkey, then the new owner is signed in. A
+ * passkey recovery link uses the same path and flow, without the email: the passkey is added to the owner the
+ * link is for, who is then signed in. The passkey JSON uses Spring Security's WebAuthn format, read and
+ * written with its Jackson module.
  */
 @Controller
 @RequestMapping("/invite/{token}")
@@ -57,12 +61,22 @@ class InvitationController {
     }
 
     @GetMapping
-    String invitation(@PathVariable String token, HttpServletResponse response) {
-        if (invitations.findRedeemable(token).isEmpty()) {
+    String invitation(@PathVariable String token, HttpServletResponse response, Model model) {
+        var invitation = invitations.findRedeemable(token);
+        if (invitation.isEmpty()) {
             response.setStatus(HttpStatus.NOT_FOUND.value());
             return "invitation-invalid";
         }
-        return "invitation";
+        if (invitation.get().recoversOwnerId() == null) {
+            return "invitation";
+        }
+        var owner = registration.recoveredOwner(invitation.get());
+        if (owner.isEmpty()) {
+            response.setStatus(HttpStatus.NOT_FOUND.value());
+            return "invitation-invalid";
+        }
+        model.addAttribute("email", owner.get().email());
+        return "passkey-recovery";
     }
 
     @PostMapping(path = "/options", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -112,6 +126,7 @@ class InvitationController {
         securityContextRepository.saveContext(context, request, response);
     }
 
-    record OptionsRequest(String email) {
+    /** {@code email} is empty for a passkey recovery link. */
+    record OptionsRequest(@Nullable String email) {
     }
 }

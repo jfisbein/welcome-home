@@ -10,12 +10,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
- * Creates single-use invitations, the only way to register as an owner.
+ * Creates single-use invitations, the only way to register as an owner, and passkey recovery links, which
+ * add a passkey to an existing owner. Both are redeemed at {@code /invite/{token}}.
  */
 @Service
 public class InvitationService {
 
-    /** How long an invitation can be redeemed: 72 hours, as the invitation page says. */
+    /** How long an invitation or recovery link can be redeemed: 72 hours, as the admin panel says. */
     @SuppressWarnings("CanonicalDuration")
     public static final Duration VALIDITY = Duration.ofHours(72);
 
@@ -39,8 +40,26 @@ public class InvitationService {
      * @return the invitation, with the only copy of its URL
      */
     public CreatedInvitation createInvitation(@Nullable UUID createdBy, String note, boolean grantsAdmin) {
+        return create(createdBy, note, grantsAdmin, null);
+    }
+
+    /**
+     * Creates a passkey recovery link valid for {@link #VALIDITY}: whoever opens it adds a passkey to the
+     * owner, who keeps the passkeys they already have.
+     *
+     * @param createdBy the admin who creates it, or {@code null} when created from the server's command line
+     * @param ownerId   the owner who gets the new passkey
+     * @return the link, with the only copy of its URL
+     */
+    public CreatedInvitation createPasskeyRecovery(@Nullable UUID createdBy, UUID ownerId) {
+        return create(createdBy, "Passkey recovery", false, ownerId);
+    }
+
+    private CreatedInvitation create(@Nullable UUID createdBy, String note, boolean grantsAdmin,
+                                     @Nullable UUID recoversOwnerId) {
         var token = InvitationTokens.newToken();
-        var inserted = invitations.insert(InvitationTokens.hash(token), note, createdBy, grantsAdmin, VALIDITY);
+        var inserted = invitations.insert(InvitationTokens.hash(token), note, createdBy, grantsAdmin,
+                recoversOwnerId, VALIDITY);
         return new CreatedInvitation(
                 inserted.id(),
                 URI.create(baseUrl + "/invite/" + token),

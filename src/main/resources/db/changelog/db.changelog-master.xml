@@ -20,5 +20,6 @@
     <include file="changes/009-resolve-link.xml" relativeToChangelogFile="true"/>
     <include file="changes/010-invitation-grants-admin.xml" relativeToChangelogFile="true"/>
     <include file="changes/011-lock-relocking-handled-elsewhere.xml" relativeToChangelogFile="true"/>
+    <include file="changes/012-invitation-recovers-owner.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

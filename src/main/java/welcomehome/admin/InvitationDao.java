@@ -19,16 +19,18 @@ class InvitationDao {
     }
 
     InsertedInvitation insert(byte[] tokenHash, String note, @Nullable UUID createdBy, boolean grantsAdmin,
-                              Duration validity) {
+                              @Nullable UUID recoversOwnerId, Duration validity) {
         return jdbc.sql("""
-                        INSERT INTO invitation (token_hash, note, created_by, grants_admin, expires_at)
-                        VALUES (:tokenHash, :note, :createdBy, :grantsAdmin, now() + make_interval(secs => :validitySeconds))
+                        INSERT INTO invitation (token_hash, note, created_by, grants_admin, recovers_owner_id, expires_at)
+                        VALUES (:tokenHash, :note, :createdBy, :grantsAdmin, :recoversOwnerId,
+                                now() + make_interval(secs => :validitySeconds))
                         RETURNING id, expires_at
                         """)
                 .param("tokenHash", tokenHash)
                 .param("note", note)
                 .param("createdBy", createdBy)
                 .param("grantsAdmin", grantsAdmin)
+                .param("recoversOwnerId", recoversOwnerId)
                 .param("validitySeconds", validity.toSeconds())
                 .query(InsertedInvitation.class)
                 .single();
@@ -36,7 +38,7 @@ class InvitationDao {
 
     Optional<RedeemableInvitation> findRedeemable(byte[] tokenHash) {
         return jdbc.sql("""
-                        SELECT id, grants_admin, expires_at
+                        SELECT id, grants_admin, recovers_owner_id, expires_at
                         FROM invitation
                         WHERE token_hash = :tokenHash AND used_at IS NULL AND expires_at > now()
                         """)
@@ -50,7 +52,7 @@ class InvitationDao {
         return jdbc.sql("""
                         UPDATE invitation SET used_at = now()
                         WHERE token_hash = :tokenHash AND used_at IS NULL AND expires_at > now()
-                        RETURNING id, grants_admin, expires_at
+                        RETURNING id, grants_admin, recovers_owner_id, expires_at
                         """)
                 .param("tokenHash", tokenHash)
                 .query(RedeemableInvitation.class)
