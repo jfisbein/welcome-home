@@ -19,6 +19,12 @@
         </fieldset>
     </article>
 
+    <article th:if="${deletedEmail}">
+        <p th:text="|Cuenta de ${deletedEmail} dada de baja, con todos sus datos. Recuérdale que borre su API token en Nuki Web.|">
+            Cuenta de ana@example.com dada de baja, con todos sus datos. Recuérdale que borre su API token en Nuki Web.
+        </p>
+    </article>
+
     <p><a th:href="@{/admin/invitations}" role="button">Invitar a un propietario</a></p>
     <table>
         <thead>
@@ -32,11 +38,16 @@
         <tr th:each="owner : ${owners}">
             <td th:text="${owner.email}">propietario@example.com</td>
             <td th:text="${#temporals.format(owner.registeredOn, 'd/M/yyyy')}">1/1/2026</td>
-            <td>
+            <td class="actions">
                 <form th:action="@{/admin/recoveries}" method="post">
                     <input type="hidden" name="email" th:value="${owner.email}">
                     <button type="submit" class="outline secondary"
                             title="Si ha perdido su passkey: un enlace para crear otra">Nueva passkey</button>
+                </form>
+                <form th:unless="${owner.email == adminEmail}" th:action="@{/admin/owners}" th:method="delete"
+                      th:data-confirm="|Se borrarán para siempre la cuenta de ${owner.email}, sus passkeys, su conexión con Nuki, sus cerraduras, sus enlaces (dejarán de abrir) y su historial. ¿Darla de baja?|">
+                    <input type="hidden" name="email" th:value="${owner.email}">
+                    <button type="submit" class="outline contrast">Dar de baja</button>
                 </form>
             </td>
         </tr>
@@ -44,5 +55,6 @@
     </table>
 </main>
 <script th:src="@{/js/copy.js}"></script>
+<script th:src="@{/js/confirm.js}"></script>
 </body>
 </html>

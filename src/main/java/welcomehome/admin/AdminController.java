@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -15,7 +16,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /**
- * The admin panel: the owner list, new invitations and passkey recovery links. Only admins reach it (see the
+ * The admin panel: the owner list, new invitations, passkey recovery links and deleting owners. Only admins reach it (see the
  * security configuration), and it shows owners' emails and registration dates, nothing of their locks or
  * links.
  */
@@ -34,9 +35,26 @@ class AdminController {
     }
 
     @GetMapping("/owners")
-    String owners(Model model) {
+    String owners(Principal admin, Model model) {
         model.addAttribute("owners", owners.findAll());
+        model.addAttribute("adminEmail", admin.getName());
         return "admin/owners";
+    }
+
+    /**
+     * Deletes an owner with everything of theirs: passkeys, Nuki connection, locks, links and history. An admin
+     * cannot delete themselves, so there is always an admin left.
+     */
+    @DeleteMapping("/owners")
+    String deleteOwner(@RequestParam String email, Principal admin, RedirectAttributes redirect) {
+        if (email.equals(admin.getName())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "An admin cannot delete themselves");
+        }
+        if (!owners.delete(email)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+        redirect.addFlashAttribute("deletedEmail", email);
+        return "redirect:/admin/owners";
     }
 
     @GetMapping("/invitations")

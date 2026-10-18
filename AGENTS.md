@@ -9,7 +9,7 @@ A private web app where a few owners connect their Nuki account and create date-
 **Roles**
 
 - **Owner**: connects Nuki with an API token, imports locks, creates, edits, regenerates and revokes links, reads each lock's history.
-- **Admin**: an owner who can also invite owners, list them and create passkey recovery links. Admins never see other owners' locks, links or history.
+- **Admin**: an owner who can also invite owners, list them, create passkey recovery links and delete owners. Admins never see other owners' locks, links or history.
 - **Guest**: no account; has only a link.
 
 **In production**: `https://welcome-home.alcornoque.top`, a Dockge stack on `docker.fritz.box` (an LXC), reached only through its own Cloudflare Tunnel. Image `ghcr.io/jfisbein/welcome-home`, the release named in `deploy/compose.yaml`.
@@ -163,7 +163,6 @@ Release: a pull request that bumps `version` in `build.gradle.kts` and the image
 **Other ideas**, roughly by value:
 
 - Re-encrypting stored Nuki tokens after an AEAD rotation, so that old keys can be dropped without owners pasting tokens again.
-- Owner deletion from the admin panel. Today it is SQL: deleting the `owner` row cascades to their connection, locks, links and history, but their passkeys (`user_entities`, `user_credentials`, keyed by email) have to be deleted too.
 - Notifications to the owner when a link is used (email or push).
 - Links with a maximum number of uses or a recurring schedule (`access_link` columns).
 - Geofence as a deterrent (browsers accept fake locations: store only distance and accuracy, and tell the guest first).

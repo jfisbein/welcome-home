@@ -93,6 +93,9 @@ class AdminPanelTests {
                 .hasStatus(HttpStatus.FORBIDDEN);
         assertThat(mvc.post().uri("/admin/recoveries").with(owner()).with(csrf()).param("email", ADMIN_EMAIL))
                 .hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(mvc.delete().uri("/admin/owners").with(owner()).with(csrf()).param("email", ADMIN_EMAIL))
+                .hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(migrator.sql("SELECT count(*) FROM owner").query(Long.class).single()).isEqualTo(2);
         assertThat(jdbc.sql("SELECT count(*) FROM invitation").query(Long.class).single()).isZero();
     }
 
@@ -198,6 +201,76 @@ class AdminPanelTests {
     void creatingARecoveryLinkRequiresTheCsrfToken() {
         assertThat(mvc.post().uri("/admin/recoveries").with(admin()).param("email", OWNER_EMAIL))
                 .hasStatus(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void adminDeletesAnOwnerWithEverythingOfTheirs() {
+        migrator.sql("INSERT INTO nuki_connection (owner_id, api_token_encrypted, status) VALUES (?, '\\x00', 'OK')")
+                .param(bobId).update();
+        migrator.sql("""
+                        INSERT INTO access_event (owner_id, link_id, lock_id, result)
+                        SELECT owner_id, id, lock_id, 'OK' FROM access_link
+                        """).update();
+        insertPasskey("YWRtaW4", ADMIN_EMAIL, "YWRtaW4tcGFzc2tleQ");
+        insertPasskey("Ym9i", OWNER_EMAIL, "Ym9iLXBhc3NrZXk");
+        invitations.createPasskeyRecovery(adminId, bobId);
+        migrator.sql("""
+                        INSERT INTO invitation (token_hash, note, created_by, expires_at)
+                        VALUES ('\\x01', 'Invitada por Bob', ?, now() + interval '1 day')
+                        """).param(bobId).update();
+        assertThat(mvc.get().uri("/admin/owners").with(admin())).bodyText()
+                .contains("data-confirm=\"Se borrarán para siempre la cuenta de bob@example.com", "/js/confirm.js");
+
+        var result = mvc.delete().uri("/admin/owners").with(admin()).with(csrf()).param("email", OWNER_EMAIL).exchange();
+
+        assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/admin/owners");
+        assertThat(result.getMvcResult().getFlashMap().get("deletedEmail")).isEqualTo(OWNER_EMAIL);
+        for (var table : new String[] {"nuki_connection", "lock", "access_link", "access_event"}) {
+            assertThat(migrator.sql("SELECT count(*) FROM " + table).query(Long.class).single()).as(table).isZero();
+        }
+        assertThat(migrator.sql("SELECT email FROM owner").query(String.class).list()).containsExactly(ADMIN_EMAIL);
+        assertThat(migrator.sql("SELECT name FROM user_entities").query(String.class).list())
+                .containsExactly(ADMIN_EMAIL);
+        assertThat(migrator.sql("SELECT credential_id FROM user_credentials").query(String.class).list())
+                .containsExactly("YWRtaW4tcGFzc2tleQ");
+        assertThat(migrator.sql("SELECT note || ' ' || coalesce(created_by::text, 'nobody') FROM invitation")
+                .query(String.class).list())
+                .as("his recovery link is gone; an invitation he created stays, by nobody")
+                .containsExactly("Invitada por Bob nobody");
+    }
+
+    @Test
+    void anAdminCannotDeleteThemselves() {
+        assertThat(mvc.get().uri("/admin/owners").with(admin())).bodyText()
+                .contains("la cuenta de bob@example.com").doesNotContain("la cuenta de admin@example.com");
+
+        assertThat(mvc.delete().uri("/admin/owners").with(admin()).with(csrf()).param("email", ADMIN_EMAIL))
+                .hasStatus(HttpStatus.CONFLICT);
+        assertThat(migrator.sql("SELECT count(*) FROM owner").query(Long.class).single()).isEqualTo(2);
+    }
+
+    @Test
+    void deletingAnUnknownOwnerIsNotFound() {
+        assertThat(mvc.delete().uri("/admin/owners").with(admin()).with(csrf()).param("email", "nobody@example.com"))
+                .hasStatus(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void deletingAnOwnerRequiresTheCsrfToken() {
+        assertThat(mvc.delete().uri("/admin/owners").with(admin()).param("email", OWNER_EMAIL))
+                .hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(migrator.sql("SELECT count(*) FROM owner").query(Long.class).single()).isEqualTo(2);
+    }
+
+    private void insertPasskey(String userId, String email, String credentialId) {
+        migrator.sql("INSERT INTO user_entities (id, name, display_name) VALUES (?, ?, ?)")
+                .params(userId, email, email).update();
+        migrator.sql("""
+                        INSERT INTO user_credentials (credential_id, user_entity_user_id, public_key, backup_eligible,
+                                                      backup_state, label)
+                        VALUES (?, ?, '\\x01', false, false, 'Passkey')
+                        """)
+                .params(credentialId, userId).update();
     }
 
     private MvcTestResult createInvitation(String note, boolean grantsAdmin) {

@@ -100,6 +100,10 @@ A key that no token uses can be removed from the keyset (`jq 'del(.key[] | selec
 
 **If the MAC keyset leaked**, anyone who knows a link's id can forge its URL. Replace it with a new one (`./gradlew generateKeysets` into an empty folder, keeping only `mac-keyset.json`), store it in Vaultwarden and on the server, and restart `app`: every access link changes, and owners have to share their links again.
 
+## An owner leaves
+
+An admin deletes them in `/admin/owners` ("Dar de baja"): their account, passkeys, Nuki connection, locks, links and history go at once. Their data stays in the dumps, locally and in B2, until the dumps expire after 30 days. Remind them to delete their API token in Nuki Web.
+
 ## A leaked access link
 
 The owner, on the lock's links page:
