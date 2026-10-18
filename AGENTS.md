@@ -167,6 +167,8 @@ Release: a pull request that bumps `version` in `build.gradle.kts` and the image
 
 **Other ideas**, roughly by value:
 
+- Two people registering with the same email at the same moment, from two invitations: both pass the check in `OwnerRegistration.start`, and the unique constraint `owner_email_key` stops the second in `finish`, so no duplicate account is ever created, but that person gets a generic error instead of "Ya hay una cuenta con este email". Catching the constraint violation in `finish` as `RegistrationException(Reason.EMAIL_TAKEN)` would fix it.
+
 - Re-encrypting stored Nuki tokens after an AEAD rotation, so that old keys can be dropped without owners pasting tokens again.
 - Links with a maximum number of uses or a recurring schedule (`access_link` columns).
 - Geofence as a deterrent (browsers accept fake locations: store only distance and accuracy, and tell the guest first).
