@@ -57,7 +57,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 
 | Module   | Responsibility                                                                                              |
 |----------|-------------------------------------------------------------------------------------------------------------|
-| `auth`   | Security configuration, passkey sign-in, registration from an invitation or recovery link (`OwnerRegistration`), `CurrentOwner` |
+| `auth`   | Security configuration, passkey sign-in, registration from an invitation or recovery link (`OwnerRegistration`), the owner's passkeys page (`PasskeysController`), `CurrentOwner` |
 | `admin`  | Invitations and recovery links (`InvitationService`), the admin panel, the `--bootstrap-admin` and `--recover-owner` commands |
 | `crypto` | Keysets (`Keysets`, `KeysetGenerator`, `KeysetRotator`), `CryptoService` (AEAD), `LinkTokenSigner` (MAC)  |
 | `db`     | `OwnerTransactions`: runs work in a transaction with `app.owner_id` set for Row-Level Security             |
@@ -71,7 +71,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 
 **`LockProvider`** (`listLocks`, `getState`, `unlatch`, `getRecentLog`, all by owner id) isolates Nuki: tokens are decrypted inside `nuki` and never leave it. Another way to reach a lock (Nuki Bridge, MQTT, OAuth2) is another implementation or a change inside `nuki`, without touching the rest.
 
-**Data model** (`src/main/resources/db/changelog/changes/`): `owner`, `invitation` (also recovery links: `recovers_owner_id`), `nuki_connection`, `lock`, `access_link` (`token_version`), `access_event`, and Spring Security's `user_entities` and `user_credentials`. Every table with `owner_id` has Row-Level Security with a policy that fails closed (`owner_id = nullif(current_setting('app.owner_id', true), '')::uuid`). `owner` and `invitation` have no `owner_id` and no RLS: only `auth` and `admin` use them.
+**Data model** (`src/main/resources/db/changelog/changes/`): `owner`, `invitation` (also recovery links: `recovers_owner_id`), `nuki_connection`, `lock`, `access_link` (`token_version`), `access_event`, and Spring Security's `user_entities` and `user_credentials`. Every table with `owner_id` has Row-Level Security with a policy that fails closed (`owner_id = nullif(current_setting('app.owner_id', true), '')::uuid`). `owner` and `invitation` have no `owner_id` and no RLS: only `auth` and `admin` use them. Neither do the passkey tables, keyed by the owner's email: `auth` joins `user_entities` by email in every query.
 
 **Roles in Postgres**: `migrator` owns the schema and runs Liquibase; the app connects as `app_user`, with no ownership and no `BYPASSRLS`. No `FORCE ROW LEVEL SECURITY`, so that `resolve_link` (owned by `migrator`) sees the link. Roles come from `deploy/db-init/01-create-roles.sh`, used by development, tests and production alike.
 
@@ -91,7 +91,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 | Row-Level Security plus `owner_id` in every query | Isolation does not depend on every query being right. `OwnerIsolationTests` checks every route with an id. |
 | AEAD with the owner id as associated data | A ciphertext copied to another owner's row does not decrypt. |
 | Admins see only emails and dates | An admin is still just an owner to RLS. Recovery links are the exception the user chose: whoever holds one signs in as that owner, so the admin who creates one could. |
-| Recovery adds a passkey and keeps the old ones | The user's choice; removing passkeys belongs to a future passkey management page. |
+| Recovery adds a passkey and keeps the old ones | The user's choice; the owner then deletes the lost device's passkey at `/passkeys`, which never deletes the last one. |
 | `CF-Connecting-IP` for the guest's IP, `forward-headers-strategy=framework` | The tunnel is the only way in, so Cloudflare's headers are trustworthy; `X-Forwarded-For` starts with whatever the client sent. |
 | `/o/{token}` masked in logs, `Referrer-Policy: no-referrer`, `noindex` | Guest URLs are bearer credentials. |
 | No ports published; own cloudflared in the stack | With a published port the app was reachable from the LAN and the forwarded headers could be spoofed. |
@@ -162,7 +162,6 @@ Release: a pull request that bumps `version` in `build.gradle.kts` and the image
 
 **Other ideas**, roughly by value:
 
-- Passkey management page: each owner lists, renames and removes their passkeys (closes the gap that recovery links leave: a lost device's passkey stays valid).
 - Re-encrypting stored Nuki tokens after an AEAD rotation, so that old keys can be dropped without owners pasting tokens again.
 - Owner deletion from the admin panel. Today it is SQL: deleting the `owner` row cascades to their connection, locks, links and history, but their passkeys (`user_entities`, `user_credentials`, keyed by email) have to be deleted too.
 - Notifications to the owner when a link is used (email or push).

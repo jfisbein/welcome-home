@@ -35,12 +35,8 @@ const WebAuthn = (() => {
         return response.json();
     }
 
-    /**
-     * Creates a passkey from an invitation and returns the URL to go to next.
-     * baseUrl is the invitation's path; the server answers on its /options and /register.
-     */
-    async function register(baseUrl, email) {
-        const options = await postJson(`${baseUrl}/options`, {email});
+    /** navigator.credentials.create with the server's options; returns the credential as the server reads it. */
+    async function create(options) {
         const credential = await navigator.credentials.create({
             publicKey: {
                 ...options,
@@ -51,7 +47,7 @@ const WebAuthn = (() => {
             }
         });
         const response = credential.response;
-        const result = await postJson(`${baseUrl}/register`, {
+        return {
             id: credential.id,
             rawId: toBase64Url(credential.rawId),
             type: credential.type,
@@ -62,8 +58,26 @@ const WebAuthn = (() => {
             },
             clientExtensionResults: credential.getClientExtensionResults(),
             authenticatorAttachment: credential.authenticatorAttachment
-        });
+        };
+    }
+
+    /**
+     * Creates a passkey from an invitation and returns the URL to go to next.
+     * baseUrl is the invitation's path; the server answers on its /options and /register.
+     */
+    async function register(baseUrl, email) {
+        const options = await postJson(`${baseUrl}/options`, {email});
+        const result = await postJson(`${baseUrl}/register`, await create(options));
         return result.redirectUrl;
+    }
+
+    /** Adds a passkey to the signed-in owner, through Spring Security's registration endpoints. */
+    async function add(label) {
+        const options = await postJson("/webauthn/register/options");
+        const result = await postJson("/webauthn/register", {publicKey: {credential: await create(options), label}});
+        if (!result.success) {
+            throw new Error("Passkey rejected");
+        }
     }
 
     /** Signs in with a passkey and returns the URL to go to next. */
@@ -97,5 +111,5 @@ const WebAuthn = (() => {
         return result.redirectUrl;
     }
 
-    return {authenticate, register};
+    return {add, authenticate, register};
 })();

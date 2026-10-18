@@ -61,6 +61,8 @@ Opening an invitation link asks for an email and creates a passkey on that devic
 
 Admins invite further owners from the admin panel (`/admin/owners`, linked from the owner's panel): each invitation has a note on who it is for and may make the new owner an admin too. Its link is shown only once, since only a hash of the token is stored. The panel lists owners' emails and registration dates, never their locks or links: Row-Level Security applies to admins like to any other owner.
 
+Each owner manages their passkeys at `/passkeys` ("Passkeys" in the menu): the list shows each one's name, when it was created and when it last signed in. An owner renames them (`PATCH /passkeys/{credentialId}`), deletes the one of a lost device (`DELETE /passkeys/{credentialId}`, after confirming; never the last one, so that nobody locks themselves out) and adds another from the device or password manager where they want it, with a name, through Spring Security's own `POST /webauthn/register/options` and `POST /webauthn/register`. Passkeys live in Spring Security's tables, which have no `owner_id`: every query joins `user_entities` by the owner's email, and another owner's passkey is a 404.
+
 An owner who lost their passkey gets a passkey recovery link: from the admin panel ("Nueva passkey", next to each owner), or from the server for an admin who cannot sign in at all:
 
 ```sh

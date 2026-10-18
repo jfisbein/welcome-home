@@ -37,6 +37,7 @@ class OwnerIsolationTests {
 
     static final String ALICE = "alice@example.com";
     static final String BOB = "bob@example.com";
+    static final String BOBS_PASSKEY = "Ym9icy1wYXNza2V5";
 
     /** Routes whose id is a guest's or invitee's token, not an owner's resource: they have their own tests. */
     static final Set<String> TOKEN_ROUTES = Set.of(
@@ -64,6 +65,8 @@ class OwnerIsolationTests {
     void insertAliceAndBob() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         migrator.sql("DELETE FROM owner").update();
+        migrator.sql("DELETE FROM user_credentials").update();
+        migrator.sql("DELETE FROM user_entities").update();
         alicesLock = insertLock(insertOwner(ALICE), 17, "Casa de Alice");
         bobsLock = insertLock(insertOwner(BOB), 18, "Casa de Bob");
         bobsLink = migrator.sql("""
@@ -72,6 +75,16 @@ class OwnerIsolationTests {
                         RETURNING id
                         """)
                 .param(bobsLock).query(UUID.class).single();
+        // Two passkeys, so that Bob may delete one of them.
+        migrator.sql("INSERT INTO user_entities (id, name, display_name) VALUES ('Ym9i', ?, ?)").params(BOB, BOB).update();
+        for (var credentialId : new String[] {BOBS_PASSKEY, "Ym9icy1vdGhlci1wYXNza2V5"}) {
+            migrator.sql("""
+                            INSERT INTO user_credentials (credential_id, user_entity_user_id, public_key, backup_eligible,
+                                                          backup_state, label, created)
+                            VALUES (?, 'Ym9i', '\\x01', false, false, 'Móvil de Bob', now())
+                            """)
+                    .param(credentialId).update();
+        }
     }
 
     /** Each route with an id, and a request to it that Bob himself could make, in an order that lets him. */
@@ -94,6 +107,10 @@ class OwnerIsolationTests {
                 new Attempt("POST /links/{linkId}/regenerate", as -> mvc.post().uri("/links/" + bobsLink + "/regenerate")
                         .with(as).with(csrf()).exchange()),
                 new Attempt("POST /links/{linkId}/revoke", as -> mvc.post().uri("/links/" + bobsLink + "/revoke")
+                        .with(as).with(csrf()).exchange()),
+                new Attempt("PATCH /passkeys/{credentialId}", as -> mvc.patch().uri("/passkeys/" + BOBS_PASSKEY)
+                        .with(as).with(csrf()).param("label", "Intruso").exchange()),
+                new Attempt("DELETE /passkeys/{credentialId}", as -> mvc.delete().uri("/passkeys/" + BOBS_PASSKEY)
                         .with(as).with(csrf()).exchange()));
     }
 
@@ -131,12 +148,14 @@ class OwnerIsolationTests {
                 .containsExactlyInAnyOrderElementsOf(routesWithAnId);
     }
 
-    /** Bob's lock and links, row by row. */
+    /** Bob's lock, links and passkeys, row by row. */
     private List<String> bobsData() {
         return migrator.sql("""
                         SELECT l::text FROM lock l WHERE l.id = :lockId
                         UNION ALL
                         SELECT a::text FROM (SELECT * FROM access_link WHERE lock_id = :lockId ORDER BY id) a
+                        UNION ALL
+                        SELECT c::text FROM (SELECT * FROM user_credentials ORDER BY credential_id) c
                         """)
                 .param("lockId", bobsLock)
                 .query(String.class)

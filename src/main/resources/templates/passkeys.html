@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Passkeys')}"></head>
+<body>
+<main class="container">
+    <nav th:replace="~{fragments/layout :: nav}"></nav>
+    <h1>Tus passkeys</h1>
+    <p>
+        Entras con cualquiera de ellas. Si pierdes un dispositivo, borra aquí su passkey: dejará de servir para
+        entrar.
+    </p>
+
+    <article th:if="${param.added}"><p>Passkey añadida.</p></article>
+    <article th:if="${renamed}"><p th:text="|Passkey renombrada: ${renamed}.|">Passkey renombrada: iPhone.</p></article>
+    <article th:if="${deleted}"><p th:text="|Passkey borrada: ${deleted}.|">Passkey borrada: iPhone.</p></article>
+
+    <article th:each="passkey : ${passkeys}">
+        <form th:action="@{/passkeys/{id}(id=${passkey.credentialId})}" th:method="patch">
+            <fieldset role="group">
+                <input type="text" name="label" required th:maxlength="${maxLabelLength}" th:value="${passkey.label}"
+                       aria-label="Nombre de la passkey">
+                <button type="submit" class="secondary">Renombrar</button>
+            </fieldset>
+        </form>
+        <p>
+            <small>
+                <span th:if="${passkey.created}"
+                      th:text="|Creada el ${#temporals.format(passkey.created, 'd/M/yyyy HH:mm')}.|">Creada el 18/10/2026 17:05.</span>
+                <span th:if="${passkey.lastUsed}"
+                      th:text="|Último uso: ${#temporals.format(passkey.lastUsed, 'd/M/yyyy HH:mm')}.|">Último uso: 18/10/2026 18:30.</span>
+                <span th:unless="${passkey.lastUsed}">Todavía no se ha usado para entrar.</span>
+            </small>
+        </p>
+        <form th:if="${canDelete}" th:action="@{/passkeys/{id}(id=${passkey.credentialId})}" th:method="delete"
+              th:data-confirm="|La passkey «${passkey.label}» dejará de servir para entrar. ¿Borrarla?|">
+            <button type="submit" class="outline contrast">Borrar</button>
+        </form>
+    </article>
+    <p th:unless="${canDelete}">
+        <small>Es tu única passkey, así que no se puede borrar: añade otra antes.</small>
+    </p>
+
+    <section>
+        <h2>Añadir una passkey</h2>
+        <p>
+            Hazlo desde el dispositivo o el gestor de contraseñas donde la quieras, por ejemplo Vaultwarden, que la
+            sincroniza entre tus dispositivos.
+        </p>
+        <form id="add-passkey">
+            <label>
+                Nombre
+                <input type="text" name="label" required th:maxlength="${maxLabelLength}"
+                       placeholder="Por ejemplo: iPhone o Vaultwarden">
+            </label>
+            <button type="submit">Añadir passkey</button>
+        </form>
+        <p id="add-passkey-error" role="alert" hidden></p>
+    </section>
+</main>
+<script th:src="@{/js/confirm.js}"></script>
+<script th:src="@{/js/webauthn.js}"></script>
+<script th:src="@{/js/passkeys.js}"></script>
+</body>
+</html>
