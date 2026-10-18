@@ -55,8 +55,14 @@ class LockActionsTests {
         var lockId = UUID.randomUUID();
         var actions = new AtomicInteger();
 
-        lockActions.runOnce(lockId, () -> OpenResult.values()[actions.getAndIncrement()]);
-        lockActions.runOnce(lockId, () -> OpenResult.values()[actions.getAndIncrement()]);
+        lockActions.runOnce(lockId, () -> {
+            actions.incrementAndGet();
+            return OpenResult.OPENED;
+        });
+        lockActions.runOnce(lockId, () -> {
+            actions.incrementAndGet();
+            return OpenResult.OPENED;
+        });
 
         assertThat(actions).hasValue(2);
     }

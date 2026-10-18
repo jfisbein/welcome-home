@@ -75,9 +75,14 @@ class NukiConnectionDao {
 
     /** From owner, which has no Row-Level Security: without an owner context nuki_connection shows no rows. */
     List<UUID> allOwnerIds() {
-        return jdbc.sql("SELECT id FROM owner ORDER BY created_at").query(UUID.class).list();
+        return jdbc.sql("SELECT id FROM owner ORDER BY created_at")
+                .query((rs, row) -> rs.getObject("id", UUID.class))
+                .list();
     }
 
-    record StoredConnection(UUID id, byte[] apiTokenEncrypted, ConnectionStatus status, @Nullable LocalDateTime lastCheckedAt) {
+    // Never compared, so the array's identity-based equals does not matter.
+    @SuppressWarnings("ArrayRecordComponent")
+    record StoredConnection(UUID id, byte[] apiTokenEncrypted, ConnectionStatus status,
+                            @Nullable LocalDateTime lastCheckedAt) {
     }
 }

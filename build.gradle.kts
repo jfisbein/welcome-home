@@ -1,7 +1,11 @@
+import net.ltgt.gradle.errorprone.CheckSeverity
+import net.ltgt.gradle.errorprone.errorprone
+
 plugins {
     java
     id("org.springframework.boot") version "4.1.1"
     id("io.spring.dependency-management") version "1.1.7"
+    id("net.ltgt.errorprone") version "5.1.1"
 }
 
 group = "welcomehome"
@@ -51,6 +55,23 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.testcontainers:testcontainers-postgresql")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+    errorprone("com.google.errorprone:error_prone_core:2.50.0")
+    errorprone("com.uber.nullaway:nullaway:0.14.2")
+}
+
+// Error Prone's default checks, plus nullness at compile time: in the app's code nothing is null unless it is
+// @Nullable, and NullAway fails the build where a possibly null value could be dereferenced or passed on.
+// Every package is also @NullMarked, for the IDE; NullAway checks them all even if a new one is not.
+// Tests are not checked for nullness: they pass nulls on purpose.
+tasks.withType<JavaCompile>().configureEach {
+    options.errorprone {
+        // Our javadoc may consist of only a @return, which this style check rejects.
+        disable("MissingSummary")
+        check("NullAway", if (name == "compileJava") CheckSeverity.ERROR else CheckSeverity.OFF)
+        option("NullAway:AnnotatedPackages", "welcomehome")
+        option("NullAway:JSpecifyMode", "true")
+    }
 }
 
 tasks.withType<Test> {

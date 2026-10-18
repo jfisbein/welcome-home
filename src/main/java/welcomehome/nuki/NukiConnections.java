@@ -5,6 +5,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import welcomehome.crypto.CryptoService;
 import welcomehome.crypto.DecryptionFailedException;
@@ -81,7 +82,7 @@ public class NukiConnections {
      * @throws LockProviderException with {@link Reason#NOT_CONNECTED} if the owner has no working connection,
      *                               or whatever the call throws
      */
-    <T> T callNuki(UUID ownerId, Function<String, T> call) {
+    <T extends @Nullable Object> T callNuki(UUID ownerId, Function<String, T> call) {
         var stored = ownerTransactions.execute(ownerId, () -> connections.find(ownerId))
                 .filter(connection -> connection.status() == ConnectionStatus.OK)
                 .orElseThrow(() -> new LockProviderException(Reason.NOT_CONNECTED));

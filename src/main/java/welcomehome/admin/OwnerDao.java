@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.jdbc.core.SimplePropertyRowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -36,7 +37,7 @@ class OwnerDao {
     /** Only what the admin panel shows: never anything from the owners' locks or links. */
     List<OwnerSummary> findAll() {
         return jdbc.sql("SELECT email, created_at::date AS registered_on FROM owner ORDER BY created_at")
-                .query(OwnerSummary.class)
+                .query(new SimplePropertyRowMapper<>(OwnerSummary.class))
                 .list();
     }
 

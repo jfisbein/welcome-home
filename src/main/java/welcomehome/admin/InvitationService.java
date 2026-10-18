@@ -15,7 +15,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class InvitationService {
 
-    /** How long an invitation can be redeemed. */
+    /** How long an invitation can be redeemed: 72 hours, as the invitation page says. */
+    @SuppressWarnings("CanonicalDuration")
     public static final Duration VALIDITY = Duration.ofHours(72);
 
     private final InvitationDao invitations;

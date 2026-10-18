@@ -1,5 +1,6 @@
 package welcomehome.auth;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 
 /**
@@ -29,7 +30,7 @@ class RegistrationException extends RuntimeException {
         this(reason, null);
     }
 
-    RegistrationException(Reason reason, Throwable cause) {
+    RegistrationException(Reason reason, @Nullable Throwable cause) {
         super(reason.name(), cause);
         this.reason = reason;
     }

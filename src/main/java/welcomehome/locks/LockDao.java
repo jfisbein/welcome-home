@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.jdbc.core.SimplePropertyRowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -28,7 +29,7 @@ class LockDao {
                         ORDER BY active DESC, name
                         """)
                 .param("ownerId", ownerId)
-                .query(OwnerLock.class)
+                .query(new SimplePropertyRowMapper<>(OwnerLock.class))
                 .list();
     }
 

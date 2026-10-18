@@ -2,6 +2,7 @@ package welcomehome.auth;
 
 import java.util.Locale;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.core.MethodParameter;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.support.WebDataBinderFactory;
@@ -27,8 +28,8 @@ class CurrentOwnerArgumentResolver implements HandlerMethodArgumentResolver {
     }
 
     @Override
-    public CurrentOwner resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer,
-                                        NativeWebRequest webRequest, WebDataBinderFactory binderFactory) {
+    public CurrentOwner resolveArgument(MethodParameter parameter, @Nullable ModelAndViewContainer mavContainer,
+                                        NativeWebRequest webRequest, @Nullable WebDataBinderFactory binderFactory) {
         var principal = webRequest.getUserPrincipal();
         if (principal == null) {
             throw new AccessDeniedException("Not signed in");

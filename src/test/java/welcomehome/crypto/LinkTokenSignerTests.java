@@ -54,7 +54,8 @@ class LinkTokenSignerTests {
 
     @Test
     void macOfAnotherLinkIsRejected() {
-        var otherLinksMac = signer.sign(UUID.randomUUID(), 1).split("\\.")[1];
+        var otherToken = signer.sign(UUID.randomUUID(), 1);
+        var otherLinksMac = otherToken.substring(otherToken.indexOf('.') + 1);
 
         assertThat(signer.verify(LINK_ID + "." + otherLinksMac, 1)).isFalse();
     }

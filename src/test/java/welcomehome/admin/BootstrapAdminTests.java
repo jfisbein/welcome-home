@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.within;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
@@ -46,7 +45,7 @@ class BootstrapAdminTests {
         var invitation = bootstrapAdmin.createAdminInvitation().orElseThrow();
 
         assertThat(invitation.url().toString()).matches(IntegrationTest.BASE_URL + "/invite/[A-Za-z0-9_-]{43}");
-        assertThat(invitation.expiresAt()).isCloseTo(Instant.now().plus(Duration.ofHours(72)), within(1, ChronoUnit.MINUTES));
+        assertThat(invitation.expiresAt()).isCloseTo(Instant.now().plus(InvitationService.VALIDITY), within(1, ChronoUnit.MINUTES));
 
         var token = invitation.url().getPath().substring("/invite/".length());
         var stored = jdbc.sql("SELECT token_hash, created_by, grants_admin, expires_at, used_at FROM invitation WHERE id = ?")
@@ -79,6 +78,8 @@ class BootstrapAdminTests {
         return MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.US_ASCII));
     }
 
+    // Never compared, so the array's identity-based equals does not matter.
+    @SuppressWarnings("ArrayRecordComponent")
     record StoredInvitation(byte[] tokenHash, @Nullable UUID createdBy, boolean grantsAdmin,
                             OffsetDateTime expiresAt, @Nullable OffsetDateTime usedAt) {
     }

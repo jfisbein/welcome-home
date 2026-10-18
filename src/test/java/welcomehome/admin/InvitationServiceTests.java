@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -24,7 +25,7 @@ class InvitationServiceTests {
     @Test
     void buildsTheLinkWithoutADoubleSlash() {
         when(invitations.insert(any(), any(), any(), any(Boolean.class), any()))
-                .thenReturn(new InvitationDao.InsertedInvitation(UUID.randomUUID(), OffsetDateTime.now()));
+                .thenReturn(new InvitationDao.InsertedInvitation(UUID.randomUUID(), OffsetDateTime.now(ZoneOffset.UTC)));
         var service = new InvitationService(invitations, "https://welcome.example/");
 
         var invitation = service.createInvitation(null, "Test", false);

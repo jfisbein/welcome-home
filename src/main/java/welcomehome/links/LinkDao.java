@@ -8,6 +8,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
+import org.springframework.jdbc.core.SimplePropertyRowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -49,7 +50,7 @@ class LinkDao {
                         """)
                 .param("ownerId", ownerId)
                 .param("lockId", lockId)
-                .query(StoredLink.class)
+                .query(new SimplePropertyRowMapper<>(StoredLink.class))
                 .list();
     }
 

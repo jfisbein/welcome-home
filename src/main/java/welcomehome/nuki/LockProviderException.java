@@ -1,5 +1,7 @@
 package welcomehome.nuki;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * A {@link LockProvider} call failed. The reason tells callers what to show: an owner can fix
  * {@link Reason#NOT_CONNECTED}, {@link Reason#ACCESS_DENIED} and {@link Reason#MISSING_PERMISSION} by
@@ -39,7 +41,7 @@ public class LockProviderException extends RuntimeException {
      * @param reason why the call failed
      * @param cause  the underlying error, if any
      */
-    public LockProviderException(Reason reason, Throwable cause) {
+    public LockProviderException(Reason reason, @Nullable Throwable cause) {
         super(reason.name(), cause);
         this.reason = reason;
     }

@@ -18,6 +18,8 @@ docker compose up -d     # development Postgres on localhost:5432
 
 Quick check: `curl http://localhost:8080/actuator/health`.
 
+The compiler runs [Error Prone](https://errorprone.info) with [NullAway](https://github.com/uber/NullAway) in JSpecify mode: in the app's code nothing is null unless it is `@Nullable` (`org.jspecify.annotations`), and the build fails where a possibly null value could be dereferenced or passed where it may not. Every package is `@NullMarked` in its `package-info.java`, so the IDE knows it too. Tests are not checked for nullness.
+
 ## Database
 
 `deploy/db-init/01-create-roles.sh` creates two roles when an empty Postgres starts:

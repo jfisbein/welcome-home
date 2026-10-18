@@ -104,6 +104,8 @@ public class LinkTokenSigner {
                 .array();
     }
 
+    // Never compared, so the array's identity-based equals does not matter.
+    @SuppressWarnings("ArrayRecordComponent")
     private record ParsedToken(UUID linkId, byte[] mac) {
     }
 }

@@ -36,7 +36,8 @@ class EventPurgeJob {
     void purgeAll() {
         var cutoff = Instant.now().minus(retention);
         var purged = 0;
-        for (var ownerId : jdbc.sql("SELECT id FROM owner").query(UUID.class).list()) {
+        var ownerIds = jdbc.sql("SELECT id FROM owner").query((rs, row) -> rs.getObject("id", UUID.class)).list();
+        for (var ownerId : ownerIds) {
             try {
                 purged += ownerTransactions.execute(ownerId, () -> jdbc.sql("""
                                 DELETE FROM access_event WHERE owner_id = :ownerId AND occurred_at < :cutoff
