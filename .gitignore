@@ -1,6 +1,10 @@
 ### Keysets (./gradlew generateKeysets) ###
 /secrets/
 
+### Production stack, if run from the repository ###
+/deploy/secrets/
+/deploy/backups/
+
 ### Gradle ###
 .gradle/
 build/

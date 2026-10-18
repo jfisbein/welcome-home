@@ -1,5 +1,5 @@
-# Production stack for Dockge: copy this directory to the stack's folder and create ./secrets first (see
-# "Production" in the README). No port is published: the Cloudflare tunnel is the only way in.
+# Production stack for Dockge: copy this directory to the stack's folder and create ./secrets and ./backups
+# first (see "Production" in the README). No port is published: the Cloudflare tunnel is the only way in.
 name: welcome-home
 
 services:
@@ -67,6 +67,44 @@ services:
       timeout: 5s
       retries: 3
       start_period: 60s
+
+  backup:
+    image: postgres:17
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    # The postgres user, which owns ./backups on the host.
+    user: "999:999"
+    entrypoint: ["/backup/backup.sh"]
+    environment:
+      TZ: Europe/Madrid
+      # After the access events' purge at 03:30.
+      BACKUP_TIME: "04:00"
+      BACKUP_RETENTION_DAYS: "30"
+      PGHOST: db
+      PGDATABASE: welcome_home
+      # The superuser, as Row-Level Security would hide every row from any other role.
+      PGUSER: postgres
+      PGPASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    volumes:
+      - ./backup:/backup:ro
+      - ./backups:/backups
+    networks:
+      - backend
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      # Unhealthy when the last dump is more than 25 hours old.
+      test: ["CMD-SHELL", "find /backups -name 'welcome_home-*.dump' -mmin -1500 | grep -q ."]
+      interval: 1h
+      start_period: 5m
+      start_interval: 10s
 
   cloudflared:
     image: cloudflare/cloudflared:2026.9.3

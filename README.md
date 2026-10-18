@@ -157,10 +157,11 @@ The keysets are mounted read-only and must be readable by uid 10001. The image h
 
 Every push to `main` that passes `./gradlew build` publishes the image to GHCR as `ghcr.io/jfisbein/welcome-home`, tagged `latest` and `sha-<commit>` (`.github/workflows/image.yml`).
 
-`deploy/` is the Dockge stack: copy it to the stack's folder on the server. `compose.yaml` runs three services and publishes no port:
+`deploy/` is the Dockge stack: copy it to the stack's folder on the server. `compose.yaml` runs four services and publishes no port:
 
 - `db`: Postgres 17. `db-init/01-create-roles.sh` creates `migrator` and `app_user` on the first start. Its network is internal: it has no way out.
 - `app`: the image, with a read-only file system, no capabilities, `TZ=Europe/Madrid` and `BASE_URL=https://welcome-home.alcornoque.top`. It reads its database passwords as properties from `/run/secrets/config/` (`spring.config.import=configtree:`), not from environment variables.
+- `backup`: dumps the database to `backups/` (see [Backups](#backups)).
 - `cloudflared`: connects the tunnel, whose public hostname `welcome-home.alcornoque.top` points to `http://app:8080`. The tunnel is the only way in, which is what makes `CF-Connecting-IP` and `X-Forwarded-Proto` trustworthy.
 
 Before the first `docker compose up`, create `secrets/` next to `compose.yaml`:
@@ -175,6 +176,25 @@ Before the first `docker compose up`, create `secrets/` next to `compose.yaml`:
 | `tunnel_token`       | the Cloudflare tunnel's token                            |
 
 Write the passwords without a trailing newline (`printf`, or `tr -d '\n'`). Compose mounts each file with its host permissions and the containers run as different users (Postgres 999, the app 10001, cloudflared 65532), so: `chmod 700 secrets` (only root on the host can read them) and `chmod 444 secrets/*` (each container sees only its own). The database passwords are only read on the first start, when the volume is empty.
+
+Create `backups/` as well, owned by the `backup` service's user: `install -d -o 999 -g 999 -m 700 backups`.
+
+### Backups
+
+The `backup` service dumps the database with `pg_dump` (custom format) to `backups/welcome_home-<date>-<time>.dump` when it starts and every day at 04:00, after the access events' purge, and deletes the dumps older than 30 days (`BACKUP_TIME`, `BACKUP_RETENTION_DAYS`). It dumps as the Postgres superuser, as Row-Level Security would hide every row from any other role. Its health check fails when the last dump is more than 25 hours old. To take a dump now, such as before an upgrade: `docker compose exec backup /backup/backup.sh now`.
+
+- **Off the server**: a restic job (such as zerobyte) copies `backups/` every day to another provider, such as Backblaze B2, after 04:00. Keep its snapshots for 30 days too, so that 30 days after an owner is deleted no copy of their data is left.
+- **Keysets**: never with the dumps. Keep `aead-keyset.json` and `mac-keyset.json` in a password manager (Vaultwarden), and update them there whenever they change. A dump without them still restores, but every Nuki API token must be pasted again and every access link regenerated. The other secrets can be generated anew on a new server.
+
+The dumps hold the encrypted Nuki API tokens, owners' e-mail addresses, link labels and guests' IP addresses: only root on the server can read them.
+
+To restore one, with the stack's `compose.yaml` next to the script:
+
+```sh
+./restore.sh backups/welcome_home-20261018-040000.dump
+```
+
+It stops `app` and `backup`, drops the database and recreates it from the dump with its owner, grants and Liquibase history, and starts both again: the app migrates it if the dump comes from an older version, and `backup` takes a dump of the restored database. On a new server, create `secrets/` (with the keysets from the password manager) and `backups/` first and start `db`, so that `db-init` creates the roles; the passwords may be new ones.
 
 ## Modules
 
