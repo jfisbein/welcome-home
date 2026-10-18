@@ -43,7 +43,7 @@ Out of scope so far: OAuth2 with Nuki, geofencing, notifications or email, use l
 | Language, build      | Java 25, Gradle 9 (Kotlin DSL, wrapper)                                             |
 | Framework            | Spring Boot 4.1, Spring Security 7.1 (WebAuthn passkeys), Spring Modulith 2.1       |
 | Web                  | Spring MVC, Thymeleaf, Pico CSS, a few small vanilla JS files (no build step)        |
-| Data                 | PostgreSQL 17, `JdbcClient` with records, Liquibase (XML changelogs)                |
+| Data                 | PostgreSQL 18, `JdbcClient` with records, Liquibase (XML changelogs)                |
 | Crypto               | Google Tink: AEAD AES-256-GCM (Nuki tokens), MAC HMAC-SHA256/128 (links)            |
 | Nuki                 | Nuki Web API over `RestClient`, with timeouts and backoff                           |
 | Rate limiting, cache | Bucket4j and Caffeine, in memory                                                    |

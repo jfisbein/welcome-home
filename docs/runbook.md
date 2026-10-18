@@ -58,13 +58,25 @@ ls -lt backups/                                   # the newest dumps first
 ./restore.sh backups/welcome_home-YYYYMMDD-HHMMSS.dump
 ```
 
-The script stops `app` and `backup`, replaces the database with the dump and starts both again. Whatever happened after the dump is lost: owners, links and history alike.
+Run it as root: `backups/` is readable only by root and the `backup` service's user. The script stops `app` and `backup`, replaces the database with the dump and starts both again. Whatever happened after the dump is lost: owners, links and history alike.
 
 To get a dump from B2, restore it with zerobyte into any folder and pass its path to `restore.sh`.
 
 **On a new server:** follow "First start" with the keysets from Vaultwarden (new passwords and a new tunnel token are fine), but do not deploy the whole stack yet: start only `db` (`docker compose up -d db`), so that it creates the roles, then run `restore.sh`, then deploy the rest. Without the keysets the dump still restores, but every owner has to paste their Nuki API token again and every access link has to be regenerated.
 
 Rehearse a restore now and then, on a copy of the stack under another project name (`COMPOSE_PROJECT_NAME=welcome-home-test`) on any Docker host, so that the procedure is known to work before it is needed.
+
+## Upgrade Postgres to a new major version
+
+A new major version (17 → 18, later 19) cannot read the old one's data files: the data goes over as a dump. As root, in the stack's folder:
+
+1. `docker compose exec backup /backup/backup.sh now`, and note the dump it prints.
+2. `docker compose down`, then delete the old data: `docker volume rm welcome-home_db-data`. The dump in `backups/` (and in B2) is now the only copy.
+3. Deploy the new `compose.yaml` in Dockge, but start only `db`: `docker compose up -d db`. It creates the roles on the empty volume.
+4. `./restore.sh backups/<the dump>`: it restores the data and starts `app` and `backup`.
+5. `docker compose up -d`, for `cloudflared`.
+
+Since Postgres 18 the image keeps its data in `/var/lib/postgresql/<major>/docker`, so the volume is mounted at `/var/lib/postgresql`; an 18 image refuses to start on a volume mounted at the old `/var/lib/postgresql/data`.
 
 ## Rotate the AEAD keyset
 

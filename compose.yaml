@@ -1,7 +1,7 @@
 # Development only: Postgres for ./gradlew bootRun. Production: deploy/compose.yaml.
 services:
   db:
-    image: postgres:17
+    image: postgres:18
     environment:
       POSTGRES_DB: welcome_home
       POSTGRES_USER: postgres
@@ -12,7 +12,7 @@ services:
       - "127.0.0.1:5432:5432"
     volumes:
       - ./deploy/db-init:/docker-entrypoint-initdb.d:ro
-      - db-data:/var/lib/postgresql/data
+      - db-data:/var/lib/postgresql
 
 volumes:
   db-data:

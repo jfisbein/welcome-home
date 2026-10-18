@@ -20,7 +20,7 @@ public class TestDatabaseConfiguration {
 
     @Bean
     PostgreSQLContainer postgres() {
-        return new PostgreSQLContainer("postgres:17")
+        return new PostgreSQLContainer("postgres:18")
                 .withCopyFileToContainer(
                         MountableFile.forHostPath("deploy/db-init/01-create-roles.sh"),
                         "/docker-entrypoint-initdb.d/01-create-roles.sh")

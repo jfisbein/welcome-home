@@ -182,7 +182,7 @@ A release is a tag on `main`: `git tag v1.2.3 && git push origin v1.2.3`. `deplo
 
 `deploy/` is the Dockge stack: copy it to the stack's folder on the server. `compose.yaml` runs four services and publishes no port:
 
-- `db`: Postgres 17. `db-init/01-create-roles.sh` creates `migrator` and `app_user` on the first start. Its network is internal: it has no way out.
+- `db`: Postgres 18. `db-init/01-create-roles.sh` creates `migrator` and `app_user` on the first start. Its network is internal: it has no way out.
 - `app`: the image, with a read-only file system, no capabilities, `TZ=Europe/Madrid` and `BASE_URL=https://welcome-home.alcornoque.top`. It reads its database passwords as properties from `/run/secrets/config/` (`spring.config.import=configtree:`), not from environment variables.
 - `backup`: dumps the database to `backups/` (see [Backups](#backups)).
 - `cloudflared`: connects the tunnel, whose public hostname `welcome-home.alcornoque.top` points to `http://app:8080`. The tunnel is the only way in, which is what makes `CF-Connecting-IP` and `X-Forwarded-Proto` trustworthy.

@@ -4,7 +4,7 @@ name: welcome-home
 
 services:
   db:
-    image: postgres:17
+    image: postgres:18
     restart: unless-stopped
     environment:
       POSTGRES_DB: welcome_home
@@ -18,7 +18,8 @@ services:
       - app_user_password
     volumes:
       - ./db-init:/docker-entrypoint-initdb.d:ro
-      - db-data:/var/lib/postgresql/data
+      # Since Postgres 18 the image keeps its data in /var/lib/postgresql/<major>/docker.
+      - db-data:/var/lib/postgresql
     networks:
       - backend
     healthcheck:
@@ -70,7 +71,7 @@ services:
       start_period: 60s
 
   backup:
-    image: postgres:17
+    image: postgres:18
     restart: unless-stopped
     depends_on:
       db:
