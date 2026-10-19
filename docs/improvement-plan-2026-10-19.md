@@ -144,6 +144,8 @@ Command-line output, log lines and exception messages are for the operator, not 
 
 ### Phase 5, v1.9.0: the owner's ideas
 
+Done: 5.1 to 5.4. Compact object headers saved little (292 instead of 307 MiB after starting), as most of the app's memory is not heap.
+
 Five ideas from the owner, checked against the code:
 
 | Idea | Verdict |
