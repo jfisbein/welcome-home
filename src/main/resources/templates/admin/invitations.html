@@ -1,38 +1,39 @@
 <!DOCTYPE html>
 <html lang="es" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/layout :: head('Invitar')}"></head>
+<head th:replace="~{fragments/layout :: head(#{admin.invitations.title})}"></head>
 <body>
 <main class="container">
     <nav th:replace="~{fragments/layout :: nav}"></nav>
-    <h1>Invitar a un propietario</h1>
+    <h1 th:text="#{admin.invite}">Invitar a un propietario</h1>
 
     <article th:if="${invitation}">
-        <header><strong>Invitación creada</strong></header>
-        <p>
-            Envía este enlace a <strong th:text="${invitedNote}">Ana</strong>. Sirve una sola vez y caduca en
-            72 horas. No se volverá a mostrar.
+        <header><strong th:text="#{admin.invitation.created}">Invitación creada</strong></header>
+        <p th:utext="#{admin.invitation.text(${#strings.escapeXml(invitedNote)})}">
+            Envía este enlace a <strong>Ana</strong>. Sirve una sola vez y caduca en 72 horas.
         </p>
         <fieldset role="group">
-            <input id="invitation-url" type="text" readonly th:value="${invitation.url}" aria-label="Enlace de invitación">
-            <button type="button" data-copy="invitation-url" th:data-copied="#{common.copied}">Copiar</button>
+            <input id="invitation-url" type="text" readonly th:value="${invitation.url}"
+                   th:aria-label="#{admin.invitation.url}">
+            <button type="button" data-copy="invitation-url" th:data-copied="#{common.copied}"
+                    th:text="#{common.copy}">Copiar</button>
         </fieldset>
     </article>
 
     <form th:action="@{/admin/invitations}" method="post">
         <label>
-            Para quién es
+            [[#{admin.invitation.note}]]
             <input type="text" name="note" maxlength="100" required th:value="${note}"
                    th:attr="aria-invalid=${noteError} ? 'true' : null"
-                   placeholder="Un recordatorio para ti, por ejemplo: Ana, piso de la playa">
-            <small th:if="${noteError}">Escribe para quién es la invitación (hasta 100 caracteres).</small>
+                   th:placeholder="#{admin.invitation.note.placeholder}">
+            <small th:if="${noteError}" th:text="#{admin.invitation.note.error}">Escribe para quién es.</small>
         </label>
         <label>
             <input type="checkbox" name="grantsAdmin" value="true">
-            También podrá invitar a otros propietarios (admin)
+            [[#{admin.invitation.grants-admin}]]
         </label>
-        <button type="submit">Crear invitación</button>
+        <button type="submit" th:text="#{admin.invitation.create}">Crear invitación</button>
     </form>
-    <p><a th:href="@{/admin/owners}">Volver a propietarios</a></p>
+    <p><a th:href="@{/admin/owners}" th:text="#{admin.back}">Volver a propietarios</a></p>
 </main>
 <script th:src="@{/js/copy.js}"></script>
 </body>
