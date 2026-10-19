@@ -32,8 +32,14 @@
                     <strong th:case="'OK'" th:text="${event.outcome}">Abierta</strong>
                     <span th:case="*" th:text="${event.outcome}">Denegado: caducado</span>
                 </td>
-                <td th:text="${event.country} ? #{history.ip-country(${event.ip}, ${event.country})} : ${event.ip}">
-                    192.0.2.10 (España)</td>
+                <td>
+                    <span th:text="${event.ip}">192.0.2.10</span>
+                    <span th:if="${event.country != null and event.country.flag != null}" role="img"
+                          th:aria-label="${event.country.name}" th:title="${event.country.name}"
+                          th:text="${event.country.flag}">🇪🇸</span>
+                    <small th:if="${event.country != null and event.country.flag == null}"
+                           th:text="${event.country.name}">Tor</small>
+                </td>
             </tr>
             </tbody>
         </table>

@@ -143,10 +143,19 @@ class AccessHistoryTests {
         migrator.sql("UPDATE access_event SET country = 'ES' WHERE ip = '198.51.100.8'").update();
         migrator.sql("UPDATE access_event SET country = 'T1' WHERE ip = '198.51.100.9'").update();
 
-        assertThat(body(history(casa, "")))
-                .contains(">198.51.100.7<", "198.51.100.8 (España)", "198.51.100.9 (Tor)");
+        assertThat(body(history(casa, ""))).as("a flag named for those who cannot see it, and Tor by name")
+                .containsPattern(">198\\.51\\.100\\.8</span>\\s*<span role=\"img\"\\s+aria-label=\"España\" title=\"España\">🇪🇸</span>")
+                .containsPattern(">198\\.51\\.100\\.9</span>\\s*<small>Tor</small>")
+                .containsPattern(">198\\.51\\.100\\.7</span>\\s*</td>");
         migrator.sql("UPDATE owner SET language = 'en' WHERE email = ?").param(ALICE).update();
-        assertThat(body(history(casa, ""))).contains("198.51.100.8 (Spain)");
+        assertThat(body(history(casa, ""))).contains("aria-label=\"Spain\" title=\"Spain\">🇪🇸<");
+    }
+
+    @Test
+    void aFlagIsTheCodesLettersAsRegionalIndicators() {
+        assertThat(AccessHistoryController.flag("ES")).isEqualTo("🇪🇸");
+        assertThat(AccessHistoryController.flag("GB")).isEqualTo("🇬🇧");
+        assertThat(AccessHistoryController.flag("T1")).isNull();
     }
 
     @Test

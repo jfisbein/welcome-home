@@ -33,6 +33,9 @@ class AccessHistoryController {
     /** Cloudflare's code for requests from the Tor network. */
     static final String TOR = "T1";
 
+    /** 🇦, the regional indicator symbol for the letter A. */
+    private static final int REGIONAL_INDICATOR_A = 0x1F1E6;
+
     private final Locks locks;
     private final AccessHistory history;
     private final MessageSource messages;
@@ -76,16 +79,29 @@ class AccessHistoryController {
                 .orElse(reason == null ? "" : reason);
     }
 
-    /** A country's name in the reader's language, Tor for Tor, or the code if the name is not known. */
-    private @Nullable String country(@Nullable String code, Locale locale) {
+    /** A country as the history shows it: its flag, and its name in the reader's language. Tor has no flag. */
+    private @Nullable Country country(@Nullable String code, Locale locale) {
         if (code == null) {
             return null;
         }
         if (code.equals(TOR)) {
-            return messages.getMessage("history.tor", null, locale);
+            return new Country(null, messages.getMessage("history.tor", null, locale));
         }
         var name = Locale.of("", code).getDisplayCountry(locale);
-        return name.isEmpty() ? code : name;
+        return new Country(flag(code), name.isEmpty() ? code : name);
+    }
+
+    /**
+     * The flag emoji of an ISO 3166 code: its two letters as regional indicator symbols, which systems draw as
+     * the country's flag (Windows shows the two letters instead).
+     */
+    static @Nullable String flag(String code) {
+        if (code.length() != 2 || !code.chars().allMatch(letter -> letter >= 'A' && letter <= 'Z')) {
+            return null;
+        }
+        var flag = new StringBuilder();
+        code.chars().forEach(letter -> flag.appendCodePoint(REGIONAL_INDICATOR_A + letter - 'A'));
+        return flag.toString();
     }
 
     private static String url(UUID lockId, @Nullable UUID link, @Nullable Cursor before) {
@@ -102,14 +118,23 @@ class AccessHistoryController {
      * An event as the page shows it.
      *
      * @param outcome what happened, in words
-     * @param country the guest's country, named in the reader's language, if known
+     * @param country the guest's country, if known
      */
     record HistoryRow(ZonedDateTime occurredAt, UUID linkId, String linkLabel, AccessResult result, String outcome,
-                      @Nullable String ip, @Nullable String country) {
+                      @Nullable String ip, @Nullable Country country) {
 
-        static HistoryRow of(HistoryEvent event, ZoneId zone, String outcome, @Nullable String country) {
+        static HistoryRow of(HistoryEvent event, ZoneId zone, String outcome, @Nullable Country country) {
             return new HistoryRow(event.occurredAt().atZoneSameInstant(zone), event.linkId(), event.linkLabel(),
                     event.result(), outcome, event.ip(), country);
         }
+    }
+
+    /**
+     * A guest's country.
+     *
+     * @param flag its flag emoji, or null for Tor
+     * @param name its name in the reader's language
+     */
+    record Country(@Nullable String flag, String name) {
     }
 }
