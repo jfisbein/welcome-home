@@ -33,6 +33,7 @@ Built from the code review in [review-2026-10-19.md](review-2026-10-19.md). Ever
 | `HomeController` javadoc stale | Correct | |
 | Guest GET creates a session for CSRF | Correct, fixed by 1.4 | Not worth changing for its own sake, but the token kept in that session is what goes stale (next row); fixing that removes the session too. |
 | Not in the review: the guest page's CSRF token goes stale | Found while checking | The token lives in the session, which expires after 30 minutes: a guest who presses "Abrir" later, on a page the phone kept open, gets a 403 on every try until reloading it. Task 1.4. |
+| Not in the review: the health check depends on SMTP | Found while checking 2.3 | With `spring.mail.host` set, an unreachable SMTP server makes `/actuator/health` `DOWN`; the container turns unhealthy and `cloudflared`, which waits for a healthy `app`, does not start. Production has it since v1.4.0. Task 2.5, proposed. |
 
 ## The plan
 
