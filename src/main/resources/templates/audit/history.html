@@ -1,30 +1,31 @@
 <!DOCTYPE html>
 <html lang="es" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/layout :: head('Historial de ' + ${lock.name})}"></head>
+<head th:replace="~{fragments/layout :: head(#{history.title(${lock.name})})}"></head>
 <body>
 <main class="container">
     <nav th:replace="~{fragments/layout :: nav}"></nav>
-    <h1 th:text="|Historial de ${lock.name}|">Historial de Casa</h1>
+    <h1 th:text="#{history.title(${lock.name})}">Historial de Casa</h1>
     <p th:if="${filtered}">
-        <span th:text="|Solo el enlace de ${linkLabel}.|">Solo el enlace de Ana.</span>
-        <a th:href="@{/locks/{id}/history(id=${lock.id})}">Ver toda la cerradura</a>
+        <span th:text="#{history.only-link(${linkLabel})}">Solo el enlace de Ana.</span>
+        <a th:href="@{/locks/{id}/history(id=${lock.id})}" th:text="#{history.whole-lock}">Ver toda la cerradura</a>
     </p>
-    <p th:text="|Hora de ${lock.timeZone}.|">Hora de Europe/Madrid.</p>
+    <p th:text="#{history.time-zone(${lock.timeZone})}">Hora de Europe/Madrid.</p>
 
-    <p th:if="${events.isEmpty()}">Todavía no hay intentos de abrir.</p>
+    <p th:if="${events.isEmpty()}" th:text="#{history.empty}">Todavía no hay intentos de abrir.</p>
     <div class="overflow-auto" th:unless="${events.isEmpty()}">
         <table>
             <thead>
             <tr>
-                <th scope="col">Fecha</th>
-                <th scope="col">Enlace</th>
-                <th scope="col">Resultado</th>
-                <th scope="col">IP</th>
+                <th scope="col" th:text="#{history.column.date}">Fecha</th>
+                <th scope="col" th:text="#{history.column.link}">Enlace</th>
+                <th scope="col" th:text="#{history.column.outcome}">Resultado</th>
+                <th scope="col" th:text="#{history.column.ip}">IP</th>
             </tr>
             </thead>
             <tbody>
             <tr th:each="event : ${events}">
-                <td th:text="${#temporals.format(event.occurredAt, 'd/M/yyyy HH:mm:ss')}">1/11/2030 15:02:13</td>
+                <td th:text="${#temporals.format(event.occurredAt, #messages.msg('format.datetime-seconds'))}">
+                    1/11/2030 15:02:13</td>
                 <td><a th:href="@{/locks/{id}/history(id=${lock.id},link=${event.linkId})}"
                        th:text="${event.linkLabel}">Ana</a></td>
                 <td th:switch="${event.result.name()}">
@@ -38,10 +39,10 @@
     </div>
 
     <p class="actions">
-        <a th:if="${paged}" th:href="${newerUrl}">Más recientes</a>
-        <a th:if="${olderUrl}" th:href="${olderUrl}">Anteriores</a>
+        <a th:if="${paged}" th:href="${newerUrl}" th:text="#{history.newer}">Más recientes</a>
+        <a th:if="${olderUrl}" th:href="${olderUrl}" th:text="#{history.older}">Anteriores</a>
     </p>
-    <p><a th:href="@{/locks/{id}(id=${lock.id})}" th:text="|Volver a ${lock.name}|">Volver a Casa</a></p>
+    <p><a th:href="@{/locks/{id}(id=${lock.id})}" th:text="#{history.back(${lock.name})}">Volver a Casa</a></p>
 </main>
 </body>
 </html>

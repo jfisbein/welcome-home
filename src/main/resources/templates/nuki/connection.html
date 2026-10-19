@@ -1,89 +1,75 @@
 <!DOCTYPE html>
 <html lang="es" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/layout :: head('Nuki')}"></head>
+<head th:replace="~{fragments/layout :: head(#{nuki.title})}"></head>
 <body>
 <main class="container">
     <nav th:replace="~{fragments/layout :: nav}"></nav>
-    <h1>Conexión con Nuki</h1>
+    <h1 th:text="#{nuki.heading}">Conexión con Nuki</h1>
 
     <article th:if="${connectedLocks}">
-        <p th:if="${!connectedLocks.isEmpty()}">
-            Nuki conectado. Cerraduras encontradas:
-            <strong th:text="${#strings.listJoin(connectedLocks, ', ')}">Casa</strong>.
+        <p th:if="${!connectedLocks.isEmpty()}"
+           th:utext="#{nuki.connected-locks(${#strings.escapeXml(#strings.listJoin(connectedLocks, ', '))})}">
+            Nuki conectado. Cerraduras encontradas: <strong>Casa</strong>.
         </p>
         <form th:if="${!connectedLocks.isEmpty()}" th:action="@{/locks/sync}" method="post">
-            <button type="submit">Importar cerraduras</button>
+            <button type="submit" th:text="#{nuki.import}">Importar cerraduras</button>
         </form>
-        <p th:if="${connectedLocks.isEmpty()}">
-            Nuki conectado, pero no hemos encontrado ninguna cerradura en tu cuenta.
-        </p>
+        <p th:if="${connectedLocks.isEmpty()}" th:text="#{nuki.connected-no-locks}">Nuki conectado.</p>
     </article>
 
     <article th:if="${disconnected}">
-        <p>
-            Nuki desconectado: hemos borrado tu API token. Si no vas a volver a usarlo, bórralo también en
-            Nuki Web.
-        </p>
+        <p th:text="#{nuki.disconnected}">Nuki desconectado: hemos borrado tu API token.</p>
     </article>
 
-    <p th:if="${connection == null}">Todavía no has conectado tu cuenta de Nuki.</p>
+    <p th:if="${connection == null}" th:text="#{nuki.not-connected}">Todavía no has conectado tu cuenta de Nuki.</p>
     <p th:if="${connection != null and connection.status.name() == 'OK'}">
-        Conectado.
+        [[#{nuki.ok}]]
         <span th:if="${connection.lastCheckedAt}"
-              th:text="|Última comprobación: ${#temporals.format(connection.lastCheckedAt, 'd/M/yyyy HH:mm')}.|">
+              th:text="#{nuki.last-checked(${#temporals.format(connection.lastCheckedAt, #messages.msg('format.datetime'))})}">
             Última comprobación: 17/10/2026 16:40.
         </span>
     </p>
-    <p th:if="${connection != null and connection.status.name() == 'DISCONNECTED'}" role="alert">
-        Nuki ha rechazado tu API token y los enlaces no pueden abrir la puerta. Pega uno nuevo para volver a conectar.
-    </p>
+    <p th:if="${connection != null and connection.status.name() == 'DISCONNECTED'}" role="alert"
+       th:text="#{nuki.rejected}">Nuki ha rechazado tu API token.</p>
 
     <details th:open="${connection == null}">
-        <summary>Cómo conseguir el API token</summary>
+        <summary th:text="#{nuki.how}">Cómo conseguir el API token</summary>
         <ol>
-            <li>Entra en <a href="https://web.nuki.io" target="_blank" rel="noopener noreferrer">Nuki Web</a> con tu cuenta de Nuki.</li>
-            <li>En el menú de la izquierda, entra en <strong>API</strong>. Si es la primera vez, activa la API de Nuki Web.</li>
-            <li>En <strong>Tokens API</strong>, pulsa <strong>Generar token de API</strong> y ponle de nombre «welcome-home».</li>
+            <li th:utext="#{nuki.how.sign-in}">Entra en Nuki Web con tu cuenta de Nuki.</li>
+            <li th:utext="#{nuki.how.api}">En el menú de la izquierda, entra en API.</li>
+            <li th:utext="#{nuki.how.generate}">En Tokens API, pulsa Generar token de API.</li>
             <li>
-                Todas las casillas vienen marcadas: deja marcadas solo estas tres, que son las que usa welcome-home,
-                y desmarca las demás.
+                [[#{nuki.how.permissions}]]
                 <ul>
-                    <li><strong>Ver dispositivos</strong></li>
-                    <li><strong>Gestionar dispositivos</strong>, para abrir la puerta</li>
-                    <li><strong>Ver protocolos de cierre y obtener notificaciones de protocolo</strong></li>
+                    <li th:utext="#{nuki.how.permission.view}">Ver dispositivos</li>
+                    <li th:utext="#{nuki.how.permission.operate}">Gestionar dispositivos</li>
+                    <li th:utext="#{nuki.how.permission.log}">Ver protocolos de cierre</li>
                 </ul>
             </li>
-            <li>Pulsa <strong>Guardar</strong>, copia el token y pégalo aquí debajo.</li>
+            <li th:utext="#{nuki.how.save}">Pulsa Guardar, copia el token y pégalo aquí debajo.</li>
         </ol>
     </details>
 
     <form th:action="@{/nuki/connection}" th:method="put">
-        <p>Se guarda cifrado y no se vuelve a mostrar.</p>
+        <p th:text="#{nuki.token.stored}">Se guarda cifrado y no se vuelve a mostrar.</p>
         <label>
-            API token
+            [[#{nuki.token}]]
             <input type="password" name="apiToken" autocomplete="off" required
                    th:attr="aria-invalid=${error} ? 'true' : null">
-            <small th:if="${error == 'rejected'}">
-                Nuki no ha aceptado este API token. Comprueba que esté completo.
-            </small>
-            <small th:if="${error == 'missing-permission'}">
-                A este API token le falta alguno de los tres permisos de arriba. Genera uno nuevo con los tres.
-            </small>
-            <small th:if="${error == 'unavailable'}">
-                Nuki no responde ahora mismo. Inténtalo de nuevo en unos minutos.
-            </small>
+            <small th:if="${error == 'rejected'}" th:text="#{nuki.token.rejected}">
+                Nuki no ha aceptado este API token.</small>
+            <small th:if="${error == 'missing-permission'}" th:text="#{nuki.token.missing-permission}">
+                A este API token le falta alguno de los tres permisos.</small>
+            <small th:if="${error == 'unavailable'}" th:text="#{nuki.token.unavailable}">Nuki no responde.</small>
         </label>
-        <button type="submit" th:text="${connection == null} ? 'Conectar' : 'Cambiar API token'">Conectar</button>
+        <button type="submit" th:text="${connection == null} ? #{nuki.connect} : #{nuki.change}">Conectar</button>
     </form>
 
     <section th:if="${connection != null}">
-        <h2>Desconectar</h2>
-        <p>
-            Borra tu API token de welcome-home. Tus cerraduras y enlaces se conservan, pero los enlaces no podrán
-            abrir la puerta hasta que vuelvas a conectar Nuki.
-        </p>
+        <h2 th:text="#{nuki.disconnect}">Desconectar</h2>
+        <p th:text="#{nuki.disconnect.text}">Borra tu API token de welcome-home.</p>
         <form th:action="@{/nuki/connection}" th:method="delete">
-            <button type="submit" class="secondary">Desconectar Nuki</button>
+            <button type="submit" class="secondary" th:text="#{nuki.disconnect.button}">Desconectar Nuki</button>
         </form>
     </section>
 </main>
