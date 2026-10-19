@@ -5,25 +5,28 @@
 <main class="container">
     <article>
         <header><h1 th:text="${lockName}">Casa</h1></header>
-        <p th:text="|Este enlace abre la puerta del ${#temporals.format(validFrom, 'd/M/yyyy HH:mm')} al ${#temporals.format(validUntil, 'd/M/yyyy HH:mm')} (hora de ${timeZone}).|">
+        <p th:text="#{guest.validity(${#temporals.format(validFrom, #messages.msg('format.datetime'))}, ${#temporals.format(validUntil, #messages.msg('format.datetime'))}, ${timeZone})}">
             Este enlace abre la puerta del 1/11/2030 15:00 al 3/11/2030 11:00 (hora de Europe/Madrid).
         </p>
 
         <th:block th:if="${canOpen}">
-            <button type="button" id="open">Abrir</button>
+            <button type="button" id="open" th:data-busy-text="#{guest.opening}" th:text="#{guest.open}">Abrir</button>
             <p id="open-result" role="status" hidden></p>
-            <p><small>Pulsa cuando estés delante de la puerta y empújala al oír la cerradura.</small></p>
+            <p><small th:text="#{guest.hint}">Pulsa cuando estés delante de la puerta.</small></p>
+            <!-- What open.js shows after pressing the button, by outcome. -->
+            <div id="open-messages" hidden>
+                <span th:each="outcome : ${outcomes}" th:data-outcome="${outcome}"
+                      th:text="${#messages.msg('guest.result.' + outcome)}">Puerta abierta: empújala.</span>
+            </div>
         </th:block>
 
         <p th:if="${status.name() == 'PENDING'}" role="alert"
-           th:text="|Este enlace todavía no es válido. Podrás abrir a partir del ${#temporals.format(validFrom, 'd/M/yyyy HH:mm')}.|">
+           th:text="#{guest.pending(${#temporals.format(validFrom, #messages.msg('format.datetime'))})}">
             Este enlace todavía no es válido.
         </p>
-        <p th:if="${status.name() == 'EXPIRED'}" role="alert">Este enlace ha caducado.</p>
-        <p th:if="${status.name() == 'REVOKED'}" role="alert">Este enlace se ha revocado.</p>
-        <p th:if="${unavailable}" role="alert">
-            Esta puerta no está disponible ahora mismo. Avisa a quien te ha enviado el enlace.
-        </p>
+        <p th:if="${status.name() == 'EXPIRED'}" role="alert" th:text="#{guest.expired}">Este enlace ha caducado.</p>
+        <p th:if="${status.name() == 'REVOKED'}" role="alert" th:text="#{guest.revoked}">Este enlace se ha revocado.</p>
+        <p th:if="${unavailable}" role="alert" th:text="#{guest.unavailable}">Esta puerta no está disponible.</p>
     </article>
 </main>
 <script th:if="${canOpen}" th:src="@{/js/open.js}"></script>

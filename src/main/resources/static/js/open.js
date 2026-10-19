@@ -1,27 +1,17 @@
 "use strict";
 
-const MESSAGES = {
-    "opened": "Puerta abierta: empújala.",
-    "not-confirmed": "Hemos pedido a la cerradura que abra, pero no lo ha confirmado. Prueba a empujar la puerta; si no abre, inténtalo de nuevo.",
-    "lock-failed": "La cerradura no ha podido abrir. Inténtalo de nuevo; si sigue fallando, avisa a quien te ha enviado el enlace.",
-    "night-mode": "La cerradura está en modo nocturno y no abre a distancia. Avisa a quien te ha enviado el enlace.",
-    "invalid": "Este enlace no abre ninguna puerta.",
-    "too-many-attempts": "Demasiados intentos. Espera un minuto y vuelve a probar.",
-    "revoked": "Este enlace se ha revocado.",
-    "not-yet-valid": "Este enlace todavía no es válido.",
-    "expired": "Este enlace ha caducado.",
-    "unavailable": "Esta puerta no está disponible ahora mismo. Avisa a quien te ha enviado el enlace.",
-    "missing-permission": "Esta puerta no está disponible ahora mismo. Avisa a quien te ha enviado el enlace.",
-    "nuki-error": "La cerradura no responde. Inténtalo de nuevo en unos segundos."
-};
+// What the guest reads after pressing the button, by outcome: the page carries it, in the guest's language.
+const MESSAGES = Object.fromEntries([...document.querySelectorAll("#open-messages [data-outcome]")]
+    .map(element => [element.dataset.outcome, element.textContent]));
 
 const button = document.getElementById("open");
+const OPEN = button.textContent;
 const message = document.getElementById("open-result");
 
 button.addEventListener("click", async () => {
     button.disabled = true;
     button.setAttribute("aria-busy", "true");
-    button.textContent = "Abriendo…";
+    button.textContent = button.dataset.busyText;
     // Without an answer from the app, the request may still have reached the lock: the guest is told to push
     // the door before trying again, as after an unconfirmed opening.
     let result = "not-confirmed";
@@ -39,7 +29,7 @@ button.addEventListener("click", async () => {
     message.textContent = MESSAGES[result] || MESSAGES["not-confirmed"];
     message.hidden = false;
     button.removeAttribute("aria-busy");
-    button.textContent = "Abrir";
+    button.textContent = OPEN;
     // Trying again makes sense only when the lock or Nuki failed, or the opening was not confirmed.
     button.disabled = !["nuki-error", "too-many-attempts", "not-confirmed", "lock-failed"].includes(result);
 });

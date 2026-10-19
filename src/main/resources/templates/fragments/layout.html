@@ -17,14 +17,14 @@
 <nav th:fragment="nav">
     <ul><li><a th:href="@{/}"><strong>welcome-home</strong></a></li></ul>
     <ul>
-        <li><a th:href="@{/locks}">Cerraduras</a></li>
-        <li><a th:href="@{/nuki/connection}">Nuki</a></li>
-        <li><a th:href="@{/notifications}">Avisos</a></li>
-        <li><a th:href="@{/passkeys}">Passkeys</a></li>
-        <li th:if="${isAdmin}"><a th:href="@{/admin/owners}">Administración</a></li>
+        <li><a th:href="@{/locks}" th:text="#{nav.locks}">Cerraduras</a></li>
+        <li><a th:href="@{/nuki/connection}" th:text="#{nav.nuki}">Nuki</a></li>
+        <li><a th:href="@{/notifications}" th:text="#{nav.notifications}">Avisos</a></li>
+        <li><a th:href="@{/passkeys}" th:text="#{nav.passkeys}">Passkeys</a></li>
+        <li th:if="${isAdmin}"><a th:href="@{/admin/owners}" th:text="#{nav.admin}">Administración</a></li>
         <li>
             <form th:action="@{/logout}" method="post">
-                <button type="submit" class="secondary">Salir</button>
+                <button type="submit" class="secondary" th:text="#{nav.sign-out}">Salir</button>
             </form>
         </li>
     </ul>

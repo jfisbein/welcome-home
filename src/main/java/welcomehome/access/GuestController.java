@@ -2,6 +2,8 @@ package welcomehome.access;
 
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.Arrays;
+import java.util.List;
 
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
@@ -9,6 +11,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import welcomehome.audit.AccessOutcome;
 import welcomehome.links.LinkStatus;
 
 /**
@@ -18,6 +21,9 @@ import welcomehome.links.LinkStatus;
  */
 @Controller
 class GuestController {
+
+    /** Every outcome's code, for the page to carry what the guest reads after pressing the button. */
+    private static final List<String> OUTCOMES = Arrays.stream(AccessOutcome.values()).map(AccessOutcome::code).toList();
 
     private final GuestLinks guestLinks;
 
@@ -46,6 +52,7 @@ class GuestController {
         var active = guestLink.status() == LinkStatus.ACTIVE;
         var available = active && guestLinks.doorAvailable(link);
         model.addAttribute("canOpen", available);
+        model.addAttribute("outcomes", OUTCOMES);
         model.addAttribute("unavailable", active && !available);
         return "access/guest";
     }

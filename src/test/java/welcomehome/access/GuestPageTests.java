@@ -126,11 +126,13 @@ class GuestPageTests {
 
     @Test
     void openButtonShowsTheSameMessagesAsThePage() {
-        var script = mvc.get().uri("/js/open.js").exchange();
+        var link = insertLink("now() - interval '1 day'", "now() + interval '1 day'", false);
 
+        assertThat(body(guestPage(signer.sign(link, 1)))).as("what the button shows, which the page carries")
+                .contains(NOT_YET_VALID, EXPIRED, REVOKED, UNAVAILABLE);
+        var script = mvc.get().uri("/js/open.js").exchange();
         assertThat(script).hasStatusOk();
-        assertThat(body(script)).contains(NOT_YET_VALID, EXPIRED, REVOKED, UNAVAILABLE)
-                .as("the page carries no CSRF token to send").doesNotContain("_csrf");
+        assertThat(body(script)).as("the page carries no CSRF token to send").doesNotContain("_csrf");
     }
 
     @Test
