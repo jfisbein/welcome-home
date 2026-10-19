@@ -26,6 +26,7 @@ Functional:
 - Every attempt with a valid link is recorded with IP address and browser; attempts are purged after a retention (365 days).
 - Owners who lose their passkey get a recovery link (admin panel or `--recover-owner`); they keep their other passkeys.
 - Owners get emails about their locks (opened, failed, denied, Nuki disconnected) and choose which ones.
+- Spanish and English: a guest's pages in their browser's language, an owner's pages and emails in the language they chose.
 
 Non-functional:
 
@@ -61,7 +62,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 |----------|-------------------------------------------------------------------------------------------------------------|
 | `auth`   | Security configuration, passkey sign-in, registration from an invitation or recovery link (`OwnerRegistration`), the owner's passkeys page (`PasskeysController`), `CurrentOwner` |
 | `admin`  | Invitations and recovery links (`InvitationService`), the admin panel, the `--bootstrap-admin` and `--recover-owner` commands |
-| `config` | `WelcomeHomeProperties`: the public URL (`BASE_URL`), checked once at startup, from which every module builds its links; depends on no other module |
+| `config` | `WelcomeHomeProperties`: the public URL (`BASE_URL`), checked once at startup, from which every module builds its links; `Languages`: the languages with a bundle; depends on no other module |
 | `crypto` | Keysets (`Keysets`, `KeysetGenerator`, `KeysetRotator`), `CryptoService` (AEAD), `LinkTokenSigner` (MAC)  |
 | `db`     | `OwnerTransactions`: runs work in a transaction with `app.owner_id` set for Row-Level Security             |
 | `nuki`   | The only module that talks to Nuki: `LockProvider` (interface), `NukiWebLockProvider`, `NukiWebClient`, connections and their daily check |
@@ -75,7 +76,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 
 **`LockProvider`** (`listLocks`, `getState`, `unlatch`, `getRecentLog`, all by owner id) isolates Nuki: tokens are decrypted inside `nuki` and never leave it. Another way to reach a lock (Nuki Bridge, MQTT, OAuth2) is another implementation or a change inside `nuki`, without touching the rest.
 
-**Data model** (`src/main/resources/db/changelog/changes/`): `owner`, `invitation` (also recovery links: `recovers_owner_id`), `nuki_connection`, `lock`, `access_link` (`token_version`), `access_event`, `notification_preference`, and Spring Security's `user_entities` and `user_credentials`. Every table with `owner_id` has Row-Level Security with a policy that fails closed (`owner_id = nullif(current_setting('app.owner_id', true), '')::uuid`). `owner` and `invitation` have no `owner_id` and no RLS: only `auth` and `admin` use them. Neither do the passkey tables, keyed by the owner's email: `auth` joins `user_entities` by email in every query.
+**Data model** (`src/main/resources/db/changelog/changes/`): `owner` (`language`, the only column `app_user` may update), `invitation` (also recovery links: `recovers_owner_id`), `nuki_connection`, `lock`, `access_link` (`token_version`), `access_event`, `notification_preference`, and Spring Security's `user_entities` and `user_credentials`. Every table with `owner_id` has Row-Level Security with a policy that fails closed (`owner_id = nullif(current_setting('app.owner_id', true), '')::uuid`). `owner` and `invitation` have no `owner_id` and no RLS: only `auth` and `admin` use them. Neither do the passkey tables, keyed by the owner's email: `auth` joins `user_entities` by email in every query.
 
 **Tables by module.** Spring Modulith checks only Java dependencies; SQL crosses modules in the places below, all reads for display or a daily job, except `admin` deleting an owner. Anything else goes through the owning module's public types.
 
@@ -120,13 +121,13 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 
 ## Conventions
 
-- **Language**: code, comments, javadoc, docs and commit messages in English; UI texts in Spanish. Table, column and enum names in English.
+- **Language**: code, comments, javadoc, docs and commit messages in English. Table, column and enum names in English. UI texts only in `i18n/messages*.properties` (Spanish the default bundle, English the second): never in Java, templates or JavaScript, which `TemplateTextTests` checks. A message with markup goes through `th:utext`, with every value escaped by `#strings.escapeXml`; an apostrophe in a message is written `''`. A new language: the README's "Adding a language".
 - **Javadoc** on every public class and method (`-Xdoclint:all -Werror` fails `check`). Comment the why, sparingly.
 - **Nullness**: everything is non-null unless `@Nullable` (JSpecify); every package has `@NullMarked`; NullAway fails the build. Spring 7's `JdbcClient.query(X.class).list()` returns `List<@Nullable X>`: use `new SimplePropertyRowMapper<>(X.class)` or a lambda for lists.
 - **Liquibase**: XML with native tags; `<sql>` only for CHECK constraints, RLS, GRANTs and functions. A new table with `owner_id` gets `ENABLE ROW LEVEL SECURITY`, its policy and its grants to `app_user` in the same changeset (`MigrationTests` fails otherwise).
 - **Data access**: `JdbcClient` with records; owner data only inside `OwnerTransactions.execute/run`, with `owner_id` in the query as well. No `findById(id)` without an owner.
 - **Configuration**: `application.yaml` (and `application-dev.yaml`); `@ConfigurationProperties` records; durations in ISO-8601 (`PT1M`).
-- **Web**: Thymeleaf templates, Pico CSS classes, CSRF on every form, HTML forms send PUT/PATCH/DELETE through `_method`. JS in `static/js/`, one small file per behavior, no inline scripts (CSP `script-src 'self'`). Routes taking an id must be covered by `OwnerIsolationTests` (a guard test lists them).
+- **Web**: Thymeleaf templates, Pico CSS classes, CSRF on every form, HTML forms send PUT/PATCH/DELETE through `_method`. JS in `static/js/`, one small file per behavior, no inline scripts (CSP `script-src 'self'`); a script's texts come from its page, as hidden lists or `data-*` attributes. Routes taking an id must be covered by `OwnerIsolationTests` (a guard test lists them).
 - **Commits**: one per task, pushed to `main` once `./gradlew build` is green.
 
 ## Testing strategy
@@ -138,7 +139,8 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 - **Isolation**: `OwnerIsolationTests` (every id route answers 404 for another owner and changes nothing), `MigrationTests` (every `owner_id` table has RLS and its policy), `RowLevelSecurityTests` (what `app_user` sees with and without an owner context), `ModularityTests` (module boundaries), `AdminPanelTests` (admins see no locks or links).
 - **Guest flow**: `OpenDoorTests` (order of checks, results, confirmation, concurrency, client IP), `LockActionsTests` (one action per lock), `TokenLoggingTests` (tokens never logged), `GuestPageTests` (a GET never calls the lock provider).
 - **Commands**: `CommandLineTests` starts the app without the web server.
-- **Emails**: `MailStandInConfiguration` starts GreenMail as the SMTP server; `NotificationTests` checks each kind of email, preferences, the per-link quiet period and that two simultaneous rejections send one email.
+- **Emails**: `MailStandInConfiguration` starts GreenMail as the SMTP server; `NotificationTests` checks each kind of email, preferences, the per-link quiet period, the owner's language and that two simultaneous rejections send one email; `AccountSecurityEmailTests` the recovery and passkey emails.
+- **Languages**: `MessageBundlesTests` (bundles have the same keys, templates name only existing ones), `PagesInEveryLanguageTests` (every page in every language, no missing text), `TemplateTextTests` (no text in templates, escaped `th:utext`), `OwnerLanguageTests` (an owner's language, and that `app_user` may update no other column of `owner`).
 - **Practice**: each change is checked with a mutation test by hand (break the code, see a test fail, restore it), and deployment changes are tried on a local copy of the production stack (`COMPOSE_PROJECT_NAME=...` to stay apart from the development database).
 
 Never call Nuki's unlatch for real outside a guest pressing "Abrir": it opens a real door. Development uses a real Nuki token only for read-only calls.

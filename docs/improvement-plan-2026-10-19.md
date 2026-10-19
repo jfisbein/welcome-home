@@ -106,6 +106,8 @@ Done, except the optional drop of `lock.connection_id`, left as it is.
 
 ### Phase 4, v1.8.0: multiple languages
 
+Done, with three changes to what follows: each area's scripts moved with its templates, so 4.3 is spread over the 4.2 commits; English (4.6) came before 4.4, so that the owner's language was tested with a real second bundle; and the column is `owner.language`, chosen on the panel rather than on `/notifications`, as it governs pages as well as emails.
+
 No user-facing text in Java, templates or JavaScript: it all lives in message bundles, Spanish is the default, and adding a language means adding one file. Measured at `0b09dc5`, there is user-facing text in:
 
 | Where | What |
