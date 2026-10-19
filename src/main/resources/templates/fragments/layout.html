@@ -4,8 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow" th:if="${noindex}">
-    <meta name="_csrf" th:if="${_csrf}" th:content="${_csrf.token}">
-    <meta name="_csrf_header" th:if="${_csrf}" th:content="${_csrf.headerName}">
+    <meta name="_csrf" th:if="${_csrf != null and sessionless != true}" th:content="${_csrf.token}">
+    <meta name="_csrf_header" th:if="${_csrf != null and sessionless != true}" th:content="${_csrf.headerName}">
     <title th:text="${title} + ' · welcome-home'">welcome-home</title>
     <link rel="icon" th:href="@{/favicon.ico}" sizes="48x48">
     <link rel="icon" th:href="@{/favicon.svg}" type="image/svg+xml">

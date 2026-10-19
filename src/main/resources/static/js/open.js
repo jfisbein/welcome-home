@@ -28,11 +28,8 @@ button.addEventListener("click", async () => {
     try {
         const response = await fetch("/api/open", {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                [document.querySelector("meta[name=_csrf_header]").content]:
-                    document.querySelector("meta[name=_csrf]").content
-            },
+            // No CSRF token: the link's token is the credential, and the page keeps no session to hold one.
+            headers: {"Content-Type": "application/json"},
             body: JSON.stringify({token: window.location.pathname.split("/").pop()})
         });
         result = (await response.json()).result || result;

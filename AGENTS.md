@@ -97,6 +97,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 | Recovery adds a passkey and keeps the old ones | The user's choice; the owner then deletes the lost device's passkey at `/passkeys`, which never deletes the last one. |
 | `CF-Connecting-IP` for the guest's IP, `forward-headers-strategy=framework` | The tunnel is the only way in, so Cloudflare's headers are trustworthy; `X-Forwarded-For` starts with whatever the client sent. |
 | `/o/{token}` masked in logs, `Referrer-Policy: no-referrer`, `noindex` | Guest URLs are bearer credentials. |
+| No CSRF token on `POST /api/open`, and no session for guests | The link's token in the body is the credential, which a forged request would need anyway; a CSRF token kept in the session went stale when a guest pressed "Abrir" more than 30 minutes after opening the page. |
 | No ports published; own cloudflared in the stack | With a published port the app was reachable from the LAN and the forwarded headers could be spoofed. |
 | Database passwords as files (`configtree:`), keysets as Docker secrets | No secrets in environment variables or in the image. |
 | Keysets backed up apart from the dumps (Vaultwarden) | A stolen dump alone does not expose the Nuki tokens. |

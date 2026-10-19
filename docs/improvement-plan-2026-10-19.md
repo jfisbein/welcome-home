@@ -31,7 +31,8 @@ Built from the code review in [review-2026-10-19.md](review-2026-10-19.md). Ever
 | Filter the confirmation by `trigger` | Plausible | The log has `trigger` (4 = web, 5 = app), so an unlatch from the Nuki app can be told apart. Needs one read-only look at a real log entry before relying on it. |
 | CI compiles twice, Gradle cache not kept | Correct | The `--mount=type=cache` contents are never exported to the GHA cache, so every image build downloads dependencies again. |
 | `HomeController` javadoc stale | Correct | |
-| Guest GET creates a session for CSRF | Correct, rejected as a change | Negligible cost; changing the CSRF repository is not worth the risk. |
+| Guest GET creates a session for CSRF | Correct, fixed by 1.4 | Not worth changing for its own sake, but the token kept in that session is what goes stale (next row); fixing that removes the session too. |
+| Not in the review: the guest page's CSRF token goes stale | Found while checking | The token lives in the session, which expires after 30 minutes: a guest who presses "Abrir" later, on a page the phone kept open, gets a 403 on every try until reloading it. Task 1.4. |
 
 ## The plan
 
@@ -60,6 +61,12 @@ Each task is one commit, with `./gradlew build` green and a hand mutation test (
 - A `missing-permission` outcome for a 403 on the unlatch, shown in history and in the failure email as "el API token no tiene permiso para abrir", instead of "unavailable".
 - In `UnlatchConfirmation.await`, any failure to read the log other than `NUKI_ERROR` (a missing permission, a revoked token) ends the wait at once instead of polling for 15 s.
 - Tests: WireMock 403 on the log at connect, 403 on the action at open, 403 on the log during confirmation.
+
+**1.4 A guest page left open for hours still opens.** (found while checking the review)
+
+- `POST /api/open` needs no CSRF token: the link's token in the body is the guest's only credential, and a forged request would need it anyway. Owners' forms keep theirs.
+- Guest pages keep no session: they render no CSRF token (`sessionless` in the model, read by the layout), and `open.js` sends none.
+- Tests: an opening with no session and no CSRF token opens, and creates no session; guest pages, valid or not, create no session and carry no token, while `/login` keeps its own.
 
 ### Phase 2, v1.6.0: hardening
 
@@ -141,6 +148,5 @@ Valid, but not worth doing now:
 - Renaming the `lock` and `owner` tables.
 - Merging the link records into one.
 - Renaming `LockActions` and `CryptoService`, or merging the two owner DAOs.
-- `CookieCsrfTokenRepository` for the guest page.
 - `REQUIRES_NEW` in `OwnerTransactions`.
 - Routing cross-module SQL reads through public APIs.

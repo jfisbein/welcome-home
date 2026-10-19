@@ -254,7 +254,7 @@ class OpenDoorTests {
     void theGuestsIpAddressIsTheOneCloudflareReports() {
         var link = insertLink("now() - interval '2 days'", "now() - interval '1 day'");
 
-        assertThat(mvc.post().uri("/api/open").with(csrf())
+        assertThat(mvc.post().uri("/api/open")
                 .header("CF-Connecting-IP", ip)
                 .header("X-Forwarded-For", "203.0.113.66")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -320,13 +320,23 @@ class OpenDoorTests {
     }
 
     @Test
-    void openingRequiresTheCsrfTokenOfTheGuestPage() {
+    void openingNeedsNoSessionSoAGuestPageLeftOpenForHoursStillOpens() {
+        nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));
+        lockLogShowsUnlatch(0);
         var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
 
-        assertThat(mvc.post().uri("/api/open").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"token\": \"" + signer.sign(link, 1) + "\"}"))
-                .hasStatus(HttpStatus.FORBIDDEN);
-        nuki.verify(0, anyRequestedFor(anyUrl()));
+        // No session cookie and no CSRF token: what a page sends once its session has expired.
+        var result = mvc.post().uri("/api/open")
+                .with(request -> {
+                    request.setRemoteAddr(ip);
+                    return request;
+                })
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"token\": \"" + signer.sign(link, 1) + "\"}")
+                .exchange();
+
+        assertThat(result).hasStatusOk().bodyJson().extractingPath("$.result").isEqualTo("opened");
+        assertThat(result.getRequest().getSession(false)).as("no session is created either").isNull();
     }
 
     /** Opens with every token at the same time, each from its own IP address, and returns the results. */
@@ -359,7 +369,7 @@ class OpenDoorTests {
     }
 
     private MvcTestResult open(String token, String from) {
-        return mvc.post().uri("/api/open").with(csrf())
+        return mvc.post().uri("/api/open")
                 .with(request -> {
                     request.setRemoteAddr(from);
                     return request;

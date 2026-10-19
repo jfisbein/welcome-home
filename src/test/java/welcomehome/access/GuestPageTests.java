@@ -129,7 +129,8 @@ class GuestPageTests {
         var script = mvc.get().uri("/js/open.js").exchange();
 
         assertThat(script).hasStatusOk();
-        assertThat(body(script)).contains(NOT_YET_VALID, EXPIRED, REVOKED, UNAVAILABLE);
+        assertThat(body(script)).contains(NOT_YET_VALID, EXPIRED, REVOKED, UNAVAILABLE)
+                .as("the page carries no CSRF token to send").doesNotContain("_csrf");
     }
 
     @Test
@@ -157,6 +158,19 @@ class GuestPageTests {
         var link = insertLink("now() - interval '1 day'", "now() + interval '1 day'", false);
 
         assertThat(guestPage(signer.sign(link, 1))).hasStatusOk();
+    }
+
+    @Test
+    void guestPagesCreateNoSessionAndCarryNoCsrfToken() {
+        var link = insertLink("now() - interval '1 day'", "now() + interval '1 day'", false);
+
+        for (var token : new String[] {signer.sign(link, 1), "nonsense"}) {
+            var result = guestPage(token);
+            assertThat(body(result)).as(token).doesNotContain("_csrf");
+            assertThat(result.getRequest().getSession(false)).as(token).isNull();
+        }
+        assertThat(mvc.get().uri("/login")).as("the pages that post forms keep theirs")
+                .bodyText().contains("name=\"_csrf\"");
     }
 
     private void assertUnavailable(String token) {

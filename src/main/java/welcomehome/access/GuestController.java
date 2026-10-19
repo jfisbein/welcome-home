@@ -14,7 +14,7 @@ import welcomehome.links.LinkStatus;
 /**
  * The page a guest's URL opens. It only informs: messaging apps fetch links to preview them, so a GET never
  * opens the door. Opening is a POST after the guest presses the button. Search engines are asked not to
- * index the page.
+ * index the page. It creates no session: it has no CSRF token to keep, as opening needs none.
  */
 @Controller
 class GuestController {
@@ -29,6 +29,7 @@ class GuestController {
     String guestPage(@PathVariable String token, Model model, HttpServletResponse response) {
         response.setHeader("X-Robots-Tag", "noindex, nofollow");
         model.addAttribute("noindex", true);
+        model.addAttribute("sessionless", true);
         var found = guestLinks.find(token, Instant.now());
         if (found.isEmpty()) {
             response.setStatus(HttpStatus.NOT_FOUND.value());
