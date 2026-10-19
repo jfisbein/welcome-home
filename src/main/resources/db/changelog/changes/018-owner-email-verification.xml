@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="018-owner-email-verification" author="welcome-home">
+        <comment>
+            Whether an owner's email is theirs: until they open the link sent to it, no other email goes there.
+            The default verifies the owners registered before; registering sets it to NULL. The link's token is
+            kept only as its SHA-256, with its expiry, on the owner's row: a table with owner_id would need
+            Row-Level Security, and the link is opened without an owner context.
+        </comment>
+
+        <addColumn tableName="owner">
+            <column name="email_verified_at" type="timestamptz" defaultValueComputed="now()"/>
+            <column name="email_verification_hash" type="bytea">
+                <constraints unique="true" uniqueConstraintName="owner_email_verification_hash_key"/>
+            </column>
+            <column name="email_verification_expires_at" type="timestamptz"/>
+        </addColumn>
+
+        <sql>
+            GRANT UPDATE (email_verified_at, email_verification_hash, email_verification_expires_at) ON owner
+                TO app_user;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

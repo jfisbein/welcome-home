@@ -36,7 +36,9 @@ class OwnerAccountDao {
 
     UUID insert(String email, boolean isAdmin, Locale language) {
         return jdbc.sql("""
-                        INSERT INTO owner (email, is_admin, language) VALUES (:email, :isAdmin, :language) RETURNING id
+                        INSERT INTO owner (email, is_admin, language, email_verified_at)
+                        VALUES (:email, :isAdmin, :language, NULL)
+                        RETURNING id
                         """)
                 .param("email", email)
                 .param("isAdmin", isAdmin)

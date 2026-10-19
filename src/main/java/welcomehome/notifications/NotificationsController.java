@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import welcomehome.auth.CurrentOwner;
+import welcomehome.auth.EmailVerification;
 import welcomehome.db.OwnerTransactions;
 
 /** The owner's choice of emails, and a test email to check that they arrive. */
@@ -28,13 +29,15 @@ class NotificationsController {
     private final OwnerTransactions ownerTransactions;
     private final Mailer mailer;
     private final MessageSource messages;
+    private final EmailVerification emailVerification;
 
     NotificationsController(NotificationPreferenceDao preferences, OwnerTransactions ownerTransactions,
-                            Mailer mailer, MessageSource messages) {
+                            Mailer mailer, MessageSource messages, EmailVerification emailVerification) {
         this.preferences = preferences;
         this.ownerTransactions = ownerTransactions;
         this.mailer = mailer;
         this.messages = messages;
+        this.emailVerification = emailVerification;
     }
 
     @GetMapping
@@ -42,6 +45,7 @@ class NotificationsController {
         model.addAttribute("preferences", ownerTransactions.execute(owner.id(), () -> preferences.find(owner.id())));
         model.addAttribute("email", owner.email());
         model.addAttribute("emailConfigured", mailer.isConfigured());
+        model.addAttribute("emailVerified", emailVerification.isVerified(owner.id()));
         return "notifications/preferences";
     }
 
@@ -59,6 +63,10 @@ class NotificationsController {
     /** In the owner's language, which is that of their pages. */
     @PostMapping("/test")
     String sendTest(CurrentOwner owner, Locale locale, RedirectAttributes redirect) {
+        if (!emailVerification.isVerified(owner.id())) {
+            redirect.addFlashAttribute("testUnverified", true);
+            return "redirect:/notifications";
+        }
         try {
             mailer.send(owner.email(), messages.getMessage("notifications.test-email.subject", null, locale),
                     messages.getMessage("notifications.test-email.body", null, locale) + "\n");

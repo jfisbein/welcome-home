@@ -44,7 +44,9 @@ class OwnerIsolationTests {
             "GET /o/{token}",
             "GET /invite/{token}",
             "POST /invite/{token}/options",
-            "POST /invite/{token}/register");
+            "POST /invite/{token}/register",
+            "GET /email/verify/{token}",
+            "POST /email/verify/{token}");
 
     @Autowired
     MockMvcTester mvc;

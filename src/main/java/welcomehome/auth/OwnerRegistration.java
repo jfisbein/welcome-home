@@ -56,16 +56,19 @@ class OwnerRegistration {
     private final UserCredentialRepository userCredentials;
     private final WebAuthnRelyingPartyOperations relyingPartyOperations;
     private final PublicKeyCredentialRpEntity relyingParty;
+    private final EmailVerification emailVerification;
 
     OwnerRegistration(InvitationService invitations, OwnerAccountDao owners,
                       PublicKeyCredentialUserEntityRepository userEntities, UserCredentialRepository userCredentials,
-                      WebAuthnRelyingPartyOperations relyingPartyOperations, PublicKeyCredentialRpEntity relyingParty) {
+                      WebAuthnRelyingPartyOperations relyingPartyOperations, PublicKeyCredentialRpEntity relyingParty,
+                      EmailVerification emailVerification) {
         this.invitations = invitations;
         this.owners = owners;
         this.userEntities = userEntities;
         this.userCredentials = userCredentials;
         this.relyingPartyOperations = relyingPartyOperations;
         this.relyingParty = relyingParty;
+        this.emailVerification = emailVerification;
     }
 
     /** The owner a passkey recovery link is for, or empty for an invitation to register as a new owner. */
@@ -148,9 +151,10 @@ class OwnerRegistration {
                            Locale language) {
         var invitation = invitations.redeem(pending.invitationToken())
                 .orElseThrow(() -> new RegistrationException(Reason.INVITATION_NOT_REDEEMABLE));
-        var owner = pending.recoveredOwnerId() == null
+        var recoveredOwnerId = pending.recoveredOwnerId();
+        var owner = recoveredOwnerId == null
                 ? insertOwner(pending.email(), invitation.grantsAdmin(), language)
-                : owners.findById(pending.recoveredOwnerId())
+                : owners.findById(recoveredOwnerId)
                         .orElseThrow(() -> new RegistrationException(Reason.INVITATION_NOT_REDEEMABLE));
         userEntities.save(pending.options().getUser());
         try {
@@ -158,6 +162,10 @@ class OwnerRegistration {
                     pending.options(), new RelyingPartyPublicKey(passkey, PASSKEY_LABEL)));
         } catch (RuntimeException e) {
             throw new RegistrationException(Reason.PASSKEY_REJECTED, e);
+        }
+        if (recoveredOwnerId == null) {
+            // Sent after commit: a registration that fails sends nothing.
+            emailVerification.start(owner.id());
         }
         return new RegisteredOwner(owner.id(), owner.email(), owner.isAdmin());
     }

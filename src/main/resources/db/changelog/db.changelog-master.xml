@@ -26,5 +26,6 @@
     <include file="changes/015-invitation-purge.xml" relativeToChangelogFile="true"/>
     <include file="changes/016-owner-language.xml" relativeToChangelogFile="true"/>
     <include file="changes/017-access-event-country.xml" relativeToChangelogFile="true"/>
+    <include file="changes/018-owner-email-verification.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

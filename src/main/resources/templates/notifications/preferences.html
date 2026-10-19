@@ -9,6 +9,12 @@
     <article th:unless="${emailConfigured}" role="alert">
         <p th:text="#{notifications.not-configured}">El envío de emails no está configurado en el servidor.</p>
     </article>
+    <article th:unless="${emailVerified}" role="alert">
+        <p th:text="#{notifications.unverified}">Tu email no está confirmado.</p>
+    </article>
+    <article th:if="${testUnverified}" role="alert">
+        <p th:text="#{notifications.unverified}">Tu email no está confirmado.</p>
+    </article>
     <article th:if="${saved}"><p th:text="#{notifications.saved}">Guardado.</p></article>
     <article th:if="${testSent}">
         <p th:text="#{notifications.test-sent(${email})}">Email de prueba enviado.</p>
@@ -41,7 +47,7 @@
         <button type="submit" th:text="#{common.save}">Guardar</button>
     </form>
 
-    <form th:if="${emailConfigured}" th:action="@{/notifications/test}" method="post">
+    <form th:if="${emailConfigured and emailVerified}" th:action="@{/notifications/test}" method="post">
         <button type="submit" class="secondary" th:text="#{notifications.test}">Enviarme un email de prueba</button>
     </form>
 </main>

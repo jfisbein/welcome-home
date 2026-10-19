@@ -53,7 +53,8 @@ class SecurityConfiguration {
     SecurityFilterChain securityFilterChain(HttpSecurity http) {
         http
                 .authorizeHttpRequests(requests -> requests
-                        .requestMatchers("/login", "/invite/**", "/o/**", "/api/open", "/css/**", "/js/**",
+                        .requestMatchers("/login", "/invite/**", "/email/verify/**", "/o/**", "/api/open", "/css/**",
+                                "/js/**",
                                 "/favicon.ico", "/favicon.svg", "/apple-touch-icon.png", "/actuator/health")
                         .permitAll()
                         .requestMatchers("/admin/**").hasRole(OwnerUserDetailsService.ADMIN)

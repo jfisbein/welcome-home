@@ -25,7 +25,7 @@ Functional:
 - A guest's GET never acts on the lock: only a POST after pressing the button unlatches (link previews in WhatsApp, Telegram or Slack make GETs). The guest learns whether the door opened, failed, or was refused in night mode.
 - Every attempt with a valid link is recorded with IP address and browser; attempts are purged after a retention (365 days).
 - Owners who lose their passkey get a recovery link (admin panel or `--recover-owner`); they keep their other passkeys.
-- Owners get emails about their locks (opened, failed, denied, Nuki disconnected) and choose which ones.
+- Owners get emails about their locks (opened, failed, denied, Nuki disconnected) and choose which ones, once they have verified their address with the link sent when they register.
 - Spanish and English: a guest's pages in their browser's language, an owner's pages and emails in the language they chose.
 
 Non-functional:
@@ -76,7 +76,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 
 **`LockProvider`** (`listLocks`, `getState`, `unlatch`, `getRecentLog`, all by owner id) isolates Nuki: tokens are decrypted inside `nuki` and never leave it. Another way to reach a lock (Nuki Bridge, MQTT, OAuth2) is another implementation or a change inside `nuki`, without touching the rest.
 
-**Data model** (`src/main/resources/db/changelog/changes/`): `owner` (`language`, the only column `app_user` may update), `invitation` (also recovery links: `recovers_owner_id`), `nuki_connection`, `lock`, `access_link` (`token_version`), `access_event` (`ip`, `country`), `notification_preference`, and Spring Security's `user_entities` and `user_credentials`. Every table with `owner_id` has Row-Level Security with a policy that fails closed (`owner_id = nullif(current_setting('app.owner_id', true), '')::uuid`). `owner` and `invitation` have no `owner_id` and no RLS: only `auth` and `admin` use them. Neither do the passkey tables, keyed by the owner's email: `auth` joins `user_entities` by email in every query.
+**Data model** (`src/main/resources/db/changelog/changes/`): `owner` (`language`, and the email's verification: `email_verified_at`, the link's hash and expiry; the only columns `app_user` may update), `invitation` (also recovery links: `recovers_owner_id`), `nuki_connection`, `lock`, `access_link` (`token_version`), `access_event` (`ip`, `country`), `notification_preference`, and Spring Security's `user_entities` and `user_credentials`. Every table with `owner_id` has Row-Level Security with a policy that fails closed (`owner_id = nullif(current_setting('app.owner_id', true), '')::uuid`). `owner` and `invitation` have no `owner_id` and no RLS: only `auth` and `admin` use them. Neither do the passkey tables, keyed by the owner's email: `auth` joins `user_entities` by email in every query.
 
 **Tables by module.** Spring Modulith checks only Java dependencies; SQL crosses modules in the places below, all reads for display or a daily job, except `admin` deleting an owner. Anything else goes through the owning module's public types.
 
@@ -139,7 +139,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 - **Isolation**: `OwnerIsolationTests` (every id route answers 404 for another owner and changes nothing), `MigrationTests` (every `owner_id` table has RLS and its policy), `RowLevelSecurityTests` (what `app_user` sees with and without an owner context), `ModularityTests` (module boundaries), `AdminPanelTests` (admins see no locks or links).
 - **Guest flow**: `OpenDoorTests` (order of checks, results, confirmation, concurrency, client IP), `LockActionsTests` (one action per lock), `TokenLoggingTests` (tokens never logged), `GuestPageTests` (a GET never calls the lock provider).
 - **Commands**: `CommandLineTests` starts the app without the web server.
-- **Emails**: `MailStandInConfiguration` starts GreenMail as the SMTP server; `NotificationTests` checks each kind of email, preferences, the per-link quiet period, the owner's language and that two simultaneous rejections send one email; `AccountSecurityEmailTests` the recovery and passkey emails.
+- **Emails**: `MailStandInConfiguration` starts GreenMail as the SMTP server; `NotificationTests` checks each kind of email, preferences, the per-link quiet period, the owner's language and that two simultaneous rejections send one email; `AccountSecurityEmailTests` the recovery and passkey emails; `EmailVerificationTests` the link that verifies an owner's address, and that nothing else goes to it before.
 - **Languages**: `MessageBundlesTests` (bundles have the same keys, templates name only existing ones), `PagesInEveryLanguageTests` (every page in every language, no missing text), `TemplateTextTests` (no text in templates, escaped `th:utext`), `OwnerLanguageTests` (an owner's language, and that `app_user` may update no other column of `owner`).
 - **Practice**: each change is checked with a mutation test by hand (break the code, see a test fail, restore it), and deployment changes are tried on a local copy of the production stack (`COMPOSE_PROJECT_NAME=...` to stay apart from the development database).
 
@@ -183,8 +183,6 @@ Release: a pull request that bumps `version` in `build.gradle.kts` and the image
 - Tests: WireMock for Nuki's authorize and token endpoints, `state` mismatch, expired access token, failed refresh.
 
 **Other ideas**, roughly by value:
-
-- Verifying the owner's email by sending them a link, now that the app sends email. Today the email typed when registering is trusted as is: a typo means notifications go nowhere, or to someone else. A sketch: after registering, send a single-use link (a random token stored only as a hash, like invitations) and record `owner.email_verified_at` when it is opened; send notifications only to verified addresses, and show unverified owners a banner with a "send again" button.
 
 - Two people registering with the same email at the same moment, from two invitations: both pass the check in `OwnerRegistration.start`, and the unique constraint `owner_email_key` stops the second in `finish`, so no duplicate account is ever created, but that person gets a generic error instead of "Ya hay una cuenta con este email". Catching the constraint violation in `finish` as `RegistrationException(Reason.EMAIL_TAKEN)` would fix it.
 

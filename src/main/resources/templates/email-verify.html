@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="es" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head(#{email-verify.title})}"></head>
+<body>
+<main class="container">
+    <article>
+        <header><h1 th:text="#{email-verify.title}">Confirmar email</h1></header>
+        <th:block th:if="${state == 'pending'}">
+            <p th:utext="#{email-verify.text(${#strings.escapeXml(email)})}">
+                Confirma que <strong>ana@example.com</strong> es tu email.
+            </p>
+            <form th:action="@{/email/verify/{token}(token=${token})}" method="post">
+                <button type="submit" th:text="#{email-verify.confirm}">Confirmar</button>
+            </form>
+        </th:block>
+        <p th:if="${state == 'done'}" th:utext="#{email-verify.done(${#strings.escapeXml(email)})}">
+            Email confirmado.
+        </p>
+        <p th:if="${state == 'invalid'}" th:text="#{email-verify.invalid}">Este enlace ya se ha usado o ha caducado.</p>
+    </article>
+</main>
+</body>
+</html>

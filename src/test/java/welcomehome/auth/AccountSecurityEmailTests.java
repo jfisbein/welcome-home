@@ -74,6 +74,11 @@ class AccountSecurityEmailTests {
         assertThat(mvc.post().uri(invitation + "/register").session(session).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content(phone.create(options))).hasStatusOk();
         aliceId = jdbc.sql("SELECT id FROM owner WHERE email = ?").param(ALICE).query(UUID.class).single();
+        // A new owner's first email is the link that verifies their address; these tests start after it.
+        await().atMost(Duration.ofSeconds(5)).until(() -> mail.getReceivedMessages().length == 1);
+        TestDatabaseConfiguration.asMigrator(postgres)
+                .sql("UPDATE owner SET email_verified_at = now() WHERE id = ?").param(aliceId).update();
+        mail.purgeEmailFromAllMailboxes();
     }
 
     @Test

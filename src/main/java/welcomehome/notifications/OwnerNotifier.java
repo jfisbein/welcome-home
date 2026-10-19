@@ -22,6 +22,8 @@ import welcomehome.admin.InvitationService;
 import welcomehome.admin.PasskeyRecoveryCreated;
 import welcomehome.audit.AccessAttempted;
 import welcomehome.audit.AccessOutcome;
+import welcomehome.auth.EmailVerification;
+import welcomehome.auth.EmailVerificationRequested;
 import welcomehome.auth.PasskeyAdded;
 import welcomehome.config.Languages;
 import welcomehome.config.WelcomeHomeProperties;
@@ -31,8 +33,10 @@ import welcomehome.nuki.NukiDisconnected;
 /**
  * Emails an owner about their locks, as their preferences say: guests' attempts by outcome, and a Nuki
  * connection that stopped working. Also, whatever the preferences, about their account's security: a passkey
- * recovery link created for them, and a passkey added. Listeners run after the event's transaction commits,
- * mostly on another thread, so a guest never waits for an email; one that cannot be sent is logged and dropped.
+ * recovery link created for them, and a passkey added. Only to a verified address: the one email that goes to
+ * an address not yet verified is the link that verifies it. Listeners run after the event's transaction
+ * commits, mostly on another thread, so a guest never waits for an email; one that cannot be sent is logged and
+ * dropped.
  */
 @Component
 class OwnerNotifier {
@@ -116,6 +120,19 @@ class OwnerNotifier {
                 message(to, "account.passkey-added.body", added.label(), app.link("/passkeys")) + accountFooter(to)));
     }
 
+    /** Also without a transaction, when the owner asks for the link again. */
+    @Async
+    @TransactionalEventListener(fallbackExecution = true)
+    void on(EmailVerificationRequested requested) {
+        if (!mailer.isConfigured()) {
+            return;
+        }
+        var to = new Recipient(requested.email(), requested.language());
+        send(to.email(), message(to, "account.verify.subject"),
+                message(to, "account.verify.body", requested.link(),
+                        String.valueOf(EmailVerification.VALIDITY.toDays())) + accountFooter(to));
+    }
+
     private boolean wants(UUID ownerId, NotificationKind kind) {
         return ownerTransactions.execute(ownerId, () -> preferences.find(ownerId)).wants(kind);
     }
@@ -167,7 +184,7 @@ class OwnerNotifier {
                         FROM access_link l
                         JOIN lock k ON k.id = l.lock_id
                         JOIN owner o ON o.id = l.owner_id
-                        WHERE l.id = :linkId AND l.owner_id = :ownerId
+                        WHERE l.id = :linkId AND l.owner_id = :ownerId AND o.email_verified_at IS NOT NULL
                         """)
                 .param("linkId", attempt.linkId())
                 .param("ownerId", attempt.ownerId())
@@ -178,14 +195,14 @@ class OwnerNotifier {
     }
 
     private Optional<Recipient> findRecipient(UUID ownerId) {
-        return jdbc.sql("SELECT email, language FROM owner WHERE id = :ownerId")
+        return jdbc.sql("SELECT email, language FROM owner WHERE id = :ownerId AND email_verified_at IS NOT NULL")
                 .param("ownerId", ownerId)
                 .query((rs, row) -> new Recipient(rs.getString("email"), language(rs.getString("language"))))
                 .optional();
     }
 
     private Optional<Recipient> findRecipient(String email) {
-        return jdbc.sql("SELECT email, language FROM owner WHERE email = :email")
+        return jdbc.sql("SELECT email, language FROM owner WHERE email = :email AND email_verified_at IS NOT NULL")
                 .param("email", email)
                 .query((rs, row) -> new Recipient(rs.getString("email"), language(rs.getString("language"))))
                 .optional();

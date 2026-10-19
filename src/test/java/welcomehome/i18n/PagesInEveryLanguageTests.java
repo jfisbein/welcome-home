@@ -104,7 +104,7 @@ class PagesInEveryLanguageTests {
 
     @Test
     void everyPageIsInTheLanguageAskedForWithEveryText() {
-        var guestPages = List.of("/login", invitationPath, recoveryPath, "/invite/nonsense",
+        var guestPages = List.of("/login", invitationPath, recoveryPath, "/invite/nonsense", "/email/verify/nonsense",
                 "/o/" + signer.sign(linkId, 1), "/o/nonsense");
         var ownerPages = List.of("/", "/locks", "/locks/" + lockId, "/locks/" + lockId + "/links", "/links/" + linkId,
                 "/locks/" + lockId + "/history", "/nuki/connection", "/notifications", "/passkeys",

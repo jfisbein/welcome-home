@@ -9,6 +9,18 @@
         Has entrado como <strong>propietario@example.com</strong>.
     </p>
     <article th:if="${languageSaved}"><p th:text="#{home.language.saved}">Idioma guardado.</p></article>
+    <article th:if="${verificationSent}">
+        <p th:text="#{home.verification-sent(${email})}">Te hemos enviado un enlace nuevo.</p>
+    </article>
+    <article th:if="${verificationRecent}" role="alert">
+        <p th:text="#{home.verification-recent}">Te enviamos uno hace menos de 5 minutos.</p>
+    </article>
+    <article th:unless="${emailVerified}" role="alert">
+        <p th:utext="#{home.unverified(${#strings.escapeXml(email)})}"><strong>Confirma tu email.</strong></p>
+        <form th:action="@{/email/verification}" method="post">
+            <button type="submit" class="secondary" th:text="#{home.unverified.resend}">Enviar el enlace de nuevo</button>
+        </form>
+    </article>
 
     <article th:if="${nukiConnection == null}">
         <p th:text="#{home.connect.text}">Conecta tu cuenta de Nuki para crear enlaces que abran tu puerta.</p>
