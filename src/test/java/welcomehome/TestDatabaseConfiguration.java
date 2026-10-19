@@ -1,5 +1,7 @@
 package welcomehome;
 
+import javax.sql.DataSource;
+
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -47,5 +49,16 @@ public class TestDatabaseConfiguration {
      */
     public static JdbcClient asMigrator(PostgreSQLContainer postgres) {
         return JdbcClient.create(new DriverManagerDataSource(postgres.getJdbcUrl(), "migrator", MIGRATOR_PASSWORD));
+    }
+
+    /**
+     * Connects as the application does, but outside its pool: every connection is a new session, in which
+     * nothing has been set yet.
+     *
+     * @param postgres the test database container
+     * @return a data source that opens a new connection as app_user each time
+     */
+    public static DataSource newSessionsAsAppUser(PostgreSQLContainer postgres) {
+        return new DriverManagerDataSource(postgres.getJdbcUrl(), "app_user", APP_USER_PASSWORD);
     }
 }

@@ -54,8 +54,11 @@ public class OwnerTransactions {
     }
 
     private void refuseAnotherOwner(UUID ownerId) {
-        var current = jdbc.sql("SELECT current_setting('app.owner_id', true)").query(String.class).single();
-        if (current != null && !current.isEmpty() && !current.equals(ownerId.toString())) {
+        // NULL in a session that has never set it, '' once a transaction that set it has ended.
+        var current = jdbc.sql("SELECT coalesce(current_setting('app.owner_id', true), '')")
+                .query(String.class)
+                .single();
+        if (!current.isEmpty() && !current.equals(ownerId.toString())) {
             throw new IllegalStateException("The transaction is already bound to another owner");
         }
     }

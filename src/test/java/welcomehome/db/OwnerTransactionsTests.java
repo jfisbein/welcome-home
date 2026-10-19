@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
@@ -97,6 +98,20 @@ class OwnerTransactionsTests {
         });
 
         assertThat(inner.ownerId()).isEqualTo(OWNER.toString());
+    }
+
+    @Test
+    void aTransactionOnANewSessionCanBeJoined() {
+        // A session that has never set app.owner_id, where current_setting gives NULL rather than ''.
+        var dataSource = TestDatabaseConfiguration.newSessionsAsAppUser(postgres);
+        var template = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
+        var client = JdbcClient.create(dataSource);
+        var transactions = new OwnerTransactions(template, client);
+
+        var inside = template.execute(_ -> transactions.execute(OWNER, () -> client.sql(SESSION_SQL)
+                .query(Session.class).single()));
+
+        assertThat(inside.ownerId()).isEqualTo(OWNER.toString());
     }
 
     record Session(int pid, String ownerId) {
