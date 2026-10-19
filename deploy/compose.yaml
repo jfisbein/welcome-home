@@ -63,6 +63,9 @@ services:
     networks:
       - backend
       - frontend
+    # The JVM sizes its heap to 75% of this (MaxRAMPercentage in the Dockerfile), not of the whole LXC. Measured
+    # on v1.5.0: about 300 MiB after starting and 400 MiB after 12,000 requests, with 40 MB of live heap.
+    mem_limit: 1g
     read_only: true
     tmpfs:
       - /tmp

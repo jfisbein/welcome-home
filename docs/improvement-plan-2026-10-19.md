@@ -74,7 +74,7 @@ Each task is one commit, with `./gradlew build` green and a hand mutation test (
 
 **2.2 Account-security emails.** (review 3) Email the owner when an admin creates a recovery link for them, when one is redeemed, and when a passkey is added from `/passkeys`. These are always sent, not subject to preferences. They go to an unverified address today, so this pairs with the "verify the owner's email" idea in AGENTS.md. Tests in `NotificationTests` and `PasskeyRecoveryTests`.
 
-**2.3 A memory limit for the app.** (review 8) First measure on `docker.fritz.box`: the LXC's RAM (`free -m`) and the app's resident memory (`docker stats`). Then set `mem_limit` on `app` in `deploy/compose.yaml` with headroom over that, keeping `MaxRAMPercentage=75`. Try it on a local copy of the stack, then follow the runbook for the upgrade.
+**2.3 A memory limit for the app.** (review 8) First measure on `docker.fritz.box`: the LXC's RAM (`free -m`) and the app's resident memory (`docker stats`). Then set `mem_limit` on `app` in `deploy/compose.yaml` with headroom over that, keeping `MaxRAMPercentage=75`. Try it on a local copy of the stack, then follow the runbook for the upgrade. Done with a local copy of the stack running v1.5.0, as this machine has no SSH access to the server: 1 GiB, which leaves the JVM's 250 to 330 MB outside the heap room beside a 768 MB heap. The LXC's free memory is still to be checked before deploying.
 
 **2.4 Virtual threads (optional).** (review 7) `spring.threads.virtual.enabled: true` in `application.yaml`. It also moves `@Async` and `@Scheduled` to virtual threads; run the whole suite and watch `NotificationTests` and `LockActionsTests`.
 
