@@ -30,7 +30,7 @@ services:
 
   app:
     # A release, so that what runs is always known: to upgrade or roll back, change the version.
-    image: ghcr.io/jfisbein/welcome-home:v1.6.0
+    image: ghcr.io/jfisbein/welcome-home:v1.7.0
     restart: unless-stopped
     depends_on:
       db:
