@@ -85,7 +85,7 @@ When Nuki answers 401 to a stored token, the connection becomes `DISCONNECTED`: 
 
 Disconnecting (`DELETE /nuki/connection`, the "Desconectar Nuki" button) deletes the token. Locks and links stay as they are, without any change of state, but cannot open the door until the owner connects again: guests see "not available".
 
-Calls time out and are retried with exponential backoff: on rate limiting (429, honoring `Retry-After`), and for reads also on server errors and timeouts. The unlatch action is retried only when Nuki cannot have run it (429, or no connection made), so a door never opens twice. The defaults, under `welcomehome.nuki.*`:
+Calls time out and are retried with exponential backoff: on rate limiting (429, honoring `Retry-After`), and for reads also on server errors and timeouts. The unlatch action is retried only when Nuki cannot have run it (429, or no connection made), so a door never opens twice; after a timeout or a server error Nuki may have run it, so the opening goes on to read the lock's log instead. The defaults, under `welcomehome.nuki.*`:
 
 | Property          | Default               |
 |-------------------|-----------------------|
@@ -122,7 +122,7 @@ The same page lists the lock's links with their state, computed and never stored
 
 A GET never opens the door, nor calls `LockProvider` at all: messaging apps fetch links to preview them. Opening is a POST after the guest presses the button. The page asks search engines not to index it (`X-Robots-Tag` and `<meta name="robots">`).
 
-Pressing "Abrir" sends `POST /api/open` with the token in the body. The checks run in this order: rate limit per IP address; the link exists, its MAC is valid and it is not revoked; rate limit per link; within its dates; the lock is active; the owner's Nuki connection is OK. Only then is the door unlatched, in the context of the owner that `resolve_link` returned. Nuki runs actions asynchronously, so after it accepts the unlatch the app reads the lock's log until an unlatch from after the request shows up: the guest learns whether the door opened, whether the lock failed (for example, motor blocked) or refused it in night mode, or that the lock did not confirm in time (`welcomehome.access.confirmation.timeout`, `PT15S`, read every `interval`, `PT2S`). Only one action runs per lock at a time: a guest who presses "Abrir" while the same lock is being opened waits for that action and gets its result, so Nuki receives a single action. Every attempt with a valid link is recorded in the owner's history (`access_event`), with the guest's IP address and browser.
+Pressing "Abrir" sends `POST /api/open` with the token in the body. The checks run in this order: rate limit per IP address; the link exists, its MAC is valid and it is not revoked; rate limit per link; within its dates; the lock is active; the owner's Nuki connection is OK. Only then is the door unlatched, in the context of the owner that `resolve_link` returned. Nuki runs actions asynchronously, so after it accepts the unlatch, or gives no answer once the request was sent, the app reads the lock's log until an unlatch from after the request shows up: the guest learns whether the door opened, whether the lock failed (for example, motor blocked) or refused it in night mode, or that the lock did not confirm in time (`welcomehome.access.confirmation.timeout`, `PT15S`, read every `interval`, `PT2S`). Only one action runs per lock at a time: a guest who presses "Abrir" while the same lock is being opened waits for that action and gets its result, so Nuki receives a single action. Every attempt with a valid link is recorded in the owner's history (`access_event`), with the guest's IP address and browser. When the guest page gets no answer from the app, it says what it says for an unconfirmed opening: push the door before trying again.
 
 Rate limits are kept in memory, which is enough for a single instance, and set in `application.yaml`:
 
@@ -147,11 +147,11 @@ Owners get emails about their locks and choose which ones at `/notifications` ("
 | Kind | When | Example subject |
 |------|------|-----------------|
 | Opened | a guest opens the door | "Casa: Ana ha abierto la puerta" |
-| Failed | a guest with a valid link cannot get in: the lock failed, night mode, not confirmed, Nuki did not answer, or the door is unavailable | "Casa: Ana no ha podido abrir la puerta" |
+| Failed | a guest with a valid link cannot get in: the lock failed, night mode, Nuki did not answer, or the door is unavailable; also an opening the lock did not confirm, with its own subject ("Casa: la cerradura no ha confirmado que Ana abriera la puerta") | "Casa: Ana no ha podido abrir la puerta" |
 | Denied | a guest's link is refused: not valid yet, expired, revoked, or too many attempts | "Casa: intento denegado con el enlace de Ana" |
 | Disconnected | Nuki rejects the owner's API token | "Nuki ha rechazado tu API token" |
 
-Each email says when, in the lock's time zone, and links to the history. About refused attempts there is at most one email per link per hour (`welcomehome.notifications.denied-quiet-period`), so that a leaked link being tried does not flood the owner. The page also sends a test email.
+Each email says when, in the lock's time zone, and links to the history. Their texts, like the history's outcomes, are in `src/main/resources/i18n/messages.properties`. About refused attempts there is at most one email per link per hour (`welcomehome.notifications.denied-quiet-period`), so that a leaked link being tried does not flood the owner. The page also sends a test email.
 
 `audit` publishes an `AccessAttempted` event for every recorded attempt, and `nuki` a `NukiDisconnected` event when a connection goes from OK to disconnected; `notifications` listens after the transaction commits, on another thread, so a guest never waits for an email, and an email that cannot be sent is logged and dropped. The preferences are in `notification_preference`, under Row-Level Security.
 
