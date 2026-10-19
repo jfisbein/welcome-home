@@ -4,7 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -104,6 +107,33 @@ class AccessHistoryTests {
     }
 
     @Test
+    void attemptsAtTheSameInstantAreNeitherLostNorRepeatedAcrossPages() {
+        migrator.sql("""
+                        INSERT INTO access_event (owner_id, link_id, lock_id, occurred_at, result, reason, ip)
+                        SELECT owner_id, id, lock_id, timestamptz '2030-07-01T10:00:00Z', 'OK', 'opened',
+                               ('10.0.1.' || n)::inet
+                        FROM access_link, generate_series(1, 52) AS n WHERE id = ?
+                        """)
+                .param(ana).update();
+
+        var first = body(history(casa, "?link=" + ana));
+        var older = first.replaceAll("(?s).*href=\"([^\"]*)\">Anteriores.*", "$1").replace("&amp;", "&");
+        var second = body(mvc.get().uri(older).with(owner(ALICE)).exchange());
+
+        var shown = new ArrayList<String>();
+        for (var page : List.of(first, second)) {
+            var ips = Pattern.compile(">(10\\.0\\.1\\.\\d+)<").matcher(page);
+            while (ips.find()) {
+                shown.add(ips.group(1));
+            }
+        }
+        assertThat(shown).hasSize(52).doesNotHaveDuplicates();
+
+        assertThat(body(history(casa, "?link=" + ana + "&before=2030-07-01T10:00:00.000001Z")))
+                .as("a URL from an earlier version, without beforeId").contains(">10.0.1.1<");
+    }
+
+    @Test
     void unknownReasonsShowAsRecorded() {
         insertEvent(ana, "2030-07-01T10:00:00Z", "DENIED", "some-new-reason", "198.51.100.1");
 
@@ -133,6 +163,7 @@ class AccessHistoryTests {
     @Test
     void malformedParametersAreBadRequests() {
         assertThat(history(casa, "?before=yesterday")).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(history(casa, "?before=2030-07-01T10:00:00Z&beforeId=nonsense")).hasStatus(HttpStatus.BAD_REQUEST);
         assertThat(history(casa, "?link=ana")).hasStatus(HttpStatus.BAD_REQUEST);
     }
 

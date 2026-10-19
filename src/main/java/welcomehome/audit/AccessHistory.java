@@ -13,8 +13,9 @@ import org.springframework.stereotype.Service;
 import welcomehome.db.OwnerTransactions;
 
 /**
- * An owner's history of guests' attempts, per lock and per link, newest first. Pages are cut by date: the
- * next page holds the events before the last one shown.
+ * An owner's history of guests' attempts, per lock and per link, newest first. Pages are cut by date and id:
+ * the next page holds the events before the last one shown, in that order, so that attempts at the same instant
+ * are neither lost nor repeated across pages.
  */
 @Service
 class AccessHistory {
@@ -29,23 +30,26 @@ class AccessHistory {
 
     /**
      * @param linkId only this link's events, or all of the lock's if null
-     * @param before only events before this instant, or the latest if null
+     * @param before only events before this one, or the latest if null
      */
-    HistoryPage find(UUID ownerId, UUID lockId, @Nullable UUID linkId, @Nullable Instant before, int pageSize) {
+    HistoryPage find(UUID ownerId, UUID lockId, @Nullable UUID linkId, @Nullable Cursor before, int pageSize) {
         var events = ownerTransactions.execute(ownerId, () -> jdbc.sql("""
-                        SELECT e.occurred_at, e.link_id, l.label AS link_label, e.result, e.reason, host(e.ip) AS ip
+                        SELECT e.id, e.occurred_at, e.link_id, l.label AS link_label, e.result, e.reason,
+                               host(e.ip) AS ip
                         FROM access_event e
                         JOIN access_link l ON l.owner_id = e.owner_id AND l.id = e.link_id
                         WHERE e.owner_id = :ownerId AND e.lock_id = :lockId
                           AND (CAST(:linkId AS uuid) IS NULL OR e.link_id = :linkId)
-                          AND (CAST(:before AS timestamptz) IS NULL OR e.occurred_at < :before)
-                        ORDER BY e.occurred_at DESC
+                          AND (CAST(:before AS timestamptz) IS NULL OR e.occurred_at < :before
+                               OR (e.occurred_at = :before AND e.id < CAST(:beforeId AS uuid)))
+                        ORDER BY e.occurred_at DESC, e.id DESC
                         LIMIT :limit
                         """)
                 .param("ownerId", ownerId)
                 .param("lockId", lockId)
                 .param("linkId", linkId)
-                .param("before", before == null ? null : OffsetDateTime.ofInstant(before, ZoneOffset.UTC))
+                .param("before", before == null ? null : OffsetDateTime.ofInstant(before.occurredAt(), ZoneOffset.UTC))
+                .param("beforeId", before == null ? null : before.id())
                 .param("limit", pageSize + 1)
                 .query(HistoryEvent.class)
                 .list());
@@ -53,7 +57,8 @@ class AccessHistory {
             return new HistoryPage(events, null);
         }
         var shown = events.subList(0, pageSize);
-        return new HistoryPage(shown, shown.getLast().occurredAt().toInstant());
+        var last = shown.getLast();
+        return new HistoryPage(shown, new Cursor(last.occurredAt().toInstant(), last.id()));
     }
 
     /** @return the label of the lock's link, or empty if the lock has no such link */
@@ -74,7 +79,7 @@ class AccessHistory {
      * @param reason the short code that {@link AccessEvent} recorded
      * @param ip     the guest's IP address
      */
-    record HistoryEvent(OffsetDateTime occurredAt, UUID linkId, String linkLabel, AccessResult result,
+    record HistoryEvent(UUID id, OffsetDateTime occurredAt, UUID linkId, String linkLabel, AccessResult result,
                         @Nullable String reason, @Nullable String ip) {
     }
 
@@ -82,6 +87,16 @@ class AccessHistory {
      * @param events      the events of the page, newest first
      * @param olderBefore where the next page starts, or null if there are no older events
      */
-    record HistoryPage(List<HistoryEvent> events, @Nullable Instant olderBefore) {
+    record HistoryPage(List<HistoryEvent> events, @Nullable Cursor olderBefore) {
+    }
+
+    /**
+     * An event's place in the history: events before it are older, or as old with a smaller id. Without an id,
+     * as in a URL from an earlier version, only older events are before it.
+     *
+     * @param occurredAt when the event happened
+     * @param id         the event's id, or null
+     */
+    record Cursor(Instant occurredAt, @Nullable UUID id) {
     }
 }

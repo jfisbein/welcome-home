@@ -136,7 +136,7 @@ The guest's IP address, for the rate limit and the history, comes from `CF-Conne
 
 ## History
 
-`GET /locks/{id}/history` lists the guests' attempts on a lock, newest first, in the lock's time zone: when, with which link, the outcome in words (for example "Denegado: caducado" or "Error: modo nocturno") and the guest's IP address. `?link={id}` narrows it to one link; the lock page and each link in the list lead there. Pages hold 50 attempts; "Anteriores" adds `before=` with the date of the last one shown, so a page never shifts as new attempts come in. Row-Level Security keeps each owner to their own history, and a lock or link of someone else's is a 404.
+`GET /locks/{id}/history` lists the guests' attempts on a lock, newest first, in the lock's time zone: when, with which link, the outcome in words (for example "Denegado: caducado" or "Error: modo nocturno") and the guest's IP address. `?link={id}` narrows it to one link; the lock page and each link in the list lead there. Pages hold 50 attempts; "Anteriores" adds `before=` and `beforeId=` with the date and id of the last one shown, so a page never shifts as new attempts come in, and attempts at the same instant are neither lost nor repeated across pages. Row-Level Security keeps each owner to their own history, and a lock or link of someone else's is a 404.
 
 Attempts hold IP addresses, which are personal data, so they are kept for `welcomehome.audit.retention` (`P365D`) only. A job deletes older ones every night (`welcomehome.audit.purge-cron`, `0 30 3 * * *`, in the server's time zone), each owner in their own transaction under Row-Level Security.
 
