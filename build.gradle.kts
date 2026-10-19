@@ -53,6 +53,8 @@ dependencies {
     testImplementation("org.wiremock:wiremock-standalone:3.13.2")
     // SMTP server stand-in for the owners' notifications.
     testImplementation("com.icegreen:greenmail:2.1.14")
+    // Parses the templates for TemplateTextTests, which finds text that is not in the bundles.
+    testImplementation("org.jsoup:jsoup:1.23.2")
     testImplementation("org.springframework.boot:spring-boot-starter-jdbc-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.springframework.modulith:spring-modulith-starter-test")
