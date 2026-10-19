@@ -44,6 +44,7 @@
             <td th:text="${lock.active} ? #{locks.active} : #{locks.inactive}">Activa</td>
             <td>
                 <a th:href="@{/locks/{id}/links(id=${lock.id})}" th:text="#{locks.links}">Enlaces</a> ·
+                <a th:href="@{/locks/{id}/history(id=${lock.id})}" th:text="#{common.history}">Historial</a> ·
                 <a th:href="@{/locks/{id}(id=${lock.id})}" th:text="#{common.edit}">Editar</a>
             </td>
         </tr>

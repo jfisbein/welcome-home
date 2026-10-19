@@ -194,10 +194,13 @@ class AccessHistoryTests {
 
     @Test
     void lockAndLinkPagesLeadToTheHistory() {
-        assertThat(body(mvc.get().uri("/locks/" + casa).with(owner(ALICE)).exchange()))
-                .contains("href=\"/locks/" + casa + "/history\"");
-        assertThat(body(mvc.get().uri("/locks/" + casa + "/links").with(owner(ALICE)).exchange()))
-                .contains("href=\"/locks/" + casa + "/history?link=" + ana + "\"");
+        var lockHistory = "href=\"/locks/" + casa + "/history\"";
+        assertThat(body(mvc.get().uri("/locks").with(owner(ALICE)).exchange())).as("the list of locks")
+                .contains(lockHistory);
+        assertThat(body(mvc.get().uri("/locks/" + casa).with(owner(ALICE)).exchange())).as("the lock")
+                .contains(lockHistory);
+        assertThat(body(mvc.get().uri("/locks/" + casa + "/links").with(owner(ALICE)).exchange())).as("its links")
+                .contains(lockHistory, "href=\"/locks/" + casa + "/history?link=" + ana + "\"");
     }
 
     private MvcTestResult history(UUID lockId, String query) {

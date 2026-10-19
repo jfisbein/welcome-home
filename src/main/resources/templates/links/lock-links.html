@@ -5,6 +5,10 @@
 <main class="container">
     <nav th:replace="~{fragments/layout :: nav}"></nav>
     <h1 th:text="#{links.title(${lock.name})}">Enlaces de Casa</h1>
+    <p class="actions">
+        <a th:href="@{/locks/{id}/history(id=${lock.id})}" role="button" class="secondary"
+           th:text="#{links.lock-history}">Historial de la cerradura</a>
+    </p>
 
     <article th:if="${createdUrl}">
         <header><strong th:text="#{links.created(${createdLabel})}">Enlace creado para Ana</strong></header>
