@@ -41,6 +41,8 @@ Each task is one commit, with `./gradlew build` green and a hand mutation test (
 
 ### Phase 1, v1.5.0: the door and what people are told about it
 
+Done, released as v1.5.0.
+
 **1.1 An unlatch with no answer is confirmed from the log, never retried blindly.** (review 2, 5)
 
 - In `nuki/LockProviderException.Reason`, rename `UNAVAILABLE` to `NUKI_ERROR`, the `OpenResult` it becomes (for an action, Nuki did not run it), and add `NO_ANSWER` (the request was sent and the outcome is unknown).
@@ -71,6 +73,8 @@ Each task is one commit, with `./gradlew build` green and a hand mutation test (
 
 ### Phase 2, v1.6.0: hardening
 
+Done: 2.1 to 2.4 released as v1.6.0, and 2.5, found afterwards, goes out with v1.7.0.
+
 **2.1 `OwnerTransactions` refuses to switch owner inside a transaction.** (review 1) On entry, read `current_setting('app.owner_id', true)`; if it is set and differs from `ownerId`, throw `IllegalStateException`. Keep `REQUIRED`. Test in `OwnerTransactionsTests`: two owners inside one outer `TransactionTemplate` fail, the same owner twice works.
 
 **2.2 Account-security emails.** (review 3) Email the owner when an admin creates a recovery link for them, when one is redeemed, and when a passkey is added from `/passkeys`. These are always sent, not subject to preferences. They go to an unverified address today, so this pairs with the "verify the owner's email" idea in AGENTS.md. Tests in `NotificationTests` and `PasskeyRecoveryTests`.
@@ -83,13 +87,15 @@ Each task is one commit, with `./gradlew build` green and a hand mutation test (
 
 ### Phase 3, v1.7.0: maintainability
 
+Done, except the optional drop of `lock.connection_id`, left as it is.
+
 **3.1 One `welcomehome.base-url` property.** (review 10) A `@ConfigurationProperties("welcomehome")` record with a validated `URI baseUrl`, injected into `InvitationService`, `LinkUrls`, `OwnerNotifier` and `SecurityConfiguration`. Check `CommandLineTests`, since the commands start without a web server.
 
 **3.2 Schema cleanup.**
 
 - Drop `access_event.nuki_response`.
-- Drop `lock.connection_id` and its foreign key (optional: harmless as it is).
-- Grant `DELETE` on `invitation` to `app_user` and purge invitations expired more than 30 days ago in the existing purge job.
+- Drop `lock.connection_id` and its foreign key (optional: harmless as it is). Not done.
+- Grant `DELETE` on `invitation` to `app_user` and purge invitations expired more than 30 days ago. Done in a job of `admin`'s own rather than in `audit`'s purge, so that `audit` deletes nothing of another module's.
 - Page the history on `(occurred_at, id)`.
 
 **3.3 Document which module owns each table** in AGENTS.md, and which modules read which tables in SQL. (review "isolated in Java, not in SQL")
