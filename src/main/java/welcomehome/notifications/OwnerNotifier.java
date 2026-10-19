@@ -11,7 +11,6 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.MessageSource;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.mail.MailException;
@@ -23,6 +22,7 @@ import welcomehome.admin.PasskeyRecoveryCreated;
 import welcomehome.audit.AccessAttempted;
 import welcomehome.audit.AccessOutcome;
 import welcomehome.auth.PasskeyAdded;
+import welcomehome.config.WelcomeHomeProperties;
 import welcomehome.db.OwnerTransactions;
 import welcomehome.nuki.NukiDisconnected;
 
@@ -45,18 +45,18 @@ class OwnerNotifier {
     private final NotificationPreferenceDao preferences;
     private final OwnerTransactions ownerTransactions;
     private final JdbcClient jdbc;
-    private final String baseUrl;
+    private final WelcomeHomeProperties app;
     private final Cache<UUID, Boolean> recentlyDenied;
     private final MessageSource messages;
 
     OwnerNotifier(Mailer mailer, NotificationPreferenceDao preferences, OwnerTransactions ownerTransactions,
-                  JdbcClient jdbc, @Value("${welcomehome.base-url}") String baseUrl,
-                  NotificationProperties properties, MessageSource messages) {
+                  JdbcClient jdbc, WelcomeHomeProperties app, NotificationProperties properties,
+                  MessageSource messages) {
         this.mailer = mailer;
         this.preferences = preferences;
         this.ownerTransactions = ownerTransactions;
         this.jdbc = jdbc;
-        this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        this.app = app;
         this.recentlyDenied = Caffeine.newBuilder().expireAfterWrite(properties.deniedQuietPeriod()).build();
         this.messages = messages;
     }
@@ -88,7 +88,7 @@ class OwnerNotifier {
         }
         findEmail(disconnected.ownerId()).ifPresent(email -> send(email,
                 message("notification.disconnected.subject"),
-                message("notification.disconnected.body", baseUrl + "/nuki/connection") + footer()));
+                message("notification.disconnected.body", app.link("/nuki/connection")) + footer()));
     }
 
     /**
@@ -114,7 +114,7 @@ class OwnerNotifier {
             return;
         }
         send(added.ownerEmail(), message("account.passkey-added.subject"),
-                message("account.passkey-added.body", added.label(), baseUrl + "/passkeys") + accountFooter());
+                message("account.passkey-added.body", added.label(), app.link("/passkeys")) + accountFooter());
     }
 
     private boolean wants(UUID ownerId, NotificationKind kind) {
@@ -130,13 +130,13 @@ class OwnerNotifier {
         var at = message("notification.when", DATE.format(when), TIME.format(when), details.timeZone());
         var reason = keys.reason();
         var why = reason == null ? "" : message(reason);
-        var history = "%s/locks/%s/history?link=%s".formatted(baseUrl, attempt.lockId(), attempt.linkId());
+        var history = app.link("/locks/" + attempt.lockId() + "/history?link=" + attempt.linkId());
         return message(keys.email() + ".body", details.lockName(), details.label(), at, why)
                 + "\n\n" + message("notification.history", history) + "\n" + footer();
     }
 
     private String footer() {
-        return "\n--\n" + message("notification.footer", baseUrl + "/notifications") + "\n";
+        return "\n--\n" + message("notification.footer", app.link("/notifications")) + "\n";
     }
 
     private String accountFooter() {

@@ -3,8 +3,8 @@ package welcomehome.links;
 import java.net.URI;
 import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import welcomehome.config.WelcomeHomeProperties;
 import welcomehome.crypto.LinkTokenSigner;
 
 /**
@@ -15,14 +15,14 @@ import welcomehome.crypto.LinkTokenSigner;
 class LinkUrls {
 
     private final LinkTokenSigner signer;
-    private final String baseUrl;
+    private final WelcomeHomeProperties app;
 
-    LinkUrls(LinkTokenSigner signer, @Value("${welcomehome.base-url}") String baseUrl) {
+    LinkUrls(LinkTokenSigner signer, WelcomeHomeProperties app) {
         this.signer = signer;
-        this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        this.app = app;
     }
 
     URI url(UUID linkId, int tokenVersion) {
-        return URI.create(baseUrl + "/o/" + signer.sign(linkId, tokenVersion));
+        return app.link("/o/" + signer.sign(linkId, tokenVersion));
     }
 }

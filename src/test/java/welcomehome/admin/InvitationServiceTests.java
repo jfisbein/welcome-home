@@ -1,32 +1,28 @@
 package welcomehome.admin;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.net.URI;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
+import welcomehome.config.WelcomeHomeProperties;
 
 class InvitationServiceTests {
 
     final InvitationDao invitations = mock(InvitationDao.class);
 
     @Test
-    void doesNotStartWithoutABaseUrl() {
-        assertThatThrownBy(() -> new InvitationService(invitations, "", event -> { }))
-                .hasMessage("No base URL configured: set BASE_URL");
-    }
-
-    @Test
     void buildsTheLinkWithoutADoubleSlash() {
         when(invitations.insert(any(), any(), any(), any(Boolean.class), any(), any()))
                 .thenReturn(new InvitationDao.InsertedInvitation(UUID.randomUUID(), OffsetDateTime.now(ZoneOffset.UTC)));
-        var service = new InvitationService(invitations, "https://welcome.example/", event -> { });
+        var service = new InvitationService(invitations, new WelcomeHomeProperties(URI.create("https://welcome.example/")),
+                event -> { });
 
         var invitation = service.createInvitation(null, "Test", false);
 

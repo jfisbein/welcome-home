@@ -1,14 +1,13 @@
 package welcomehome.admin;
 
-import java.net.URI;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import welcomehome.config.WelcomeHomeProperties;
 
 /**
  * Creates single-use invitations, the only way to register as an owner, and passkey recovery links, which
@@ -22,16 +21,12 @@ public class InvitationService {
     public static final Duration VALIDITY = Duration.ofHours(72);
 
     private final InvitationDao invitations;
-    private final String baseUrl;
+    private final WelcomeHomeProperties app;
     private final ApplicationEventPublisher events;
 
-    InvitationService(InvitationDao invitations, @Value("${welcomehome.base-url}") String baseUrl,
-                      ApplicationEventPublisher events) {
-        if (baseUrl.isBlank()) {
-            throw new IllegalStateException("No base URL configured: set BASE_URL");
-        }
+    InvitationService(InvitationDao invitations, WelcomeHomeProperties app, ApplicationEventPublisher events) {
         this.invitations = invitations;
-        this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        this.app = app;
         this.events = events;
     }
 
@@ -69,7 +64,7 @@ public class InvitationService {
                 recoversOwnerId, VALIDITY);
         return new CreatedInvitation(
                 inserted.id(),
-                URI.create(baseUrl + "/invite/" + token),
+                app.link("/invite/" + token),
                 inserted.expiresAt().toInstant());
     }
 

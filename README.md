@@ -73,7 +73,7 @@ docker compose run --rm app --recover-owner=ana@example.com
 
 It is an invitation that names its owner: single use, valid for 72 hours, shown once. Opening it creates a passkey on that device for that owner, who keeps the passkeys they had, and signs them in. Whoever has the link signs in as that owner, so an admin who creates one can; the link records which admin created it, and the owner is emailed when it is created and when a passkey is added with it (see Notifications).
 
-The app needs `BASE_URL` (its public URL, e.g. `https://welcome.example`) to build invitation and access links. Its host is also the passkeys' relying party: passkeys created for one domain do not work on another.
+The app needs `BASE_URL` (its public URL, e.g. `https://welcome.example`) to build invitation and access links: an http or https URL with a host and nothing after it, or the app does not start. Its host is also the passkeys' relying party: passkeys created for one domain do not work on another.
 
 ## Nuki
 

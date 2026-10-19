@@ -61,6 +61,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 |----------|-------------------------------------------------------------------------------------------------------------|
 | `auth`   | Security configuration, passkey sign-in, registration from an invitation or recovery link (`OwnerRegistration`), the owner's passkeys page (`PasskeysController`), `CurrentOwner` |
 | `admin`  | Invitations and recovery links (`InvitationService`), the admin panel, the `--bootstrap-admin` and `--recover-owner` commands |
+| `config` | `WelcomeHomeProperties`: the public URL (`BASE_URL`), checked once at startup, from which every module builds its links; depends on no other module |
 | `crypto` | Keysets (`Keysets`, `KeysetGenerator`, `KeysetRotator`), `CryptoService` (AEAD), `LinkTokenSigner` (MAC)  |
 | `db`     | `OwnerTransactions`: runs work in a transaction with `app.owner_id` set for Row-Level Security             |
 | `nuki`   | The only module that talks to Nuki: `LockProvider` (interface), `NukiWebLockProvider`, `NukiWebClient`, connections and their daily check |

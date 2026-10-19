@@ -1,10 +1,8 @@
 package welcomehome.auth;
 
-import java.net.URI;
 import java.time.Duration;
 import java.util.Set;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
@@ -21,6 +19,7 @@ import org.springframework.security.web.webauthn.management.PublicKeyCredentialU
 import org.springframework.security.web.webauthn.management.UserCredentialRepository;
 import org.springframework.security.web.webauthn.management.WebAuthnRelyingPartyOperations;
 import org.springframework.security.web.webauthn.management.Webauthn4JRelyingPartyOperations;
+import welcomehome.config.WelcomeHomeProperties;
 
 /**
  * Owners sign in only with passkeys. The relying party is the host of the public URL, so passkeys
@@ -74,9 +73,9 @@ class SecurityConfiguration {
     }
 
     @Bean
-    PublicKeyCredentialRpEntity relyingParty(@Value("${welcomehome.base-url}") String baseUrl) {
+    PublicKeyCredentialRpEntity relyingParty(WelcomeHomeProperties app) {
         return PublicKeyCredentialRpEntity.builder()
-                .id(URI.create(baseUrl).getHost())
+                .id(app.host())
                 .name("welcome-home")
                 .build();
     }
@@ -85,10 +84,8 @@ class SecurityConfiguration {
     WebAuthnRelyingPartyOperations relyingPartyOperations(PublicKeyCredentialUserEntityRepository userEntities,
                                                           UserCredentialRepository userCredentials,
                                                           PublicKeyCredentialRpEntity relyingParty,
-                                                          @Value("${welcomehome.base-url}") String baseUrl) {
-        var publicUrl = URI.create(baseUrl);
-        var origin = publicUrl.getScheme() + "://" + publicUrl.getAuthority();
-        return new Webauthn4JRelyingPartyOperations(userEntities, userCredentials, relyingParty, Set.of(origin));
+                                                          WelcomeHomeProperties app) {
+        return new Webauthn4JRelyingPartyOperations(userEntities, userCredentials, relyingParty, Set.of(app.origin()));
     }
 
     @Bean
