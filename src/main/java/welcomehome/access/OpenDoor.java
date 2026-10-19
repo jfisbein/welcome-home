@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import welcomehome.access.GuestLinks.GuestLink;
 import welcomehome.audit.AccessEvent;
 import welcomehome.audit.AccessEvents;
+import welcomehome.audit.AccessOutcome;
 import welcomehome.links.LinkStatus;
 import welcomehome.locks.Locks;
 import welcomehome.nuki.LockProvider;
@@ -50,48 +51,47 @@ class OpenDoor {
         this.accessEvents = accessEvents;
     }
 
-    OpenResult open(String token, String ip, @Nullable String userAgent) {
+    AccessOutcome open(String token, String ip, @Nullable String userAgent) {
         if (!rateLimiter.tryAttemptFromIp(ip)) {
-            return OpenResult.TOO_MANY_ATTEMPTS;
+            return AccessOutcome.TOO_MANY_ATTEMPTS;
         }
         var found = guestLinks.find(token, Instant.now());
         if (found.isEmpty()) {
-            return OpenResult.INVALID;
+            return AccessOutcome.INVALID;
         }
         var guestLink = found.get();
         var result = checkAndUnlatch(guestLink);
         var link = guestLink.link();
-        accessEvents.record(new AccessEvent(link.ownerId(), link.linkId(), link.lockId(), result.accessResult,
-                result.code, ip, userAgent));
+        accessEvents.record(new AccessEvent(link.ownerId(), link.linkId(), link.lockId(), result, ip, userAgent));
         return result;
     }
 
-    private OpenResult checkAndUnlatch(GuestLink guestLink) {
+    private AccessOutcome checkAndUnlatch(GuestLink guestLink) {
         var link = guestLink.link();
         if (guestLink.status() == LinkStatus.REVOKED) {
-            return OpenResult.REVOKED;
+            return AccessOutcome.REVOKED;
         }
         if (!rateLimiter.tryAttemptWithLink(link.linkId())) {
-            return OpenResult.TOO_MANY_ATTEMPTS;
+            return AccessOutcome.TOO_MANY_ATTEMPTS;
         }
         if (guestLink.status() == LinkStatus.PENDING) {
-            return OpenResult.NOT_YET_VALID;
+            return AccessOutcome.NOT_YET_VALID;
         }
         if (guestLink.status() == LinkStatus.EXPIRED) {
-            return OpenResult.EXPIRED;
+            return AccessOutcome.EXPIRED;
         }
         if (!guestLinks.doorAvailable(link)) {
-            return OpenResult.UNAVAILABLE;
+            return AccessOutcome.UNAVAILABLE;
         }
         var lock = locks.find(link.ownerId(), link.lockId());
         if (lock.isEmpty()) {
-            return OpenResult.UNAVAILABLE;
+            return AccessOutcome.UNAVAILABLE;
         }
         var nukiSmartlockId = lock.get().nukiSmartlockId();
         return lockActions.runOnce(link.lockId(), () -> unlatchAndConfirm(link.ownerId(), nukiSmartlockId));
     }
 
-    private OpenResult unlatchAndConfirm(UUID ownerId, long nukiSmartlockId) {
+    private AccessOutcome unlatchAndConfirm(UUID ownerId, long nukiSmartlockId) {
         var requestedAt = Instant.now();
         try {
             lockProvider.unlatch(ownerId, nukiSmartlockId);
@@ -99,7 +99,7 @@ class OpenDoor {
             // With no answer Nuki may have run it: only the lock's log can tell, and telling the guest to try
             // again could open the door twice.
             if (e.reason() != Reason.NO_ANSWER) {
-                return e.reason() == Reason.NUKI_ERROR ? OpenResult.NUKI_ERROR : OpenResult.UNAVAILABLE;
+                return e.reason() == Reason.NUKI_ERROR ? AccessOutcome.NUKI_ERROR : AccessOutcome.UNAVAILABLE;
             }
         }
         return confirmation.await(ownerId, nukiSmartlockId, requestedAt);

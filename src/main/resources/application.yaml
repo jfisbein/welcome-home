@@ -8,6 +8,12 @@ spring:
         enabled: true
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.xml
+  # User-facing texts. A language with no bundle of its own gets the default one, Spanish, never the server's
+  # language; every message goes through MessageFormat, so an apostrophe is always written ''.
+  messages:
+    basename: i18n/messages
+    fallback-to-system-locale: false
+    always-use-message-format: true
   # The SMTP server for owners' emails: spring.mail.host, port, username and password come from the
   # environment. Without a host no email is sent.
   mail:

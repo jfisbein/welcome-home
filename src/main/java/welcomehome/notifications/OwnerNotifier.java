@@ -2,21 +2,24 @@ package welcomehome.notifications;
 
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.Map;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.MessageSource;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.mail.MailException;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
 import welcomehome.audit.AccessAttempted;
+import welcomehome.audit.AccessOutcome;
 import welcomehome.db.OwnerTransactions;
 import welcomehome.nuki.NukiDisconnected;
 
@@ -31,21 +34,8 @@ class OwnerNotifier {
     private static final Logger log = LoggerFactory.getLogger(OwnerNotifier.class);
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("d/M/yyyy");
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm");
-
-    /** Why a guest with a valid link could not get in, by outcome code (see {@code access.OpenResult}). */
-    private static final Map<String, String> FAILURES = Map.of(
-            "not-confirmed", "Nuki aceptó la orden, pero la cerradura no confirmó que se abriera",
-            "nuki-error", "Nuki no respondió",
-            "lock-failed", "la cerradura no pudo abrir (por ejemplo, el motor está bloqueado)",
-            "night-mode", "la cerradura está en modo nocturno",
-            "unavailable", "la cerradura no está disponible: está inactiva o Nuki está desconectado");
-
-    /** Why a link was refused, by outcome code. */
-    private static final Map<String, String> DENIALS = Map.of(
-            "not-yet-valid", "el enlace todavía no es válido",
-            "expired", "el enlace ha caducado",
-            "revoked", "el enlace está revocado",
-            "too-many-attempts", "demasiados intentos seguidos");
+    /** Owners have no language of their own yet: their emails use the default bundle's. */
+    private static final Locale LANGUAGE = Locale.of("es");
 
     private final Mailer mailer;
     private final NotificationPreferenceDao preferences;
@@ -53,16 +43,18 @@ class OwnerNotifier {
     private final JdbcClient jdbc;
     private final String baseUrl;
     private final Cache<UUID, Boolean> recentlyDenied;
+    private final MessageSource messages;
 
     OwnerNotifier(Mailer mailer, NotificationPreferenceDao preferences, OwnerTransactions ownerTransactions,
                   JdbcClient jdbc, @Value("${welcomehome.base-url}") String baseUrl,
-                  NotificationProperties properties) {
+                  NotificationProperties properties, MessageSource messages) {
         this.mailer = mailer;
         this.preferences = preferences;
         this.ownerTransactions = ownerTransactions;
         this.jdbc = jdbc;
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
         this.recentlyDenied = Caffeine.newBuilder().expireAfterWrite(properties.deniedQuietPeriod()).build();
+        this.messages = messages;
     }
 
     @Async
@@ -71,7 +63,7 @@ class OwnerNotifier {
         if (!mailer.isConfigured()) {
             return;
         }
-        var kind = NotificationKind.of(attempt.result(), attempt.reason());
+        var kind = NotificationKind.of(attempt.outcome());
         if (!wants(attempt.ownerId(), kind)) {
             return;
         }
@@ -79,8 +71,9 @@ class OwnerNotifier {
         if (kind == NotificationKind.DENIED && recentlyDenied.asMap().putIfAbsent(attempt.linkId(), true) != null) {
             return;
         }
+        var keys = EmailKeys.of(attempt.outcome());
         findDetails(attempt).ifPresent(details ->
-                send(details.email(), subject(kind, details), body(kind, details, attempt)));
+                send(details.email(), subject(keys, details), body(keys, details, attempt)));
     }
 
     @Async
@@ -90,49 +83,34 @@ class OwnerNotifier {
             return;
         }
         findEmail(disconnected.ownerId()).ifPresent(email -> send(email,
-                "Nuki ha rechazado tu API token",
-                """
-                        Nuki ha rechazado el API token que guardaste en welcome-home: tus enlaces no pueden abrir \
-                        la puerta hasta que pegues uno nuevo.
-
-                        Conecta Nuki de nuevo: %s/nuki/connection
-                        """.formatted(baseUrl) + footer()));
+                message("notification.disconnected.subject"),
+                message("notification.disconnected.body", baseUrl + "/nuki/connection") + footer()));
     }
 
     private boolean wants(UUID ownerId, NotificationKind kind) {
         return ownerTransactions.execute(ownerId, () -> preferences.find(ownerId)).wants(kind);
     }
 
-    private String subject(NotificationKind kind, AttemptDetails details) {
-        return switch (kind) {
-            case OPENED -> "%s: %s ha abierto la puerta".formatted(details.lockName(), details.label());
-            case FAILED -> "%s: %s no ha podido abrir la puerta".formatted(details.lockName(), details.label());
-            default -> "%s: intento denegado con el enlace de %s".formatted(details.lockName(), details.label());
-        };
+    private String subject(EmailKeys keys, AttemptDetails details) {
+        return message(keys.email() + ".subject", details.lockName(), details.label());
     }
 
-    private String body(NotificationKind kind, AttemptDetails details, AccessAttempted attempt) {
+    private String body(EmailKeys keys, AttemptDetails details, AccessAttempted attempt) {
         var when = attempt.occurredAt().atZone(ZoneId.of(details.timeZone()));
-        var at = "el %s a las %s (hora de %s)".formatted(DATE.format(when), TIME.format(when), details.timeZone());
-        var text = switch (kind) {
-            case OPENED -> "%s ha abierto la puerta de %s %s.".formatted(details.label(), details.lockName(), at);
-            case FAILED -> "%s ha intentado abrir la puerta de %s %s, pero no ha podido: %s."
-                    .formatted(details.label(), details.lockName(), at,
-                            FAILURES.getOrDefault(attempt.reason(), attempt.reason()));
-            default -> """
-                    Se ha intentado abrir la puerta de %s con el enlace de %s %s, y se ha denegado: %s.
-
-                    Si no esperabas este intento, puede que el enlace se haya filtrado: regenéralo o revócalo. \
-                    Durante un rato no te avisaremos de más intentos denegados con este enlace."""
-                    .formatted(details.lockName(), details.label(), at,
-                            DENIALS.getOrDefault(attempt.reason(), attempt.reason()));
-        };
-        return text + "\n\nHistorial de este enlace: %s/locks/%s/history?link=%s\n"
-                .formatted(baseUrl, attempt.lockId(), attempt.linkId()) + footer();
+        var at = message("notification.when", DATE.format(when), TIME.format(when), details.timeZone());
+        var reason = keys.reason();
+        var why = reason == null ? "" : message(reason);
+        var history = "%s/locks/%s/history?link=%s".formatted(baseUrl, attempt.lockId(), attempt.linkId());
+        return message(keys.email() + ".body", details.lockName(), details.label(), at, why)
+                + "\n\n" + message("notification.history", history) + "\n" + footer();
     }
 
     private String footer() {
-        return "\n--\nwelcome-home. Elige qué avisos recibes: %s/notifications\n".formatted(baseUrl);
+        return "\n--\n" + message("notification.footer", baseUrl + "/notifications") + "\n";
+    }
+
+    private String message(String key, Object... arguments) {
+        return messages.getMessage(key, arguments, LANGUAGE);
     }
 
     private void send(String to, String subject, String text) {
@@ -165,5 +143,23 @@ class OwnerNotifier {
     }
 
     private record AttemptDetails(String email, String label, String lockName, String timeZone) {
+    }
+
+    /**
+     * Which email tells of an outcome, and what explains it: an opening, an unconfirmed opening, a failure or a
+     * denial, the last two with why.
+     */
+    private record EmailKeys(String email, @Nullable String reason) {
+
+        static EmailKeys of(AccessOutcome outcome) {
+            var reason = "notification.reason." + outcome.code();
+            return switch (outcome) {
+                case OPENED -> new EmailKeys("notification.opened", null);
+                case NOT_CONFIRMED -> new EmailKeys("notification.not-confirmed", null);
+                case UNAVAILABLE, NUKI_ERROR, LOCK_FAILED, NIGHT_MODE -> new EmailKeys("notification.failed", reason);
+                case INVALID, TOO_MANY_ATTEMPTS, REVOKED, NOT_YET_VALID, EXPIRED ->
+                        new EmailKeys("notification.denied", reason);
+            };
+        }
     }
 }

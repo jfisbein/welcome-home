@@ -12,6 +12,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
+import welcomehome.audit.AccessOutcome;
 
 class LockActionsTests {
 
@@ -29,22 +30,22 @@ class LockActionsTests {
                 actions.incrementAndGet();
                 started.countDown();
                 await(release);
-                return OpenResult.NUKI_ERROR;
+                return AccessOutcome.NUKI_ERROR;
             }));
             started.await(5, TimeUnit.SECONDS);
-            var others = new ArrayList<Future<OpenResult>>();
+            var others = new ArrayList<Future<AccessOutcome>>();
             for (int i = 0; i < 4; i++) {
                 others.add(executor.submit(() -> lockActions.runOnce(lockId, () -> {
                     actions.incrementAndGet();
-                    return OpenResult.OPENED;
+                    return AccessOutcome.OPENED;
                 })));
             }
             Thread.sleep(200);
             release.countDown();
 
-            assertThat(first.get(5, TimeUnit.SECONDS)).isEqualTo(OpenResult.NUKI_ERROR);
+            assertThat(first.get(5, TimeUnit.SECONDS)).isEqualTo(AccessOutcome.NUKI_ERROR);
             for (var other : others) {
-                assertThat(other.get(5, TimeUnit.SECONDS)).isEqualTo(OpenResult.NUKI_ERROR);
+                assertThat(other.get(5, TimeUnit.SECONDS)).isEqualTo(AccessOutcome.NUKI_ERROR);
             }
         }
         assertThat(actions).hasValue(1);
@@ -57,11 +58,11 @@ class LockActionsTests {
 
         lockActions.runOnce(lockId, () -> {
             actions.incrementAndGet();
-            return OpenResult.OPENED;
+            return AccessOutcome.OPENED;
         });
         lockActions.runOnce(lockId, () -> {
             actions.incrementAndGet();
-            return OpenResult.OPENED;
+            return AccessOutcome.OPENED;
         });
 
         assertThat(actions).hasValue(2);
@@ -73,13 +74,13 @@ class LockActionsTests {
         try (var executor = Executors.newSingleThreadExecutor()) {
             var blocked = executor.submit(() -> lockActions.runOnce(UUID.randomUUID(), () -> {
                 await(release);
-                return OpenResult.OPENED;
+                return AccessOutcome.OPENED;
             }));
 
-            assertThat(lockActions.runOnce(UUID.randomUUID(), () -> OpenResult.EXPIRED)).isEqualTo(OpenResult.EXPIRED);
+            assertThat(lockActions.runOnce(UUID.randomUUID(), () -> AccessOutcome.EXPIRED)).isEqualTo(AccessOutcome.EXPIRED);
 
             release.countDown();
-            assertThat(blocked.get(5, TimeUnit.SECONDS)).isEqualTo(OpenResult.OPENED);
+            assertThat(blocked.get(5, TimeUnit.SECONDS)).isEqualTo(AccessOutcome.OPENED);
         }
     }
 
@@ -91,7 +92,7 @@ class LockActionsTests {
             throw new IllegalStateException("boom");
         })).isInstanceOf(IllegalStateException.class);
 
-        assertThat(lockActions.runOnce(lockId, () -> OpenResult.OPENED)).isEqualTo(OpenResult.OPENED);
+        assertThat(lockActions.runOnce(lockId, () -> AccessOutcome.OPENED)).isEqualTo(AccessOutcome.OPENED);
     }
 
     private static void await(CountDownLatch latch) {

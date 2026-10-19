@@ -32,7 +32,7 @@ import welcomehome.IntegrationTest;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.audit.AccessEvent;
 import welcomehome.audit.AccessEvents;
-import welcomehome.audit.AccessResult;
+import welcomehome.audit.AccessOutcome;
 import welcomehome.crypto.CryptoService;
 import welcomehome.nuki.LockProvider;
 import welcomehome.nuki.LockProviderException;
@@ -93,7 +93,7 @@ class NotificationTests {
 
     @Test
     void anOpeningIsToldInTheLocksTimeZoneWithALinkToItsHistory() throws Exception {
-        record(linkId, AccessResult.OK, "opened");
+        record(linkId, AccessOutcome.OPENED);
 
         var email = theOnlyEmail();
         assertThat(email.getSubject()).isEqualTo("Casa: Ana ha abierto la puerta");
@@ -106,7 +106,7 @@ class NotificationTests {
 
     @Test
     void aFailureSaysWhyTheGuestCouldNotGetIn() throws Exception {
-        record(linkId, AccessResult.ERROR, "night-mode");
+        record(linkId, AccessOutcome.NIGHT_MODE);
 
         var email = theOnlyEmail();
         assertThat(email.getSubject()).isEqualTo("Casa: Ana no ha podido abrir la puerta");
@@ -114,23 +114,45 @@ class NotificationTests {
     }
 
     @Test
-    void anUnconfirmedOpeningOrAnUnavailableDoorIsAFailure() throws Exception {
-        record(linkId, AccessResult.OK, "not-confirmed");
-        record(insertLink("Bea"), AccessResult.DENIED, "unavailable");
+    void anUnavailableDoorIsAFailure() throws Exception {
+        record(linkId, AccessOutcome.UNAVAILABLE);
 
-        await().atMost(Duration.ofSeconds(5)).until(() -> mail.getReceivedMessages().length == 2);
-        assertThat(subjects()).containsExactlyInAnyOrder(
-                "Casa: Ana no ha podido abrir la puerta", "Casa: Bea no ha podido abrir la puerta");
+        var email = theOnlyEmail();
+        assertThat(email.getSubject()).isEqualTo("Casa: Ana no ha podido abrir la puerta");
+        assertThat(text(email)).contains("la cerradura no está disponible");
+    }
+
+    @Test
+    void anUnconfirmedOpeningSaysTheDoorMayHaveOpened() throws Exception {
+        record(linkId, AccessOutcome.NOT_CONFIRMED);
+
+        var email = theOnlyEmail();
+        assertThat(email.getSubject()).isEqualTo("Casa: la cerradura no ha confirmado que Ana abriera la puerta");
+        assertThat(text(email)).contains("Ana ha pedido abrir la puerta de Casa el ",
+                "no ha confirmado que se abriera: puede que se abriera o que no.");
+    }
+
+    @Test
+    void everyOutcomeHasItsEmail() throws Exception {
+        for (var outcome : AccessOutcome.values()) {
+            record(insertLink(outcome.code()), outcome);
+        }
+
+        await().atMost(Duration.ofSeconds(5))
+                .until(() -> mail.getReceivedMessages().length == AccessOutcome.values().length);
+        for (var message : mail.getReceivedMessages()) {
+            assertThat(message.getSubject() + "\n" + text(message)).doesNotContain("{", "}", "null", "notification.");
+        }
     }
 
     @Test
     void refusedAttemptsWithALinkAreToldOnceInAWhile() throws Exception {
-        record(linkId, AccessResult.DENIED, "expired");
+        record(linkId, AccessOutcome.EXPIRED);
         assertThat(text(theOnlyEmail())).contains("el enlace ha caducado", "regenéralo o revócalo");
 
         // Emails are sent on other threads: one attempt at a time, so that the first one is the one told.
-        record(linkId, AccessResult.DENIED, "too-many-attempts");
-        record(insertLink("Bea"), AccessResult.DENIED, "revoked");
+        record(linkId, AccessOutcome.TOO_MANY_ATTEMPTS);
+        record(insertLink("Bea"), AccessOutcome.REVOKED);
 
         await().atMost(Duration.ofSeconds(5)).until(() -> mail.getReceivedMessages().length >= 2);
         assertNoMoreThan(2);
@@ -187,11 +209,11 @@ class NotificationTests {
         assertThat(mvc.get().uri("/notifications").with(owner())).bodyText()
                 .contains("name=\"failed\" value=\"true\" checked")
                 .doesNotContain("name=\"opened\" value=\"true\" checked", "name=\"denied\" value=\"true\" checked");
-        record(linkId, AccessResult.OK, "opened");
-        record(insertLink("Bea"), AccessResult.DENIED, "expired");
+        record(linkId, AccessOutcome.OPENED);
+        record(insertLink("Bea"), AccessOutcome.EXPIRED);
         assertNoMoreThan(0);
 
-        record(linkId, AccessResult.ERROR, "lock-failed");
+        record(linkId, AccessOutcome.LOCK_FAILED);
         assertThat(theOnlyEmail().getSubject()).isEqualTo("Casa: Ana no ha podido abrir la puerta");
     }
 
@@ -217,8 +239,8 @@ class NotificationTests {
                 .containsKeys("mail.smtp.starttls.required", "mail.smtp.connectiontimeout", "mail.smtp.timeout");
     }
 
-    private void record(UUID link, AccessResult result, String reason) {
-        accessEvents.record(new AccessEvent(aliceId, link, lockId, result, reason, "203.0.113.7", "curl"));
+    private void record(UUID link, AccessOutcome outcome) {
+        accessEvents.record(new AccessEvent(aliceId, link, lockId, outcome, "203.0.113.7", "curl"));
     }
 
     private UUID insertLink(String label) {

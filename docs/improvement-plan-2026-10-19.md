@@ -49,7 +49,7 @@ Each task is one commit, with `./gradlew build` green and a hand mutation test (
 
 **1.2 One enum for outcomes.** (review 4, 5, and the Spanish strings)
 
-- A public `audit.AccessOutcome` enum with the current codes (`opened`, `not-confirmed`, …) and its `AccessResult`. `access.OpenResult` keeps the HTTP status and refers to it; `AccessEvent` and `AccessAttempted` carry the enum instead of a `String`. The column stays text with the same codes, so no migration.
+- A public `audit.AccessOutcome` enum with the current codes (`opened`, `not-confirmed`, …) and its `AccessResult`. It replaces `access.OpenResult`, whose HTTP statuses become an exhaustive switch in `OpenController`; `AccessEvent` and `AccessAttempted` carry the enum instead of a `String`. The column stays text with the same codes, so no migration.
 - `AccessHistoryController` and `OwnerNotifier` switch exhaustively over the enum. Labels and the email texts this task rewrites go to `i18n/messages.properties`, which this task creates. From here on every new user-facing text goes into that bundle, so the later phases add no Spanish strings that phase 4 would have to move again.
 - Fix the `not-confirmed` email: subject and body say that the guest asked to open and the lock did not confirm it, not that the guest could not open.
 - Tests: the existing history and notification tests, plus one for the `not-confirmed` email text.

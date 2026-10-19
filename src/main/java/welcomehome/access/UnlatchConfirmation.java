@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 import org.springframework.stereotype.Component;
+import welcomehome.audit.AccessOutcome;
 import welcomehome.nuki.LockAction;
 import welcomehome.nuki.LockActionState;
 import welcomehome.nuki.LockLogEntry;
@@ -31,10 +32,10 @@ class UnlatchConfirmation {
 
     /**
      * @param requestedAt when the unlatch was sent to Nuki
-     * @return {@link OpenResult#OPENED}, {@link OpenResult#LOCK_FAILED}, {@link OpenResult#NIGHT_MODE}, or
-     * {@link OpenResult#NOT_CONFIRMED} if the log did not show the unlatch in time
+     * @return {@link AccessOutcome#OPENED}, {@link AccessOutcome#LOCK_FAILED}, {@link AccessOutcome#NIGHT_MODE}, or
+     * {@link AccessOutcome#NOT_CONFIRMED} if the log did not show the unlatch in time
      */
-    OpenResult await(UUID ownerId, long nukiSmartlockId, Instant requestedAt) {
+    AccessOutcome await(UUID ownerId, long nukiSmartlockId, Instant requestedAt) {
         var deadline = Instant.now().plus(settings.timeout());
         while (true) {
             sleep(settings.interval());
@@ -50,16 +51,16 @@ class UnlatchConfirmation {
                 // The log could not be read this time: keep trying until the deadline.
             }
             if (!Instant.now().isBefore(deadline)) {
-                return OpenResult.NOT_CONFIRMED;
+                return AccessOutcome.NOT_CONFIRMED;
             }
         }
     }
 
-    private static OpenResult result(LockLogEntry unlatch) {
+    private static AccessOutcome result(LockLogEntry unlatch) {
         if (unlatch.state() == LockActionState.REJECTED_NIGHT_MODE) {
-            return OpenResult.NIGHT_MODE;
+            return AccessOutcome.NIGHT_MODE;
         }
-        return unlatch.succeeded() ? OpenResult.OPENED : OpenResult.LOCK_FAILED;
+        return unlatch.succeeded() ? AccessOutcome.OPENED : AccessOutcome.LOCK_FAILED;
     }
 
     private static void sleep(Duration duration) {

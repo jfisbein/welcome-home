@@ -10,10 +10,8 @@ import java.util.UUID;
  * @param ownerId    the link's owner
  * @param linkId     the link the guest used
  * @param lockId     the link's lock
- * @param result     whether the door opened, was refused or failed
- * @param reason     the outcome's code, such as {@code opened}, {@code expired} or {@code night-mode}
+ * @param outcome    what the attempt came to
  * @param occurredAt when the attempt ended
  */
-public record AccessAttempted(UUID ownerId, UUID linkId, UUID lockId, AccessResult result, String reason,
-                              Instant occurredAt) {
+public record AccessAttempted(UUID ownerId, UUID linkId, UUID lockId, AccessOutcome outcome, Instant occurredAt) {
 }

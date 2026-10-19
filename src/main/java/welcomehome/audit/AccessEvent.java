@@ -10,11 +10,10 @@ import org.jspecify.annotations.Nullable;
  * @param ownerId   the link's owner
  * @param linkId    the link
  * @param lockId    the link's lock
- * @param result    the outcome
- * @param reason    a short code for why, such as {@code expired} or {@code nuki-error}
+ * @param outcome   what the attempt came to
  * @param ip        the guest's IP address
  * @param userAgent the guest's browser, if it said
  */
-public record AccessEvent(UUID ownerId, UUID linkId, UUID lockId, AccessResult result, String reason, String ip,
+public record AccessEvent(UUID ownerId, UUID linkId, UUID lockId, AccessOutcome outcome, String ip,
                           @Nullable String userAgent) {
 }

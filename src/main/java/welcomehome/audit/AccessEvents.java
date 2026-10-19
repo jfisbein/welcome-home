@@ -47,14 +47,14 @@ public class AccessEvents {
                     .param("ownerId", event.ownerId())
                     .param("linkId", event.linkId())
                     .param("lockId", event.lockId())
-                    .param("result", event.result().name())
-                    .param("reason", event.reason())
+                    .param("result", event.outcome().result().name())
+                    .param("reason", event.outcome().code())
                     .param("ip", event.ip())
                     .param("userAgent", trimmedUserAgent)
                     .query(OffsetDateTime.class)
                     .single();
-            events.publishEvent(new AccessAttempted(event.ownerId(), event.linkId(), event.lockId(), event.result(),
-                    event.reason(), occurredAt.toInstant()));
+            events.publishEvent(new AccessAttempted(event.ownerId(), event.linkId(), event.lockId(), event.outcome(),
+                    occurredAt.toInstant()));
         });
     }
 }

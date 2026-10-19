@@ -3,11 +3,12 @@ package welcomehome.audit;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.Map;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.MessageSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -28,30 +29,19 @@ class AccessHistoryController {
 
     static final int PAGE_SIZE = 50;
 
-    /** What each reason code that {@link AccessEvent} records means to the owner. */
-    private static final Map<String, String> OUTCOMES = Map.ofEntries(
-            Map.entry("opened", "Abierta"),
-            Map.entry("not-confirmed", "Abierta sin confirmar"),
-            Map.entry("too-many-attempts", "Denegado: demasiados intentos"),
-            Map.entry("revoked", "Denegado: enlace revocado"),
-            Map.entry("not-yet-valid", "Denegado: todavía no válido"),
-            Map.entry("expired", "Denegado: caducado"),
-            Map.entry("unavailable", "Denegado: puerta no disponible"),
-            Map.entry("nuki-error", "Error: Nuki no responde"),
-            Map.entry("lock-failed", "Error: la cerradura no pudo abrir"),
-            Map.entry("night-mode", "Error: modo nocturno"));
-
     private final Locks locks;
     private final AccessHistory history;
+    private final MessageSource messages;
 
-    AccessHistoryController(Locks locks, AccessHistory history) {
+    AccessHistoryController(Locks locks, AccessHistory history, MessageSource messages) {
         this.locks = locks;
         this.history = history;
+        this.messages = messages;
     }
 
     @GetMapping("/locks/{lockId}/history")
     String history(CurrentOwner owner, @PathVariable UUID lockId, @RequestParam(required = false) @Nullable UUID link,
-                   @RequestParam(required = false) @Nullable Instant before, Model model) {
+                   @RequestParam(required = false) @Nullable Instant before, Locale locale, Model model) {
         var lock = locks.find(owner.id(), lockId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         if (link != null) {
             model.addAttribute("linkLabel", history.linkLabel(owner.id(), lockId, link)
@@ -60,7 +50,9 @@ class AccessHistoryController {
         var zone = ZoneId.of(lock.timeZone());
         var page = history.find(owner.id(), lockId, link, before, PAGE_SIZE);
         model.addAttribute("lock", lock);
-        model.addAttribute("events", page.events().stream().map(event -> HistoryRow.of(event, zone)).toList());
+        model.addAttribute("events", page.events().stream()
+                .map(event -> HistoryRow.of(event, zone, outcome(event.reason(), locale)))
+                .toList());
         model.addAttribute("filtered", link != null);
         model.addAttribute("paged", before != null);
         model.addAttribute("newerUrl", url(lockId, link, null));
@@ -68,6 +60,13 @@ class AccessHistoryController {
             model.addAttribute("olderUrl", url(lockId, link, page.olderBefore()));
         }
         return "audit/history";
+    }
+
+    /** What an event's reason code means to the owner; a code no outcome has is shown as it is. */
+    private String outcome(@Nullable String reason, Locale locale) {
+        return AccessOutcome.ofCode(reason)
+                .map(outcome -> messages.getMessage("outcome." + outcome.code(), null, locale))
+                .orElse(reason == null ? "" : reason);
     }
 
     private static String url(UUID lockId, @Nullable UUID link, @Nullable Instant before) {
@@ -87,10 +86,9 @@ class AccessHistoryController {
     record HistoryRow(ZonedDateTime occurredAt, UUID linkId, String linkLabel, AccessResult result, String outcome,
                       @Nullable String ip) {
 
-        static HistoryRow of(HistoryEvent event, ZoneId zone) {
-            var reason = event.reason() == null ? "" : event.reason();
+        static HistoryRow of(HistoryEvent event, ZoneId zone, String outcome) {
             return new HistoryRow(event.occurredAt().atZoneSameInstant(zone), event.linkId(), event.linkLabel(),
-                    event.result(), OUTCOMES.getOrDefault(reason, reason), event.ip());
+                    event.result(), outcome, event.ip());
         }
     }
 }

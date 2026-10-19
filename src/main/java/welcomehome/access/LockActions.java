@@ -11,6 +11,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 
 import org.springframework.stereotype.Component;
+import welcomehome.audit.AccessOutcome;
 
 /**
  * One action at a time per lock. A guest who presses "Abrir" while an opening of the same lock is under way
@@ -23,15 +24,15 @@ class LockActions {
     /** Far longer than an action takes with Nuki's timeouts: only a stuck action makes anyone wait this long. */
     static final Duration MAX_WAIT = Duration.ofMinutes(1);
 
-    private final ConcurrentMap<UUID, CompletableFuture<OpenResult>> inFlight = new ConcurrentHashMap<>();
+    private final ConcurrentMap<UUID, CompletableFuture<AccessOutcome>> inFlight = new ConcurrentHashMap<>();
 
     /**
      * Runs {@code action} for the lock, or, if one is already running, waits for it and returns its result.
      *
      * @return the result of the action that ran
      */
-    OpenResult runOnce(UUID lockId, Supplier<OpenResult> action) {
-        var mine = new CompletableFuture<OpenResult>();
+    AccessOutcome runOnce(UUID lockId, Supplier<AccessOutcome> action) {
+        var mine = new CompletableFuture<AccessOutcome>();
         var running = inFlight.putIfAbsent(lockId, mine);
         if (running != null) {
             return await(running);
@@ -48,14 +49,14 @@ class LockActions {
         }
     }
 
-    private static OpenResult await(CompletableFuture<OpenResult> running) {
+    private static AccessOutcome await(CompletableFuture<AccessOutcome> running) {
         try {
             return running.get(MAX_WAIT.toMillis(), TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return OpenResult.NUKI_ERROR;
+            return AccessOutcome.NUKI_ERROR;
         } catch (ExecutionException | TimeoutException e) {
-            return OpenResult.NUKI_ERROR;
+            return AccessOutcome.NUKI_ERROR;
         }
     }
 }
