@@ -93,6 +93,15 @@ tasks.check {
     dependsOn(tasks.javadoc)
 }
 
+// One jar, under a fixed name, which the Dockerfile copies: the image does not compile again.
+tasks.bootJar {
+    archiveFileName = "welcome-home.jar"
+}
+
+tasks.jar {
+    enabled = false
+}
+
 tasks.bootRun {
     systemProperty("spring.profiles.active", "dev")
 }

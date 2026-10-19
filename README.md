@@ -171,10 +171,11 @@ Emails go through any SMTP server, set with `spring.mail.host`, `spring.mail.por
 ## Docker image
 
 ```sh
+./gradlew bootJar        # or ./gradlew build, as CI does
 docker build -t welcome-home .
 ```
 
-The `Dockerfile` builds the jar with JDK 25 and runs it on a JRE 25 (`eclipse-temurin`, Ubuntu Noble) as the unprivileged user `app` (uid 10001), from Spring Boot's layers, so a new release only changes the application layer. Tests do not run in the image build. `.dockerignore` lets in only the build files and `src/`, so keysets never end up in the image.
+The `Dockerfile` does not compile: it takes the jar Gradle left in `build/libs/welcome-home.jar` and runs it on a JRE 25 (`eclipse-temurin`, Ubuntu Noble) as the unprivileged user `app` (uid 10001), from Spring Boot's layers, so a new release only changes the application layer. `.dockerignore` lets in only that jar, so keysets never end up in the image.
 
 The container listens on 8080 and is configured with environment variables:
 
