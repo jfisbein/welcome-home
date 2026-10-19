@@ -142,6 +142,26 @@ Command-line output, log lines and exception messages are for the operator, not 
 
 **4.7 Documentation.** AGENTS.md, under Conventions: "UI texts in `i18n/messages*.properties`, Spanish the default; no user-facing text in Java, templates or JavaScript". The README gets "Adding a language": copy the bundle, translate it, add the language to the supported list.
 
+### Phase 5, v1.9.0: the owner's ideas
+
+Five ideas from the owner, checked against the code:
+
+| Idea | Verdict |
+|------|---------|
+| Compact object headers in the JRE | Do: `-XX:+UseCompactObjectHeaders` is a product flag in the image's JDK 25, and shrinks every object's header. |
+| Email validation when an owner registers | The format is already checked (`OwnerRegistration`), so this is the AGENTS.md idea: verify that the owner controls the address. Do. |
+| Retries in the calls to the Nuki API | Already there: `NukiWebClient` retries with exponential backoff on 429 (honoring `Retry-After`) and, for reads, on server errors and timeouts; the unlatch only when Nuki cannot have run it, and an unanswered one is confirmed from the log (1.1). Nothing to add. |
+| Dates as dd/mm/yyyy, hours 00 to 23 | Hours already are 00 to 23 everywhere. Dates become `dd/MM/yyyy` in both languages. Do. |
+| The country next to the guest's IP | Do: Cloudflare sends it on every request (`CF-IPCountry`), so no geolocation database is needed. |
+
+**5.1 Dates as dd/MM/yyyy.** The `format.*` patterns of both bundles, so pages and emails both change; times stay `HH:mm`.
+
+**5.2 Compact object headers.** `-XX:+UseCompactObjectHeaders` in the `Dockerfile`'s `ENTRYPOINT`; measured on the local copy of the stack.
+
+**5.3 The country next to the IP.** Liquibase 017 adds `access_event.country`, the two-letter code that `CF-IPCountry` gives (`welcomehome.access.client-country-header`, blank to record none); the history shows it, named in the reader's language, next to the IP. Attempts recorded before have none.
+
+**5.4 Verifying the owner's email.** After registering, the owner gets an email with a single-use link (a random token, stored only as a hash, valid 7 days). The link opens a page with a button, and only pressing it verifies the address: mail scanners open links, and a scanner at a mistyped address must not verify it. Until verified, the panel says so and offers to send the link again, and no email goes to the address but the verification one. Owners registered before keep receiving emails: the migration takes their addresses as verified.
+
 ### Backlog
 
 Valid, but not worth doing now:
