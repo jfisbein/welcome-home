@@ -78,6 +78,8 @@ Each task is one commit, with `./gradlew build` green and a hand mutation test (
 
 **2.4 Virtual threads (optional).** (review 7) `spring.threads.virtual.enabled: true` in `application.yaml`. It also moves `@Async` and `@Scheduled` to virtual threads; run the whole suite and watch `NotificationTests` and `LockActionsTests`.
 
+**2.5 The health check does not depend on SMTP (proposed, not done).** (found while checking 2.3) With `spring.mail.host` set, Spring Boot adds the mail server to `/actuator/health`, so when SMTP2GO cannot be reached the app reports `DOWN` and its container becomes unhealthy. `cloudflared` starts only once `app` is healthy, so a stack started during an SMTP outage stays offline, although emails are optional and dropped when they fail. Confirmed on the local copy of the stack, whose SMTP credentials are not real. Fix: `management.health.mail.enabled: false`, with a test that the health is `UP` while the SMTP server is unreachable.
+
 ### Phase 3, v1.7.0: maintainability
 
 **3.1 One `welcomehome.base-url` property.** (review 10) A `@ConfigurationProperties("welcomehome")` record with a validated `URI baseUrl`, injected into `InvitationService`, `LinkUrls`, `OwnerNotifier` and `SecurityConfiguration`. Check `CommandLineTests`, since the commands start without a web server.
