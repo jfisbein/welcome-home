@@ -6,103 +6,86 @@
     <nav th:replace="~{fragments/layout :: nav}"></nav>
     <h1 th:text="${lock.name}">Casa</h1>
     <p class="actions">
-        <a th:href="@{/locks/{id}/links(id=${lock.id})}" role="button">Enlaces de esta cerradura</a>
-        <a th:href="@{/locks/{id}/history(id=${lock.id})}" role="button" class="secondary">Historial</a>
+        <a th:href="@{/locks/{id}/links(id=${lock.id})}" role="button" th:text="#{lock.links}">Enlaces</a>
+        <a th:href="@{/locks/{id}/history(id=${lock.id})}" role="button" class="secondary"
+           th:text="#{common.history}">Historial</a>
     </p>
 
     <section>
-        <h2>Estado</h2>
-        <p th:unless="${lock.active}">
-            Esta cerradura ya no está en tu cuenta de Nuki. Si vuelve a estarlo, sincroniza para reactivarla.
-        </p>
+        <h2 th:text="#{lock.state}">Estado</h2>
+        <p th:unless="${lock.active}" th:text="#{lock.inactive}">Esta cerradura ya no está en tu cuenta de Nuki.</p>
 
-        <p th:if="${stateError == 'not-connected'}" role="alert">
-            Para ver el estado, <a th:href="@{/nuki/connection}">conecta tu cuenta de Nuki</a>.
-        </p>
-        <p th:if="${stateError == 'rejected'}" role="alert">
-            Nuki no ha aceptado tu API token. <a th:href="@{/nuki/connection}">Revisa la conexión con Nuki</a>.
-        </p>
-        <p th:if="${stateError == 'not-found'}" role="alert">
-            Nuki no encuentra esta cerradura en tu cuenta. <a th:href="@{/locks}">Sincroniza tus cerraduras</a>.
-        </p>
-        <p th:if="${stateError == 'unavailable'}" role="alert">
-            Nuki no responde ahora mismo, así que no podemos mostrar el estado. Inténtalo de nuevo en unos minutos.
-        </p>
+        <p th:if="${stateError == 'not-connected'}" role="alert"
+           th:utext="#{lock.state-error.not-connected(@{/nuki/connection})}">Para ver el estado, conecta Nuki.</p>
+        <p th:if="${stateError == 'rejected'}" role="alert"
+           th:utext="#{lock.state-error.rejected(@{/nuki/connection})}">Nuki no ha aceptado tu API token.</p>
+        <p th:if="${stateError == 'not-found'}" role="alert"
+           th:utext="#{lock.state-error.not-found(@{/locks})}">Nuki no encuentra esta cerradura.</p>
+        <p th:if="${stateError == 'unavailable'}" role="alert" th:text="#{lock.state-error.unavailable}">
+            Nuki no responde ahora mismo.</p>
 
         <th:block th:if="${state}">
             <dl>
-                <dt>Cerradura</dt>
+                <dt th:text="#{lock.status}">Cerradura</dt>
                 <dd th:switch="${state.status.name()}">
-                    <span th:case="'LOCKED'">Bloqueada</span>
-                    <span th:case="'UNLOCKED'">Desbloqueada</span>
-                    <span th:case="'UNLATCHED'">Abierta: el pestillo está retirado</span>
-                    <span th:case="'MOVING'">Moviéndose</span>
-                    <span th:case="'MOTOR_BLOCKED'">Motor bloqueado: revisa la cerradura</span>
-                    <span th:case="*">Estado desconocido</span>
+                    <span th:case="'LOCKED'" th:text="#{lock.status.locked}">Bloqueada</span>
+                    <span th:case="'UNLOCKED'" th:text="#{lock.status.unlocked}">Desbloqueada</span>
+                    <span th:case="'UNLATCHED'" th:text="#{lock.status.unlatched}">Abierta</span>
+                    <span th:case="'MOVING'" th:text="#{lock.status.moving}">Moviéndose</span>
+                    <span th:case="'MOTOR_BLOCKED'" th:text="#{lock.status.motor-blocked}">Motor bloqueado</span>
+                    <span th:case="*" th:text="#{lock.status.unknown}">Estado desconocido</span>
                 </dd>
-                <dt>Conexión</dt>
-                <dd th:text="${state.online} ? 'En línea' : 'Sin conexión con Nuki: los enlaces no podrán abrir la puerta'">
-                    En línea
-                </dd>
-                <dt>Batería</dt>
-                <dd th:if="${state.batteryCritical}">
-                    <strong>Batería crítica:</strong> cámbiala o cárgala cuanto antes.
-                </dd>
+                <dt th:text="#{lock.connection}">Conexión</dt>
+                <dd th:text="${state.online} ? #{lock.online} : #{lock.offline}">En línea</dd>
+                <dt th:text="#{lock.battery}">Batería</dt>
+                <dd th:if="${state.batteryCritical}" th:utext="#{lock.battery.critical}">Batería crítica.</dd>
                 <dd th:if="${!state.batteryCritical and state.batteryCharge != null}"
-                    th:text="|${state.batteryCharge} %|">80 %</dd>
-                <dd th:if="${!state.batteryCritical and state.batteryCharge == null}">Correcta</dd>
-                <dt>Auto Lock</dt>
-                <dd th:if="${state.autoLockEnabled}">Activado</dd>
-                <dd th:if="${!state.autoLockEnabled and lock.relockingHandledElsewhere}">
-                    Desactivado: el bloqueo lo gestionas de otra forma.
-                </dd>
-                <dd th:if="${!state.autoLockEnabled and !lock.relockingHandledElsewhere}">Desactivado</dd>
+                    th:text="#{lock.battery.charge(${state.batteryCharge})}">80 %</dd>
+                <dd th:if="${!state.batteryCritical and state.batteryCharge == null}" th:text="#{lock.battery.ok}">
+                    Correcta</dd>
+                <dt th:text="#{lock.auto-lock}">Auto Lock</dt>
+                <dd th:if="${state.autoLockEnabled}" th:text="#{lock.auto-lock.on}">Activado</dd>
+                <dd th:if="${!state.autoLockEnabled and lock.relockingHandledElsewhere}"
+                    th:text="#{lock.auto-lock.off-elsewhere}">Desactivado: el bloqueo lo gestionas de otra forma.</dd>
+                <dd th:if="${!state.autoLockEnabled and !lock.relockingHandledElsewhere}"
+                    th:text="#{lock.auto-lock.off}">Desactivado</dd>
             </dl>
 
             <article th:if="${!state.autoLockEnabled and !lock.relockingHandledElsewhere}" role="alert">
-                <p>
-                    <strong>Auto Lock está desactivado.</strong> Cuando un invitado abra, la puerta se quedará
-                    desbloqueada hasta que alguien la bloquee.
-                </p>
-                <p>
-                    Actívalo en la app de Nuki o, si el bloqueo lo gestionas de otra forma (por ejemplo, con
-                    Home Assistant), márcalo abajo y no volveremos a avisarte.
-                </p>
+                <p th:utext="#{lock.auto-lock.warning}"><strong>Auto Lock está desactivado.</strong></p>
+                <p th:text="#{lock.auto-lock.advice}">Actívalo en la app de Nuki.</p>
             </article>
         </th:block>
     </section>
 
     <section>
-        <h2>Ajustes</h2>
+        <h2 th:text="#{lock.settings}">Ajustes</h2>
         <form th:action="@{/locks/{id}(id=${lock.id})}" th:method="patch">
             <label>
-                Nombre
+                [[#{lock.name}]]
                 <input type="text" name="name" maxlength="100" required th:value="${name}"
                        th:attr="aria-invalid=${nameError} ? 'true' : null">
-                <small th:if="${nameError}">Escribe un nombre de hasta 100 caracteres.</small>
-                <small th:unless="${nameError}">Es el que verán tus invitados.</small>
+                <small th:if="${nameError}" th:text="#{lock.name.error}">Escribe un nombre.</small>
+                <small th:unless="${nameError}" th:text="#{lock.name.hint}">Es el que verán tus invitados.</small>
             </label>
             <label>
-                Zona horaria
+                [[#{lock.time-zone}]]
                 <select name="timeZone" required th:attr="aria-invalid=${timeZoneError} ? 'true' : null">
                     <option th:each="zone : ${timeZones}" th:value="${zone}" th:text="${zone}"
                             th:selected="${zone == timeZone}">Europe/Madrid</option>
                 </select>
-                <small th:if="${timeZoneError}">Elige una zona horaria de la lista.</small>
-                <small th:unless="${timeZoneError}">
-                    Las fechas de los enlaces se introducen y se muestran en esta zona. Cambiarla no cambia cuándo
-                    son válidos los enlaces que ya existen, solo cómo se muestran.
-                </small>
+                <small th:if="${timeZoneError}" th:text="#{lock.time-zone.error}">Elige una zona horaria.</small>
+                <small th:unless="${timeZoneError}" th:text="#{lock.time-zone.hint}">Las fechas de los enlaces.</small>
             </label>
             <label>
                 <input type="checkbox" name="relockingHandledElsewhere" value="true"
                        th:checked="${relockingHandledElsewhere}">
-                El bloqueo lo gestiono de otra forma: no avisar de que Auto Lock está desactivado
+                [[#{lock.relocking-elsewhere}]]
             </label>
-            <button type="submit">Guardar</button>
+            <button type="submit" th:text="#{common.save}">Guardar</button>
         </form>
     </section>
-    <p><a th:href="@{/locks}">Volver a cerraduras</a></p>
+    <p><a th:href="@{/locks}" th:text="#{lock.back}">Volver a cerraduras</a></p>
 </main>
 </body>
 </html>

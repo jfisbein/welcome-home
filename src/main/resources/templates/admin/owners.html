@@ -15,7 +15,7 @@
         </p>
         <fieldset role="group">
             <input id="recovery-url" type="text" readonly th:value="${recovery.url}" aria-label="Enlace de nueva passkey">
-            <button type="button" data-copy="recovery-url">Copiar</button>
+            <button type="button" data-copy="recovery-url" th:data-copied="#{common.copied}">Copiar</button>
         </fieldset>
     </article>
 

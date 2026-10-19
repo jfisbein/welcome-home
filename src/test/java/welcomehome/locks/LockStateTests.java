@@ -120,7 +120,8 @@ class LockStateTests {
 
     @Test
     void settingsStayAvailableWhenTheStateCannotBeRead() {
-        assertThat(lockPage()).hasStatusOk().bodyText().contains("conecta tu cuenta de Nuki", "Guardar");
+        assertThat(lockPage()).hasStatusOk().bodyText()
+                .contains("<a href=\"/nuki/connection\">conecta tu cuenta de Nuki</a>", "Guardar");
 
         connectNuki();
         nuki.stubFor(get("/smartlock/17").willReturn(status(503)));

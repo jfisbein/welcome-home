@@ -4,30 +4,31 @@
 <!-- The link form's fields, shared by creating and editing a link. Reads label, validFrom, validUntil and their errors. -->
 <th:block th:fragment="fields(timeZone)">
     <label>
-        Para quién es
+        [[#{link-form.label}]]
         <input type="text" name="label" maxlength="100" required th:value="${label}"
                th:attr="aria-invalid=${labelError} ? 'true' : null"
-               placeholder="Por ejemplo: Ana, fin de semana">
-        <small th:if="${labelError}">Escribe para quién es el enlace (hasta 100 caracteres).</small>
+               th:placeholder="#{link-form.label.placeholder}">
+        <small th:if="${labelError}" th:text="#{link-form.label.error}">Escribe para quién es el enlace.</small>
     </label>
     <div class="grid">
         <label>
-            Desde
+            [[#{link-form.from}]]
             <input type="datetime-local" name="validFrom" required th:value="${validFrom}"
                    th:attr="aria-invalid=${validFromError} ? 'true' : null">
-            <small th:if="${validFromError}">Indica la fecha y hora de inicio.</small>
+            <small th:if="${validFromError}" th:text="#{link-form.from.error}">Indica la fecha y hora de inicio.</small>
         </label>
         <label>
-            Hasta
+            [[#{link-form.until}]]
             <input type="datetime-local" name="validUntil" required th:value="${validUntil}"
                    th:attr="aria-invalid=${validUntilError} ? 'true' : null">
-            <small th:if="${validUntilError == 'invalid'}">Indica la fecha y hora de fin.</small>
-            <small th:if="${validUntilError == 'before-start'}">El fin tiene que ser posterior al inicio.</small>
-            <small th:if="${validUntilError == 'past'}">El fin ya ha pasado.</small>
+            <small th:if="${validUntilError == 'invalid'}" th:text="#{link-form.until.error.invalid}">
+                Indica la fecha y hora de fin.</small>
+            <small th:if="${validUntilError == 'before-start'}" th:text="#{link-form.until.error.before-start}">
+                El fin tiene que ser posterior al inicio.</small>
+            <small th:if="${validUntilError == 'past'}" th:text="#{link-form.until.error.past}">El fin ya ha pasado.</small>
         </label>
     </div>
-    <p><small th:text="|Horas en la zona horaria de la cerradura: ${timeZone}.|">
-        Horas en la zona horaria de la cerradura: Europe/Madrid.</small></p>
+    <p><small th:text="#{link-form.time-zone(${timeZone})}">Horas en la zona horaria de la cerradura.</small></p>
 </th:block>
 </body>
 </html>
