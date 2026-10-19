@@ -129,8 +129,10 @@ class AccessHistoryTests {
         }
         assertThat(shown).hasSize(52).doesNotHaveDuplicates();
 
-        assertThat(body(history(casa, "?link=" + ana + "&before=2030-07-01T10:00:00.000001Z")))
-                .as("a URL from an earlier version, without beforeId").contains(">10.0.1.1<");
+        insertEvent(ana, "2030-07-01T09:00:00Z", "OK", "opened", "10.0.2.1");
+        assertThat(body(history(casa, "?link=" + ana + "&before=2030-07-01T10:00:00Z")))
+                .as("a URL from an earlier version, without beforeId: only attempts strictly before it")
+                .contains(">10.0.2.1<").doesNotContain(">10.0.1.");
     }
 
     @Test
