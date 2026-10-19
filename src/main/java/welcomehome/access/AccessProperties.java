@@ -12,13 +12,16 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  *
  * @param rateLimit      how many attempts to open a door are allowed
  * @param confirmation   how long to wait for the lock to confirm an opening
- * @param clientIpHeader the header that holds the guest's IP address, set by the proxy in front of the app;
- *                       blank to use the address the request came from
+ * @param clientIpHeader      the header that holds the guest's IP address, set by the proxy in front of the app;
+ *                            blank to use the address the request came from
+ * @param clientCountryHeader the header that holds the guest's country, set by the proxy in front of the app;
+ *                            blank to record none
  */
 @ConfigurationProperties("welcomehome.access")
 record AccessProperties(@NestedConfigurationProperty @DefaultValue RateLimit rateLimit,
                         @NestedConfigurationProperty @DefaultValue Confirmation confirmation,
-                        @DefaultValue("CF-Connecting-IP") @Nullable String clientIpHeader) {
+                        @DefaultValue("CF-Connecting-IP") @Nullable String clientIpHeader,
+                        @DefaultValue("CF-IPCountry") @Nullable String clientCountryHeader) {
 
     /**
      * Attempts to open a door allowed per period, counted per guest IP address and per link, so that

@@ -35,7 +35,7 @@ class AccessHistory {
     HistoryPage find(UUID ownerId, UUID lockId, @Nullable UUID linkId, @Nullable Cursor before, int pageSize) {
         var events = ownerTransactions.execute(ownerId, () -> jdbc.sql("""
                         SELECT e.id, e.occurred_at, e.link_id, l.label AS link_label, e.result, e.reason,
-                               host(e.ip) AS ip
+                               host(e.ip) AS ip, e.country
                         FROM access_event e
                         JOIN access_link l ON l.owner_id = e.owner_id AND l.id = e.link_id
                         WHERE e.owner_id = :ownerId AND e.lock_id = :lockId
@@ -76,11 +76,12 @@ class AccessHistory {
     /**
      * A guest's attempt.
      *
-     * @param reason the short code that {@link AccessEvent} recorded
-     * @param ip     the guest's IP address
+     * @param reason  the short code that {@link AccessEvent} recorded
+     * @param ip      the guest's IP address
+     * @param country the guest's country code, if known
      */
     record HistoryEvent(UUID id, OffsetDateTime occurredAt, UUID linkId, String linkLabel, AccessResult result,
-                        @Nullable String reason, @Nullable String ip) {
+                        @Nullable String reason, @Nullable String ip, @Nullable String country) {
     }
 
     /**

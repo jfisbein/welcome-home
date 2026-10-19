@@ -40,8 +40,10 @@ public class AccessEvents {
         var trimmedUserAgent = userAgent;
         ownerTransactions.run(event.ownerId(), () -> {
             var occurredAt = jdbc.sql("""
-                            INSERT INTO access_event (owner_id, link_id, lock_id, result, reason, ip, user_agent)
-                            VALUES (:ownerId, :linkId, :lockId, :result, :reason, CAST(:ip AS inet), :userAgent)
+                            INSERT INTO access_event (owner_id, link_id, lock_id, result, reason, ip, country,
+                                                      user_agent)
+                            VALUES (:ownerId, :linkId, :lockId, :result, :reason, CAST(:ip AS inet), :country,
+                                    :userAgent)
                             RETURNING occurred_at
                             """)
                     .param("ownerId", event.ownerId())
@@ -50,6 +52,7 @@ public class AccessEvents {
                     .param("result", event.outcome().result().name())
                     .param("reason", event.outcome().code())
                     .param("ip", event.ip())
+                    .param("country", event.country())
                     .param("userAgent", trimmedUserAgent)
                     .query(OffsetDateTime.class)
                     .single();

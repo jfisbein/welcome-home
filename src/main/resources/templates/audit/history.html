@@ -32,7 +32,8 @@
                     <strong th:case="'OK'" th:text="${event.outcome}">Abierta</strong>
                     <span th:case="*" th:text="${event.outcome}">Denegado: caducado</span>
                 </td>
-                <td th:text="${event.ip}">192.0.2.10</td>
+                <td th:text="${event.country} ? #{history.ip-country(${event.ip}, ${event.country})} : ${event.ip}">
+                    192.0.2.10 (España)</td>
             </tr>
             </tbody>
         </table>

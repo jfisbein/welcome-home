@@ -52,6 +52,6 @@ class ClientIpTests {
 
     private static ClientIp clientIp(@Nullable String header) {
         return new ClientIp(new AccessProperties(new RateLimit(10, 5, Duration.ofMinutes(1)),
-                new Confirmation(Duration.ofSeconds(15), Duration.ofSeconds(2)), header));
+                new Confirmation(Duration.ofSeconds(15), Duration.ofSeconds(2)), header, "CF-IPCountry"));
     }
 }

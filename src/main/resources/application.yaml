@@ -70,6 +70,9 @@ welcomehome:
     # Where the guest's IP address comes from: Cloudflare sets this header on every request. Blank to use the
     # address the request came from, if the app is ever reachable other than through the tunnel.
     client-ip-header: CF-Connecting-IP
+    # Where the guest's country comes from, for the history: Cloudflare sets this header when its IP Geolocation is
+    # on. Blank to record none.
+    client-country-header: CF-IPCountry
   notifications:
     # The sender of owners' emails, an address the SMTP service accepts, such as
     # "welcome-home <avisos@example.com>". Without it no email is sent.

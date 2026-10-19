@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="017-access-event-country" author="welcome-home">
+        <comment>
+            The country a guest's attempt came from, as Cloudflare tells it: an ISO 3166 code, or T1 for Tor.
+            Empty for attempts recorded before, or when it is not known.
+        </comment>
+
+        <addColumn tableName="access_event">
+            <column name="country" type="text"/>
+        </addColumn>
+
+        <sql>
+            ALTER TABLE access_event ADD CONSTRAINT access_event_country_check CHECK (country ~ '^[A-Z][A-Z0-9]$');
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

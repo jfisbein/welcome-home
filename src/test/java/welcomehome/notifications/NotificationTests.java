@@ -256,7 +256,7 @@ class NotificationTests {
     }
 
     private void record(UUID link, AccessOutcome outcome) {
-        accessEvents.record(new AccessEvent(aliceId, link, lockId, outcome, "203.0.113.7", "curl"));
+        accessEvents.record(new AccessEvent(aliceId, link, lockId, outcome, "203.0.113.7", "ES", "curl"));
     }
 
     private UUID insertLink(String label) {

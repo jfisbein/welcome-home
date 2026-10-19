@@ -30,6 +30,9 @@ class AccessHistoryController {
 
     static final int PAGE_SIZE = 50;
 
+    /** Cloudflare's code for requests from the Tor network. */
+    static final String TOR = "T1";
+
     private final Locks locks;
     private final AccessHistory history;
     private final MessageSource messages;
@@ -54,7 +57,8 @@ class AccessHistoryController {
                 PAGE_SIZE);
         model.addAttribute("lock", lock);
         model.addAttribute("events", page.events().stream()
-                .map(event -> HistoryRow.of(event, zone, outcome(event.reason(), locale)))
+                .map(event -> HistoryRow.of(event, zone, outcome(event.reason(), locale),
+                        country(event.country(), locale)))
                 .toList());
         model.addAttribute("filtered", link != null);
         model.addAttribute("paged", before != null);
@@ -72,6 +76,18 @@ class AccessHistoryController {
                 .orElse(reason == null ? "" : reason);
     }
 
+    /** A country's name in the reader's language, Tor for Tor, or the code if the name is not known. */
+    private @Nullable String country(@Nullable String code, Locale locale) {
+        if (code == null) {
+            return null;
+        }
+        if (code.equals(TOR)) {
+            return messages.getMessage("history.tor", null, locale);
+        }
+        var name = Locale.of("", code).getDisplayCountry(locale);
+        return name.isEmpty() ? code : name;
+    }
+
     private static String url(UUID lockId, @Nullable UUID link, @Nullable Cursor before) {
         return UriComponentsBuilder.fromPath("/locks/{lockId}/history")
                 .queryParamIfPresent("link", Optional.ofNullable(link))
@@ -86,13 +102,14 @@ class AccessHistoryController {
      * An event as the page shows it.
      *
      * @param outcome what happened, in words
+     * @param country the guest's country, named in the reader's language, if known
      */
     record HistoryRow(ZonedDateTime occurredAt, UUID linkId, String linkLabel, AccessResult result, String outcome,
-                      @Nullable String ip) {
+                      @Nullable String ip, @Nullable String country) {
 
-        static HistoryRow of(HistoryEvent event, ZoneId zone, String outcome) {
+        static HistoryRow of(HistoryEvent event, ZoneId zone, String outcome, @Nullable String country) {
             return new HistoryRow(event.occurredAt().atZoneSameInstant(zone), event.linkId(), event.linkLabel(),
-                    event.result(), outcome, event.ip());
+                    event.result(), outcome, event.ip(), country);
         }
     }
 }

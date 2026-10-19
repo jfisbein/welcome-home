@@ -136,6 +136,20 @@ class AccessHistoryTests {
     }
 
     @Test
+    void theCountryShowsNextToTheIpInTheReadersLanguage() {
+        insertEvent(ana, "2030-07-01T10:00:00Z", "OK", "opened", "198.51.100.7");
+        insertEvent(ana, "2030-07-01T11:00:00Z", "OK", "opened", "198.51.100.8");
+        insertEvent(ana, "2030-07-01T12:00:00Z", "OK", "opened", "198.51.100.9");
+        migrator.sql("UPDATE access_event SET country = 'ES' WHERE ip = '198.51.100.8'").update();
+        migrator.sql("UPDATE access_event SET country = 'T1' WHERE ip = '198.51.100.9'").update();
+
+        assertThat(body(history(casa, "")))
+                .contains(">198.51.100.7<", "198.51.100.8 (España)", "198.51.100.9 (Tor)");
+        migrator.sql("UPDATE owner SET language = 'en' WHERE email = ?").param(ALICE).update();
+        assertThat(body(history(casa, ""))).contains("198.51.100.8 (Spain)");
+    }
+
+    @Test
     void unknownReasonsShowAsRecorded() {
         insertEvent(ana, "2030-07-01T10:00:00Z", "DENIED", "some-new-reason", "198.51.100.1");
 

@@ -266,6 +266,21 @@ class OpenDoorTests {
     }
 
     @Test
+    void theGuestsCountryIsTheOneCloudflareReportsWhenItKnowsIt() {
+        var link = insertLink("now() - interval '2 days'", "now() - interval '1 day'");
+
+        for (var header : new String[] {"es", "T1", "XX", "nonsense", ""}) {
+            assertThat(mvc.post().uri("/api/open").header("CF-Connecting-IP", ip).header("CF-IPCountry", header)
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"token\": \"" + signer.sign(link, 1) + "\"}"))
+                    .hasStatus(HttpStatus.GONE);
+        }
+
+        assertThat(migrator.sql("SELECT coalesce(country, '-') FROM access_event ORDER BY occurred_at")
+                .query(String.class).list())
+                .containsExactly("ES", "T1", "-", "-", "-");
+    }
+
+    @Test
     void anIpAddressGetsTenAttemptsPerMinute() {
         for (int attempt = 1; attempt <= 10; attempt++) {
             assertThat(open("nonsense")).as("attempt " + attempt).hasStatus(HttpStatus.NOT_FOUND);

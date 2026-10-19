@@ -21,16 +21,19 @@ class OpenController {
 
     private final OpenDoor openDoor;
     private final ClientIp clientIp;
+    private final ClientCountry clientCountry;
 
-    OpenController(OpenDoor openDoor, ClientIp clientIp) {
+    OpenController(OpenDoor openDoor, ClientIp clientIp, ClientCountry clientCountry) {
         this.openDoor = openDoor;
         this.clientIp = clientIp;
+        this.clientCountry = clientCountry;
     }
 
     @PostMapping("/api/open")
     ResponseEntity<Map<String, String>> open(@RequestBody OpenRequest request, HttpServletRequest http) {
         var token = request.token() == null ? "" : request.token();
-        var result = openDoor.open(token, clientIp.of(http), http.getHeader(HttpHeaders.USER_AGENT));
+        var result = openDoor.open(token, clientIp.of(http), clientCountry.of(http).orElse(null),
+                http.getHeader(HttpHeaders.USER_AGENT));
         return ResponseEntity.status(status(result)).body(Map.of("result", result.code()));
     }
 
