@@ -13,7 +13,7 @@ public final class Languages {
     public static final Locale DEFAULT = Locale.of("es");
 
     /** Every language with a bundle, the default first. */
-    public static final List<Locale> SUPPORTED = List.of(DEFAULT);
+    public static final List<Locale> SUPPORTED = List.of(DEFAULT, Locale.ENGLISH);
 
     private Languages() {
     }

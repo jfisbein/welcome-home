@@ -18,6 +18,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
@@ -116,6 +117,30 @@ class PagesInEveryLanguageTests {
                 assertPage(page, tag, user(ALICE).roles("OWNER", "ADMIN"));
             }
         }
+    }
+
+    @Test
+    void theBrowsersFirstLanguageWithTextsWinsAndSpanishIsTheRest() {
+        assertThat(login("en-GB,en;q=0.9")).contains("<html lang=\"en\"", "Sign in with a passkey");
+        assertThat(login("de-DE,de;q=0.9,en;q=0.5")).contains("<html lang=\"en\"");
+        assertThat(login("es-ES")).contains("<html lang=\"es\"", "Entrar con passkey");
+        assertThat(login("fr-FR")).as("no bundle: the default").contains("<html lang=\"es\"", "Entrar con passkey");
+        assertThat(body(mvc.get().uri("/login").exchange())).as("no Accept-Language").contains("<html lang=\"es\"");
+    }
+
+    @Test
+    void aGuestReadsTheirLinkAndWhatTheButtonSaysInTheirLanguage() {
+        assertThat(body(mvc.get().uri("/o/" + signer.sign(linkId, 1)).header(HttpHeaders.ACCEPT_LANGUAGE, "en").exchange()))
+                .contains("This link opens the door from ", "(Europe/Madrid time)", ">Open<", "Door open: push it.")
+                .doesNotContain("Abrir");
+    }
+
+    private String login(String acceptLanguage) {
+        return body(mvc.get().uri("/login").header(HttpHeaders.ACCEPT_LANGUAGE, acceptLanguage).exchange());
+    }
+
+    private static String body(MvcTestResult result) {
+        return new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8);
     }
 
     private void assertPage(String page, String language, RequestPostProcessor as) {
