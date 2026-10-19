@@ -7,8 +7,8 @@ import welcomehome.auth.CurrentOwner;
 import welcomehome.nuki.NukiConnections;
 
 /**
- * The owner's panel. For now it greets the owner and warns when Nuki is not connected; locks and links
- * come later.
+ * The owner's panel: it greets the owner and warns when Nuki is not connected or has rejected their API token.
+ * Locks, links, notifications and passkeys are in the menu.
  */
 @Controller
 class HomeController {

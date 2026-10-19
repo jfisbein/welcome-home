@@ -25,14 +25,14 @@ import welcomehome.locks.OwnerLock;
  */
 @Controller
 @RequestMapping("/locks/{lockId}/links")
-class LinksController {
+class LockLinksController {
 
     private static final String VIEW = "links/lock-links";
 
     private final Locks locks;
     private final AccessLinks accessLinks;
 
-    LinksController(Locks locks, AccessLinks accessLinks) {
+    LockLinksController(Locks locks, AccessLinks accessLinks) {
         this.locks = locks;
         this.accessLinks = accessLinks;
     }
