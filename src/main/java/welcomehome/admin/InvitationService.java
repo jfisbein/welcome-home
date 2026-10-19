@@ -7,6 +7,7 @@ import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 /**
@@ -22,13 +23,16 @@ public class InvitationService {
 
     private final InvitationDao invitations;
     private final String baseUrl;
+    private final ApplicationEventPublisher events;
 
-    InvitationService(InvitationDao invitations, @Value("${welcomehome.base-url}") String baseUrl) {
+    InvitationService(InvitationDao invitations, @Value("${welcomehome.base-url}") String baseUrl,
+                      ApplicationEventPublisher events) {
         if (baseUrl.isBlank()) {
             throw new IllegalStateException("No base URL configured: set BASE_URL");
         }
         this.invitations = invitations;
         this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        this.events = events;
     }
 
     /**
@@ -45,14 +49,17 @@ public class InvitationService {
 
     /**
      * Creates a passkey recovery link valid for {@link #VALIDITY}: whoever opens it adds a passkey to the
-     * owner, who keeps the passkeys they already have.
+     * owner, who keeps the passkeys they already have. Publishes a {@link PasskeyRecoveryCreated}, so that the
+     * owner learns of it.
      *
      * @param createdBy the admin who creates it, or {@code null} when created from the server's command line
      * @param ownerId   the owner who gets the new passkey
      * @return the link, with the only copy of its URL
      */
     public CreatedInvitation createPasskeyRecovery(@Nullable UUID createdBy, UUID ownerId) {
-        return create(createdBy, "Passkey recovery", false, ownerId);
+        var created = create(createdBy, "Passkey recovery", false, ownerId);
+        events.publishEvent(new PasskeyRecoveryCreated(ownerId));
+        return created;
     }
 
     private CreatedInvitation create(@Nullable UUID createdBy, String note, boolean grantsAdmin,

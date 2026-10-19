@@ -18,15 +18,19 @@ import org.springframework.mail.MailException;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
+import welcomehome.admin.InvitationService;
+import welcomehome.admin.PasskeyRecoveryCreated;
 import welcomehome.audit.AccessAttempted;
 import welcomehome.audit.AccessOutcome;
+import welcomehome.auth.PasskeyAdded;
 import welcomehome.db.OwnerTransactions;
 import welcomehome.nuki.NukiDisconnected;
 
 /**
  * Emails an owner about their locks, as their preferences say: guests' attempts by outcome, and a Nuki
- * connection that stopped working. Listeners run after the event's transaction commits, on another thread, so
- * a guest never waits for an email; one that cannot be sent is logged and dropped.
+ * connection that stopped working. Also, whatever the preferences, about their account's security: a passkey
+ * recovery link created for them, and a passkey added. Listeners run after the event's transaction commits,
+ * mostly on another thread, so a guest never waits for an email; one that cannot be sent is logged and dropped.
  */
 @Component
 class OwnerNotifier {
@@ -87,6 +91,32 @@ class OwnerNotifier {
                 message("notification.disconnected.body", baseUrl + "/nuki/connection") + footer()));
     }
 
+    /**
+     * On the thread that created the link: the recovery command exits right after, which would cut an email
+     * on another thread short. Without a transaction, as the link is created in none.
+     */
+    @TransactionalEventListener(fallbackExecution = true)
+    void on(PasskeyRecoveryCreated created) {
+        if (!mailer.isConfigured()) {
+            return;
+        }
+        findEmail(created.ownerId()).ifPresent(email -> send(email,
+                message("account.recovery-created.subject"),
+                message("account.recovery-created.body", String.valueOf(InvitationService.VALIDITY.toHours()))
+                        + accountFooter()));
+    }
+
+    /** Also without a transaction: Spring Security stores a passkey added from /passkeys in none. */
+    @Async
+    @TransactionalEventListener(fallbackExecution = true)
+    void on(PasskeyAdded added) {
+        if (!mailer.isConfigured()) {
+            return;
+        }
+        send(added.ownerEmail(), message("account.passkey-added.subject"),
+                message("account.passkey-added.body", added.label(), baseUrl + "/passkeys") + accountFooter());
+    }
+
     private boolean wants(UUID ownerId, NotificationKind kind) {
         return ownerTransactions.execute(ownerId, () -> preferences.find(ownerId)).wants(kind);
     }
@@ -107,6 +137,10 @@ class OwnerNotifier {
 
     private String footer() {
         return "\n--\n" + message("notification.footer", baseUrl + "/notifications") + "\n";
+    }
+
+    private String accountFooter() {
+        return "\n--\n" + message("account.footer") + "\n";
     }
 
     private String message(String key, Object... arguments) {

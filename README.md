@@ -71,7 +71,7 @@ An owner who lost their passkey gets a passkey recovery link: from the admin pan
 docker compose run --rm app --recover-owner=ana@example.com
 ```
 
-It is an invitation that names its owner: single use, valid for 72 hours, shown once. Opening it creates a passkey on that device for that owner, who keeps the passkeys they had, and signs them in. Whoever has the link signs in as that owner, so an admin who creates one can; the link records which admin created it.
+It is an invitation that names its owner: single use, valid for 72 hours, shown once. Opening it creates a passkey on that device for that owner, who keeps the passkeys they had, and signs them in. Whoever has the link signs in as that owner, so an admin who creates one can; the link records which admin created it, and the owner is emailed when it is created and when a passkey is added with it (see Notifications).
 
 The app needs `BASE_URL` (its public URL, e.g. `https://welcome.example`) to build invitation and access links. Its host is also the passkeys' relying party: passkeys created for one domain do not work on another.
 
@@ -151,7 +151,9 @@ Owners get emails about their locks and choose which ones at `/notifications` ("
 | Denied | a guest's link is refused: not valid yet, expired, revoked, or too many attempts | "Casa: intento denegado con el enlace de Ana" |
 | Disconnected | Nuki rejects the owner's API token | "Nuki ha rechazado tu API token" |
 
-Each email says when, in the lock's time zone, and links to the history. Their texts, like the history's outcomes, are in `src/main/resources/i18n/messages.properties`. About refused attempts there is at most one email per link per hour (`welcomehome.notifications.denied-quiet-period`), so that a leaked link being tried does not flood the owner. The page also sends a test email.
+Two more emails, about the owner's account, are sent whatever the preferences: when a passkey recovery link is created for them, from the admin panel or with `--recover-owner`, and when a passkey is added to their account, from `/passkeys` or with a recovery link (not their first one, at registration). The first is sent on the thread that creates the link, as the recovery command exits right after; the second is announced by the store Spring Security keeps passkeys in, which tells an added passkey from one that signed in again.
+
+Each email about a lock says when, in the lock's time zone, and links to the history. Their texts, like the history's outcomes, are in `src/main/resources/i18n/messages.properties`. About refused attempts there is at most one email per link per hour (`welcomehome.notifications.denied-quiet-period`), so that a leaked link being tried does not flood the owner. The page also sends a test email.
 
 `audit` publishes an `AccessAttempted` event for every recorded attempt, and `nuki` a `NukiDisconnected` event when a connection goes from OK to disconnected; `notifications` listens after the transaction commits, on another thread, so a guest never waits for an email, and an email that cannot be sent is logged and dropped. The preferences are in `notification_preference`, under Row-Level Security.
 

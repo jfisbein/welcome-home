@@ -18,7 +18,7 @@ class InvitationServiceTests {
 
     @Test
     void doesNotStartWithoutABaseUrl() {
-        assertThatThrownBy(() -> new InvitationService(invitations, ""))
+        assertThatThrownBy(() -> new InvitationService(invitations, "", event -> { }))
                 .hasMessage("No base URL configured: set BASE_URL");
     }
 
@@ -26,7 +26,7 @@ class InvitationServiceTests {
     void buildsTheLinkWithoutADoubleSlash() {
         when(invitations.insert(any(), any(), any(), any(Boolean.class), any(), any()))
                 .thenReturn(new InvitationDao.InsertedInvitation(UUID.randomUUID(), OffsetDateTime.now(ZoneOffset.UTC)));
-        var service = new InvitationService(invitations, "https://welcome.example/");
+        var service = new InvitationService(invitations, "https://welcome.example/", event -> { });
 
         var invitation = service.createInvitation(null, "Test", false);
 

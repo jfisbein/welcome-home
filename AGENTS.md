@@ -68,7 +68,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 | `links`  | Access links: create, list, edit, regenerate, revoke (`AccessLinks`, `LinkStatus`, `LinkUrls`)            |
 | `access` | The guest flow: guest page, `POST /api/open` (`OpenDoor`), rate limits, client IP, per-lock mutex (`LockActions`), unlatch confirmation |
 | `audit`  | Access events, history pages, purge job; publishes `AccessAttempted`                                       |
-| `notifications` | Emails to owners (opened, failed, denied, Nuki disconnected) by their preferences, sent after commit on another thread (`OwnerNotifier`) |
+| `notifications` | Emails to owners (opened, failed, denied, Nuki disconnected) by their preferences, and always about their account (recovery link created, passkey added), sent after commit (`OwnerNotifier`) |
 
 **Guest flow** (`access.OpenDoor`): rate limit per IP → the link exists, its MAC is valid and it is not revoked (`resolve_link`, a `SECURITY DEFINER` function, is the only way to read a link without an owner context) → rate limit per link → within its dates → lock active → owner's Nuki connection OK → in the owner's context, unlatch under the lock's mutex (a second guest waits and gets the same result) → read the lock's log until the unlatch shows up (15 s) → record the event.
 
@@ -93,7 +93,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 | Links are `{link_id}.{HMAC(link_id, token_version)}` | Nothing to steal from the database; a URL can be shown again; incrementing `token_version` invalidates every earlier URL. |
 | Row-Level Security plus `owner_id` in every query | Isolation does not depend on every query being right. `OwnerIsolationTests` checks every route with an id. |
 | AEAD with the owner id as associated data | A ciphertext copied to another owner's row does not decrypt. |
-| Admins see only emails and dates | An admin is still just an owner to RLS. Recovery links are the exception the user chose: whoever holds one signs in as that owner, so the admin who creates one could. |
+| Admins see only emails and dates | An admin is still just an owner to RLS. Recovery links are the exception the user chose: whoever holds one signs in as that owner, so the admin who creates one could. The owner is emailed when one is created and when a passkey is added, so its use is not hidden from them. |
 | Recovery adds a passkey and keeps the old ones | The user's choice; the owner then deletes the lost device's passkey at `/passkeys`, which never deletes the last one. |
 | `CF-Connecting-IP` for the guest's IP, `forward-headers-strategy=framework` | The tunnel is the only way in, so Cloudflare's headers are trustworthy; `X-Forwarded-For` starts with whatever the client sent. |
 | `/o/{token}` masked in logs, `Referrer-Policy: no-referrer`, `noindex` | Guest URLs are bearer credentials. |
