@@ -6,6 +6,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.status;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -136,6 +137,16 @@ class NukiConnectionTests {
 
         assertThat(result).hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyText().contains("Nuki no ha aceptado este API token").doesNotContain(TOKEN);
+        assertNoConnection();
+    }
+
+    @Test
+    void tokenThatMayNotReadTheLogIsNotStored() {
+        nukiAccepts(TOKEN);
+        nuki.stubFor(get(urlPathEqualTo("/smartlock/log")).willReturn(status(403)));
+
+        assertThat(connect(ALICE, TOKEN)).hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyText().contains("le falta alguno de los tres permisos").doesNotContain(TOKEN);
         assertNoConnection();
     }
 
@@ -291,6 +302,9 @@ class NukiConnectionTests {
     private void nukiAccepts(String token) {
         nuki.stubFor(get("/smartlock").withHeader("Authorization", equalTo("Bearer " + token))
                 .willReturn(okJson("[{\"smartlockId\": 17, \"type\": 5, \"name\": \"Casa\", \"serverState\": 0}]")));
+        nuki.stubFor(get(urlPathEqualTo("/smartlock/log")).withHeader("Authorization", equalTo("Bearer " + token))
+                .withQueryParam("limit", equalTo("1"))
+                .willReturn(okJson("[]")));
     }
 
     private byte[] storedToken(UUID ownerId) {

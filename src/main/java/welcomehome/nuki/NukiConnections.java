@@ -55,7 +55,8 @@ public class NukiConnections {
      *
      * @return the smart locks that the token gives access to
      * @throws LockProviderException with {@link Reason#ACCESS_DENIED} if Nuki rejects the token or it cannot
-     *                               be one, {@link Reason#MISSING_PERMISSION} if it may not list locks, or
+     *                               be one, {@link Reason#MISSING_PERMISSION} if it may not list locks or read
+     *                               their log, or
      *                               {@link Reason#NUKI_ERROR} if Nuki does not answer
      */
     List<SmartLock> connect(UUID ownerId, String apiToken) {
@@ -65,6 +66,8 @@ public class NukiConnections {
         }
         // Outside the transaction: no database connection is held while waiting for Nuki.
         var locks = nuki.listLocks(token);
+        // Openings are confirmed from the lock's log: without reading it, no opening would ever be confirmed.
+        nuki.checkLogAccess(token);
         var encrypted = crypto.encryptApiToken(ownerId, token);
         ownerTransactions.run(ownerId, () -> connections.save(ownerId, encrypted));
         return locks;

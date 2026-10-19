@@ -2,6 +2,10 @@ package welcomehome.nuki;
 
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
+
 import com.github.tomakehurst.wiremock.WireMockServer;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -30,5 +34,14 @@ public class NukiStandInConfiguration {
             registry.add("welcomehome.access.confirmation.interval", () -> "PT0.1S");
             registry.add("welcomehome.access.confirmation.timeout", () -> "PT1S");
         };
+    }
+
+    /**
+     * Lets any token read the account's log, which connecting checks.
+     *
+     * @param nuki the stand-in
+     */
+    public static void logIsReadable(WireMockServer nuki) {
+        nuki.stubFor(get(urlPathEqualTo("/smartlock/log")).willReturn(okJson("[]")));
     }
 }

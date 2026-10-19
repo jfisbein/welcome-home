@@ -87,6 +87,7 @@ class ConnectionCheckJobTests {
                 .inScenario(name).whenScenarioStateIs("Started").willReturn(okJson("[]")).willSetStateTo("connected"));
         nuki.stubFor(get("/smartlock").withHeader("Authorization", equalTo("Bearer " + token))
                 .inScenario(name).whenScenarioStateIs("connected").willReturn(response));
+        NukiStandInConfiguration.logIsReadable(nuki);
         connections.connect(ownerId, token);
         return ownerId;
     }

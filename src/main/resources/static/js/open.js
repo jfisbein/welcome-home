@@ -11,6 +11,7 @@ const MESSAGES = {
     "not-yet-valid": "Este enlace todavía no es válido.",
     "expired": "Este enlace ha caducado.",
     "unavailable": "Esta puerta no está disponible ahora mismo. Avisa a quien te ha enviado el enlace.",
+    "missing-permission": "Esta puerta no está disponible ahora mismo. Avisa a quien te ha enviado el enlace.",
     "nuki-error": "La cerradura no responde. Inténtalo de nuevo en unos segundos."
 };
 

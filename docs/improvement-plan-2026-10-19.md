@@ -58,7 +58,7 @@ Each task is one commit, with `./gradlew build` green and a hand mutation test (
 
 - `nuki/NukiConnections.connect` also calls `GET /smartlock/log?limit=1`; a 403 rejects the token with a message on `nuki/connection.html` that names the missing "registro" permission.
 - A `missing-permission` outcome for a 403 on the unlatch, shown in history and in the failure email as "el API token no tiene permiso para abrir", instead of "unavailable".
-- In `UnlatchConfirmation.await`, a `MISSING_PERMISSION` on the log ends the wait at once instead of polling for 15 s.
+- In `UnlatchConfirmation.await`, any failure to read the log other than `NUKI_ERROR` (a missing permission, a revoked token) ends the wait at once instead of polling for 15 s.
 - Tests: WireMock 403 on the log at connect, 403 on the action at open, 403 on the log during confirmation.
 
 ### Phase 2, v1.6.0: hardening

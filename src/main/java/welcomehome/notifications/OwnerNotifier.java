@@ -156,7 +156,8 @@ class OwnerNotifier {
             return switch (outcome) {
                 case OPENED -> new EmailKeys("notification.opened", null);
                 case NOT_CONFIRMED -> new EmailKeys("notification.not-confirmed", null);
-                case UNAVAILABLE, NUKI_ERROR, LOCK_FAILED, NIGHT_MODE -> new EmailKeys("notification.failed", reason);
+                case UNAVAILABLE, NUKI_ERROR, LOCK_FAILED, NIGHT_MODE, MISSING_PERMISSION ->
+                        new EmailKeys("notification.failed", reason);
                 case INVALID, TOO_MANY_ATTEMPTS, REVOKED, NOT_YET_VALID, EXPIRED ->
                         new EmailKeys("notification.denied", reason);
             };

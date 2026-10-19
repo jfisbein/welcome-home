@@ -131,6 +131,17 @@ class NukiWebClientTests {
     }
 
     @Test
+    void checkingLogAccessReadsOneEntryOfTheAccountsLog() {
+        nuki.stubFor(get(urlPathEqualTo("/smartlock/log")).withQueryParam("limit", equalTo("1"))
+                .withHeader("Authorization", equalTo("Bearer " + TOKEN)).willReturn(okJson("[]")));
+
+        client.checkLogAccess(TOKEN);
+
+        nuki.stubFor(get(urlPathEqualTo("/smartlock/log")).willReturn(status(403)));
+        assertFailsWith(Reason.MISSING_PERMISSION, () -> client.checkLogAccess(TOKEN));
+    }
+
+    @Test
     void rejectedTokenIsAccessDeniedAndNotRetried() {
         nuki.stubFor(get("/smartlock").willReturn(status(401)));
         nuki.stubFor(post("/smartlock/17/action").willReturn(status(403)));

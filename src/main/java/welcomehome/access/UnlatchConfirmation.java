@@ -48,7 +48,11 @@ class UnlatchConfirmation {
                     return result(unlatch.get());
                 }
             } catch (LockProviderException e) {
-                // The log could not be read this time: keep trying until the deadline.
+                // Nuki failing may pass, so keep trying until the deadline; without the permission to read the
+                // log, or without a connection, waiting changes nothing.
+                if (e.reason() != LockProviderException.Reason.NUKI_ERROR) {
+                    return AccessOutcome.NOT_CONFIRMED;
+                }
             }
             if (!Instant.now().isBefore(deadline)) {
                 return AccessOutcome.NOT_CONFIRMED;

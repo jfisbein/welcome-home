@@ -42,9 +42,14 @@ class NukiConnectionController {
             redirect.addFlashAttribute("connectedLocks", locks.stream().map(SmartLock::name).toList());
             return "redirect:/nuki/connection";
         } catch (LockProviderException e) {
-            var unavailable = e.reason() == LockProviderException.Reason.NUKI_ERROR;
-            response.setStatus(unavailable ? HttpStatus.SERVICE_UNAVAILABLE.value() : HttpStatus.BAD_REQUEST.value());
-            model.addAttribute("error", unavailable ? "unavailable" : "rejected");
+            var error = switch (e.reason()) {
+                case NUKI_ERROR, NO_ANSWER -> "unavailable";
+                case MISSING_PERMISSION -> "missing-permission";
+                case NOT_CONNECTED, ACCESS_DENIED, LOCK_NOT_FOUND -> "rejected";
+            };
+            response.setStatus("unavailable".equals(error) ? HttpStatus.SERVICE_UNAVAILABLE.value()
+                    : HttpStatus.BAD_REQUEST.value());
+            model.addAttribute("error", error);
             return connection(owner, model);
         }
     }

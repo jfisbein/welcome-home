@@ -31,9 +31,9 @@ class AccessOutcomeTests {
     }
 
     @Test
-    void codesAreThoseAlreadyStoredInHistories() {
+    void codesStayAsHistoriesStoreThem() {
         assertThat(AccessOutcome.values()).extracting(AccessOutcome::code).containsExactly(
                 "opened", "not-confirmed", "invalid", "too-many-attempts", "revoked", "not-yet-valid", "expired",
-                "unavailable", "nuki-error", "lock-failed", "night-mode");
+                "unavailable", "nuki-error", "lock-failed", "night-mode", "missing-permission");
     }
 }

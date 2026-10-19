@@ -43,7 +43,7 @@ class OpenController {
             case TOO_MANY_ATTEMPTS -> HttpStatus.TOO_MANY_REQUESTS;
             case REVOKED, EXPIRED -> HttpStatus.GONE;
             case NOT_YET_VALID -> HttpStatus.FORBIDDEN;
-            case UNAVAILABLE, NUKI_ERROR, LOCK_FAILED, NIGHT_MODE -> HttpStatus.SERVICE_UNAVAILABLE;
+            case UNAVAILABLE, NUKI_ERROR, LOCK_FAILED, NIGHT_MODE, MISSING_PERMISSION -> HttpStatus.SERVICE_UNAVAILABLE;
         };
     }
 

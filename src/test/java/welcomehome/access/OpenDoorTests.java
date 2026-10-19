@@ -84,6 +84,7 @@ class OpenDoorTests {
                         """)
                 .param(aliceId).query(UUID.class).single();
         nuki.stubFor(get("/smartlock").willReturn(okJson("[]")));
+        NukiStandInConfiguration.logIsReadable(nuki);
         assertThat(mvc.put().uri("/nuki/connection").with(user(ALICE).roles("OWNER")).with(csrf())
                 .param("apiToken", ALICES_NUKI_TOKEN))
                 .hasStatus(HttpStatus.FOUND);
@@ -224,6 +225,29 @@ class OpenDoorTests {
         assertThat(migrator.sql("SELECT status FROM nuki_connection").query(String.class).single())
                 .as("Nuki rejecting the owner's token disconnects it")
                 .isEqualTo("DISCONNECTED");
+    }
+
+    @Test
+    void anUnlatchNukiRefusesForLackOfPermissionIsToldAsSuch() {
+        nuki.stubFor(post("/smartlock/17/action").willReturn(status(403)));
+        var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
+
+        assertThat(open(signer.sign(link, 1))).hasStatus(HttpStatus.SERVICE_UNAVAILABLE)
+                .bodyJson().extractingPath("$.result").isEqualTo("missing-permission");
+        assertThat(lastEvent()).startsWith("ERROR|missing-permission|");
+        assertThat(migrator.sql("SELECT status FROM nuki_connection").query(String.class).single())
+                .as("a missing permission does not disconnect").isEqualTo("OK");
+    }
+
+    @Test
+    void aLogThatMayNotBeReadEndsTheWaitAtOnce() {
+        nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));
+        nuki.stubFor(get(urlPathEqualTo("/smartlock/17/log")).willReturn(status(403)));
+        var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
+
+        assertThat(open(signer.sign(link, 1))).hasStatus(HttpStatus.ACCEPTED)
+                .bodyJson().extractingPath("$.result").isEqualTo("not-confirmed");
+        nuki.verify(1, getRequestedFor(urlPathEqualTo("/smartlock/17/log")));
     }
 
     @Test

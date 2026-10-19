@@ -98,6 +98,14 @@ class NukiWebClient {
                 .toBodilessEntity());
     }
 
+    /** Reads the latest entry of the account's log, only to learn whether the token may read logs. */
+    void checkLogAccess(String apiToken) {
+        call(true, () -> rest.get().uri("/smartlock/log?limit={limit}", 1)
+                .headers(headers -> headers.setBearerAuth(apiToken))
+                .retrieve()
+                .toBodilessEntity());
+    }
+
     List<LockLogEntry> getRecentLog(String apiToken, long smartlockId) {
         List<NukiLogEntry> entries = call(true, () -> rest.get()
                 .uri("/smartlock/{id}/log?limit={limit}", smartlockId, LOG_ENTRIES)

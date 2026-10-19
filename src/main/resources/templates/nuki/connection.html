@@ -64,7 +64,10 @@
             <input type="password" name="apiToken" autocomplete="off" required
                    th:attr="aria-invalid=${error} ? 'true' : null">
             <small th:if="${error == 'rejected'}">
-                Nuki no ha aceptado este API token. Comprueba que esté completo y que tenga esos permisos.
+                Nuki no ha aceptado este API token. Comprueba que esté completo.
+            </small>
+            <small th:if="${error == 'missing-permission'}">
+                A este API token le falta alguno de los tres permisos de arriba. Genera uno nuevo con los tres.
             </small>
             <small th:if="${error == 'unavailable'}">
                 Nuki no responde ahora mismo. Inténtalo de nuevo en unos minutos.

@@ -1,6 +1,7 @@
 package welcomehome.access;
 
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
@@ -96,12 +97,22 @@ class OpenDoor {
         try {
             lockProvider.unlatch(ownerId, nukiSmartlockId);
         } catch (LockProviderException e) {
-            // With no answer Nuki may have run it: only the lock's log can tell, and telling the guest to try
-            // again could open the door twice.
-            if (e.reason() != Reason.NO_ANSWER) {
-                return e.reason() == Reason.NUKI_ERROR ? AccessOutcome.NUKI_ERROR : AccessOutcome.UNAVAILABLE;
+            var failure = failure(e.reason());
+            if (failure.isPresent()) {
+                return failure.get();
             }
         }
         return confirmation.await(ownerId, nukiSmartlockId, requestedAt);
+    }
+
+    /** What a failed unlatch comes to, or empty when only the lock's log can tell. */
+    private static Optional<AccessOutcome> failure(Reason reason) {
+        return switch (reason) {
+            // Nuki may have run it: telling the guest to try again could open the door twice.
+            case NO_ANSWER -> Optional.empty();
+            case NUKI_ERROR -> Optional.of(AccessOutcome.NUKI_ERROR);
+            case MISSING_PERMISSION -> Optional.of(AccessOutcome.MISSING_PERMISSION);
+            case NOT_CONNECTED, ACCESS_DENIED, LOCK_NOT_FOUND -> Optional.of(AccessOutcome.UNAVAILABLE);
+        };
     }
 }

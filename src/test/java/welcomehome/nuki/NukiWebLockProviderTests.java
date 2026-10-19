@@ -163,6 +163,7 @@ class NukiWebLockProviderTests {
     private void connectWith(UUID ownerId, String token) {
         nuki.stubFor(get("/smartlock").withHeader("Authorization", equalTo("Bearer " + token))
                 .willReturn(okJson("[{\"smartlockId\": 17, \"type\": 5, \"name\": \"Casa\", \"serverState\": 0}]")));
+        NukiStandInConfiguration.logIsReadable(nuki);
         connections.connect(ownerId, token);
     }
 
