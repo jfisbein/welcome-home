@@ -22,5 +22,6 @@
     <include file="changes/011-lock-relocking-handled-elsewhere.xml" relativeToChangelogFile="true"/>
     <include file="changes/012-invitation-recovers-owner.xml" relativeToChangelogFile="true"/>
     <include file="changes/013-notification-preference.xml" relativeToChangelogFile="true"/>
+    <include file="changes/014-access-event-without-nuki-response.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>
