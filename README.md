@@ -157,7 +157,7 @@ Each email about a lock says when, in the lock's time zone, and links to the his
 
 `audit` publishes an `AccessAttempted` event for every recorded attempt, and `nuki` a `NukiDisconnected` event when a connection goes from OK to disconnected; `notifications` listens after the transaction commits, on another thread, so a guest never waits for an email, and an email that cannot be sent is logged and dropped. The preferences are in `notification_preference`, under Row-Level Security.
 
-Emails go through any SMTP server, set with `spring.mail.host`, `spring.mail.port`, `spring.mail.username` and `spring.mail.password`, with STARTTLS required and 10 s timeouts, from `welcomehome.notifications.from` (`NOTIFICATIONS_FROM`). Without a host or a sender nothing is sent, and the page says so: that is the case in development.
+Emails go through any SMTP server, set with `spring.mail.host`, `spring.mail.port`, `spring.mail.username` and `spring.mail.password`, with STARTTLS required and 10 s timeouts, from `welcomehome.notifications.from` (`NOTIFICATIONS_FROM`). Without a host or a sender nothing is sent, and the page says so: that is the case in development. The SMTP server is not part of the app's health (`management.health.mail.enabled: false`): when it cannot be reached, emails are dropped but the app stays healthy, and so the tunnel, which waits for it, still starts.
 
 ## Web security
 

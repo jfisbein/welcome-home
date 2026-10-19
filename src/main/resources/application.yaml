@@ -29,6 +29,13 @@ spring:
       mail.smtp.timeout: 10000
       mail.smtp.writetimeout: 10000
 
+management:
+  health:
+    mail:
+      # Emails are optional and dropped when they fail: an SMTP server that cannot be reached must not make the
+      # app unhealthy, as the stack's tunnel starts only once the app is healthy.
+      enabled: false
+
 server:
   # Behind Cloudflare Tunnel: X-Forwarded-Proto tells the app that the request came over HTTPS, which HSTS,
   # secure cookies and https URLs rely on. Trustworthy because the tunnel is the only way in.

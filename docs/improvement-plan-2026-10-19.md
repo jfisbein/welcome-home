@@ -33,7 +33,7 @@ Built from the code review in [review-2026-10-19.md](review-2026-10-19.md). Ever
 | `HomeController` javadoc stale | Correct | |
 | Guest GET creates a session for CSRF | Correct, fixed by 1.4 | Not worth changing for its own sake, but the token kept in that session is what goes stale (next row); fixing that removes the session too. |
 | Not in the review: the guest page's CSRF token goes stale | Found while checking | The token lives in the session, which expires after 30 minutes: a guest who presses "Abrir" later, on a page the phone kept open, gets a 403 on every try until reloading it. Task 1.4. |
-| Not in the review: the health check depends on SMTP | Found while checking 2.3 | With `spring.mail.host` set, an unreachable SMTP server makes `/actuator/health` `DOWN`; the container turns unhealthy and `cloudflared`, which waits for a healthy `app`, does not start. Production has it since v1.4.0. Task 2.5, proposed. |
+| Not in the review: the health check depends on SMTP | Found while checking 2.3 | With `spring.mail.host` set, an unreachable SMTP server makes `/actuator/health` `DOWN`; the container turns unhealthy and `cloudflared`, which waits for a healthy `app`, does not start. Production has it since v1.4.0. Task 2.5. |
 
 ## The plan
 
@@ -79,7 +79,7 @@ Each task is one commit, with `./gradlew build` green and a hand mutation test (
 
 **2.4 Virtual threads (optional).** (review 7) `spring.threads.virtual.enabled: true` in `application.yaml`. It also moves `@Async` and `@Scheduled` to virtual threads; run the whole suite and watch `NotificationTests` and `LockActionsTests`.
 
-**2.5 The health check does not depend on SMTP (proposed, not done).** (found while checking 2.3) With `spring.mail.host` set, Spring Boot adds the mail server to `/actuator/health`, so when SMTP2GO cannot be reached the app reports `DOWN` and its container becomes unhealthy. `cloudflared` starts only once `app` is healthy, so a stack started during an SMTP outage stays offline, although emails are optional and dropped when they fail. Confirmed on the local copy of the stack, whose SMTP credentials are not real. Fix: `management.health.mail.enabled: false`, with a test that the health is `UP` while the SMTP server is unreachable.
+**2.5 The health check does not depend on SMTP.** (found while checking 2.3) With `spring.mail.host` set, Spring Boot adds the mail server to `/actuator/health`, so when SMTP2GO cannot be reached the app reports `DOWN` and its container becomes unhealthy. `cloudflared` starts only once `app` is healthy, so a stack started during an SMTP outage stays offline, although emails are optional and dropped when they fail. Confirmed on the local copy of the stack, whose SMTP credentials are not real. Fix: `management.health.mail.enabled: false`, with a test that the health is `UP` while the SMTP server is unreachable.
 
 ### Phase 3, v1.7.0: maintainability
 
