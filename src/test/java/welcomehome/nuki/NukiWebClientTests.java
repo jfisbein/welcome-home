@@ -170,7 +170,7 @@ class NukiWebClientTests {
     void readsAreRetriedOnServerErrorsUntilTheyGiveUp() {
         nuki.stubFor(get("/smartlock/17").willReturn(status(503)));
 
-        assertFailsWith(Reason.UNAVAILABLE, () -> client.getState(TOKEN, LOCK_ID));
+        assertFailsWith(Reason.NUKI_ERROR, () -> client.getState(TOKEN, LOCK_ID));
         nuki.verify(MAX_ATTEMPTS, getRequestedFor(urlPathEqualTo("/smartlock/17")));
     }
 
@@ -187,35 +187,54 @@ class NukiWebClientTests {
     }
 
     @Test
+    void readThatKeepsTimingOutIsAnErrorNotANoAnswer() {
+        nuki.stubFor(get("/smartlock/17").willReturn(slow(okJson("{}"))));
+
+        assertFailsWith(Reason.NUKI_ERROR, () -> client.getState(TOKEN, LOCK_ID));
+        nuki.verify(MAX_ATTEMPTS, getRequestedFor(urlPathEqualTo("/smartlock/17")));
+    }
+
+    @Test
     void unlatchIsNotRetriedOnceNukiMayHaveRunIt() {
         nuki.stubFor(post("/smartlock/17/action").willReturn(status(503)));
         nuki.stubFor(post("/smartlock/18/action").willReturn(slow(status(204))));
 
-        assertFailsWith(Reason.UNAVAILABLE, () -> client.unlatch(TOKEN, LOCK_ID));
-        assertFailsWith(Reason.UNAVAILABLE, () -> client.unlatch(TOKEN, 18));
+        assertFailsWith(Reason.NO_ANSWER, () -> client.unlatch(TOKEN, LOCK_ID));
+        assertFailsWith(Reason.NO_ANSWER, () -> client.unlatch(TOKEN, 18));
         nuki.verify(1, postRequestedFor(urlPathEqualTo("/smartlock/17/action")));
         nuki.verify(1, postRequestedFor(urlPathEqualTo("/smartlock/18/action")));
     }
 
     @Test
-    void unreachableNukiIsUnavailable() throws Exception {
+    void unlatchThatNukiRefusesOrKeepsRateLimitingIsAnError() {
+        nuki.stubFor(post("/smartlock/17/action").willReturn(status(429)));
+        nuki.stubFor(post("/smartlock/18/action").willReturn(status(400)));
+
+        assertFailsWith(Reason.NUKI_ERROR, () -> client.unlatch(TOKEN, LOCK_ID));
+        assertFailsWith(Reason.NUKI_ERROR, () -> client.unlatch(TOKEN, 18));
+        nuki.verify(MAX_ATTEMPTS, postRequestedFor(urlPathEqualTo("/smartlock/17/action")));
+        nuki.verify(1, postRequestedFor(urlPathEqualTo("/smartlock/18/action")));
+    }
+
+    @Test
+    void unreachableNukiIsAnError() throws Exception {
         URI closedPort;
         try (var socket = new ServerSocket(0)) {
             closedPort = URI.create("http://localhost:" + socket.getLocalPort());
         }
         var unreachable = clientFor(closedPort);
 
-        assertFailsWith(Reason.UNAVAILABLE, () -> unreachable.listLocks(TOKEN));
-        assertFailsWith(Reason.UNAVAILABLE, () -> unreachable.unlatch(TOKEN, LOCK_ID));
+        assertFailsWith(Reason.NUKI_ERROR, () -> unreachable.listLocks(TOKEN));
+        assertFailsWith(Reason.NUKI_ERROR, () -> unreachable.unlatch(TOKEN, LOCK_ID));
     }
 
     @Test
-    void otherErrorsAreUnavailable() {
+    void otherFailuresAreNukiErrors() {
         nuki.stubFor(get("/smartlock").willReturn(status(402)));
         nuki.stubFor(get("/smartlock/17").willReturn(okJson("not json")));
 
-        assertFailsWith(Reason.UNAVAILABLE, () -> client.listLocks(TOKEN));
-        assertFailsWith(Reason.UNAVAILABLE, () -> client.getState(TOKEN, LOCK_ID));
+        assertFailsWith(Reason.NUKI_ERROR, () -> client.listLocks(TOKEN));
+        assertFailsWith(Reason.NUKI_ERROR, () -> client.getState(TOKEN, LOCK_ID));
         nuki.verify(1, getRequestedFor(urlPathEqualTo("/smartlock")));
     }
 

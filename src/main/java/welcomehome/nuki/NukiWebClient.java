@@ -30,7 +30,8 @@ import welcomehome.nuki.LockProviderException.Reason;
  *
  * <p>Failures worth retrying are retried with exponential backoff: rate limiting (429, honoring
  * Retry-After), and for reads also server errors and timeouts. The unlatch action is retried only when Nuki
- * cannot have run it, that is, on 429 or when no connection was made, so that a door never opens twice.
+ * cannot have run it, that is, on 429 or when no connection was made, so that a door never opens twice. When it
+ * may have run it, after a timeout or a server error, the failure says so with {@link Reason#NO_ANSWER}.
  */
 class NukiWebClient {
 
@@ -122,7 +123,7 @@ class NukiWebClient {
             try {
                 var result = request.get();
                 if (result == null) {
-                    throw new LockProviderException(Reason.UNAVAILABLE);
+                    throw new LockProviderException(Reason.NUKI_ERROR);
                 }
                 return result;
             } catch (RestClientResponseException e) {
@@ -136,18 +137,24 @@ class NukiWebClient {
                 if (status == HttpStatus.NOT_FOUND) {
                     throw new LockProviderException(Reason.LOCK_NOT_FOUND, e);
                 }
+                if (!safeToRepeat && e.getStatusCode().is5xxServerError()) {
+                    throw new LockProviderException(Reason.NO_ANSWER, e);
+                }
                 boolean retry = status == HttpStatus.TOO_MANY_REQUESTS || (safeToRepeat && e.getStatusCode().is5xxServerError());
                 if (!retry || attempt == properties.maxAttempts()) {
-                    throw new LockProviderException(Reason.UNAVAILABLE, e);
+                    throw new LockProviderException(Reason.NUKI_ERROR, e);
                 }
                 wait = status == HttpStatus.TOO_MANY_REQUESTS ? max(backoff, retryAfter(e)) : backoff;
             } catch (ResourceAccessException e) {
-                if (!(safeToRepeat || notConnected(e)) || attempt == properties.maxAttempts()) {
-                    throw new LockProviderException(Reason.UNAVAILABLE, e);
+                if (!safeToRepeat && !notConnected(e)) {
+                    throw new LockProviderException(Reason.NO_ANSWER, e);
+                }
+                if (attempt == properties.maxAttempts()) {
+                    throw new LockProviderException(Reason.NUKI_ERROR, e);
                 }
                 wait = backoff;
             } catch (RestClientException e) {
-                throw new LockProviderException(Reason.UNAVAILABLE, e);
+                throw new LockProviderException(Reason.NUKI_ERROR, e);
             }
             sleep(min(wait, properties.maxBackoff()));
             backoff = backoff.multipliedBy(2);
@@ -174,7 +181,7 @@ class NukiWebClient {
             Thread.sleep(duration);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new LockProviderException(Reason.UNAVAILABLE, e);
+            throw new LockProviderException(Reason.NUKI_ERROR, e);
         }
     }
 

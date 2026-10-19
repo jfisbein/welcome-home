@@ -42,7 +42,7 @@ class NukiConnectionController {
             redirect.addFlashAttribute("connectedLocks", locks.stream().map(SmartLock::name).toList());
             return "redirect:/nuki/connection";
         } catch (LockProviderException e) {
-            var unavailable = e.reason() == LockProviderException.Reason.UNAVAILABLE;
+            var unavailable = e.reason() == LockProviderException.Reason.NUKI_ERROR;
             response.setStatus(unavailable ? HttpStatus.SERVICE_UNAVAILABLE.value() : HttpStatus.BAD_REQUEST.value());
             model.addAttribute("error", unavailable ? "unavailable" : "rejected");
             return connection(owner, model);

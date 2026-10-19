@@ -134,7 +134,7 @@ class NukiWebLockProviderTests {
         nuki.stubFor(get("/smartlock/17").willReturn(status(503)));
 
         assertFailsWith(Reason.MISSING_PERMISSION, () -> locks.getRecentLog(alice, 17));
-        assertFailsWith(Reason.UNAVAILABLE, () -> locks.getState(alice, 17));
+        assertFailsWith(Reason.NUKI_ERROR, () -> locks.getState(alice, 17));
 
         assertThat(connectionStatus(alice)).isEqualTo("OK");
     }

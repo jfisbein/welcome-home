@@ -191,13 +191,32 @@ class OpenDoorTests {
     }
 
     @Test
+    void unlatchWithNoAnswerIsConfirmedFromTheLog() {
+        nuki.stubFor(post("/smartlock/17/action").willReturn(status(503)));
+        var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
+
+        lockLogShowsUnlatch(0);
+        assertThat(open(signer.sign(link, 1))).hasStatusOk().bodyJson().extractingPath("$.result").isEqualTo("opened");
+        assertThat(lastEvent()).startsWith("OK|opened|");
+
+        nuki.stubFor(get(urlPathEqualTo("/smartlock/17/log"))
+                .willReturn(okJson(log(Instant.now().minus(Duration.ofHours(1)), 3, 0))));
+        assertThat(open(signer.sign(link, 1))).as("the door may have opened: the guest must not be told to retry")
+                .hasStatus(HttpStatus.ACCEPTED).bodyJson().extractingPath("$.result").isEqualTo("not-confirmed");
+        assertThat(lastEvent()).startsWith("OK|not-confirmed|");
+
+        nuki.verify(2, postRequestedFor(urlPathEqualTo("/smartlock/17/action")));
+    }
+
+    @Test
     void nukiFailuresAreErrors() {
         var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
 
-        nuki.stubFor(post("/smartlock/17/action").willReturn(status(503)));
+        nuki.stubFor(post("/smartlock/17/action").willReturn(status(429)));
         assertThat(open(signer.sign(link, 1))).hasStatus(HttpStatus.SERVICE_UNAVAILABLE)
                 .bodyJson().extractingPath("$.result").isEqualTo("nuki-error");
         assertThat(lastEvent()).startsWith("ERROR|nuki-error|");
+        nuki.verify(0, getRequestedFor(urlPathEqualTo("/smartlock/17/log")));
 
         nuki.stubFor(post("/smartlock/17/action").willReturn(status(401)));
         assertThat(open(signer.sign(link, 1))).hasStatus(HttpStatus.SERVICE_UNAVAILABLE)
@@ -268,7 +287,7 @@ class OpenDoorTests {
 
     @Test
     void guestsWaitingForAFailedActionGetTheSameError() throws Exception {
-        nuki.stubFor(post("/smartlock/17/action").willReturn(status(503).withFixedDelay(1000)));
+        nuki.stubFor(post("/smartlock/17/action").willReturn(status(400).withFixedDelay(1000)));
         var token = signer.sign(insertLink("now() - interval '1 hour'", "now() + interval '1 day'"), 1);
 
         assertThat(openAtOnce(token, token)).containsOnly("nuki-error").hasSize(2);

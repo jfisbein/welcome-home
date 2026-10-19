@@ -54,7 +54,7 @@ class LocksController {
             redirect.addFlashAttribute("syncError", switch (e.reason()) {
                 case NOT_CONNECTED -> "not-connected";
                 case ACCESS_DENIED, MISSING_PERMISSION -> "rejected";
-                case LOCK_NOT_FOUND, UNAVAILABLE -> "unavailable";
+                case LOCK_NOT_FOUND, NUKI_ERROR, NO_ANSWER -> "unavailable";
             });
         }
         return "redirect:/locks";
@@ -105,7 +105,7 @@ class LocksController {
                     case NOT_CONNECTED -> "not-connected";
                     case ACCESS_DENIED, MISSING_PERMISSION -> "rejected";
                     case LOCK_NOT_FOUND -> "not-found";
-                    case UNAVAILABLE -> "unavailable";
+                    case NUKI_ERROR, NO_ANSWER -> "unavailable";
                 });
             }
         }

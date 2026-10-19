@@ -41,8 +41,8 @@ Each task is one commit, with `./gradlew build` green and a hand mutation test (
 
 **1.1 An unlatch with no answer is confirmed from the log, never retried blindly.** (review 2, 5)
 
-- In `nuki/LockProviderException.Reason`, rename `UNAVAILABLE` to `NUKI_UNREACHABLE` (Nuki surely did not run the call) and add `NO_ANSWER` (the request was sent and the outcome is unknown).
-- In `nuki/NukiWebClient.call`, for a call that is not safe to repeat, throw `NO_ANSWER` on a read timeout (a `ResourceAccessException` that is not a connection failure) and on a 5xx. Connection failures and an exhausted 429 stay `NUKI_UNREACHABLE`.
+- In `nuki/LockProviderException.Reason`, rename `UNAVAILABLE` to `NUKI_ERROR`, the `OpenResult` it becomes (for an action, Nuki did not run it), and add `NO_ANSWER` (the request was sent and the outcome is unknown).
+- In `nuki/NukiWebClient.call`, for a call that is not safe to repeat, throw `NO_ANSWER` on a read timeout (a `ResourceAccessException` that is not a connection failure) and on a 5xx. Connection failures, an exhausted 429 and other 4xx stay `NUKI_ERROR`.
 - In `access/OpenDoor.unlatchAndConfirm`, on `NO_ANSWER` go on to `UnlatchConfirmation.await`, which answers `OPENED`, `LOCK_FAILED`, `NIGHT_MODE` or `NOT_CONFIRMED`.
 - In `static/js/open.js`, a failed `fetch` or an answer that is not JSON shows the `not-confirmed` message ("empuja la puerta; si no abre, inténtalo de nuevo") instead of `nuki-error`.
 - Tests: `NukiWebClientTests` for read timeout and 5xx on the action (one request, `NO_ANSWER`); `OpenDoorTests` for an action POST that times out while the log shows the unlatch (`OPENED`) and while it does not (`NOT_CONFIRMED`).

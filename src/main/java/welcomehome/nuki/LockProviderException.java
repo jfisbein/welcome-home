@@ -19,8 +19,16 @@ public class LockProviderException extends RuntimeException {
         MISSING_PERMISSION,
         /** The lock is not in the owner's Nuki account. */
         LOCK_NOT_FOUND,
-        /** Nuki did not answer in time, answered with an error or kept rate limiting. */
-        UNAVAILABLE
+        /**
+         * Nuki could not be reached, answered with an error or kept rate limiting. For an action, Nuki did not
+         * run it.
+         */
+        NUKI_ERROR,
+        /**
+         * An action was sent, but Nuki gave no answer in time or failed with a server error: it may have run
+         * it. Never retried, as the door could open twice; the lock's log tells what happened.
+         */
+        NO_ANSWER
     }
 
     /** Why the call failed. */

@@ -11,7 +11,10 @@ enum OpenResult {
 
     /** The lock's log shows the unlatch. */
     OPENED(HttpStatus.OK, "opened", AccessResult.OK),
-    /** Nuki accepted the unlatch, but the lock's log did not show it in time: the door may have opened. */
+    /**
+     * Nuki accepted the unlatch, or did not answer it, and the lock's log did not show it in time: the door may
+     * have opened.
+     */
     NOT_CONFIRMED(HttpStatus.ACCEPTED, "not-confirmed", AccessResult.OK),
     INVALID(HttpStatus.NOT_FOUND, "invalid", AccessResult.DENIED),
     TOO_MANY_ATTEMPTS(HttpStatus.TOO_MANY_REQUESTS, "too-many-attempts", AccessResult.DENIED),

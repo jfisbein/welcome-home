@@ -21,7 +21,9 @@ button.addEventListener("click", async () => {
     button.disabled = true;
     button.setAttribute("aria-busy", "true");
     button.textContent = "Abriendo…";
-    let result = "nuki-error";
+    // Without an answer from the app, the request may still have reached the lock: the guest is told to push
+    // the door before trying again, as after an unconfirmed opening.
+    let result = "not-confirmed";
     try {
         const response = await fetch("/api/open", {
             method: "POST",
@@ -36,7 +38,7 @@ button.addEventListener("click", async () => {
     } catch (e) {
         console.error(e);
     }
-    message.textContent = MESSAGES[result] || MESSAGES["nuki-error"];
+    message.textContent = MESSAGES[result] || MESSAGES["not-confirmed"];
     message.hidden = false;
     button.removeAttribute("aria-busy");
     button.textContent = "Abrir";

@@ -56,7 +56,7 @@ public class NukiConnections {
      * @return the smart locks that the token gives access to
      * @throws LockProviderException with {@link Reason#ACCESS_DENIED} if Nuki rejects the token or it cannot
      *                               be one, {@link Reason#MISSING_PERMISSION} if it may not list locks, or
-     *                               {@link Reason#UNAVAILABLE} if Nuki does not answer
+     *                               {@link Reason#NUKI_ERROR} if Nuki does not answer
      */
     List<SmartLock> connect(UUID ownerId, String apiToken) {
         var token = apiToken.strip();

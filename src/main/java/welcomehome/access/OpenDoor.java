@@ -12,6 +12,7 @@ import welcomehome.links.LinkStatus;
 import welcomehome.locks.Locks;
 import welcomehome.nuki.LockProvider;
 import welcomehome.nuki.LockProviderException;
+import welcomehome.nuki.LockProviderException.Reason;
 
 /**
  * Opens a door for a guest. The checks run in this order, cheapest and least revealing first:
@@ -24,8 +25,8 @@ import welcomehome.nuki.LockProviderException;
  * </ol>
  * Only then is the door unlatched, in the context of the owner that resolve_link returned, which the
  * verified MAC vouches for, and once per lock at a time: concurrent guests share one action and its result.
- * The result waits for the lock's log to confirm the unlatch. Every attempt with a valid link is recorded in
- * the owner's history.
+ * The result waits for the lock's log to confirm the unlatch, also when Nuki did not answer the unlatch, as it
+ * may have run it. Every attempt with a valid link is recorded in the owner's history.
  */
 @Service
 class OpenDoor {
@@ -95,7 +96,11 @@ class OpenDoor {
         try {
             lockProvider.unlatch(ownerId, nukiSmartlockId);
         } catch (LockProviderException e) {
-            return e.reason() == LockProviderException.Reason.UNAVAILABLE ? OpenResult.NUKI_ERROR : OpenResult.UNAVAILABLE;
+            // With no answer Nuki may have run it: only the lock's log can tell, and telling the guest to try
+            // again could open the door twice.
+            if (e.reason() != Reason.NO_ANSWER) {
+                return e.reason() == Reason.NUKI_ERROR ? OpenResult.NUKI_ERROR : OpenResult.UNAVAILABLE;
+            }
         }
         return confirmation.await(ownerId, nukiSmartlockId, requestedAt);
     }
