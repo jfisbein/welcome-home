@@ -80,3 +80,7 @@ welcomehome:
     # Guests' attempts are kept this long (they hold IP addresses), and purged daily, in the server's time zone.
     retention: P365D
     purge-cron: "0 30 3 * * *"
+  admin:
+    # Invitations and passkey recovery links are deleted 30 days after they expire, daily, in the server's time
+    # zone, before the 04:00 backup.
+    purge-cron: "0 35 3 * * *"

@@ -79,7 +79,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 
 **Roles in Postgres**: `migrator` owns the schema and runs Liquibase; the app connects as `app_user`, with no ownership and no `BYPASSRLS`. No `FORCE ROW LEVEL SECURITY`, so that `resolve_link` (owned by `migrator`) sees the link. Roles come from `deploy/db-init/01-create-roles.sh`, used by development, tests and production alike.
 
-**Jobs** (`@Scheduled`, server time zone): Nuki connection check (08:00), access event purge (03:30); in production a separate `backup` container dumps the database at 04:00.
+**Jobs** (`@Scheduled`, server time zone): Nuki connection check (08:00), access event purge (03:30), purge of invitations expired more than 30 days ago (03:35); in production a separate `backup` container dumps the database at 04:00.
 
 **Commands**: `--bootstrap-admin` and `--recover-owner=<email>` start the app without the web server (`WelcomeHomeApplication.runsACommand`), print a link and exit. Anything web-only must stay optional without a web server (see `CommandLineTests`).
 

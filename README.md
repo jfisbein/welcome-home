@@ -71,7 +71,7 @@ An owner who lost their passkey gets a passkey recovery link: from the admin pan
 docker compose run --rm app --recover-owner=ana@example.com
 ```
 
-It is an invitation that names its owner: single use, valid for 72 hours, shown once. Opening it creates a passkey on that device for that owner, who keeps the passkeys they had, and signs them in. Whoever has the link signs in as that owner, so an admin who creates one can; the link records which admin created it, and the owner is emailed when it is created and when a passkey is added with it (see Notifications).
+It is an invitation that names its owner: single use, valid for 72 hours, shown once. Opening it creates a passkey on that device for that owner, who keeps the passkeys they had, and signs them in. Whoever has the link signs in as that owner, so an admin who creates one can; the link records which admin created it, and the owner is emailed when it is created and when a passkey is added with it (see Notifications). Invitations and recovery links, used or not, are deleted 30 days after they expire, by a daily job (`welcomehome.admin.purge-cron`, `0 35 3 * * *`, in the server's time zone).
 
 The app needs `BASE_URL` (its public URL, e.g. `https://welcome.example`) to build invitation and access links: an http or https URL with a host and nothing after it, or the app does not start. Its host is also the passkeys' relying party: passkeys created for one domain do not work on another.
 

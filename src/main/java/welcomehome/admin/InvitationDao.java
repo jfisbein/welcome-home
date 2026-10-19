@@ -1,7 +1,9 @@
 package welcomehome.admin;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,6 +36,13 @@ class InvitationDao {
                 .param("validitySeconds", validity.toSeconds())
                 .query(InsertedInvitation.class)
                 .single();
+    }
+
+    /** @return how many invitations, used or not, expired before {@code cutoff} and were deleted */
+    int deleteExpiredBefore(Instant cutoff) {
+        return jdbc.sql("DELETE FROM invitation WHERE expires_at < :cutoff")
+                .param("cutoff", OffsetDateTime.ofInstant(cutoff, ZoneOffset.UTC))
+                .update();
     }
 
     Optional<RedeemableInvitation> findRedeemable(byte[] tokenHash) {
