@@ -6,6 +6,7 @@ import java.util.function.Supplier;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -26,16 +27,23 @@ public class OwnerTransactions {
 
     /**
      * Runs {@code work} in a transaction where Row-Level Security sees only the rows of {@code ownerId}.
-     * Joins the current transaction if there is one. Any runtime exception rolls the transaction back.
+     * Joins the current transaction if there is one, unless it is bound to another owner: the owner context
+     * lasts until the transaction ends, so switching owners inside one would let the rest of it see the second
+     * owner's rows. Any runtime exception rolls the transaction back.
      *
      * @param ownerId the owner whose rows the work may read and write
      * @param work    the work to run inside the transaction
      * @param <T>     the result type
      * @return the result of {@code work}
+     * @throws IllegalStateException if the current transaction is bound to another owner
      */
     public <T> T execute(UUID ownerId, Supplier<T> work) {
         Objects.requireNonNull(ownerId, "ownerId");
+        var joining = TransactionSynchronizationManager.isActualTransactionActive();
         return transactionTemplate.execute(_ -> {
+            if (joining) {
+                refuseAnotherOwner(ownerId);
+            }
             // SET LOCAL does not accept parameters; set_config does.
             jdbc.sql("SELECT set_config('app.owner_id', :ownerId, true)")
                     .param("ownerId", ownerId.toString())
@@ -43,6 +51,13 @@ public class OwnerTransactions {
                     .single();
             return work.get();
         });
+    }
+
+    private void refuseAnotherOwner(UUID ownerId) {
+        var current = jdbc.sql("SELECT current_setting('app.owner_id', true)").query(String.class).single();
+        if (current != null && !current.isEmpty() && !current.equals(ownerId.toString())) {
+            throw new IllegalStateException("The transaction is already bound to another owner");
+        }
     }
 
     /**
