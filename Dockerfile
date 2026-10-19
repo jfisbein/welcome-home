@@ -19,4 +19,5 @@ COPY --from=layers /workspace/extracted/snapshot-dependencies/ ./
 COPY --from=layers /workspace/extracted/application/ ./
 USER 10001:10001
 EXPOSE 8080
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "org.springframework.boot.loader.launch.JarLauncher"]
+# Compact object headers (JDK 25, JEP 519): 8-byte object headers instead of 12, so the same objects take less heap.
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-XX:+UseCompactObjectHeaders", "org.springframework.boot.loader.launch.JarLauncher"]
