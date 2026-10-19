@@ -153,7 +153,7 @@ class NotificationTests {
 
         var email = theOnlyEmail();
         assertThat(email.getSubject()).isEqualTo("Casa: Ana opened the door");
-        assertThat(text(email)).containsPattern("Ana opened the door of Casa on \\d{1,2} [A-Z][a-z]{2} \\d{4} at \\d{2}:\\d{2}")
+        assertThat(text(email)).containsPattern("Ana opened the door of Casa on \\d{2}/\\d{2}/\\d{4} at \\d{2}:\\d{2}")
                 .contains("(America/New_York time)", "Choose which notifications you get");
 
         assertThat(mvc.post().uri("/notifications/test").with(owner()).with(csrf())).hasStatus3xxRedirection();

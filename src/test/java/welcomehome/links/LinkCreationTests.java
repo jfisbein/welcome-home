@@ -112,7 +112,7 @@ class LinkCreationTests {
                 .flashAttr("createdFrom", Instant.parse("2030-11-01T14:00:00Z").atZone(ZoneId.of("Europe/Madrid")))
                 .flashAttr("createdUntil", Instant.parse("2030-11-03T10:00:00Z").atZone(ZoneId.of("Europe/Madrid"))))
                 .hasStatusOk()
-                .bodyText().contains("Enlace creado para Ana", "1/11/2030 15:00", "3/11/2030 11:00", url.toString(), "Copiar");
+                .bodyText().contains("Enlace creado para Ana", "01/11/2030 15:00", "03/11/2030 11:00", url.toString(), "Copiar");
     }
 
     @Test

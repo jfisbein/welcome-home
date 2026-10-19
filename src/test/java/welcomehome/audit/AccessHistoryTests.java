@@ -70,9 +70,9 @@ class AccessHistoryTests {
         insertEvent(carlos, "2030-07-04T10:00:00Z", "OK", "opened", "198.51.100.4");
 
         assertThat(body(history(casa, ""))).containsSubsequence(
-                        "3/7/2030 12:00:00", "Ana", "Error: modo nocturno", "2001:db8::3",
-                        "2/7/2030 12:00:00", "Bea", "Abierta", "198.51.100.2",
-                        "1/7/2030 12:00:00", "Ana", "Denegado: todavía no válido", "198.51.100.1")
+                        "03/07/2030 12:00:00", "Ana", "Error: modo nocturno", "2001:db8::3",
+                        "02/07/2030 12:00:00", "Bea", "Abierta", "198.51.100.2",
+                        "01/07/2030 12:00:00", "Ana", "Denegado: todavía no válido", "198.51.100.1")
                 .as("another lock's attempts").doesNotContain("Carlos", "198.51.100.4")
                 .doesNotContain("Anteriores", "Más recientes");
     }

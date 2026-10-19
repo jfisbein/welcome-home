@@ -78,7 +78,7 @@ class GuestPageTests {
         assertThat(result).hasStatusOk()
                 .headers().hasValue("X-Robots-Tag", "noindex, nofollow");
         assertThat(body(result))
-                .contains("Casa de Alice", "del 1/7/2020 15:00 al 3/7/2040 11:00 (hora de America/New_York)",
+                .contains("Casa de Alice", "del 01/07/2020 15:00 al 03/07/2040 11:00 (hora de America/New_York)",
                         OPEN_BUTTON, "<meta name=\"robots\" content=\"noindex, nofollow\">")
                 .doesNotContain("Etiqueta privada");
     }
@@ -88,7 +88,7 @@ class GuestPageTests {
         var link = insertLink("'2040-11-01T19:00:00Z'", "'2040-11-03T16:00:00Z'", false);
 
         assertThat(body(guestPage(signer.sign(link, 1))))
-                .contains(NOT_YET_VALID, "a partir del 1/11/2040 15:00")
+                .contains(NOT_YET_VALID, "a partir del 01/11/2040 15:00")
                 .doesNotContain(OPEN_BUTTON);
     }
 

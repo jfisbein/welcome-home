@@ -99,7 +99,7 @@ class LinkListTests {
         migrator.sql("UPDATE lock SET time_zone = 'America/New_York' WHERE id = ?").param(lockId).update();
         insertLink(lockId, "Ana", "'2030-11-01T19:00:00Z'", "'2030-11-03T16:00:00Z'", false);
 
-        assertThat(page()).contains("1/11/2030 15:00 – 3/11/2030 11:00");
+        assertThat(page()).contains("01/11/2030 15:00 – 03/11/2030 11:00");
     }
 
     @Test
