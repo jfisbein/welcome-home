@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="es" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/layout :: head('Enlace no válido')}"></head>
+<head th:replace="~{fragments/layout :: head(#{invitation-invalid.title})}"></head>
 <body>
 <main class="container">
     <article>
-        <header><h1>Enlace no válido</h1></header>
-        <p>Este enlace ya se ha usado o ha caducado. Pide uno nuevo a quien te lo envió.</p>
+        <header><h1 th:text="#{invitation-invalid.title}">Enlace no válido</h1></header>
+        <p th:text="#{invitation-invalid.text}">Este enlace ya se ha usado o ha caducado.</p>
     </article>
 </main>
 </body>

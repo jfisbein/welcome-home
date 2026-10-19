@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="es" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/layout :: head('Entrar')}"></head>
+<head th:replace="~{fragments/layout :: head(#{login.title})}"></head>
 <body>
 <main class="container">
     <article>
         <header><h1>welcome-home</h1></header>
-        <p th:if="${param.logout}">Has cerrado la sesión.</p>
-        <p>Entra con la passkey de tu dispositivo.</p>
-        <button id="passkey-login" type="button">Entrar con passkey</button>
-        <p id="login-error" role="alert" hidden>No se ha podido entrar con la passkey. Inténtalo de nuevo.</p>
+        <p th:if="${param.logout}" th:text="#{login.signed-out}">Has cerrado la sesión.</p>
+        <p th:text="#{login.text}">Entra con la passkey de tu dispositivo.</p>
+        <button id="passkey-login" type="button" th:text="#{login.button}">Entrar con passkey</button>
+        <p id="login-error" role="alert" hidden th:text="#{login.error}">No se ha podido entrar con la passkey.</p>
     </article>
 </main>
 <script th:src="@{/js/webauthn.js}"></script>

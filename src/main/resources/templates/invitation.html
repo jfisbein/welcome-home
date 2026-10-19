@@ -1,19 +1,27 @@
 <!DOCTYPE html>
 <html lang="es" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/layout :: head('Invitación')}"></head>
+<head th:replace="~{fragments/layout :: head(#{invitation.title})}"></head>
 <body>
 <main class="container">
     <article>
-        <header><h1>Bienvenido a welcome-home</h1></header>
-        <p>Indica tu email y crea una passkey en este dispositivo. La usarás para entrar, sin contraseña.</p>
+        <header><h1 th:text="#{invitation.heading}">Bienvenido a welcome-home</h1></header>
+        <p th:text="#{invitation.text}">Indica tu email y crea una passkey en este dispositivo.</p>
         <form id="registration">
             <label>
-                Email
+                [[#{invitation.email}]]
                 <input type="email" name="email" autocomplete="email" required>
             </label>
-            <button type="submit">Crear passkey</button>
+            <button type="submit" th:text="#{invitation.create}">Crear passkey</button>
         </form>
         <p id="registration-error" role="alert" hidden></p>
+        <!-- What invitation.js shows when registering fails, by the server's error code. -->
+        <div id="registration-messages" hidden th:fragment="messages">
+            <span data-error="invitation" th:text="#{invitation.error.invitation}">Este enlace ya se ha usado.</span>
+            <span data-error="email" th:text="#{invitation.error.email}">Revisa el email.</span>
+            <span data-error="email-taken" th:text="#{invitation.error.email-taken}">Ya hay una cuenta.</span>
+            <span data-error="expired" th:text="#{invitation.error.expired}">El registro ha caducado.</span>
+            <span data-error="passkey" th:text="#{invitation.error.passkey}">No se ha podido crear la passkey.</span>
+        </div>
     </article>
 </main>
 <script th:src="@{/js/webauthn.js}"></script>

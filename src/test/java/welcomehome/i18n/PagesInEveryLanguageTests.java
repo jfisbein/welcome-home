@@ -123,6 +123,6 @@ class PagesInEveryLanguageTests {
         var body = new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8);
         assertThat(body).as(page + " in " + language)
                 .contains("<html lang=\"" + language + "\"")
-                .doesNotContain("??");
+                .doesNotContain("??", "[[", "#{");
     }
 }

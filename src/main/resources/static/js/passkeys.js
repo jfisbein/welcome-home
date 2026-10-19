@@ -1,10 +1,8 @@
 "use strict";
 
-const ADD_MESSAGES = {
-    "InvalidStateError": "Este dispositivo ya tiene una passkey para tu cuenta.",
-    "NotAllowedError": "No se ha creado la passkey: se canceló o tardó demasiado.",
-    "default": "No se ha podido añadir la passkey. Inténtalo de nuevo."
-};
+// What can go wrong, by the browser's error name: the page carries it, in the owner's language.
+const ADD_MESSAGES = Object.fromEntries([...document.querySelectorAll("#add-passkey-messages [data-error]")]
+    .map(element => [element.dataset.error, element.textContent]));
 
 document.getElementById("add-passkey").addEventListener("submit", async event => {
     event.preventDefault();

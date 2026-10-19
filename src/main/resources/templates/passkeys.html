@@ -1,60 +1,60 @@
 <!DOCTYPE html>
 <html lang="es" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/layout :: head('Passkeys')}"></head>
+<head th:replace="~{fragments/layout :: head(#{passkeys.title})}"></head>
 <body>
 <main class="container">
     <nav th:replace="~{fragments/layout :: nav}"></nav>
-    <h1>Tus passkeys</h1>
-    <p>
-        Entras con cualquiera de ellas. Si pierdes un dispositivo, borra aquí su passkey: dejará de servir para
-        entrar.
-    </p>
+    <h1 th:text="#{passkeys.heading}">Tus passkeys</h1>
+    <p th:text="#{passkeys.intro}">Entras con cualquiera de ellas.</p>
 
-    <article th:if="${param.added}"><p>Passkey añadida.</p></article>
-    <article th:if="${renamed}"><p th:text="|Passkey renombrada: ${renamed}.|">Passkey renombrada: iPhone.</p></article>
-    <article th:if="${deleted}"><p th:text="|Passkey borrada: ${deleted}.|">Passkey borrada: iPhone.</p></article>
+    <article th:if="${param.added}"><p th:text="#{passkeys.added}">Passkey añadida.</p></article>
+    <article th:if="${renamed}"><p th:text="#{passkeys.renamed(${renamed})}">Passkey renombrada: iPhone.</p></article>
+    <article th:if="${deleted}"><p th:text="#{passkeys.deleted(${deleted})}">Passkey borrada: iPhone.</p></article>
 
     <article th:each="passkey : ${passkeys}">
         <form th:action="@{/passkeys/{id}(id=${passkey.credentialId})}" th:method="patch">
             <fieldset role="group">
                 <input type="text" name="label" required th:maxlength="${maxLabelLength}" th:value="${passkey.label}"
-                       aria-label="Nombre de la passkey">
-                <button type="submit" class="secondary">Renombrar</button>
+                       th:aria-label="#{passkeys.name}">
+                <button type="submit" class="secondary" th:text="#{passkeys.rename}">Renombrar</button>
             </fieldset>
         </form>
         <p>
             <small>
                 <span th:if="${passkey.created}"
-                      th:text="|Creada el ${#temporals.format(passkey.created, 'd/M/yyyy HH:mm')}.|">Creada el 18/10/2026 17:05.</span>
+                      th:text="#{passkeys.created(${#temporals.format(passkey.created, #messages.msg('format.datetime'))})}">Creada el 18/10/2026 17:05.</span>
                 <span th:if="${passkey.lastUsed}"
-                      th:text="|Último uso: ${#temporals.format(passkey.lastUsed, 'd/M/yyyy HH:mm')}.|">Último uso: 18/10/2026 18:30.</span>
-                <span th:unless="${passkey.lastUsed}">Todavía no se ha usado para entrar.</span>
+                      th:text="#{passkeys.last-used(${#temporals.format(passkey.lastUsed, #messages.msg('format.datetime'))})}">Último uso: 18/10/2026 18:30.</span>
+                <span th:unless="${passkey.lastUsed}" th:text="#{passkeys.never-used}">Todavía no se ha usado.</span>
             </small>
         </p>
         <form th:if="${canDelete}" th:action="@{/passkeys/{id}(id=${passkey.credentialId})}" th:method="delete"
-              th:data-confirm="|La passkey «${passkey.label}» dejará de servir para entrar. ¿Borrarla?|">
-            <button type="submit" class="outline contrast">Borrar</button>
+              th:data-confirm="#{passkeys.delete.confirm(${passkey.label})}">
+            <button type="submit" class="outline contrast" th:text="#{passkeys.delete}">Borrar</button>
         </form>
     </article>
     <p th:unless="${canDelete}">
-        <small>Es tu única passkey, así que no se puede borrar: añade otra antes.</small>
+        <small th:text="#{passkeys.only-one}">Es tu única passkey, así que no se puede borrar.</small>
     </p>
 
     <section>
-        <h2>Añadir una passkey</h2>
-        <p>
-            Hazlo desde el dispositivo o el gestor de contraseñas donde la quieras, por ejemplo Vaultwarden, que la
-            sincroniza entre tus dispositivos.
-        </p>
+        <h2 th:text="#{passkeys.add.heading}">Añadir una passkey</h2>
+        <p th:text="#{passkeys.add.text}">Hazlo desde el dispositivo o el gestor de contraseñas donde la quieras.</p>
         <form id="add-passkey">
             <label>
-                Nombre
+                [[#{passkeys.add.name}]]
                 <input type="text" name="label" required th:maxlength="${maxLabelLength}"
-                       placeholder="Por ejemplo: iPhone o Vaultwarden">
+                       th:placeholder="#{passkeys.add.placeholder}">
             </label>
-            <button type="submit">Añadir passkey</button>
+            <button type="submit" th:text="#{passkeys.add.button}">Añadir passkey</button>
         </form>
         <p id="add-passkey-error" role="alert" hidden></p>
+        <!-- What passkeys.js shows when adding a passkey fails, by the browser's error name. -->
+        <div id="add-passkey-messages" hidden>
+            <span data-error="InvalidStateError" th:text="#{passkeys.add.error.InvalidStateError}">Ya tiene una.</span>
+            <span data-error="NotAllowedError" th:text="#{passkeys.add.error.NotAllowedError}">Se canceló.</span>
+            <span data-error="default" th:text="#{passkeys.add.error.default}">No se ha podido añadir.</span>
+        </div>
     </section>
 </main>
 <script th:src="@{/js/confirm.js}"></script>

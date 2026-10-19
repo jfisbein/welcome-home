@@ -1,22 +1,21 @@
 <!DOCTYPE html>
 <html lang="es" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/layout :: head('Panel')}"></head>
+<head th:replace="~{fragments/layout :: head(#{home.title})}"></head>
 <body>
 <main class="container">
     <nav th:replace="~{fragments/layout :: nav}"></nav>
-    <h1>Hola</h1>
-    <p>Has entrado como <strong th:text="${email}">propietario@example.com</strong>.</p>
+    <h1 th:text="#{home.greeting}">Hola</h1>
+    <p th:utext="#{home.signed-in-as(${#strings.escapeXml(email)})}">
+        Has entrado como <strong>propietario@example.com</strong>.
+    </p>
 
     <article th:if="${nukiConnection == null}">
-        <p>Conecta tu cuenta de Nuki para crear enlaces que abran tu puerta.</p>
-        <a th:href="@{/nuki/connection}" role="button">Conectar Nuki</a>
+        <p th:text="#{home.connect.text}">Conecta tu cuenta de Nuki para crear enlaces que abran tu puerta.</p>
+        <a th:href="@{/nuki/connection}" role="button" th:text="#{home.connect.button}">Conectar Nuki</a>
     </article>
     <article th:if="${nukiConnection != null and nukiConnection.status.name() == 'DISCONNECTED'}" role="alert">
-        <p>
-            <strong>Nuki ha rechazado tu API token.</strong> Mientras no pegues uno nuevo, los enlaces no pueden
-            abrir la puerta.
-        </p>
-        <a th:href="@{/nuki/connection}" role="button">Pegar un API token nuevo</a>
+        <p th:utext="#{home.disconnected.text}"><strong>Nuki ha rechazado tu API token.</strong></p>
+        <a th:href="@{/nuki/connection}" role="button" th:text="#{home.disconnected.button}">Pegar un API token nuevo</a>
     </article>
 </main>
 </body>

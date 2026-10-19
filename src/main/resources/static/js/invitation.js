@@ -1,12 +1,8 @@
 "use strict";
 
-const MESSAGES = {
-    "invitation": "Este enlace ya se ha usado o ha caducado.",
-    "email": "Revisa el email: no parece válido.",
-    "email-taken": "Ya hay una cuenta con este email.",
-    "expired": "El registro ha caducado. Inténtalo de nuevo.",
-    "passkey": "No se ha podido crear la passkey. Inténtalo de nuevo."
-};
+// What can go wrong, by the server's error code: the page carries it, in the visitor's language.
+const MESSAGES = Object.fromEntries([...document.querySelectorAll("#registration-messages [data-error]")]
+    .map(element => [element.dataset.error, element.textContent]));
 
 document.getElementById("registration").addEventListener("submit", async event => {
     event.preventDefault();
