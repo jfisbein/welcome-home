@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="016-owner-language" author="welcome-home">
+        <comment>
+            The language of an owner's pages and emails, as a language tag such as es or en. The app may change
+            this column of owner and no other.
+        </comment>
+
+        <addColumn tableName="owner">
+            <column name="language" type="text" defaultValue="es">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+
+        <sql>
+            GRANT UPDATE (language) ON owner TO app_user;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

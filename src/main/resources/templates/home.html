@@ -8,6 +8,7 @@
     <p th:utext="#{home.signed-in-as(${#strings.escapeXml(email)})}">
         Has entrado como <strong>propietario@example.com</strong>.
     </p>
+    <article th:if="${languageSaved}"><p th:text="#{home.language.saved}">Idioma guardado.</p></article>
 
     <article th:if="${nukiConnection == null}">
         <p th:text="#{home.connect.text}">Conecta tu cuenta de Nuki para crear enlaces que abran tu puerta.</p>
@@ -17,6 +18,16 @@
         <p th:utext="#{home.disconnected.text}"><strong>Nuki ha rechazado tu API token.</strong></p>
         <a th:href="@{/nuki/connection}" role="button" th:text="#{home.disconnected.button}">Pegar un API token nuevo</a>
     </article>
+
+    <form th:action="@{/language}" th:method="put">
+        <fieldset role="group">
+            <select name="language" th:aria-label="#{home.language}">
+                <option th:each="option : ${languages}" th:value="${option.tag}" th:lang="${option.tag}"
+                        th:text="${option.name}" th:selected="${option.tag == #locale.language}">Español</option>
+            </select>
+            <button type="submit" class="secondary" th:text="#{common.save}">Guardar</button>
+        </fieldset>
+    </form>
 </main>
 </body>
 </html>

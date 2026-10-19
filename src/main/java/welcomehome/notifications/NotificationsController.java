@@ -1,7 +1,10 @@
 package welcomehome.notifications;
 
+import java.util.Locale;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.MessageSource;
 import org.springframework.mail.MailException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -24,12 +27,14 @@ class NotificationsController {
     private final NotificationPreferenceDao preferences;
     private final OwnerTransactions ownerTransactions;
     private final Mailer mailer;
+    private final MessageSource messages;
 
     NotificationsController(NotificationPreferenceDao preferences, OwnerTransactions ownerTransactions,
-                            Mailer mailer) {
+                            Mailer mailer, MessageSource messages) {
         this.preferences = preferences;
         this.ownerTransactions = ownerTransactions;
         this.mailer = mailer;
+        this.messages = messages;
     }
 
     @GetMapping
@@ -51,11 +56,12 @@ class NotificationsController {
         return "redirect:/notifications";
     }
 
+    /** In the owner's language, which is that of their pages. */
     @PostMapping("/test")
-    String sendTest(CurrentOwner owner, RedirectAttributes redirect) {
+    String sendTest(CurrentOwner owner, Locale locale, RedirectAttributes redirect) {
         try {
-            mailer.send(owner.email(), "Email de prueba de welcome-home",
-                    "Si lees esto, los avisos de welcome-home te llegan a esta dirección.\n");
+            mailer.send(owner.email(), messages.getMessage("notifications.test-email.subject", null, locale),
+                    messages.getMessage("notifications.test-email.body", null, locale) + "\n");
             redirect.addFlashAttribute("testSent", true);
         } catch (MailException | IllegalStateException e) {
             log.warn("Could not send a test email: {}", e.getMessage());

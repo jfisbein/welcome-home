@@ -24,5 +24,6 @@
     <include file="changes/013-notification-preference.xml" relativeToChangelogFile="true"/>
     <include file="changes/014-access-event-without-nuki-response.xml" relativeToChangelogFile="true"/>
     <include file="changes/015-invitation-purge.xml" relativeToChangelogFile="true"/>
+    <include file="changes/016-owner-language.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

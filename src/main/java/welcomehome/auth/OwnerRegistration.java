@@ -142,12 +142,14 @@ class OwnerRegistration {
                 .build();
     }
 
+    /** @param language a new owner's language: that of the pages they registered from */
     @Transactional
-    RegisteredOwner finish(PendingRegistration pending, PublicKeyCredential<AuthenticatorAttestationResponse> passkey) {
+    RegisteredOwner finish(PendingRegistration pending, PublicKeyCredential<AuthenticatorAttestationResponse> passkey,
+                           Locale language) {
         var invitation = invitations.redeem(pending.invitationToken())
                 .orElseThrow(() -> new RegistrationException(Reason.INVITATION_NOT_REDEEMABLE));
         var owner = pending.recoveredOwnerId() == null
-                ? insertOwner(pending.email(), invitation.grantsAdmin())
+                ? insertOwner(pending.email(), invitation.grantsAdmin(), language)
                 : owners.findById(pending.recoveredOwnerId())
                         .orElseThrow(() -> new RegistrationException(Reason.INVITATION_NOT_REDEEMABLE));
         userEntities.save(pending.options().getUser());
@@ -160,11 +162,11 @@ class OwnerRegistration {
         return new RegisteredOwner(owner.id(), owner.email(), owner.isAdmin());
     }
 
-    private OwnerAccount insertOwner(String email, boolean isAdmin) {
+    private OwnerAccount insertOwner(String email, boolean isAdmin, Locale language) {
         if (owners.findByEmail(email).isPresent()) {
             throw new RegistrationException(Reason.EMAIL_TAKEN);
         }
-        return new OwnerAccount(owners.insert(email, isAdmin), email, isAdmin);
+        return new OwnerAccount(owners.insert(email, isAdmin, language), email, isAdmin);
     }
 
     private static String normalize(@Nullable String email) {

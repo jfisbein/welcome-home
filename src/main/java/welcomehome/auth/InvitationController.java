@@ -1,5 +1,6 @@
 package welcomehome.auth;
 
+import java.util.Locale;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -89,7 +90,7 @@ class InvitationController {
 
     @PostMapping(path = "/register", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
-    Map<String, String> register(@PathVariable String token, @RequestBody String passkeyJson,
+    Map<String, String> register(@PathVariable String token, @RequestBody String passkeyJson, Locale locale,
                                  HttpServletRequest request, HttpServletResponse response) {
         var session = request.getSession();
         var pending = (PendingRegistration) session.getAttribute(PENDING_REGISTRATION);
@@ -97,7 +98,7 @@ class InvitationController {
         if (pending == null || !pending.invitationToken().equals(token)) {
             throw new RegistrationException(Reason.NO_REGISTRATION_IN_PROGRESS);
         }
-        var owner = registration.finish(pending, readPasskey(passkeyJson));
+        var owner = registration.finish(pending, readPasskey(passkeyJson), locale);
         signIn(pending, owner.email(), request, response);
         return Map.of("redirectUrl", "/");
     }

@@ -118,6 +118,17 @@ class AccountSecurityEmailTests {
     }
 
     @Test
+    void theyAreWrittenInTheOwnersLanguage() throws Exception {
+        TestDatabaseConfiguration.asMigrator(postgres).sql("UPDATE owner SET language = 'en'").update();
+
+        invitations.createPasskeyRecovery(null, aliceId);
+
+        var email = theOnlyEmail();
+        assertThat(email.getSubject()).isEqualTo("A link to recover your welcome-home account was created");
+        assertThat(text(email)).contains("after 72 hours", "This notification is always sent");
+    }
+
+    @Test
     void theyAreSentWhateverTheOwnersPreferences() throws Exception {
         assertThat(mvc.put().uri("/notifications").with(user(ALICE).roles("OWNER")).with(csrf()))
                 .hasStatus3xxRedirection();

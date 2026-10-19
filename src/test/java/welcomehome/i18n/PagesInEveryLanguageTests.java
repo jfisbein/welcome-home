@@ -31,7 +31,8 @@ import welcomehome.nuki.NukiStandInConfiguration;
 
 /**
  * Every page, in every language the app has texts for: it says which language it is in and asks for no text
- * that the bundle lacks (Thymeleaf shows a missing key as ??key_language??). Alice is an admin with a lock, a
+ * that the bundle lacks (Thymeleaf shows a missing key as ??key_language??). A guest's pages are in the
+ * browser's language, an owner's in the owner's. Alice is an admin with a lock, a
  * link and a guest's attempt, so that each page has something to show. Same configuration as the locks
  * tests, so they share one application context.
  */
@@ -60,6 +61,7 @@ class PagesInEveryLanguageTests {
     @Autowired
     PostgreSQLContainer postgres;
 
+    JdbcClient migrator;
     UUID lockId;
     UUID linkId;
     String invitationPath;
@@ -67,7 +69,7 @@ class PagesInEveryLanguageTests {
 
     @BeforeEach
     void insertAliceWithALockALinkAndAnAttempt() {
-        var migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        migrator = TestDatabaseConfiguration.asMigrator(postgres);
         for (var table : new String[] {"user_credentials", "user_entities", "invitation", "owner"}) {
             migrator.sql("DELETE FROM " + table).update();
         }
@@ -113,6 +115,8 @@ class PagesInEveryLanguageTests {
             for (var page : guestPages) {
                 assertPage(page, tag, request -> request);
             }
+            // An owner's pages are in the owner's language, whatever the browser asks for.
+            migrator.sql("UPDATE owner SET language = ?").param(tag).update();
             for (var page : ownerPages) {
                 assertPage(page, tag, user(ALICE).roles("OWNER", "ADMIN"));
             }

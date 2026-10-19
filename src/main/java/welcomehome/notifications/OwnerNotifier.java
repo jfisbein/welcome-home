@@ -1,6 +1,7 @@
 package welcomehome.notifications;
 
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Optional;
@@ -22,6 +23,7 @@ import welcomehome.admin.PasskeyRecoveryCreated;
 import welcomehome.audit.AccessAttempted;
 import welcomehome.audit.AccessOutcome;
 import welcomehome.auth.PasskeyAdded;
+import welcomehome.config.Languages;
 import welcomehome.config.WelcomeHomeProperties;
 import welcomehome.db.OwnerTransactions;
 import welcomehome.nuki.NukiDisconnected;
@@ -36,10 +38,6 @@ import welcomehome.nuki.NukiDisconnected;
 class OwnerNotifier {
 
     private static final Logger log = LoggerFactory.getLogger(OwnerNotifier.class);
-    private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("d/M/yyyy");
-    private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm");
-    /** Owners have no language of their own yet: their emails use the default bundle's. */
-    private static final Locale LANGUAGE = Locale.of("es");
 
     private final Mailer mailer;
     private final NotificationPreferenceDao preferences;
@@ -77,7 +75,7 @@ class OwnerNotifier {
         }
         var keys = EmailKeys.of(attempt.outcome());
         findDetails(attempt).ifPresent(details ->
-                send(details.email(), subject(keys, details), body(keys, details, attempt)));
+                send(details.recipient().email(), subject(keys, details), body(keys, details, attempt)));
     }
 
     @Async
@@ -86,9 +84,9 @@ class OwnerNotifier {
         if (!mailer.isConfigured() || !wants(disconnected.ownerId(), NotificationKind.DISCONNECTED)) {
             return;
         }
-        findEmail(disconnected.ownerId()).ifPresent(email -> send(email,
-                message("notification.disconnected.subject"),
-                message("notification.disconnected.body", app.link("/nuki/connection")) + footer()));
+        findRecipient(disconnected.ownerId()).ifPresent(to -> send(to.email(),
+                message(to, "notification.disconnected.subject"),
+                message(to, "notification.disconnected.body", app.link("/nuki/connection")) + footer(to)));
     }
 
     /**
@@ -100,10 +98,10 @@ class OwnerNotifier {
         if (!mailer.isConfigured()) {
             return;
         }
-        findEmail(created.ownerId()).ifPresent(email -> send(email,
-                message("account.recovery-created.subject"),
-                message("account.recovery-created.body", String.valueOf(InvitationService.VALIDITY.toHours()))
-                        + accountFooter()));
+        findRecipient(created.ownerId()).ifPresent(to -> send(to.email(),
+                message(to, "account.recovery-created.subject"),
+                message(to, "account.recovery-created.body", String.valueOf(InvitationService.VALIDITY.toHours()))
+                        + accountFooter(to)));
     }
 
     /** Also without a transaction: Spring Security stores a passkey added from /passkeys in none. */
@@ -113,8 +111,9 @@ class OwnerNotifier {
         if (!mailer.isConfigured()) {
             return;
         }
-        send(added.ownerEmail(), message("account.passkey-added.subject"),
-                message("account.passkey-added.body", added.label(), app.link("/passkeys")) + accountFooter());
+        findRecipient(added.ownerEmail()).ifPresent(to -> send(to.email(),
+                message(to, "account.passkey-added.subject"),
+                message(to, "account.passkey-added.body", added.label(), app.link("/passkeys")) + accountFooter(to)));
     }
 
     private boolean wants(UUID ownerId, NotificationKind kind) {
@@ -122,29 +121,36 @@ class OwnerNotifier {
     }
 
     private String subject(EmailKeys keys, AttemptDetails details) {
-        return message(keys.email() + ".subject", details.lockName(), details.label());
+        return message(details.recipient(), keys.email() + ".subject", details.lockName(), details.label());
     }
 
     private String body(EmailKeys keys, AttemptDetails details, AccessAttempted attempt) {
+        var to = details.recipient();
         var when = attempt.occurredAt().atZone(ZoneId.of(details.timeZone()));
-        var at = message("notification.when", DATE.format(when), TIME.format(when), details.timeZone());
+        var at = message(to, "notification.when", format(to, "format.date", when), format(to, "format.time", when),
+                details.timeZone());
         var reason = keys.reason();
-        var why = reason == null ? "" : message(reason);
+        var why = reason == null ? "" : message(to, reason);
         var history = app.link("/locks/" + attempt.lockId() + "/history?link=" + attempt.linkId());
-        return message(keys.email() + ".body", details.lockName(), details.label(), at, why)
-                + "\n\n" + message("notification.history", history) + "\n" + footer();
+        return message(to, keys.email() + ".body", details.lockName(), details.label(), at, why)
+                + "\n\n" + message(to, "notification.history", history) + "\n" + footer(to);
     }
 
-    private String footer() {
-        return "\n--\n" + message("notification.footer", app.link("/notifications")) + "\n";
+    private String footer(Recipient to) {
+        return "\n--\n" + message(to, "notification.footer", app.link("/notifications")) + "\n";
     }
 
-    private String accountFooter() {
-        return "\n--\n" + message("account.footer") + "\n";
+    private String accountFooter(Recipient to) {
+        return "\n--\n" + message(to, "account.footer") + "\n";
     }
 
-    private String message(String key, Object... arguments) {
-        return messages.getMessage(key, arguments, LANGUAGE);
+    private String message(Recipient to, String key, Object... arguments) {
+        return messages.getMessage(key, arguments, to.language());
+    }
+
+    /** A date or time with the pattern the recipient's bundle gives. */
+    private String format(Recipient to, String patternKey, ZonedDateTime when) {
+        return DateTimeFormatter.ofPattern(message(to, patternKey), to.language()).format(when);
     }
 
     private void send(String to, String subject, String text) {
@@ -157,7 +163,7 @@ class OwnerNotifier {
 
     private Optional<AttemptDetails> findDetails(AccessAttempted attempt) {
         return ownerTransactions.execute(attempt.ownerId(), () -> jdbc.sql("""
-                        SELECT o.email, l.label, k.name AS lock_name, k.time_zone
+                        SELECT o.email, o.language, l.label, k.name AS lock_name, k.time_zone
                         FROM access_link l
                         JOIN lock k ON k.id = l.lock_id
                         JOIN owner o ON o.id = l.owner_id
@@ -165,18 +171,41 @@ class OwnerNotifier {
                         """)
                 .param("linkId", attempt.linkId())
                 .param("ownerId", attempt.ownerId())
-                .query(AttemptDetails.class)
+                .query((rs, row) -> new AttemptDetails(
+                        new Recipient(rs.getString("email"), language(rs.getString("language"))),
+                        rs.getString("label"), rs.getString("lock_name"), rs.getString("time_zone")))
                 .optional());
     }
 
-    private Optional<String> findEmail(UUID ownerId) {
-        return jdbc.sql("SELECT email FROM owner WHERE id = :ownerId")
+    private Optional<Recipient> findRecipient(UUID ownerId) {
+        return jdbc.sql("SELECT email, language FROM owner WHERE id = :ownerId")
                 .param("ownerId", ownerId)
-                .query(String.class)
+                .query((rs, row) -> new Recipient(rs.getString("email"), language(rs.getString("language"))))
                 .optional();
     }
 
-    private record AttemptDetails(String email, String label, String lockName, String timeZone) {
+    private Optional<Recipient> findRecipient(String email) {
+        return jdbc.sql("SELECT email, language FROM owner WHERE email = :email")
+                .param("email", email)
+                .query((rs, row) -> new Recipient(rs.getString("email"), language(rs.getString("language"))))
+                .optional();
+    }
+
+    /** An owner's language, or the default if the app no longer has texts for it. */
+    private static Locale language(String tag) {
+        return Languages.of(tag).orElse(Languages.DEFAULT);
+    }
+
+    /**
+     * Whom an email goes to, and in which language.
+     *
+     * @param email    the owner's email
+     * @param language the owner's language
+     */
+    private record Recipient(String email, Locale language) {
+    }
+
+    private record AttemptDetails(Recipient recipient, String label, String lockName, String timeZone) {
     }
 
     /**

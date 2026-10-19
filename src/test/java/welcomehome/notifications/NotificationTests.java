@@ -146,6 +146,22 @@ class NotificationTests {
     }
 
     @Test
+    void anOwnerIsWrittenToInTheirLanguage() throws Exception {
+        migrator.sql("UPDATE owner SET language = 'en'").update();
+
+        record(linkId, AccessOutcome.OPENED);
+
+        var email = theOnlyEmail();
+        assertThat(email.getSubject()).isEqualTo("Casa: Ana opened the door");
+        assertThat(text(email)).containsPattern("Ana opened the door of Casa on \\d{1,2} [A-Z][a-z]{2} \\d{4} at \\d{2}:\\d{2}")
+                .contains("(America/New_York time)", "Choose which notifications you get");
+
+        assertThat(mvc.post().uri("/notifications/test").with(owner()).with(csrf())).hasStatus3xxRedirection();
+        await().atMost(Duration.ofSeconds(5)).until(() -> mail.getReceivedMessages().length == 2);
+        assertThat(mail.getReceivedMessages()[1].getSubject()).isEqualTo("welcome-home test email");
+    }
+
+    @Test
     void refusedAttemptsWithALinkAreToldOnceInAWhile() throws Exception {
         record(linkId, AccessOutcome.EXPIRED);
         assertThat(text(theOnlyEmail())).contains("el enlace ha caducado", "regenéralo o revócalo");
