@@ -77,6 +77,19 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 
 **Data model** (`src/main/resources/db/changelog/changes/`): `owner`, `invitation` (also recovery links: `recovers_owner_id`), `nuki_connection`, `lock`, `access_link` (`token_version`), `access_event`, `notification_preference`, and Spring Security's `user_entities` and `user_credentials`. Every table with `owner_id` has Row-Level Security with a policy that fails closed (`owner_id = nullif(current_setting('app.owner_id', true), '')::uuid`). `owner` and `invitation` have no `owner_id` and no RLS: only `auth` and `admin` use them. Neither do the passkey tables, keyed by the owner's email: `auth` joins `user_entities` by email in every query.
 
+**Tables by module.** Spring Modulith checks only Java dependencies; SQL crosses modules in the places below, all reads for display or a daily job, except `admin` deleting an owner. Anything else goes through the owning module's public types.
+
+| Table | Owner | Also used in SQL by |
+|-------|-------|---------------------|
+| `owner` | `auth` (registration inserts it) | `admin`: lists owners and deletes one; `audit`, `nuki`: owner ids for their daily jobs; `notifications`: the owner's email |
+| `user_entities`, `user_credentials` | `auth` (Spring Security's passkey store) | `admin`: deletes an owner's passkeys |
+| `invitation` | `admin` | none (`auth` goes through `InvitationService`) |
+| `nuki_connection` | `nuki` | none |
+| `lock` | `locks` | `links`: lock names in link lists; `notifications`: name and time zone; `resolve_link` |
+| `access_link` | `links` | `audit`: labels in the history; `notifications`: labels; `access`: only through `resolve_link` |
+| `access_event` | `audit` | none |
+| `notification_preference` | `notifications` | none |
+
 **Roles in Postgres**: `migrator` owns the schema and runs Liquibase; the app connects as `app_user`, with no ownership and no `BYPASSRLS`. No `FORCE ROW LEVEL SECURITY`, so that `resolve_link` (owned by `migrator`) sees the link. Roles come from `deploy/db-init/01-create-roles.sh`, used by development, tests and production alike.
 
 **Jobs** (`@Scheduled`, server time zone): Nuki connection check (08:00), access event purge (03:30), purge of invitations expired more than 30 days ago (03:35); in production a separate `backup` container dumps the database at 04:00.
