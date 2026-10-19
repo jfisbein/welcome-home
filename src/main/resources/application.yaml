@@ -8,6 +8,11 @@ spring:
         enabled: true
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.xml
+  # Requests, emails (@Async) and jobs run on virtual threads: an opening waits up to 15 s for the lock's log, and
+  # Nuki's backoff sleeps, without holding a platform thread.
+  threads:
+    virtual:
+      enabled: true
   # User-facing texts. A language with no bundle of its own gets the default one, Spanish, never the server's
   # language; every message goes through MessageFormat, so an apostrophe is always written ''.
   messages:
