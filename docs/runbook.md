@@ -46,13 +46,20 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 
 Once the workflow has finished, on the server:
 
-1. Take a dump, so that the upgrade can be undone: `docker compose exec backup /backup/backup.sh now`.
-2. In Dockge, change the `app` image to `ghcr.io/jfisbein/welcome-home:vX.Y.Z` and deploy: Dockge pulls the image and recreates `app`. If `deploy/` changed in the release, bring those changes over too.
-3. Liquibase migrates the database on start. Check that `app` turns healthy and that `docker compose logs app` shows no errors.
+1. In Dockge, update the stack: it pulls `:v1` and `cloudflared:latest` again and recreates what changed.
+2. Liquibase migrates the database as `app` starts. Check that `app` turns healthy and that `docker compose logs app` shows no errors. The release that runs:
+
+   ```sh
+   docker inspect welcome-home-app-1 --format '{{ index .Config.Labels "org.opencontainers.image.version" }}'
+   ```
+
+No dump first. Within a major version migrations only add to the schema, and each runs in a transaction: a migration that fails leaves the database as it was, and the previous release keeps working with one that succeeds (`MigrationCompatibilityTests` checks it). The `backup` service's nightly dump is still there.
+
+A new major version, such as `v2`, may break compatibility: read its release notes, take a dump first (`docker compose exec backup /backup/backup.sh now`), and change the `app` image to `:v2`, with whatever else the notes ask for.
 
 ## Roll back
 
-Change the image back to the previous release and deploy. If the newer release migrated the database (its log shows changesets run at start), the older one may not work with it: restore the dump taken before the upgrade (next section) after rolling back.
+Pin the previous release, such as `ghcr.io/jfisbein/welcome-home:v1.9.1`, and deploy. Within a major version the older release works with the newer schema, so nothing else is needed; go back to `:v1` once a fixed release is out. Rolling back to an earlier major version means restoring the dump taken before upgrading (next section).
 
 ## Restore a dump
 
