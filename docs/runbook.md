@@ -37,7 +37,7 @@ How to run welcome-home in production. It runs as a Dockge stack on `docker.frit
 
 ## Release and upgrade
 
-A release is a version tag on `main`; the workflow tests it and publishes the image `vX.Y.Z` (plus `vX` and `latest`).
+A release is a version tag on `main`; the workflow tests it, publishes the image `vX.Y.Z` (plus `vX` and `latest`) and creates the GitHub release, whose notes come from the release pull request.
 
 ```sh
 git switch main && git pull
