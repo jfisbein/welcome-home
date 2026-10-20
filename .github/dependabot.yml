@@ -37,7 +37,8 @@ updates:
       - dependency-name: eclipse-temurin
         update-types: [version-update:semver-major]
 
-  # Postgres for development and in production, cloudflared in production.
+  # Postgres for development and in production. Production's cloudflared runs as latest, which Dependabot does
+  # not track.
   - package-ecosystem: docker-compose
     directories: [/, /deploy]
     schedule:
@@ -51,5 +52,5 @@ updates:
       # A new major Postgres needs a dump and restore of the data, not just a new image.
       - dependency-name: postgres
         update-types: [version-update:semver-major]
-      # Our own image: each release pull request sets its version.
+      # Our own image: production follows its major version's tag (:v1).
       - dependency-name: ghcr.io/jfisbein/welcome-home
