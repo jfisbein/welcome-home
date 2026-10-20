@@ -220,7 +220,7 @@ The keysets are mounted read-only and must be readable by uid 10001. The image h
 | tag `v1.2.3`            | `v1.2.3`, `v1` and `latest`                             |
 | tag `v1.3.0-rc.1`       | `v1.3.0-rc.1` only: a prerelease moves neither `v1` nor `latest` |
 
-A release is a tag on `main`: `git tag v1.2.3 && git push origin v1.2.3`. `deploy/compose.yaml` names the release that runs, such as `v1.0.0`: to upgrade or roll back, change it and redeploy.
+A release is a tag on `main`: `git tag v1.2.3 && git push origin v1.2.3`. `deploy/compose.yaml` runs `:v1`, the latest 1.x release: upgrading is pulling it again, and rolling back is pinning the previous release, such as `:v1.9.1`. That works because releases within a major version are backward compatible, migrations included (AGENTS.md, Conventions).
 
 [`docs/runbook.md`](docs/runbook.md) covers running it: first start, releases, rollback, restoring a dump, rotating the AEAD keyset and what to check when something fails.
 

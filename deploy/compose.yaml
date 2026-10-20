@@ -29,8 +29,10 @@ services:
       retries: 5
 
   app:
-    # A release, so that what runs is always known: to upgrade or roll back, change the version.
-    image: ghcr.io/jfisbein/welcome-home:v1.9.2
+    # The latest release of major version 1, so that Dockge's Update upgrades it: releases within a major are
+    # backward compatible (AGENTS.md, Conventions). The running release is the image's
+    # org.opencontainers.image.version label. To roll back, pin the previous one, such as v1.9.1.
+    image: ghcr.io/jfisbein/welcome-home:v1
     restart: unless-stopped
     depends_on:
       db:
@@ -120,7 +122,9 @@ services:
       start_interval: 10s
 
   cloudflared:
-    image: cloudflare/cloudflared:2026.10.0
+    # Cloudflare supports cloudflared releases up to a year old. Pin one, such as 2026.10.0, if an update breaks
+    # the tunnel.
+    image: cloudflare/cloudflared:latest
     restart: unless-stopped
     command: tunnel --no-autoupdate run
     environment:

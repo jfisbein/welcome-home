@@ -35,6 +35,7 @@ Non-functional:
 - Never two unlatches for one press: one action per lock at a time, and the unlatch is never retried once Nuki may have run it.
 - Single instance: rate limits, the per-lock mutex and scheduled jobs live in memory in one process.
 - GDPR: guests' IP addresses expire; a deleted owner's data is gone from backups after their 30-day retention.
+- Upgrades within a major version are pulling the new image: no backup, no change on the server, and rolling back is pinning the previous release.
 
 Out of scope so far: OAuth2 with Nuki, geofencing, push notifications, use limits, recurring schedules, Nuki Opener, native apps.
 
@@ -116,7 +117,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 | No ports published; own cloudflared in the stack | With a published port the app was reachable from the LAN and the forwarded headers could be spoofed. |
 | Database passwords as files (`configtree:`), keysets as Docker secrets | No secrets in environment variables or in the image. |
 | Keysets backed up apart from the dumps (Vaultwarden) | A stolen dump alone does not expose the Nuki tokens. |
-| Releases are `vX.Y.Z` tags; production pins the version | What runs is always known; rollback is changing a number. |
+| Releases are `vX.Y.Z` tags; production follows the major version's tag (`:v1`) | Upgrading is Dockge's Update, with no backup and no change on the server. The running release is the image's `org.opencontainers.image.version` label; rolling back is pinning the previous one. It holds because releases within a major are backward compatible (Conventions). |
 | Emails are sent after commit, on another thread, and dropped if they fail | A guest never waits for SMTP, and a mail problem never fails an opening. At most one email about refused attempts per link per hour. |
 
 ## Conventions
@@ -124,6 +125,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 - **Language**: code, comments, javadoc, docs and commit messages in English. Table, column and enum names in English. UI texts only in `i18n/messages*.properties` (Spanish the default bundle, English the second): never in Java, templates or JavaScript, which `TemplateTextTests` checks. A message with markup goes through `th:utext`, with every value escaped by `#strings.escapeXml`; an apostrophe in a message is written `''`. A new language: the README's "Adding a language".
 - **Javadoc** on every public class and method (`-Xdoclint:all -Werror` fails `check`). Comment the why, sparingly.
 - **Nullness**: everything is non-null unless `@Nullable` (JSpecify); every package has `@NullMarked`; NullAway fails the build. Spring 7's `JdbcClient.query(X.class).list()` returns `List<@Nullable X>`: use `new SimplePropertyRowMapper<>(X.class)` or a lambda for lists.
+- **Compatibility**: within a major version every release is backward compatible, as production pulls `:vN` without reading release notes and rolls back by pinning the previous release. So: the previous release runs against the new schema; no new required property, secret or environment variable (a new one has a default); nothing to change in `deploy/`; every URL already sent keeps working (guest links, invitations, recovery and verification links, history URLs). Migrations only expand the schema: new tables, nullable columns or columns with a default, indexes, grants; never drop, rename or retype, never add NOT NULL or UNIQUE to what exists, never revoke, every changeset in a transaction. `MigrationCompatibilityTests` checks the changesets from `COMPATIBLE_FROM` on. Anything else waits for the next major, which moves `COMPATIBLE_FROM` past its breaking changesets and production to `:vN+1`.
 - **Liquibase**: XML with native tags; `<sql>` only for CHECK constraints, RLS, GRANTs and functions. A new table with `owner_id` gets `ENABLE ROW LEVEL SECURITY`, its policy and its grants to `app_user` in the same changeset (`MigrationTests` fails otherwise).
 - **Data access**: `JdbcClient` with records; owner data only inside `OwnerTransactions.execute/run`, with `owner_id` in the query as well. No `findById(id)` without an owner.
 - **Configuration**: `application.yaml` (and `application-dev.yaml`); `@ConfigurationProperties` records; durations in ISO-8601 (`PT1M`).
@@ -157,7 +159,7 @@ docker compose up -d              # development Postgres on localhost:5432
 
 `.github/workflows/image.yml`: pull requests build, test and build the image without pushing; pushes to `main` publish `edge`; tags `vX.Y.Z` publish `vX.Y.Z`, `vX` and `latest` (prereleases only their own tag).
 
-Release: a pull request that bumps `version` in `build.gradle.kts` and the image in `deploy/compose.yaml`; once merged, tag the merge commit `vX.Y.Z` and push the tag. Upgrading production (backup first) and everything else on the server is in the runbook.
+Release: a pull request that bumps `version` in `build.gradle.kts`; once merged, tag the merge commit `vX.Y.Z` and push the tag. Production follows `:v1`, so `deploy/compose.yaml` changes only for a new major version. Upgrading production and everything else on the server is in the runbook.
 
 ## Where things are
 
