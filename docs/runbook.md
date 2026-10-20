@@ -4,8 +4,8 @@ How to run welcome-home in production. It runs as a Dockge stack on `docker.frit
 
 | What               | Where                                                                  |
 |--------------------|------------------------------------------------------------------------|
-| Public URL         | yours; `https://welcome-home.example.com` stands for it here        |
-| Image              | `ghcr.io/jfisbein/welcome-home`, the release named in `compose.yaml`   |
+| Public URL         | yours; `https://welcome-home.example.com` stands for it here           |
+| Image              | `ghcr.io/jfisbein/welcome-home:v1`, the latest 1.x release             |
 | Secrets            | `secrets/` in the stack's folder; the keysets also in Vaultwarden      |
 | Database dumps     | `backups/` in the stack's folder, copied daily to B2 by zerobyte       |
 | Tunnel             | Cloudflare Zero Trust: its own tunnel, with only this public hostname  |
