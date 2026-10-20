@@ -3,6 +3,8 @@
 #   pull request:    the image is built, which checks the Dockerfile, but not pushed;
 #   push to main:    edge;
 #   tag vX.Y.Z:      vX.Y.Z, vX and latest. A prerelease, such as v1.3.0-rc.1, gets only its own tag.
+# A version tag also becomes a GitHub release once its image is out, with the release pull request's description
+# as its notes.
 name: Image
 
 on:
@@ -66,3 +68,40 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # The GitHub release of a version tag. Its notes are the description of the merged release pull request (branch
+  # release-X.Y.Z) without what is about the pull request itself (.github/scripts/release_notes.py), or GitHub's
+  # generated notes when there is none. A prerelease tag makes a prerelease; a release that exists is left alone.
+  release:
+    needs: image
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "The release $TAG already exists"
+            exit 0
+          fi
+          version="${TAG#v}"
+          flags=(--verify-tag --title "welcome-home $version")
+          if [[ "$TAG" == *-* ]]; then
+            flags+=(--prerelease)
+          else
+            flags+=(--latest)
+          fi
+          description=$(gh pr list --state merged --head "release-$version" --json body --jq '.[0].body // ""')
+          if [ -n "$description" ]; then
+            printf '%s\n' "$description" | python3 .github/scripts/release_notes.py > notes.md
+            gh release create "$TAG" "${flags[@]}" --notes-file notes.md
+          else
+            gh release create "$TAG" "${flags[@]}" --generate-notes
+          fi

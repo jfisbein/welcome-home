@@ -157,9 +157,9 @@ docker compose up -d              # development Postgres on localhost:5432
 ./gradlew rotateAeadKeyset --args=<file>
 ```
 
-`.github/workflows/image.yml`: pull requests build, test and build the image without pushing; pushes to `main` publish `edge`; tags `vX.Y.Z` publish `vX.Y.Z`, `vX` and `latest` (prereleases only their own tag).
+`.github/workflows/image.yml`: pull requests build, test and build the image without pushing; pushes to `main` publish `edge`; tags `vX.Y.Z` publish `vX.Y.Z`, `vX` and `latest` (prereleases only their own tag), and then create the GitHub release.
 
-Release: a pull request that bumps `version` in `build.gradle.kts`; once merged, tag the merge commit `vX.Y.Z` and push the tag. Production follows `:v1`, so `deploy/compose.yaml` changes only for a new major version. Upgrading production and everything else on the server is in the runbook.
+Release: a pull request named `Version X.Y.Z` from branch `release-X.Y.Z` that bumps `version` in `build.gradle.kts`; once merged, tag the merge commit `vX.Y.Z` and push the tag. Its description becomes the GitHub release's notes, so it is written for whoever deploys: what changed since the last release, and anything to do before deploying. The workflow drops its first paragraph when it starts with "Sets the project's version", and Claude Code's attribution (`.github/scripts/release_notes.py`). Production follows `:v1`, so `deploy/compose.yaml` changes only for a new major version. Upgrading production and everything else on the server is in the runbook.
 
 ## Where things are
 
