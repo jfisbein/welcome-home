@@ -38,7 +38,8 @@ services:
       db:
         condition: service_healthy
     environment:
-      BASE_URL: https://welcome-home.alcornoque.top
+      # Your public URL: this one is an example.
+      BASE_URL: https://welcome-home.example.com
       TZ: Europe/Madrid
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/welcome_home
       SPRING_DATASOURCE_USERNAME: app_user
@@ -50,7 +51,8 @@ services:
       # Owners' emails, through SMTP2GO with STARTTLS; the sender must be verified there.
       SPRING_MAIL_HOST: mail.smtp2go.com
       SPRING_MAIL_PORT: "2525"
-      NOTIFICATIONS_FROM: "welcome-home <avisos@alcornoque.top>"
+      # An example: your own sender, on a domain verified in SMTP2GO.
+      NOTIFICATIONS_FROM: "welcome-home <avisos@example.com>"
     secrets:
       - source: app_user_password
         target: /run/secrets/config/spring.datasource.password

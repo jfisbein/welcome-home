@@ -4,7 +4,7 @@ How to run welcome-home in production. It runs as a Dockge stack on `docker.frit
 
 | What               | Where                                                                  |
 |--------------------|------------------------------------------------------------------------|
-| Public URL         | `https://welcome-home.alcornoque.top`                                  |
+| Public URL         | yours; `https://welcome-home.example.com` stands for it here        |
 | Image              | `ghcr.io/jfisbein/welcome-home`, the release named in `compose.yaml`   |
 | Secrets            | `secrets/` in the stack's folder; the keysets also in Vaultwarden      |
 | Database dumps     | `backups/` in the stack's folder, copied daily to B2 by zerobyte       |
@@ -12,7 +12,7 @@ How to run welcome-home in production. It runs as a Dockge stack on `docker.frit
 
 ## First start
 
-1. **Tunnel.** In Cloudflare Zero Trust, create a tunnel for welcome-home alone, with the public hostname `welcome-home.alcornoque.top` pointing to `http://app:8080`, and copy its token. Remove the earlier route to `docker.fritz.box:7070`.
+1. **Tunnel.** In Cloudflare Zero Trust, create a tunnel for welcome-home alone, with the public hostname `welcome-home.example.com` pointing to `http://app:8080`, and copy its token. Remove the earlier route to `docker.fritz.box:7070`.
 2. **Keysets.** On a development machine, `./gradlew generateKeysets` writes them to `secrets/` (production's own: never the development ones). Store `aead-keyset.json` and `mac-keyset.json` in Vaultwarden, then delete them from the development machine once they are on the server.
 3. **Stack.** Create the stack in Dockge from `deploy/compose.yaml`, and copy `deploy/db-init/`, `deploy/backup/` and `deploy/restore.sh` next to it.
 4. **Secrets.** In the stack's folder:
@@ -30,9 +30,9 @@ How to run welcome-home in production. It runs as a Dockge stack on `docker.frit
    install -d -o 999 -g 999 -m 700 backups
    ```
 
-5. **Start.** Deploy the stack. `db`, `app` and `backup` turn healthy within a minute or two, and `cloudflared` starts once `app` is. `https://welcome-home.alcornoque.top/actuator/health` answers `{"status":"UP"}` from outside.
+5. **Start.** Deploy the stack. `db`, `app` and `backup` turn healthy within a minute or two, and `cloudflared` starts once `app` is. `https://welcome-home.example.com/actuator/health` answers `{"status":"UP"}` from outside.
 6. **First admin.** `docker compose run --rm app --bootstrap-admin` prints an invitation link, valid for 72 hours. Open it on your phone or computer, enter your email and create the passkey. Further owners are invited from `/admin/owners`.
-7. **Emails.** In SMTP2GO, verify the sender domain `alcornoque.top` (its DNS records) and create an SMTP user; its name and password are `secrets/smtp_username` and `smtp_password`. The sender is `NOTIFICATIONS_FROM` in `compose.yaml`. Check with "Enviarme un email de prueba" at `/notifications`.
+7. **Emails.** In SMTP2GO, verify the sender domain `example.com` (its DNS records) and create an SMTP user; its name and password are `secrets/smtp_username` and `smtp_password`. The sender is `NOTIFICATIONS_FROM` in `compose.yaml`. Check with "Enviarme un email de prueba" at `/notifications`.
 8. **Off-site copy.** In zerobyte, a daily job after 04:00 that backs up the stack's `backups/` folder to B2, keeping 30 days of snapshots.
 
 ## Release and upgrade

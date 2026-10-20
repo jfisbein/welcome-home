@@ -12,7 +12,7 @@ A private web app where a few owners connect their Nuki account and create date-
 - **Admin**: an owner who can also invite owners, list them, create passkey recovery links and delete owners. Admins never see other owners' locks, links or history.
 - **Guest**: no account; has only a link.
 
-**In production**: `https://welcome-home.alcornoque.top`, a Dockge stack on `docker.fritz.box` (an LXC), reached only through its own Cloudflare Tunnel. Image `ghcr.io/jfisbein/welcome-home`, the release named in `deploy/compose.yaml`.
+**In production**: a Dockge stack on `docker.fritz.box` (an LXC), reached only through its own Cloudflare Tunnel. Its public URL is not in this repository: `https://welcome-home.example.com` stands for it. Image `ghcr.io/jfisbein/welcome-home`, at the major version's tag (`:v1`).
 
 ## Requirements
 
@@ -177,7 +177,7 @@ Release: a pull request named `Version X.Y.Z` from branch `release-X.Y.Z` that b
 
 **OAuth2 with Nuki (v2).** Owners would authorize welcome-home in Nuki instead of pasting a token.
 
-- Nuki needs one OAuth2 client for welcome-home: the client id is the "OAuth2 API key" in Nuki Web → API, with the redirect URL `https://welcome-home.alcornoque.top/nuki/callback`; the client secret is requested through "Solicitar integración API avanzada" (or developer@nuki.io). Follow Nuki's current OAuth2 guide on docs.nuki.io: older guides and forum posts describe outdated endpoints.
+- Nuki needs one OAuth2 client for welcome-home: the client id is the "OAuth2 API key" in Nuki Web → API, with the redirect URL `https://welcome-home.example.com/nuki/callback`; the client secret is requested through "Solicitar integración API avanzada" (or developer@nuki.io). Follow Nuki's current OAuth2 guide on docs.nuki.io: older guides and forum posts describe outdated endpoints.
 - Request only the scopes the app uses: `smartlock.readOnly` (or `smartlock`), `smartlock.action`, `smartlock.log`.
 - Flow: `GET /nuki/connection/oauth` redirects to Nuki with a `state` bound to the session; `GET /nuki/callback` checks `state`, exchanges the code, checks the token with `GET /smartlock`, and stores it.
 - Storage: extend `nuki_connection` with the kind of credential and the encrypted access and refresh tokens plus the access token's expiry (same AEAD and associated data as today). Spring Security's OAuth2 client stores tokens in clear (`oauth2_authorized_client`), so either keep the tokens in `nuki_connection` or write an encrypting `OAuth2AuthorizedClientService`.
