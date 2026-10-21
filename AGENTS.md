@@ -193,3 +193,4 @@ Release: a pull request named `Version X.Y.Z` from branch `release-X.Y.Z` that b
 - Geofence as a deterrent (browsers accept fake locations: store only distance and accuracy, and tell the guest first).
 - Nuki Opener, a local Nuki Bridge or MQTT adapter as another `LockProvider`, Nuki webhooks instead of polling the log.
 - Cloudflare Access in front of the owner pages, excluding `/o/*` and `/api/open`.
+- A proper 404 page, and one for other errors: `templates/error/404.html` and `templates/error.html` with the app's layout, texts from the bundles and the visitor's language, in place of Spring Boot's default error page, which shows today when a signed-in owner opens an unknown URL or another owner's id. It must keep the status code, answer the same for a missing id and another owner's, and create no session for guests. Check first what a visitor who is not signed in gets, as `/error` is not among the public routes.
