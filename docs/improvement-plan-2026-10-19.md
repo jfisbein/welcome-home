@@ -173,7 +173,7 @@ Valid, but not worth doing now:
 - An injectable `Clock` (review 9), if a test ever flakes on the wall clock.
 - Promoting and demoting admins.
 - The daily connection check also syncing locks.
-- Filtering the confirmation by `trigger = 4` (web), after reading one real log entry with a read-only call.
+- Filtering the confirmation by `trigger = 4` (web), after reading one real log entry with a read-only call. Done on 2026-10-21, though not as planned: the real log showed welcome-home's unlatches with trigger 0 (system), not 4, and the owner's from the Nuki app with 0 as well. The confirmation accepts 0 and 4 and ignores unlatches by hand, button or accessory; the app's cannot be told apart by trigger.
 - `last_checked_at` and the passkey dates as `OffsetDateTime`.
 
 ### Not doing

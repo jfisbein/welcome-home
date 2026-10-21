@@ -97,6 +97,14 @@ class NukiWebClientTests {
         assertThat(NukiWebClient.status(nukiState)).isEqualTo(status);
     }
 
+    @ParameterizedTest
+    @CsvSource({
+            "0, SYSTEM", "1, MANUAL", "2, BUTTON", "3, AUTOMATIC", "4, WEB", "5, APP", "6, AUTO_LOCK", "7, ACCESSORY",
+            "255, OTHER"})
+    void translatesNukiTriggers(int nukiTrigger, LockTrigger trigger) {
+        assertThat(NukiWebClient.trigger(nukiTrigger)).isEqualTo(trigger);
+    }
+
     @Test
     void unlatchSendsActionThree() {
         nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));
@@ -122,12 +130,12 @@ class NukiWebClientTests {
                 """)));
 
         assertThat(client.getRecentLog(TOKEN, LOCK_ID)).containsExactly(
-                new LockLogEntry(Instant.parse("2026-10-17T11:03:45Z"), LockAction.DOOR_OPENED, LockActionState.SUCCEEDED),
-                new LockLogEntry(Instant.parse("2026-10-17T11:03:30Z"), LockAction.UNLATCH, LockActionState.SUCCEEDED),
-                new LockLogEntry(Instant.parse("2026-10-17T09:00:00Z"), LockAction.UNLOCK, LockActionState.MOTOR_BLOCKED),
-                new LockLogEntry(Instant.parse("2026-10-17T08:30:00Z"), LockAction.UNLATCH, LockActionState.REJECTED_NIGHT_MODE),
-                new LockLogEntry(Instant.parse("2026-10-17T08:15:00Z"), LockAction.UNLATCH, LockActionState.FAILED),
-                new LockLogEntry(Instant.parse("2026-10-17T08:00:00Z"), LockAction.OTHER, LockActionState.SUCCEEDED));
+                new LockLogEntry(Instant.parse("2026-10-17T11:03:45Z"), LockAction.DOOR_OPENED, LockTrigger.SYSTEM, LockActionState.SUCCEEDED),
+                new LockLogEntry(Instant.parse("2026-10-17T11:03:30Z"), LockAction.UNLATCH, LockTrigger.WEB, LockActionState.SUCCEEDED),
+                new LockLogEntry(Instant.parse("2026-10-17T09:00:00Z"), LockAction.UNLOCK, LockTrigger.APP, LockActionState.MOTOR_BLOCKED),
+                new LockLogEntry(Instant.parse("2026-10-17T08:30:00Z"), LockAction.UNLATCH, LockTrigger.WEB, LockActionState.REJECTED_NIGHT_MODE),
+                new LockLogEntry(Instant.parse("2026-10-17T08:15:00Z"), LockAction.UNLATCH, LockTrigger.WEB, LockActionState.FAILED),
+                new LockLogEntry(Instant.parse("2026-10-17T08:00:00Z"), LockAction.OTHER, LockTrigger.BUTTON, LockActionState.SUCCEEDED));
     }
 
     @Test
