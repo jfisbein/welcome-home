@@ -173,7 +173,7 @@ Valid, but not worth doing now:
 - An injectable `Clock` (review 9), if a test ever flakes on the wall clock.
 - Promoting and demoting admins.
 - The daily connection check also syncing locks.
-- Filtering the confirmation by `trigger = 4` (web), after reading one real log entry with a read-only call.
+- Filtering the confirmation by `trigger = 4` (web), after reading one real log entry with a read-only call. Done on 2026-10-21, once a real entry confirmed the trigger.
 - `last_checked_at` and the passkey dates as `OffsetDateTime`.
 
 ### Not doing

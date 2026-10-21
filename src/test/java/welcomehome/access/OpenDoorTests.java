@@ -135,6 +135,16 @@ class OpenDoorTests {
     }
 
     @Test
+    void anUnlatchFromTheNukiAppAtTheSameTimeIsNotTheGuests() {
+        nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));
+        nuki.stubFor(get(urlPathEqualTo("/smartlock/17/log")).willReturn(okJson(log(Instant.now(), 3, 5, 0))));
+        var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
+
+        assertThat(open(signer.sign(link, 1))).hasStatus(HttpStatus.ACCEPTED)
+                .bodyJson().extractingPath("$.result").isEqualTo("not-confirmed");
+    }
+
+    @Test
     void failedOrNightModeUnlatchesAreReported() {
         nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));
         var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
@@ -406,10 +416,15 @@ class OpenDoorTests {
         nuki.stubFor(get(urlPathEqualTo("/smartlock/17/log")).willReturn(okJson(log(Instant.now(), 3, nukiState))));
     }
 
+    /** An entry of the lock's log, through the Nuki Web API (trigger 4), as welcome-home's unlatches are. */
     private static String log(Instant date, int nukiAction, int nukiState) {
+        return log(date, nukiAction, 4, nukiState);
+    }
+
+    private static String log(Instant date, int nukiAction, int nukiTrigger, int nukiState) {
         return """
-                [{"id": "1", "smartlockId": 17, "date": "%s", "action": %d, "trigger": 4, "state": %d}]
-                """.formatted(date, nukiAction, nukiState);
+                [{"id": "1", "smartlockId": 17, "date": "%s", "action": %d, "trigger": %d, "state": %d}]
+                """.formatted(date, nukiAction, nukiTrigger, nukiState);
     }
 
     /** The latest event as "result|reason|ip|userAgent". */

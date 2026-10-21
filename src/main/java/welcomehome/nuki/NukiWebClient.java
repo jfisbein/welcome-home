@@ -114,7 +114,8 @@ class NukiWebClient {
                 .body(new ParameterizedTypeReference<>() {
                 }));
         return entries.stream()
-                .map(entry -> new LockLogEntry(entry.date(), action(entry.action()), actionState(entry.state())))
+                .map(entry -> new LockLogEntry(entry.date(), action(entry.action()), trigger(entry.trigger()),
+                        actionState(entry.state())))
                 .toList();
     }
 
@@ -221,6 +222,20 @@ class NukiWebClient {
         };
     }
 
+    static LockTrigger trigger(int nukiTrigger) {
+        return switch (nukiTrigger) {
+            case 0 -> LockTrigger.SYSTEM;
+            case 1 -> LockTrigger.MANUAL;
+            case 2 -> LockTrigger.BUTTON;
+            case 3 -> LockTrigger.AUTOMATIC;
+            case 4 -> LockTrigger.WEB;
+            case 5 -> LockTrigger.APP;
+            case 6 -> LockTrigger.AUTO_LOCK;
+            case 7 -> LockTrigger.ACCESSORY;
+            default -> LockTrigger.OTHER;
+        };
+    }
+
     static LockAction action(int nukiAction) {
         return switch (nukiAction) {
             case 1 -> LockAction.UNLOCK;
@@ -251,6 +266,6 @@ class NukiWebClient {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record NukiLogEntry(Instant date, int action, int state) {
+    record NukiLogEntry(Instant date, int action, int trigger, int state) {
     }
 }

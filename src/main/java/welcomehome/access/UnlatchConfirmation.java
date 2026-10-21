@@ -11,10 +11,12 @@ import welcomehome.nuki.LockActionState;
 import welcomehome.nuki.LockLogEntry;
 import welcomehome.nuki.LockProvider;
 import welcomehome.nuki.LockProviderException;
+import welcomehome.nuki.LockTrigger;
 
 /**
  * Waits for a lock to confirm an unlatch that Nuki accepted, by reading the lock's log until an unlatch
- * entry from after the request shows up.
+ * entry from after the request shows up. Only an unlatch through the Nuki Web API counts: one from the Nuki
+ * app or the lock's button in the same few seconds is someone else's, not the guest's.
  */
 @Component
 class UnlatchConfirmation {
@@ -41,7 +43,7 @@ class UnlatchConfirmation {
             sleep(settings.interval());
             try {
                 var unlatch = lockProvider.getRecentLog(ownerId, nukiSmartlockId).stream()
-                        .filter(entry -> entry.action() == LockAction.UNLATCH)
+                        .filter(entry -> entry.action() == LockAction.UNLATCH && entry.trigger() == LockTrigger.WEB)
                         .filter(entry -> !entry.occurredAt().isBefore(requestedAt.minus(CLOCK_SKEW)))
                         .findFirst();
                 if (unlatch.isPresent()) {

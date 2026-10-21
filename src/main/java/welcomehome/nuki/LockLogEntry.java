@@ -7,9 +7,10 @@ import java.time.Instant;
  *
  * @param occurredAt when it happened
  * @param action     what happened
+ * @param trigger    where it came from
  * @param state      how it ended
  */
-public record LockLogEntry(Instant occurredAt, LockAction action, LockActionState state) {
+public record LockLogEntry(Instant occurredAt, LockAction action, LockTrigger trigger, LockActionState state) {
 
     /**
      * Tells whether the action completed.
