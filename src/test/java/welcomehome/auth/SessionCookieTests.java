@@ -7,7 +7,10 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.SessionTrackingMode;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import welcomehome.IntegrationTest;
@@ -18,6 +21,14 @@ class SessionCookieTests {
 
     @LocalServerPort
     int port;
+
+    @Autowired
+    ServletContext servletContext;
+
+    @Test
+    void theSessionTravelsOnlyInItsCookieNeverInAUrl() {
+        assertThat(servletContext.getEffectiveSessionTrackingModes()).containsExactly(SessionTrackingMode.COOKIE);
+    }
 
     @Test
     void sessionCookieIsSecureHttpOnlyAndSameSite() throws Exception {

@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="es" th:lang="${#locale.language}" th:attr="data-theme=${theme}" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head(${#messages.msg('error.' + kind + '.title')})}"></head>
+<body>
+<main class="container">
+    <th:block th:if="${signedIn}">
+        <nav th:replace="~{fragments/layout :: menu('error')}"></nav>
+    </th:block>
+    <article>
+        <header><h1 th:text="${#messages.msg('error.' + kind + '.title')}">Esta página no existe</h1></header>
+        <p th:text="${#messages.msg('error.' + kind + '.text')}">Puede que la dirección esté mal escrita.</p>
+        <p><small th:text="#{error.status(${status})}">Error 404</small></p>
+        <p th:if="${signedIn}"><a th:href="@{/}" role="button" th:text="#{error.home}">Ir al inicio</a></p>
+    </article>
+</main>
+</body>
+</html>

@@ -42,6 +42,8 @@ server:
   forward-headers-strategy: framework
   servlet:
     session:
+      # Only in the cookie: never as ;jsessionid= in a URL, where logs, history and referrers would keep it.
+      tracking-modes: cookie
       # The session cookie: only over HTTPS, not readable from JavaScript, not sent on cross-site subrequests.
       cookie:
         secure: true
