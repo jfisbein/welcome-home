@@ -24,6 +24,26 @@ nav [aria-current="page"] {
     font-weight: bold;
 }
 
+/* The menu goes on to further lines on narrow screens, such as a phone's, instead of overflowing. */
+nav.menu,
+nav.menu ul {
+    flex-wrap: wrap;
+}
+
+@media (max-width: 575px) {
+    nav.menu ul {
+        margin-right: 0;
+    }
+
+    nav.menu li {
+        padding: 0.25rem var(--pico-nav-element-spacing-horizontal);
+    }
+
+    nav.menu li button {
+        padding: 0.25rem 0.75rem;
+    }
+}
+
 /* Configuration's sections: tabs under the menu, the current one underlined. */
 nav.sections {
     justify-content: flex-start;

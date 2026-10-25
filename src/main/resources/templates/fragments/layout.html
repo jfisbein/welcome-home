@@ -16,7 +16,7 @@
 <body>
 <!-- section: home, locks, settings or admin, the one the page belongs to. Not named "nav": a fragment
      selector also matches elements by name, and this file has two navs. -->
-<nav th:fragment="menu(section)">
+<nav th:fragment="menu(section)" class="menu">
     <ul><li><a th:href="@{/}" th:attr="aria-current=${section == 'home'} ? 'page' : null"><strong>welcome-home</strong></a></li></ul>
     <ul>
         <li><a th:href="@{/locks}" th:attr="aria-current=${section == 'locks'} ? 'page' : null"
