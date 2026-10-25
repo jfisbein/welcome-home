@@ -3,7 +3,8 @@
 <head th:replace="~{fragments/layout :: head(#{passkeys.title})}"></head>
 <body>
 <main class="container">
-    <nav th:replace="~{fragments/layout :: nav}"></nav>
+    <nav th:replace="~{fragments/layout :: menu('settings')}"></nav>
+    <nav th:replace="~{fragments/layout :: settings('passkeys')}"></nav>
     <h1 th:text="#{passkeys.heading}">Tus passkeys</h1>
     <p th:text="#{passkeys.intro}">Entras con cualquiera de ellas.</p>
 

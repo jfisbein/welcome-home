@@ -70,7 +70,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 | `locks`  | Import (`LockSync`), settings and state of each owner's locks                                               |
 | `links`  | Access links: create, list, edit, regenerate, revoke (`AccessLinks`, `LinkStatus`, `LinkUrls`)            |
 | `access` | The guest flow: guest page, `POST /api/open` (`OpenDoor`), rate limits, client IP, per-lock mutex (`LockActions`), unlatch confirmation |
-| `audit`  | Access events, history pages, purge job; publishes `AccessAttempted`                                       |
+| `audit`  | Access events, history pages, the home page's latest attempts (`RecentAttempts`), purge job; publishes `AccessAttempted` |
 | `notifications` | Emails to owners (opened, failed, denied, Nuki disconnected) by their preferences, and always about their account (recovery link created, passkey added), sent after commit (`OwnerNotifier`) |
 
 **Guest flow** (`access.OpenDoor`): rate limit per IP → the link exists, its MAC is valid and it is not revoked (`resolve_link`, a `SECURITY DEFINER` function, is the only way to read a link without an owner context) → rate limit per link → within its dates → lock active → owner's Nuki connection OK → in the owner's context, unlatch under the lock's mutex (a second guest waits and gets the same result) → read the lock's log until an unlatch shows up with trigger 0 or 4 (not by hand, button or accessory), within 15 s → record the event.
@@ -129,7 +129,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 - **Liquibase**: XML with native tags; `<sql>` only for CHECK constraints, RLS, GRANTs and functions. A new table with `owner_id` gets `ENABLE ROW LEVEL SECURITY`, its policy and its grants to `app_user` in the same changeset (`MigrationTests` fails otherwise).
 - **Data access**: `JdbcClient` with records; owner data only inside `OwnerTransactions.execute/run`, with `owner_id` in the query as well. No `findById(id)` without an owner.
 - **Configuration**: `application.yaml` (and `application-dev.yaml`); `@ConfigurationProperties` records; durations in ISO-8601 (`PT1M`).
-- **Web**: Thymeleaf templates, Pico CSS classes, CSRF on every form, HTML forms send PUT/PATCH/DELETE through `_method`. JS in `static/js/`, one small file per behavior, no inline scripts (CSP `script-src 'self'`); a script's texts come from its page, as hidden lists or `data-*` attributes. Routes taking an id must be covered by `OwnerIsolationTests` (a guard test lists them).
+- **Web**: Thymeleaf templates, Pico CSS classes; every signed-in page starts with `fragments/layout :: menu('<section>')` (home, locks, settings or admin), and configuration's pages add `settings('<section>')`; CSRF on every form, HTML forms send PUT/PATCH/DELETE through `_method`. JS in `static/js/`, one small file per behavior, no inline scripts (CSP `script-src 'self'`); a script's texts come from its page, as hidden lists or `data-*` attributes. Routes taking an id must be covered by `OwnerIsolationTests` (a guard test lists them).
 - **Commits**: one per task, pushed to `main` once `./gradlew build` is green.
 
 ## Testing strategy

@@ -3,7 +3,7 @@
 <head th:replace="~{fragments/layout :: head(#{locks.title})}"></head>
 <body>
 <main class="container">
-    <nav th:replace="~{fragments/layout :: nav}"></nav>
+    <nav th:replace="~{fragments/layout :: menu('locks')}"></nav>
     <h1 th:text="#{locks.title}">Cerraduras</h1>
 
     <article th:if="${synced}">

@@ -3,7 +3,7 @@
 <head th:replace="~{fragments/layout :: head(${lock.name})}"></head>
 <body>
 <main class="container">
-    <nav th:replace="~{fragments/layout :: nav}"></nav>
+    <nav th:replace="~{fragments/layout :: menu('locks')}"></nav>
     <h1 th:text="${lock.name}">Casa</h1>
     <p class="actions">
         <a th:href="@{/locks/{id}/links(id=${lock.id})}" role="button" th:text="#{lock.links}">Enlaces</a>

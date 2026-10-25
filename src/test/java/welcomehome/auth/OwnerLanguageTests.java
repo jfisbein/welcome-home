@@ -72,17 +72,19 @@ class OwnerLanguageTests {
     }
 
     @Test
-    void theOwnerChoosesTheirLanguageOnThePanel() {
+    void theOwnerChoosesTheirLanguageInConfiguration() {
         insertOwner("es");
-        assertThat(home("es"))
+        assertThat(body(mvc.get().uri("/language").with(owner()).exchange()))
                 .containsPattern("<option value=\"es\" lang=\"es\"\\s+selected=\"selected\">Español</option>")
                 .contains("<option value=\"en\" lang=\"en\">English</option>");
 
         assertThat(mvc.put().uri("/language").with(owner()).with(csrf()).param("language", "en"))
-                .hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/");
+                .hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/language");
 
         assertThat(language(ALICE)).isEqualTo("en");
         assertThat(home("es")).contains("<html lang=\"en\"", "Signed in as");
+        assertThat(body(mvc.get().uri("/language").with(owner()).flashAttr("languageSaved", true).exchange()))
+                .contains("Language saved.");
     }
 
     @Test

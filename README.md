@@ -22,6 +22,17 @@ Quick check: `curl http://localhost:8080/actuator/health`.
 
 The compiler runs [Error Prone](https://errorprone.info) with [NullAway](https://github.com/uber/NullAway) in JSpecify mode: in the app's code nothing is null unless it is `@Nullable` (`org.jspecify.annotations`), and the build fails where a possibly null value could be dereferenced or passed where it may not. Every package is `@NullMarked` in its `package-info.java`, so the IDE knows it too. Tests are not checked for nullness.
 
+## Pages
+
+Signed-in owners have a menu at the top of every page:
+
+- **Home** (`/`, the "welcome-home" name): the owner's locks, each with its links and history, and their latest 10 guest attempts across all locks (`audit.RecentAttempts`), each in its lock's time zone and leading to that lock's or link's history. It also asks the owner to verify their email, to connect Nuki, or to paste a new API token when Nuki rejected theirs.
+- **Cerraduras** (`/locks`): syncing with Nuki, each lock's settings and state, its links and its history.
+- **Configuración** (`/settings`, which leads to its first section): one page per section, linked to each other by a row under the menu: Nuki (`/nuki/connection`), Idioma (`/language`), Avisos (`/notifications`) and Passkeys (`/passkeys`).
+- **Administración** (`/admin/owners`): admins only.
+
+The menu marks the section a page belongs to (`aria-current="page"`): each page passes it to the `menu` fragment of `fragments/layout.html`, and configuration's pages also pass theirs to the `settings` fragment.
+
 ## Database
 
 `deploy/db-init/01-create-roles.sh` creates two roles when an empty Postgres starts:
@@ -59,13 +70,13 @@ docker compose run --rm app --bootstrap-admin         # production
 
 Opening an invitation link asks for an email and creates a passkey on that device; owners then sign in with it at `/login`. There are no passwords.
 
-A new owner then gets an email with a link to verify that the address is theirs (valid 7 days; the panel offers to send another, at most every 5 minutes). Opening the link shows a button, and only pressing it verifies the address, as mail scanners open links and one at a mistyped address must not verify it. Until then no other email goes to the address, and the panel and the notifications page say so. The link's token is kept only as a SHA-256, with its expiry, on the owner's row. Owners registered before this existed count as verified.
+A new owner then gets an email with a link to verify that the address is theirs (valid 7 days; the home page offers to send another, at most every 5 minutes). Opening the link shows a button, and only pressing it verifies the address, as mail scanners open links and one at a mistyped address must not verify it. Until then no other email goes to the address, and the home page and the notifications page say so. The link's token is kept only as a SHA-256, with its expiry, on the owner's row. Owners registered before this existed count as verified.
 
 Admins invite further owners from the admin panel (`/admin/owners`, linked from the owner's panel): each invitation has a note on who it is for and may make the new owner an admin too. Its link is shown only once, since only a hash of the token is stored. The panel lists owners' emails and registration dates, never their locks or links: Row-Level Security applies to admins like to any other owner.
 
 "Dar de baja" (`DELETE /admin/owners`, after confirming) deletes an owner with everything of theirs, in one transaction: the owner row's foreign keys cascade to their Nuki connection, locks, links, history and recovery links, and their passkeys are deleted by email. Invitations they created stay, without a creator. An admin cannot delete themselves, so an admin is always left. The deleted data stays in the backups until they expire (30 days); the owner's Nuki API token should also be deleted in Nuki Web.
 
-Each owner manages their passkeys at `/passkeys` ("Passkeys" in the menu): the list shows each one's name, when it was created and when it last signed in. An owner renames them (`PATCH /passkeys/{credentialId}`), deletes the one of a lost device (`DELETE /passkeys/{credentialId}`, after confirming; never the last one, so that nobody locks themselves out) and adds another from the device or password manager where they want it, with a name, through Spring Security's own `POST /webauthn/register/options` and `POST /webauthn/register`. Passkeys live in Spring Security's tables, which have no `owner_id`: every query joins `user_entities` by the owner's email, and another owner's passkey is a 404.
+Each owner manages their passkeys at `/passkeys` (Configuración → Passkeys): the list shows each one's name, when it was created and when it last signed in. An owner renames them (`PATCH /passkeys/{credentialId}`), deletes the one of a lost device (`DELETE /passkeys/{credentialId}`, after confirming; never the last one, so that nobody locks themselves out) and adds another from the device or password manager where they want it, with a name, through Spring Security's own `POST /webauthn/register/options` and `POST /webauthn/register`. Passkeys live in Spring Security's tables, which have no `owner_id`: every query joins `user_entities` by the owner's email, and another owner's passkey is a 404.
 
 An owner who lost their passkey gets a passkey recovery link: from the admin panel ("Nueva passkey", next to each owner), or from the server for an admin who cannot sign in at all:
 
@@ -83,7 +94,7 @@ The `nuki` module is the only one that talks to Nuki, through the Nuki Web API (
 
 Owners connect at `/nuki/connection` by pasting an API token generated in Nuki Web (Menu → API); the page explains how, step by step. The token needs only `smartlock.readOnly`, `smartlock.action` and `smartlock.log`: view the locks, operate them and read their log (in Nuki Web's Spanish form, "Ver dispositivos", "Gestionar dispositivos" and "Ver protocolos de cierre y obtener notificaciones de protocolo"). The token is stored only after `GET /smartlock` and `GET /smartlock/log` accept it, encrypted for its owner, and it is never shown again: openings are confirmed from the lock's log, so a token that may not read it is refused, with a message that names the three permissions. Whether it may operate the locks cannot be checked without acting on one. Pasting a new token replaces the old one and reconnects a disconnected account.
 
-When Nuki answers 401 to a stored token, the connection becomes `DISCONNECTED`: links stop opening and the owner's panel asks for a new token. A job checks every connection daily (`welcomehome.nuki.check-cron`, 08:00 server time by default), so that the owner learns about a revoked token before a guest does. A 403 (a permission missing) or an unanswered call does not disconnect. An unlatch refused with a 403 is recorded as `missing-permission`, so the history and the owner's email say that the token may not open, while the guest only reads that the door is not available.
+When Nuki answers 401 to a stored token, the connection becomes `DISCONNECTED`: links stop opening and the owner's home page asks for a new token. A job checks every connection daily (`welcomehome.nuki.check-cron`, 08:00 server time by default), so that the owner learns about a revoked token before a guest does. A 403 (a permission missing) or an unanswered call does not disconnect. An unlatch refused with a 403 is recorded as `missing-permission`, so the history and the owner's email say that the token may not open, while the guest only reads that the door is not available.
 
 Disconnecting (`DELETE /nuki/connection`, the "Desconectar Nuki" button) deletes the token. Locks and links stay as they are, without any change of state, but cannot open the door until the owner connects again: guests see "not available".
 
@@ -146,7 +157,7 @@ Attempts hold IP addresses, which are personal data, so they are kept for `welco
 
 ## Notifications
 
-Owners get emails about their locks and choose which ones at `/notifications` ("Avisos" in the menu); an owner who never chose gets them all:
+Owners get emails about their locks and choose which ones at `/notifications` (Configuración → Avisos); an owner who never chose gets them all:
 
 | Kind | When | Example subject |
 |------|------|-----------------|
@@ -165,7 +176,7 @@ Emails go through any SMTP server, set with `spring.mail.host`, `spring.mail.por
 
 ## Languages
 
-The app speaks Spanish, the default, and English. A guest's pages are in their browser's language (its first one the app has texts for, else Spanish); a signed-in owner's pages and all their emails are in the language stored for them (`owner.language`): that of the pages they registered from, changed on the panel ("Idioma", `PUT /language`).
+The app speaks Spanish, the default, and English. A guest's pages are in their browser's language (its first one the app has texts for, else Spanish); a signed-in owner's pages and all their emails are in the language stored for them (`owner.language`): that of the pages they registered from, changed in Configuración → Idioma (`/language`, saved with `PUT /language`).
 
 Every text a person reads is in `src/main/resources/i18n/messages*.properties`: `messages.properties` in Spanish, `messages_en.properties` in English, with the same keys. Templates take them with `#{key}` (or `[[#{key}]]` next to a form field); a message with markup is rendered with `th:utext`, and any value it shows is escaped with `#strings.escapeXml`. Scripts take theirs from the page that loads them, as hidden lists or `data-*` attributes, as the Content Security Policy rules out inline scripts. Dates use each bundle's `format.*` patterns. Every message goes through `MessageFormat`, so an apostrophe is written `''`.
 
@@ -177,7 +188,7 @@ Three tests keep it so: `MessageBundlesTests` (every bundle has exactly the Span
 2. Add the language to `Languages.SUPPORTED` in `src/main/java/welcomehome/config/Languages.java`.
 3. Run `./gradlew build`: the tests above check that the bundle has every key and that every page renders in it.
 
-Owners then find it in the panel's list, under its own name; browsers that prefer it get it on guest pages.
+Owners then find it in Configuración → Idioma, under its own name; browsers that prefer it get it on guest pages.
 
 ## Web security
 

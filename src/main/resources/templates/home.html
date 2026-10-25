@@ -3,12 +3,11 @@
 <head th:replace="~{fragments/layout :: head(#{home.title})}"></head>
 <body>
 <main class="container">
-    <nav th:replace="~{fragments/layout :: nav}"></nav>
+    <nav th:replace="~{fragments/layout :: menu('home')}"></nav>
     <h1 th:text="#{home.greeting}">Hola</h1>
     <p th:utext="#{home.signed-in-as(${#strings.escapeXml(email)})}">
         Has entrado como <strong>propietario@example.com</strong>.
     </p>
-    <article th:if="${languageSaved}"><p th:text="#{home.language.saved}">Idioma guardado.</p></article>
     <article th:if="${verificationSent}">
         <p th:text="#{home.verification-sent(${email})}">Te hemos enviado un enlace nuevo.</p>
     </article>
@@ -31,15 +30,58 @@
         <a th:href="@{/nuki/connection}" role="button" th:text="#{home.disconnected.button}">Pegar un API token nuevo</a>
     </article>
 
-    <form th:action="@{/language}" th:method="put">
-        <fieldset role="group">
-            <select name="language" th:aria-label="#{home.language}">
-                <option th:each="option : ${languages}" th:value="${option.tag}" th:lang="${option.tag}"
-                        th:text="${option.name}" th:selected="${option.tag == #locale.language}">Español</option>
-            </select>
-            <button type="submit" class="secondary" th:text="#{common.save}">Guardar</button>
-        </fieldset>
-    </form>
+    <section>
+        <h2 th:text="#{home.locks}">Tus cerraduras</h2>
+        <p th:if="${locks.isEmpty()}" th:utext="#{home.locks.empty(@{/locks})}">Todavía no tienes cerraduras.</p>
+        <table th:unless="${locks.isEmpty()}">
+            <tbody>
+            <tr th:each="lock : ${locks}">
+                <td>
+                    <strong th:text="${lock.name}">Casa</strong>
+                    <small th:unless="${lock.active}"><br><span th:text="#{locks.inactive}">Ya no está en tu cuenta de
+                        Nuki</span></small>
+                </td>
+                <td>
+                    <a th:href="@{/locks/{id}/links(id=${lock.id})}" th:text="#{locks.links}">Enlaces</a> ·
+                    <a th:href="@{/locks/{id}/history(id=${lock.id})}" th:text="#{common.history}">Historial</a>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <section>
+        <h2 th:text="#{home.attempts}">Últimos intentos de abrir</h2>
+        <p th:if="${attempts.isEmpty()}" th:text="#{home.attempts.empty}">Todavía no hay intentos de abrir.</p>
+        <div class="overflow-auto" th:unless="${attempts.isEmpty()}">
+            <table>
+                <thead>
+                <tr>
+                    <th scope="col" th:text="#{history.column.date}">Fecha</th>
+                    <th scope="col" th:text="#{home.attempts.column.lock}">Cerradura</th>
+                    <th scope="col" th:text="#{history.column.link}">Enlace</th>
+                    <th scope="col" th:text="#{history.column.outcome}">Resultado</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="attempt : ${attempts}">
+                    <td th:text="${#temporals.format(attempt.occurredAt, #messages.msg('format.datetime'))}">
+                        01/11/2030 15:02</td>
+                    <td><a th:href="@{/locks/{id}/history(id=${attempt.lockId})}"
+                           th:text="${attempt.lockName}">Casa</a></td>
+                    <td><a th:href="@{/locks/{id}/history(id=${attempt.lockId},link=${attempt.linkId})}"
+                           th:text="${attempt.linkLabel}">Ana</a></td>
+                    <td th:switch="${attempt.result.name()}">
+                        <strong th:case="'OK'" th:text="${attempt.outcome}">Abierta</strong>
+                        <span th:case="*" th:text="${attempt.outcome}">Denegado: caducado</span>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <p th:unless="${attempts.isEmpty()}"><small th:text="#{home.attempts.note}">Cada uno a la hora de su
+            cerradura.</small></p>
+    </section>
 </main>
 </body>
 </html>

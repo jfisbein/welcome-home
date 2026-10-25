@@ -3,7 +3,8 @@
 <head th:replace="~{fragments/layout :: head(#{nuki.title})}"></head>
 <body>
 <main class="container">
-    <nav th:replace="~{fragments/layout :: nav}"></nav>
+    <nav th:replace="~{fragments/layout :: menu('settings')}"></nav>
+    <nav th:replace="~{fragments/layout :: settings('nuki')}"></nav>
     <h1 th:text="#{nuki.heading}">Conexión con Nuki</h1>
 
     <article th:if="${connectedLocks}">

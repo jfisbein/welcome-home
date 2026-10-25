@@ -18,3 +18,13 @@
     margin: 0;
     padding: 0.25rem 0.75rem;
 }
+
+/* The page's place in the menu and in configuration's sections. */
+nav [aria-current="page"] {
+    font-weight: bold;
+}
+
+/* Configuration's sections: a row of links under the menu, starting at the left. */
+nav.sections {
+    justify-content: flex-start;
+}

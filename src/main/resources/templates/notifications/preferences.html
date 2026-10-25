@@ -3,7 +3,8 @@
 <head th:replace="~{fragments/layout :: head(#{notifications.title})}"></head>
 <body>
 <main class="container">
-    <nav th:replace="~{fragments/layout :: nav}"></nav>
+    <nav th:replace="~{fragments/layout :: menu('settings')}"></nav>
+    <nav th:replace="~{fragments/layout :: settings('notifications')}"></nav>
     <h1 th:text="#{notifications.heading}">Avisos por email</h1>
 
     <article th:unless="${emailConfigured}" role="alert">

@@ -38,11 +38,13 @@ class AccessHistoryController {
 
     private final Locks locks;
     private final AccessHistory history;
+    private final OutcomeTexts outcomes;
     private final MessageSource messages;
 
-    AccessHistoryController(Locks locks, AccessHistory history, MessageSource messages) {
+    AccessHistoryController(Locks locks, AccessHistory history, OutcomeTexts outcomes, MessageSource messages) {
         this.locks = locks;
         this.history = history;
+        this.outcomes = outcomes;
         this.messages = messages;
     }
 
@@ -60,7 +62,7 @@ class AccessHistoryController {
                 PAGE_SIZE);
         model.addAttribute("lock", lock);
         model.addAttribute("events", page.events().stream()
-                .map(event -> HistoryRow.of(event, zone, outcome(event.reason(), locale),
+                .map(event -> HistoryRow.of(event, zone, outcomes.describe(event.reason(), locale),
                         country(event.country(), locale)))
                 .toList());
         model.addAttribute("filtered", link != null);
@@ -70,13 +72,6 @@ class AccessHistoryController {
             model.addAttribute("olderUrl", url(lockId, link, page.olderBefore()));
         }
         return "audit/history";
-    }
-
-    /** What an event's reason code means to the owner; a code no outcome has is shown as it is. */
-    private String outcome(@Nullable String reason, Locale locale) {
-        return AccessOutcome.ofCode(reason)
-                .map(outcome -> messages.getMessage("outcome." + outcome.code(), null, locale))
-                .orElse(reason == null ? "" : reason);
     }
 
     /** A country as the history shows it: its flag, and its name in the reader's language. Tor has no flag. */

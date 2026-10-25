@@ -3,7 +3,7 @@
 <head th:replace="~{fragments/layout :: head(#{history.title(${lock.name})})}"></head>
 <body>
 <main class="container">
-    <nav th:replace="~{fragments/layout :: nav}"></nav>
+    <nav th:replace="~{fragments/layout :: menu('locks')}"></nav>
     <h1 th:text="#{history.title(${lock.name})}">Historial de Casa</h1>
     <p th:if="${filtered}">
         <span th:text="#{history.only-link(${linkLabel})}">Solo el enlace de Ana.</span>

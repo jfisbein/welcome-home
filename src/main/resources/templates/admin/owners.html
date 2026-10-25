@@ -3,7 +3,7 @@
 <head th:replace="~{fragments/layout :: head(#{admin.owners.title})}"></head>
 <body>
 <main class="container">
-    <nav th:replace="~{fragments/layout :: nav}"></nav>
+    <nav th:replace="~{fragments/layout :: menu('admin')}"></nav>
     <h1 th:text="#{admin.owners.title}">Propietarios</h1>
 
     <article th:if="${recovery}">

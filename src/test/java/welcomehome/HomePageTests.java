@@ -1,0 +1,162 @@
+package welcomehome;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+
+import java.nio.charset.StandardCharsets;
+import java.util.UUID;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.test.web.servlet.assertj.MvcTestResult;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
+import org.testcontainers.postgresql.PostgreSQLContainer;
+import welcomehome.nuki.NukiStandInConfiguration;
+
+/** Same configuration as the locks tests, so they share one application context. */
+@IntegrationTest
+@AutoConfigureMockMvc
+@Import(NukiStandInConfiguration.class)
+class HomePageTests {
+
+    static final String ALICE = "alice@example.com";
+    static final String BOB = "bob@example.com";
+
+    @Autowired
+    MockMvcTester mvc;
+
+    @Autowired
+    PostgreSQLContainer postgres;
+
+    JdbcClient migrator;
+    UUID casa;
+    UUID garaje;
+    UUID ana;
+    UUID carlos;
+    UUID bobsLink;
+
+    @BeforeEach
+    void insertLocksAndLinks() {
+        migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        migrator.sql("DELETE FROM owner").update();
+        var alice = insertOwner(ALICE);
+        casa = insertLock(alice, 17, "Casa", "Europe/Madrid");
+        garaje = insertLock(alice, 18, "Garaje", "America/New_York");
+        ana = insertLink(casa, "Ana");
+        carlos = insertLink(garaje, "Carlos");
+        bobsLink = insertLink(insertLock(insertOwner(BOB), 19, "Casa de Bob", "Europe/Madrid"), "Invitado de Bob");
+    }
+
+    @Test
+    void listsTheOwnersLocksWithTheirLinksAndHistory() {
+        migrator.sql("UPDATE lock SET active = false WHERE id = ?").param(garaje).update();
+
+        assertThat(home()).containsSubsequence("Casa", "Garaje", "Ya no está en tu cuenta de Nuki")
+                .contains("href=\"/locks/" + casa + "/links\"", "href=\"/locks/" + casa + "/history\"",
+                        "href=\"/locks/" + garaje + "/links\"")
+                .doesNotContain("Casa de Bob");
+    }
+
+    @Test
+    void ownerWithoutLocksIsToldWhereToImportThem() {
+        migrator.sql("DELETE FROM lock").update();
+
+        assertThat(home()).contains("Todavía no tienes cerraduras", "href=\"/locks\"");
+    }
+
+    @Test
+    void showsTheLatestAttemptsOfEveryLockNewestFirstInEachLocksTimeZone() {
+        insertEvent(ana, "2030-07-01T10:00:00Z", "DENIED", "expired");
+        insertEvent(carlos, "2030-07-02T10:00:00Z", "OK", "opened");
+        insertEvent(ana, "2030-07-03T10:00:00Z", "ERROR", "night-mode");
+        insertEvent(bobsLink, "2030-07-04T10:00:00Z", "OK", "opened");
+
+        assertThat(home()).containsSubsequence(
+                        "03/07/2030 12:00", "Casa", "Ana", "Error: modo nocturno",
+                        "02/07/2030 06:00", "Garaje", "Carlos", "Abierta",
+                        "01/07/2030 12:00", "Casa", "Ana", "Denegado: caducado")
+                .contains("href=\"/locks/" + casa + "/history?link=" + ana + "\"")
+                .as("another owner's attempts").doesNotContain("Invitado de Bob", "04/07/2030");
+    }
+
+    @Test
+    void showsOnlyTheLastTenAttempts() {
+        for (var day = 1; day <= 11; day++) {
+            insertEvent(ana, "2030-07-%02dT10:00:00Z".formatted(day), "OK", "opened");
+        }
+
+        assertThat(home()).contains(">11/07/2030 12:00<", ">02/07/2030 12:00<").doesNotContain(">01/07/2030 12:00<");
+    }
+
+    @Test
+    void saysWhenThereAreNoAttempts() {
+        assertThat(home()).contains("Todavía no hay intentos de abrir");
+    }
+
+    @Test
+    void menuMarksTheCurrentSectionAndConfigurationLeadsToItsSections() {
+        assertThat(home()).contains("href=\"/locks\"", "href=\"/settings\"").doesNotContain("href=\"/passkeys\"");
+        assertThat(mvc.get().uri("/settings").with(owner(ALICE))).hasRedirectedUrl("/nuki/connection");
+        assertThat(body(mvc.get().uri("/locks").with(owner(ALICE)).exchange()))
+                .contains("<a href=\"/locks\" aria-current=\"page\">Cerraduras</a>");
+        for (var section : new String[] {"/nuki/connection", "/language", "/notifications", "/passkeys"}) {
+            assertThat(body(mvc.get().uri(section).with(owner(ALICE)).exchange()))
+                    .as(section)
+                    .contains("<a href=\"/settings\" aria-current=\"page\">Configuración</a>",
+                            "<a href=\"" + section + "\" aria-current=\"page\">",
+                            "href=\"/nuki/connection\"", "href=\"/language\"", "href=\"/notifications\"",
+                            "href=\"/passkeys\"");
+        }
+    }
+
+    private String home() {
+        return body(mvc.get().uri("/").with(owner(ALICE)).exchange());
+    }
+
+    private static String body(MvcTestResult result) {
+        assertThat(result).hasStatusOk();
+        return new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8);
+    }
+
+    private void insertEvent(UUID linkId, String occurredAt, String result, String reason) {
+        migrator.sql("""
+                        INSERT INTO access_event (owner_id, link_id, lock_id, occurred_at, result, reason, ip)
+                        SELECT owner_id, id, lock_id, CAST(? AS timestamptz), ?, ?, inet '198.51.100.1'
+                        FROM access_link WHERE id = ?
+                        """)
+                .params(occurredAt, result, reason, linkId)
+                .update();
+    }
+
+    private UUID insertOwner(String email) {
+        return migrator.sql("INSERT INTO owner (email) VALUES (?) RETURNING id").param(email).query(UUID.class).single();
+    }
+
+    private UUID insertLock(UUID ownerId, long nukiSmartlockId, String name, String timeZone) {
+        return migrator.sql("""
+                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone) VALUES (?, ?, ?, ?) RETURNING id
+                        """)
+                .params(ownerId, nukiSmartlockId, name, timeZone)
+                .query(UUID.class)
+                .single();
+    }
+
+    private UUID insertLink(UUID lockId, String label) {
+        return migrator.sql("""
+                        INSERT INTO access_link (owner_id, lock_id, label, valid_from, valid_until)
+                        SELECT owner_id, id, ?, now(), now() + interval '1 day' FROM lock WHERE id = ? RETURNING id
+                        """)
+                .params(label, lockId)
+                .query(UUID.class)
+                .single();
+    }
+
+    private static RequestPostProcessor owner(String email) {
+        return user(email).roles("OWNER");
+    }
+}

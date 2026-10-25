@@ -14,19 +14,35 @@
     <link rel="stylesheet" th:href="@{/css/app.css}">
 </head>
 <body>
-<nav th:fragment="nav">
-    <ul><li><a th:href="@{/}"><strong>welcome-home</strong></a></li></ul>
+<!-- section: home, locks, settings or admin, the one the page belongs to. Not named "nav": a fragment
+     selector also matches elements by name, and this file has two navs. -->
+<nav th:fragment="menu(section)">
+    <ul><li><a th:href="@{/}" th:attr="aria-current=${section == 'home'} ? 'page' : null"><strong>welcome-home</strong></a></li></ul>
     <ul>
-        <li><a th:href="@{/locks}" th:text="#{nav.locks}">Cerraduras</a></li>
-        <li><a th:href="@{/nuki/connection}" th:text="#{nav.nuki}">Nuki</a></li>
-        <li><a th:href="@{/notifications}" th:text="#{nav.notifications}">Avisos</a></li>
-        <li><a th:href="@{/passkeys}" th:text="#{nav.passkeys}">Passkeys</a></li>
-        <li th:if="${isAdmin}"><a th:href="@{/admin/owners}" th:text="#{nav.admin}">Administración</a></li>
+        <li><a th:href="@{/locks}" th:attr="aria-current=${section == 'locks'} ? 'page' : null"
+               th:text="#{nav.locks}">Cerraduras</a></li>
+        <li><a th:href="@{/settings}" th:attr="aria-current=${section == 'settings'} ? 'page' : null"
+               th:text="#{nav.settings}">Configuración</a></li>
+        <li th:if="${isAdmin}"><a th:href="@{/admin/owners}" th:attr="aria-current=${section == 'admin'} ? 'page' : null"
+                                  th:text="#{nav.admin}">Administración</a></li>
         <li>
             <form th:action="@{/logout}" method="post">
                 <button type="submit" class="secondary" th:text="#{nav.sign-out}">Salir</button>
             </form>
         </li>
+    </ul>
+</nav>
+<!-- Configuration's sections, each its own page; current: nuki, language, notifications or passkeys. -->
+<nav th:fragment="settings(current)" class="sections" th:aria-label="#{nav.settings}">
+    <ul>
+        <li><a th:href="@{/nuki/connection}" th:attr="aria-current=${current == 'nuki'} ? 'page' : null"
+               th:text="#{nav.nuki}">Nuki</a></li>
+        <li><a th:href="@{/language}" th:attr="aria-current=${current == 'language'} ? 'page' : null"
+               th:text="#{nav.language}">Idioma</a></li>
+        <li><a th:href="@{/notifications}" th:attr="aria-current=${current == 'notifications'} ? 'page' : null"
+               th:text="#{nav.notifications}">Avisos</a></li>
+        <li><a th:href="@{/passkeys}" th:attr="aria-current=${current == 'passkeys'} ? 'page' : null"
+               th:text="#{nav.passkeys}">Passkeys</a></li>
     </ul>
 </nav>
 </body>

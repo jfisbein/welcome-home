@@ -64,7 +64,7 @@ class PasskeyManagementTests {
                 .hasStatusOk()
                 .bodyText().contains("Tus passkeys", "value=\"Passkey\"", "Añadir passkey", "/js/passkeys.js")
                 .doesNotContain("Móvil de Bob");
-        assertThat(mvc.get().uri("/").with(owner(ALICE))).bodyText().contains("href=\"/passkeys\"");
+        assertThat(mvc.get().uri("/nuki/connection").with(owner(ALICE))).bodyText().contains("href=\"/passkeys\"");
     }
 
     @Test

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="es" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head(#{language.title})}"></head>
+<body>
+<main class="container">
+    <nav th:replace="~{fragments/layout :: menu('settings')}"></nav>
+    <nav th:replace="~{fragments/layout :: settings('language')}"></nav>
+    <h1 th:text="#{language.title}">Idioma</h1>
+    <article th:if="${languageSaved}"><p th:text="#{language.saved}">Idioma guardado.</p></article>
+    <p th:text="#{language.text}">Tus páginas y los emails que te enviamos están en este idioma.</p>
+
+    <form th:action="@{/language}" th:method="put">
+        <fieldset role="group">
+            <select name="language" th:aria-label="#{language.title}">
+                <option th:each="option : ${languages}" th:value="${option.tag}" th:lang="${option.tag}"
+                        th:text="${option.name}" th:selected="${option.tag == #locale.language}">Español</option>
+            </select>
+            <button type="submit" th:text="#{common.save}">Guardar</button>
+        </fieldset>
+    </form>
+</main>
+</body>
+</html>

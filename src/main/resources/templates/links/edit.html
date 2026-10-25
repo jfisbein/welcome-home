@@ -3,7 +3,7 @@
 <head th:replace="~{fragments/layout :: head(#{link-edit.title})}"></head>
 <body>
 <main class="container">
-    <nav th:replace="~{fragments/layout :: nav}"></nav>
+    <nav th:replace="~{fragments/layout :: menu('locks')}"></nav>
     <h1 th:text="#{link-edit.heading(${link.label})}">Enlace de Ana</h1>
     <p th:text="#{link-edit.text(${link.lockName})}">Abre Casa. Si cambias las fechas o la etiqueta, la URL sigue.</p>
 
