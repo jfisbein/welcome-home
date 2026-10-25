@@ -24,7 +24,34 @@ nav [aria-current="page"] {
     font-weight: bold;
 }
 
-/* Configuration's sections: a row of links under the menu, starting at the left. */
+/* Configuration's sections: tabs under the menu, the current one underlined. */
 nav.sections {
     justify-content: flex-start;
+    margin-bottom: var(--pico-typography-spacing-vertical);
+    border-bottom: 1px solid var(--pico-muted-border-color);
+}
+
+nav.sections ul {
+    margin-left: 0;
+}
+
+nav.sections li {
+    padding: 0;
+}
+
+nav.sections li a {
+    margin: 0 0 -1px;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    color: var(--pico-muted-color);
+}
+
+nav.sections li a:hover {
+    border-bottom-color: var(--pico-muted-border-color);
+}
+
+nav.sections li a[aria-current="page"] {
+    border-bottom-color: var(--pico-primary);
+    color: var(--pico-primary);
 }
