@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
+<html lang="es" th:lang="${#locale.language}" th:attr="data-theme=${theme}" xmlns:th="http://www.thymeleaf.org">
 <body>
 <!-- The link form's fields, shared by creating and editing a link. Reads label, validFrom, validUntil and their errors. -->
 <th:block th:fragment="fields(timeZone)">

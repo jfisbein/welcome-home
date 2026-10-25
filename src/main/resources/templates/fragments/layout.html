@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" th:lang="${#locale.language}" xmlns:th="http://www.thymeleaf.org">
+<html lang="es" th:lang="${#locale.language}" th:attr="data-theme=${theme}" xmlns:th="http://www.thymeleaf.org">
 <head th:fragment="head(title)">
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -32,13 +32,13 @@
         </li>
     </ul>
 </nav>
-<!-- Configuration's sections, each its own page; current: nuki, language, notifications or passkeys. -->
+<!-- Configuration's sections, each its own page; current: nuki, preferences, notifications or passkeys. -->
 <nav th:fragment="settings(current)" class="sections" th:aria-label="#{nav.settings}">
     <ul>
         <li><a th:href="@{/settings/nuki}" th:attr="aria-current=${current == 'nuki'} ? 'page' : null"
                th:text="#{nav.nuki}">Nuki</a></li>
-        <li><a th:href="@{/settings/language}" th:attr="aria-current=${current == 'language'} ? 'page' : null"
-               th:text="#{nav.language}">Idioma</a></li>
+        <li><a th:href="@{/settings/preferences}" th:attr="aria-current=${current == 'preferences'} ? 'page' : null"
+               th:text="#{nav.preferences}">Preferencias</a></li>
         <li><a th:href="@{/settings/notifications}" th:attr="aria-current=${current == 'notifications'} ? 'page' : null"
                th:text="#{nav.notifications}">Avisos</a></li>
         <li><a th:href="@{/settings/passkeys}" th:attr="aria-current=${current == 'passkeys'} ? 'page' : null"

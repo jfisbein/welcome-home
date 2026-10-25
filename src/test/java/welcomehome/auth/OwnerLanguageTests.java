@@ -25,7 +25,10 @@ import welcomehome.IntegrationTest;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.admin.InvitationService;
 
-/** An owner's language: taken from the pages they register from, chosen on the panel, used on every page. */
+/**
+ * An owner's language: taken from the pages they register from, chosen in Configuración → Preferencias, used on
+ * every page.
+ */
 @IntegrationTest
 @AutoConfigureMockMvc
 class OwnerLanguageTests {
@@ -74,16 +77,16 @@ class OwnerLanguageTests {
     @Test
     void theOwnerChoosesTheirLanguageInConfiguration() {
         insertOwner("es");
-        assertThat(body(mvc.get().uri("/settings/language").with(owner()).exchange()))
+        assertThat(body(mvc.get().uri("/settings/preferences").with(owner()).exchange()))
                 .containsPattern("<option value=\"es\" lang=\"es\"\\s+selected=\"selected\">Español</option>")
                 .contains("<option value=\"en\" lang=\"en\">English</option>");
 
         assertThat(mvc.put().uri("/settings/language").with(owner()).with(csrf()).param("language", "en"))
-                .hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/settings/language");
+                .hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/settings/preferences");
 
         assertThat(language(ALICE)).isEqualTo("en");
         assertThat(home("es")).contains("<html lang=\"en\"", "Signed in as");
-        assertThat(body(mvc.get().uri("/settings/language").with(owner()).flashAttr("languageSaved", true).exchange()))
+        assertThat(body(mvc.get().uri("/settings/preferences").with(owner()).flashAttr("languageSaved", true).exchange()))
                 .contains("Language saved.");
     }
 

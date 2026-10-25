@@ -106,13 +106,13 @@ class HomePageTests {
         assertThat(mvc.get().uri("/settings").with(owner(ALICE))).hasRedirectedUrl("/settings/nuki");
         assertThat(body(mvc.get().uri("/locks").with(owner(ALICE)).exchange()))
                 .contains("<a href=\"/locks\" aria-current=\"page\">Cerraduras</a>");
-        for (var section : new String[] {"/settings/nuki", "/settings/language", "/settings/notifications",
+        for (var section : new String[] {"/settings/nuki", "/settings/preferences", "/settings/notifications",
                 "/settings/passkeys"}) {
             assertThat(body(mvc.get().uri(section).with(owner(ALICE)).exchange()))
                     .as(section)
                     .contains("<a href=\"/settings\" aria-current=\"page\">Configuración</a>",
                             "<a href=\"" + section + "\" aria-current=\"page\">",
-                            "href=\"/settings/nuki\"", "href=\"/settings/language\"", "href=\"/settings/notifications\"",
+                            "href=\"/settings/nuki\"", "href=\"/settings/preferences\"", "href=\"/settings/notifications\"",
                             "href=\"/settings/passkeys\"");
         }
     }
@@ -120,7 +120,7 @@ class HomePageTests {
     @Test
     void configurationsFormerAddressesLeadToItsSections() {
         var moved = Map.of("/nuki/connection", "/settings/nuki", "/notifications", "/settings/notifications",
-                "/passkeys", "/settings/passkeys");
+                "/passkeys", "/settings/passkeys", "/settings/language", "/settings/preferences");
         moved.forEach((from, to) -> assertThat(mvc.get().uri(from).with(owner(ALICE))).as(from)
                 .hasStatus(HttpStatus.MOVED_PERMANENTLY).hasRedirectedUrl(to));
     }

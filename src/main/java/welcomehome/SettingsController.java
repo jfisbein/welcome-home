@@ -28,6 +28,12 @@ class SettingsController {
         return moved("/settings/notifications");
     }
 
+    /** The language now shares its page with the theme. */
+    @GetMapping("/settings/language")
+    RedirectView language() {
+        return moved("/settings/preferences");
+    }
+
     @GetMapping("/passkeys")
     RedirectView passkeys() {
         return moved("/settings/passkeys");

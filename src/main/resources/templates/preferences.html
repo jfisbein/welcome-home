@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es" th:lang="${#locale.language}" th:attr="data-theme=${theme}" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head(#{preferences.title})}"></head>
+<body>
+<main class="container">
+    <nav th:replace="~{fragments/layout :: menu('settings')}"></nav>
+    <nav th:replace="~{fragments/layout :: settings('preferences')}"></nav>
+    <h1 th:text="#{preferences.title}">Preferencias</h1>
+
+    <section>
+        <h2 th:text="#{language.title}">Idioma</h2>
+        <article th:if="${languageSaved}"><p th:text="#{language.saved}">Idioma guardado.</p></article>
+        <p th:text="#{language.text}">Tus páginas y los emails que te enviamos están en este idioma.</p>
+        <form th:action="@{/settings/language}" th:method="put">
+            <fieldset role="group">
+                <select name="language" th:aria-label="#{language.title}">
+                    <option th:each="option : ${languages}" th:value="${option.tag}" th:lang="${option.tag}"
+                            th:text="${option.name}" th:selected="${option.tag == #locale.language}">Español</option>
+                </select>
+                <button type="submit" th:text="#{common.save}">Guardar</button>
+            </fieldset>
+        </form>
+    </section>
+
+    <section>
+        <h2 id="theme-title" th:text="#{theme.title}">Tema</h2>
+        <article th:if="${themeSaved}"><p th:text="#{theme.saved}">Tema guardado.</p></article>
+        <p th:text="#{theme.text}">Solo en este navegador.</p>
+        <form th:action="@{/settings/theme}" th:method="put">
+            <fieldset aria-labelledby="theme-title">
+                <label th:each="option : ${ {'auto', 'light', 'dark'} }">
+                    <input type="radio" name="theme" th:value="${option}"
+                           th:checked="${option == 'auto' ? theme == null : option == theme}">
+                    <span th:text="${#messages.msg('theme.' + option)}">Automático</span>
+                </label>
+            </fieldset>
+            <button type="submit" th:text="#{common.save}">Guardar</button>
+        </form>
+    </section>
+</main>
+</body>
+</html>

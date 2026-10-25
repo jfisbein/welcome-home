@@ -28,10 +28,14 @@ Signed-in owners have a menu at the top of every page:
 
 - **Home** (`/`, the "welcome-home" name): the owner's locks, each with its links and history, and their latest 10 guest attempts across all locks (`audit.RecentAttempts`), each in its lock's time zone and leading to that lock's or link's history. It also asks the owner to verify their email, to connect Nuki, or to paste a new API token when Nuki rejected theirs.
 - **Cerraduras** (`/locks`): syncing with Nuki, each lock's settings and state, its links and its history.
-- **Configuración** (`/settings`, which leads to its first section): one page per section, linked to each other by a row under the menu: Nuki (`/settings/nuki`), Idioma (`/settings/language`), Avisos (`/settings/notifications`) and Passkeys (`/settings/passkeys`). Their former addresses (`/nuki/connection`, `/notifications`, `/passkeys`), which emails sent before the move link to, redirect there permanently.
+- **Configuración** (`/settings`, which leads to its first section): one page per section, linked to each other by a row under the menu: Nuki (`/settings/nuki`), Preferencias (`/settings/preferences`: language and color theme), Avisos (`/settings/notifications`) and Passkeys (`/settings/passkeys`). Their former addresses (`/nuki/connection`, `/notifications`, `/passkeys`, which emails sent before the move link to, and `/settings/language`) redirect there permanently.
 - **Administración** (`/admin/owners`): admins only.
 
 The menu marks the section a page belongs to (`aria-current="page"`): each page passes it to the `menu` fragment of `fragments/layout.html`, and configuration's pages also pass theirs to the `settings` fragment.
+
+## Color theme
+
+Pages follow the system's light or dark theme, as Pico CSS does by itself. In Configuración → Preferencias an owner may choose light or dark instead (`PUT /settings/theme`): the choice is kept in this browser only, in the `theme` cookie (`light` or `dark`, one year, `HttpOnly`, `SameSite=Lax`, `Secure` like the session cookie), and every page, guest pages included, puts it in `<html data-theme>`. As the server writes the attribute, there is no flash of the other theme and no script. Choosing "Automático" deletes the cookie. It is a functional cookie, set only at the owner's request, so it needs no consent banner.
 
 ## Database
 
@@ -176,7 +180,7 @@ Emails go through any SMTP server, set with `spring.mail.host`, `spring.mail.por
 
 ## Languages
 
-The app speaks Spanish, the default, and English. A guest's pages are in their browser's language (its first one the app has texts for, else Spanish); a signed-in owner's pages and all their emails are in the language stored for them (`owner.language`): that of the pages they registered from, changed in Configuración → Idioma (`/settings/language`, saved with `PUT /settings/language`).
+The app speaks Spanish, the default, and English. A guest's pages are in their browser's language (its first one the app has texts for, else Spanish); a signed-in owner's pages and all their emails are in the language stored for them (`owner.language`): that of the pages they registered from, changed in Configuración → Preferencias (`/settings/preferences`, saved with `PUT /settings/language`).
 
 Every text a person reads is in `src/main/resources/i18n/messages*.properties`: `messages.properties` in Spanish, `messages_en.properties` in English, with the same keys. Templates take them with `#{key}` (or `[[#{key}]]` next to a form field); a message with markup is rendered with `th:utext`, and any value it shows is escaped with `#strings.escapeXml`. Scripts take theirs from the page that loads them, as hidden lists or `data-*` attributes, as the Content Security Policy rules out inline scripts. Dates use each bundle's `format.*` patterns. Every message goes through `MessageFormat`, so an apostrophe is written `''`.
 
@@ -188,7 +192,7 @@ Three tests keep it so: `MessageBundlesTests` (every bundle has exactly the Span
 2. Add the language to `Languages.SUPPORTED` in `src/main/java/welcomehome/config/Languages.java`.
 3. Run `./gradlew build`: the tests above check that the bundle has every key and that every page renders in it.
 
-Owners then find it in Configuración → Idioma, under its own name; browsers that prefer it get it on guest pages.
+Owners then find it in Configuración → Preferencias, under its own name; browsers that prefer it get it on guest pages.
 
 ## Web security
 
