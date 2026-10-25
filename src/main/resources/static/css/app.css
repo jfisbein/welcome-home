@@ -76,11 +76,70 @@ nav.sections li a[aria-current="page"] {
     color: var(--pico-primary);
 }
 
-/* The guest's "Abrir": the page's only action, pressed standing at the door, often with one hand. */
-#open {
-    width: 100%;
-    min-height: 4.5rem;
+/* The guest's slide to open: the page's only action, done standing at the door, often with one hand. A native
+   range drawn as a wide track with the text inside and a round thumb with an arrow. */
+.slide-to-open {
+    position: relative;
     margin-bottom: var(--pico-spacing);
-    font-size: 1.5rem;
+}
+
+.slide-to-open .slide-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-left: 4.5rem;
+    color: var(--pico-muted-color);
+    font-size: 1.25rem;
     font-weight: bold;
+    pointer-events: none;
+}
+
+.slide-to-open input[type="range"] {
+    /* The thumb's arrow, white on the primary color in both themes. */
+    --slide-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14M13 6l6 6-6 6'/%3E%3C/svg%3E");
+    display: block;
+    height: 4.5rem;
+    margin: 0;
+    padding: 0.25rem;
+    border: var(--pico-border-width) solid var(--pico-form-element-border-color);
+    border-radius: 2.25rem;
+    background: var(--pico-form-element-background-color);
+    cursor: grab;
+    /* The page may still scroll up and down from the track; sideways belongs to the thumb. */
+    touch-action: pan-y;
+}
+
+.slide-to-open input[type="range"]::-webkit-slider-runnable-track {
+    height: 100%;
+    background: transparent;
+}
+
+.slide-to-open input[type="range"]::-moz-range-track {
+    height: 100%;
+    background: transparent;
+}
+
+.slide-to-open input[type="range"]::-webkit-slider-thumb {
+    width: 3.85rem;
+    height: 3.85rem;
+    margin-top: 0;
+    border: 0;
+    background: var(--pico-primary-background) var(--slide-arrow) center / 1.75rem no-repeat;
+    transform: none;
+}
+
+.slide-to-open input[type="range"]::-moz-range-thumb {
+    width: 3.85rem;
+    height: 3.85rem;
+    margin-top: 0;
+    border: 0;
+    background: var(--pico-primary-background) var(--slide-arrow) center / 1.75rem no-repeat;
+    transform: none;
+}
+
+.slide-to-open input[type="range"]:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
 }

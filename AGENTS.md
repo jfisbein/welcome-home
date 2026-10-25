@@ -4,7 +4,7 @@ Context for whoever maintains welcome-home next, person or agent. The [README](R
 
 ## What it is
 
-A private web app where a few owners connect their Nuki account and create date-bound links that open their door: a guest opens the link on their phone and presses "Abrir", with no app, account or code.
+A private web app where a few owners connect their Nuki account and create date-bound links that open their door: a guest opens the link on their phone and slides to open, with no app, account or code.
 
 **Roles**
 
@@ -22,7 +22,7 @@ Functional:
 - An owner pastes a Nuki Web API token; it is checked against Nuki before it is stored, encrypted. A 401 from Nuki marks the connection `DISCONNECTED`, and a daily job checks every connection.
 - Locks are imported from Nuki; each has a name, a time zone (from Nuki where possible) and can be deactivated when it leaves the Nuki account.
 - A link has a label and a validity window entered in the lock's time zone and stored in UTC. Its state (pending, active, expired, revoked) is computed, never stored.
-- A guest's GET never acts on the lock: only a POST after pressing the button unlatches (link previews in WhatsApp, Telegram or Slack make GETs). The guest learns whether the door opened, failed, or was refused in night mode.
+- A guest's GET never acts on the lock: only a POST after sliding to open unlatches (link previews in WhatsApp, Telegram or Slack make GETs). The guest learns whether the door opened, failed, or was refused in night mode.
 - Every attempt with a valid link is recorded with IP address and browser; attempts are purged after a retention (365 days).
 - Owners who lose their passkey get a recovery link (admin panel or `--recover-owner`); they keep their other passkeys.
 - Owners get emails about their locks (opened, failed, denied, Nuki disconnected) and choose which ones, once they have verified their address with the link sent when they register.
@@ -147,7 +147,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 - **Languages**: `MessageBundlesTests` (bundles have the same keys, templates name only existing ones), `PagesInEveryLanguageTests` (every page in every language, no missing text), `TemplateTextTests` (no text in templates, escaped `th:utext`), `OwnerLanguageTests` (an owner's language, and that `app_user` may update no other column of `owner`).
 - **Practice**: each change is checked with a mutation test by hand (break the code, see a test fail, restore it), and deployment changes are tried on a local copy of the production stack (`COMPOSE_PROJECT_NAME=...` to stay apart from the development database).
 
-Never call Nuki's unlatch for real outside a guest pressing "Abrir": it opens a real door. Development uses a real Nuki token only for read-only calls.
+Never call Nuki's unlatch for real outside a guest sliding to open: it opens a real door. Development uses a real Nuki token only for read-only calls.
 
 ## Build, run, release
 
@@ -190,12 +190,11 @@ Release: a pull request named `Version X.Y.Z` from branch `release-X.Y.Z` that b
 
 - Two people registering with the same email at the same moment, from two invitations: both pass the check in `OwnerRegistration.start`, and the unique constraint `owner_email_key` stops the second in `finish`, so no duplicate account is ever created, but that person gets a generic error instead of "Ya hay una cuenta con este email". Catching the constraint violation in `finish` as `RegistrationException(Reason.EMAIL_TAKEN)` would fix it.
 
+- A short guide for an owner who has just installed their Nuki lock, before the API token: activating Nuki Web for the lock (from the Nuki app) and signing in to Nuki Web. The token's steps are already on `/settings/nuki` ("Cómo conseguir el API token"); the guide could extend them there, in context and in the owner's language, rather than live outside the app. Check each step against Nuki's current app and help pages first, as their labels change.
+- More languages than Spanish and English, for owners and guests alike: a bundle each, as the README's "Adding a language" says (`messages_<tag>.properties` and `Languages.SUPPORTED`), whose tests check every key and every page. The work is translating, and someone checking each translation; Catalan, French or German, say, depending on the owners and their guests.
 - Re-encrypting stored Nuki tokens after an AEAD rotation, so that old keys can be dropped without owners pasting tokens again.
 - Links with a maximum number of uses or a recurring schedule (`access_link` columns).
 - Geofence as a deterrent (browsers accept fake locations: store only distance and accuracy, and tell the guest first).
 - Nuki Opener, a local Nuki Bridge or MQTT adapter as another `LockProvider`, Nuki webhooks instead of polling the log.
 - Cloudflare Access in front of the owner pages, excluding `/o/*` and `/api/open`.
 - A proper 404 page, and one for other errors: `templates/error/404.html` and `templates/error.html` with the app's layout, texts from the bundles and the visitor's language, in place of Spring Boot's default error page, which shows today when a signed-in owner opens an unknown URL or another owner's id. It must keep the status code, answer the same for a missing id and another owner's, and create no session for guests. Check first what a visitor who is not signed in gets, as `/error` is not among the public routes.
-- The "Abrir" button enabled again some time after an opening (a minute, say), not disabled for good: a guest who keeps the page open in the browser finds it disabled when they come back to open again, and has to reload. Today `open.js` re-enables it only after a failure or an unconfirmed opening. The outcomes that cannot change while the page is open (expired, revoked) can keep it disabled.
-- A wait on "Abrir" that the guest notices: confirming can take up to 15 s. `open.js` already sets `aria-busy`, on which Pico draws its small spinner, and the text "Abriendo…", but the disabled button is drawn at half opacity, so it goes unnoticed. A larger spinner, or a fill that sweeps across the button while it waits, in `app.css` (no inline styles), still with `aria-busy` for screen readers and with no animation under `prefers-reduced-motion`.
-- "Abrir" as a slider (slide to open) instead of a button, so that a touch by mistake, in a pocket or while scrolling, does not open the door. With pointer events for touch and mouse, a keyboard alternative (arrow keys, or Enter held for a moment) and a label for screen readers; the POST still goes only once the slide is complete. The two ideas above, the wait and enabling it again, apply to it as well.

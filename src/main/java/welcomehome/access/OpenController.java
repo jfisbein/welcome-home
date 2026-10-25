@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import welcomehome.audit.AccessOutcome;
 
 /**
- * The guest page's "Abrir" button. The token travels in the body, not in the URL, and the answer is a
+ * The guest page's slide to open. The token travels in the body, not in the URL, and the answer is a
  * short code for the page to explain.
  */
 @RestController

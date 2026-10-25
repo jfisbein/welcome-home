@@ -29,7 +29,7 @@ import welcomehome.config.WelcomeHomeProperties;
  * <p>CSRF protection is Spring Security's default: every POST needs the token, which pages put in a meta tag
  * for static/js/webauthn.js. The exception is {@code POST /api/open}: the link's token in the body is the
  * guest's only credential, which a forged request would need anyway, and a token kept in the session went stale
- * when a guest pressed "Abrir" on a page opened more than a session's lifetime earlier. On top of Spring Security's default headers, a strict Content Security Policy
+ * when a guest opened from a page opened more than a session's lifetime earlier. On top of Spring Security's default headers, a strict Content Security Policy
  * (only the app's own scripts and styles, nothing inline), no referrer, so that tokens in URLs never leak,
  * and HSTS for a year, sent only over HTTPS. The session cookie is set in application.yaml.
  */

@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
 import welcomehome.audit.AccessOutcome;
 
 /**
- * One action at a time per lock. A guest who presses "Abrir" while an opening of the same lock is under way
+ * One action at a time per lock. A guest who slides to open while an opening of the same lock is under way
  * waits for it and gets its result, and Nuki receives a single action. Kept in memory, which is enough for
  * a single instance.
  */

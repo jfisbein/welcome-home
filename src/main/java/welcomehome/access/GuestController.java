@@ -16,13 +16,13 @@ import welcomehome.links.LinkStatus;
 
 /**
  * The page a guest's URL opens. It only informs: messaging apps fetch links to preview them, so a GET never
- * opens the door. Opening is a POST after the guest presses the button. Search engines are asked not to
+ * opens the door. Opening is a POST once the guest slides to open. Search engines are asked not to
  * index the page. It creates no session: it has no CSRF token to keep, as opening needs none.
  */
 @Controller
 class GuestController {
 
-    /** Every outcome's code, for the page to carry what the guest reads after pressing the button. */
+    /** Every outcome's code, for the page to carry what the guest reads after sliding to open. */
     private static final List<String> OUTCOMES = Arrays.stream(AccessOutcome.values()).map(AccessOutcome::code).toList();
 
     private final GuestLinks guestLinks;

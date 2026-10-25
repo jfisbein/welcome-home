@@ -135,8 +135,8 @@ class PagesInEveryLanguageTests {
     @Test
     void aGuestReadsTheirLinkAndWhatTheButtonSaysInTheirLanguage() {
         assertThat(body(mvc.get().uri("/o/" + signer.sign(linkId, 1)).header(HttpHeaders.ACCEPT_LANGUAGE, "en").exchange()))
-                .contains("This link opens the door from ", "(Europe/Madrid time)", ">Open<", "Door open: push it.")
-                .doesNotContain("Abrir");
+                .contains("This link opens the door from ", "(Europe/Madrid time)", ">Slide to open<", "Door open: push it.")
+                .doesNotContain("Desliza");
     }
 
     private String login(String acceptLanguage) {

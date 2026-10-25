@@ -125,11 +125,13 @@ class GuestPageTests {
     }
 
     @Test
-    void openButtonShowsTheSameMessagesAsThePage() {
+    void slideToOpenShowsTheSameMessagesAsThePage() {
         var link = insertLink("now() - interval '1 day'", "now() + interval '1 day'", false);
 
-        assertThat(body(guestPage(signer.sign(link, 1)))).as("what the button shows, which the page carries")
-                .contains(NOT_YET_VALID, EXPIRED, REVOKED, UNAVAILABLE);
+        assertThat(body(guestPage(signer.sign(link, 1)))).as("what the slider shows, which the page carries")
+                .contains(NOT_YET_VALID, EXPIRED, REVOKED, UNAVAILABLE)
+                .as("a slide to open, not a button a touch by mistake would press")
+                .containsPattern("<input type=\"range\" id=\"open\" min=\"0\" max=\"100\"[^>]*aria-label=\"Desliza para abrir\"");
         var script = mvc.get().uri("/js/open.js").exchange();
         assertThat(script).hasStatusOk();
         assertThat(body(script)).as("the page carries no CSRF token to send").doesNotContain("_csrf");

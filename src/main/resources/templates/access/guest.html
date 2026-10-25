@@ -10,10 +10,16 @@
         </p>
 
         <th:block th:if="${canOpen}">
-            <button type="button" id="open" th:data-busy-text="#{guest.opening}" th:text="#{guest.open}">Abrir</button>
+            <!-- Slide to open: a touch by mistake, in a pocket or while scrolling, does not open the door. A native
+                 range, so that keyboards and screen readers work it too (see open.js). -->
+            <div class="slide-to-open">
+                <span class="slide-label" aria-hidden="true" th:data-busy-text="#{guest.opening}"
+                      th:text="#{guest.open}">Desliza para abrir</span>
+                <input type="range" id="open" min="0" max="100" step="1" value="0" th:aria-label="#{guest.open}">
+            </div>
             <p id="open-result" role="status" hidden></p>
             <p><small th:text="#{guest.hint}">Pulsa cuando estés delante de la puerta.</small></p>
-            <!-- What open.js shows after pressing the button, by outcome. -->
+            <!-- What open.js shows after the slide, by outcome. -->
             <div id="open-messages" hidden>
                 <span th:each="outcome : ${outcomes}" th:data-outcome="${outcome}"
                       th:text="${#messages.msg('guest.result.' + outcome)}">Puerta abierta: empújala.</span>
