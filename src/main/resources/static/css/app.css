@@ -75,3 +75,12 @@ nav.sections li a[aria-current="page"] {
     border-bottom-color: var(--pico-primary);
     color: var(--pico-primary);
 }
+
+/* The guest's "Abrir": the page's only action, pressed standing at the door, often with one hand. */
+#open {
+    width: 100%;
+    min-height: 4.5rem;
+    margin-bottom: var(--pico-spacing);
+    font-size: 1.5rem;
+    font-weight: bold;
+}
