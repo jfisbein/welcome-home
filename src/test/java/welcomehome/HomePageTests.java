@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -118,11 +119,10 @@ class HomePageTests {
 
     @Test
     void configurationsFormerAddressesLeadToItsSections() {
-        for (var section : new String[] {"nuki/connection:nuki", "notifications:notifications", "passkeys:passkeys"}) {
-            var paths = section.split(":");
-            assertThat(mvc.get().uri("/" + paths[0]).with(owner(ALICE))).as(paths[0])
-                    .hasStatus(HttpStatus.MOVED_PERMANENTLY).hasRedirectedUrl("/settings/" + paths[1]);
-        }
+        var moved = Map.of("/nuki/connection", "/settings/nuki", "/notifications", "/settings/notifications",
+                "/passkeys", "/settings/passkeys");
+        moved.forEach((from, to) -> assertThat(mvc.get().uri(from).with(owner(ALICE))).as(from)
+                .hasStatus(HttpStatus.MOVED_PERMANENTLY).hasRedirectedUrl(to));
     }
 
     private String home() {

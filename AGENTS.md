@@ -119,6 +119,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 | Keysets backed up apart from the dumps (Vaultwarden) | A stolen dump alone does not expose the Nuki tokens. |
 | Releases are `vX.Y.Z` tags; production follows the major version's tag (`:v1`) | Upgrading is Dockge's Update, with no backup and no change on the server. The running release is the image's `org.opencontainers.image.version` label; rolling back is pinning the previous one. It holds because releases within a major are backward compatible (Conventions). |
 | Emails are sent after commit, on another thread, and dropped if they fail | A guest never waits for SMTP, and a mail problem never fails an opening. At most one email about refused attempts per link per hour. |
+| Pico CSS 2.1.1 kept, though Pico is unmaintained since 2.1.1 (repositories archived) | It is a static CSS file served from `static/css/` with no JavaScript, so there are no fixes to miss, and what it lacks goes in `app.css`. The templates lean on its classless styling of semantic HTML (`article`, `nav`, `fieldset role="group"`, `aria-busy`, `aria-current`, automatic dark mode): Bootstrap, Bulma or Pure would mean adding classes to every template for no visible gain, and Pure is barely maintained either. Revisit if a browser starts drawing something wrong that `app.css` cannot fix cheaply, or for a redesign; then prefer a fork of Pico, or own CSS keeping its variables. |
 
 ## Conventions
 
