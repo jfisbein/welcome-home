@@ -12,7 +12,7 @@ A private web app where a few owners connect their Nuki account and create date-
 - **Admin**: an owner who can also invite owners, list them, create passkey recovery links and delete owners. Admins never see other owners' locks, links or history.
 - **Guest**: no account; has only a link.
 
-**In production**: a Dockge stack on `docker.fritz.box` (an LXC), reached only through its own Cloudflare Tunnel. Its public URL is not in this repository: `https://welcome-home.example.com` stands for it. Image `ghcr.io/jfisbein/welcome-home`, at the major version's tag (`:v1`).
+**In production**: a Dockge stack on `docker.fritz.box` (an LXC), reached only through its own Cloudflare Tunnel. Its public URL is not in this repository: `https://welcome-home.example.com` stands for it. Image `ghcr.io/jfisbein/welcome-home`, at the major version's tag (`:v1`). From the development machine the LXC is reached through Proxmox, whose host key is known: `ssh root@proxmox`, then `pct exec 101 -- <command>` (container 101, `dockge`); the stack is `/opt/stacks/welcome-home`, its secrets in `secrets/` there. `docker.fritz.box` itself is not in the development machine's `known_hosts`: do not accept its key blindly.
 
 ## Requirements
 
@@ -37,7 +37,7 @@ Non-functional:
 - GDPR: guests' IP addresses expire; a deleted owner's data is gone from backups after their 30-day retention.
 - Upgrades within a major version are pulling the new image: no backup, no change on the server, and rolling back is pinning the previous release.
 
-Out of scope so far: OAuth2 with Nuki, geofencing, push notifications, use limits, recurring schedules, Nuki Opener, native apps.
+Out of scope so far (OAuth2 with Nuki is the next step, below): geofencing, push notifications, use limits, recurring schedules, Nuki Opener, native apps.
 
 ## Stack
 
@@ -61,7 +61,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 
 | Module   | Responsibility                                                                                              |
 |----------|-------------------------------------------------------------------------------------------------------------|
-| `auth`   | Security configuration, passkey sign-in, registration from an invitation or recovery link (`OwnerRegistration`), the owner's passkeys page (`PasskeysController`), `CurrentOwner` |
+| `auth`   | Security configuration, passkey sign-in, registration from an invitation or recovery link (`OwnerRegistration`), the owner's passkeys page (`PasskeysController`), preferences (`PreferencesController`: language in `owner`, color theme in the `theme` cookie, `Theme`), what every page's menu and `<html>` need (`NavigationModel`), `CurrentOwner` |
 | `admin`  | Invitations and recovery links (`InvitationService`), the admin panel, the `--bootstrap-admin` and `--recover-owner` commands |
 | `config` | `WelcomeHomeProperties`: the public URL (`BASE_URL`), checked once at startup, from which every module builds its links; `Languages`: the languages with a bundle; depends on no other module |
 | `crypto` | Keysets (`Keysets`, `KeysetGenerator`, `KeysetRotator`), `CryptoService` (AEAD), `LinkTokenSigner` (MAC)  |
@@ -70,7 +70,8 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 | `locks`  | Import (`LockSync`), settings and state of each owner's locks                                               |
 | `links`  | Access links: create, list, edit, regenerate, revoke (`AccessLinks`, `LinkStatus`, `LinkUrls`)            |
 | `access` | The guest flow: guest page, `POST /api/open` (`OpenDoor`), rate limits, client IP, per-lock mutex (`LockActions`), unlatch confirmation |
-| `audit`  | Access events, history pages, the home page's latest attempts (`RecentAttempts`), purge job; publishes `AccessAttempted` |
+| `audit`  | Access events, history pages, the home page's latest attempts (`RecentAttempts`), both drawn from `AttemptRow`s (`AttemptRows`: time in the lock's zone, outcome and country in the reader's language), purge job; publishes `AccessAttempted` |
+| `welcomehome` (root package, not a module) | What spans modules: the home page (`HomeController`), `/settings` and the former addresses of its sections (`SettingsController`), the error pages (`ErrorPages`) |
 | `notifications` | Emails to owners (opened, failed, denied, Nuki disconnected) by their preferences, and always about their account (recovery link created, passkey added), sent after commit (`OwnerNotifier`) |
 
 **Guest flow** (`access.OpenDoor`): rate limit per IP → the link exists, its MAC is valid and it is not revoked (`resolve_link`, a `SECURITY DEFINER` function, is the only way to read a link without an owner context) → rate limit per link → within its dates → lock active → owner's Nuki connection OK → in the owner's context, unlatch under the lock's mutex (a second guest waits and gets the same result) → read the lock's log until an unlatch shows up with trigger 0 or 4 (not by hand, button or accessory), within 15 s → record the event.
@@ -102,7 +103,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 
 | Decision | Why |
 |----------|-----|
-| Nuki Web API token pasted by each owner, not OAuth2 | OAuth2 needs a client secret from Nuki; the token works today. OAuth2 is the planned v2 (below). |
+| Nuki Web API token pasted by each owner, not OAuth2 | OAuth2 needed a client secret from Nuki, granted on 2026-10-25 with the Advanced API; the flow is checked by hand and is the next step (below). Pasted tokens can stay as an alternative. |
 | Unlatch (action 3), confirmed from the lock's log | Nuki runs actions asynchronously: a 204 only means accepted. |
 | The unlatch is retried only on 429 or when no connection was made | Retrying after Nuki may have run it could open the door twice. |
 | Passkeys only, invitations only | No passwords to leak; a private app with few, known users. |
@@ -113,12 +114,15 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 | Recovery adds a passkey and keeps the old ones | The user's choice; the owner then deletes the lost device's passkey at `/settings/passkeys`, which never deletes the last one. |
 | `CF-Connecting-IP` for the guest's IP, `forward-headers-strategy=framework` | The tunnel is the only way in, so Cloudflare's headers are trustworthy; `X-Forwarded-For` starts with whatever the client sent. |
 | `/o/{token}` masked in logs, `Referrer-Policy: no-referrer`, `noindex` | Guest URLs are bearer credentials. |
-| No CSRF token on `POST /api/open`, and no session for guests | The link's token in the body is the credential, which a forged request would need anyway; a CSRF token kept in the session went stale when a guest pressed "Abrir" more than 30 minutes after opening the page. |
+| No CSRF token on `POST /api/open`, and no session for guests | The link's token in the body is the credential, which a forged request would need anyway; a CSRF token kept in the session went stale when a guest opened more than 30 minutes after loading the page. |
 | No ports published; own cloudflared in the stack | With a published port the app was reachable from the LAN and the forwarded headers could be spoofed. |
 | Database passwords as files (`configtree:`), keysets as Docker secrets | No secrets in environment variables or in the image. |
 | Keysets backed up apart from the dumps (Vaultwarden) | A stolen dump alone does not expose the Nuki tokens. |
 | Releases are `vX.Y.Z` tags; production follows the major version's tag (`:v1`) | Upgrading is Dockge's Update, with no backup and no change on the server. The running release is the image's `org.opencontainers.image.version` label; rolling back is pinning the previous one. It holds because releases within a major are backward compatible (Conventions). |
 | Emails are sent after commit, on another thread, and dropped if they fail | A guest never waits for SMTP, and a mail problem never fails an opening. At most one email about refused attempts per link per hour. |
+| Guests slide to open (a native `input type="range"`), not press a button | A touch by mistake, in a pocket or while scrolling, must not open the door. A native range, so keyboards and screen readers work it; `open.js` undoes a jump to where the track was touched and moves a quarter per key. After an opening it works again a minute later, after a failure at once, after expired, revoked or invalid never. |
+| Configuration's pages under `/settings/...`, their former addresses redirecting (301) | Emails already sent link to `/nuki/connection`, `/notifications` and `/passkeys`: within a major version, every URL already sent keeps working. |
+| The app's own error page; `/error` public; the session only in its cookie | Spring Boot's page broke the app's look, and a guest's error on a public route was redirected to /login, starting a session whose id Tomcat put in the URL (`;jsessionid=`). An unknown address still sends a visitor who is not signed in to /login, so no route shows it exists. |
 | The color theme in a cookie, not in the owner's row | The user's choice: it belongs to the browser, so a phone and a laptop may differ, and it also applies to the pages before signing in. The server writes `<html data-theme>`, so no script and no flash of the other theme; no cookie means the system's. |
 | Pico CSS 2.1.1 kept, though Pico is unmaintained since 2.1.1 (repositories archived) | It is a static CSS file served from `static/css/` with no JavaScript, so there are no fixes to miss, and what it lacks goes in `app.css`. The templates lean on its classless styling of semantic HTML (`article`, `nav`, `fieldset role="group"`, `aria-busy`, `aria-current`, automatic dark mode): Bootstrap, Bulma or Pure would mean adding classes to every template for no visible gain, and Pure is barely maintained either. Revisit if a browser starts drawing something wrong that `app.css` cannot fix cheaply, or for a redesign; then prefer a fork of Pico, or own CSS keeping its variables. |
 
@@ -131,7 +135,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 - **Liquibase**: XML with native tags; `<sql>` only for CHECK constraints, RLS, GRANTs and functions. A new table with `owner_id` gets `ENABLE ROW LEVEL SECURITY`, its policy and its grants to `app_user` in the same changeset (`MigrationTests` fails otherwise).
 - **Data access**: `JdbcClient` with records; owner data only inside `OwnerTransactions.execute/run`, with `owner_id` in the query as well. No `findById(id)` without an owner.
 - **Configuration**: `application.yaml` (and `application-dev.yaml`); `@ConfigurationProperties` records; durations in ISO-8601 (`PT1M`).
-- **Web**: Thymeleaf templates, Pico CSS classes; every signed-in page starts with `fragments/layout :: menu('<section>')` (home, locks, settings or admin), and configuration's pages add `settings('<section>')`; CSRF on every form, HTML forms send PUT/PATCH/DELETE through `_method`. JS in `static/js/`, one small file per behavior, no inline scripts (CSP `script-src 'self'`); a script's texts come from its page, as hidden lists or `data-*` attributes. Routes taking an id must be covered by `OwnerIsolationTests` (a guard test lists them).
+- **Web**: Thymeleaf templates, Pico CSS classes; every page's `<html>` carries `th:lang="${#locale.language}"` and `th:attr="data-theme=${theme}"`; every signed-in page starts with `fragments/layout :: menu('<section>')` (home, locks, settings or admin), and configuration's pages add `settings('<section>')` (nuki, preferences, notifications or passkeys); guests' attempts are drawn by `fragments/attempts :: table(attempts, withLock)`, on the home page and in the history alike; a page that must start no session sets `sessionless`, so the layout leaves out the CSRF meta tags. Two Thymeleaf traps: a fragment selector also matches elements by name, so no fragment is named like an element (hence `menu`, not `nav`); and `th:replace` runs before `th:if` on the same element, so a conditional fragment goes inside `<th:block th:if>`. The CSP also forbids inline styles: scripts change styles only through the DOM (`element.style`), never `<style>` or `style=` in markup; CSRF on every form, HTML forms send PUT/PATCH/DELETE through `_method`. JS in `static/js/`, one small file per behavior, no inline scripts (CSP `script-src 'self'`); a script's texts come from its page, as hidden lists or `data-*` attributes. Routes taking an id must be covered by `OwnerIsolationTests` (a guard test lists them).
 - **Commits**: one per task, pushed to `main` once `./gradlew build` is green.
 
 ## Testing strategy
@@ -142,10 +146,12 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 - **Passkeys**: `PasskeyEmulator` (webauthn4j-test) answers registration and sign-in like a browser with an authenticator, so the real WebAuthn endpoints are exercised end to end.
 - **Isolation**: `OwnerIsolationTests` (every id route answers 404 for another owner and changes nothing), `MigrationTests` (every `owner_id` table has RLS and its policy), `RowLevelSecurityTests` (what `app_user` sees with and without an owner context), `ModularityTests` (module boundaries), `AdminPanelTests` (admins see no locks or links).
 - **Guest flow**: `OpenDoorTests` (order of checks, results, confirmation, concurrency, client IP), `LockActionsTests` (one action per lock), `TokenLoggingTests` (tokens never logged), `GuestPageTests` (a GET never calls the lock provider).
+- **Pages**: `HomePageTests` (locks, latest attempts, the same rows as the history, the menu and `/settings`), `ThemeTests` (the theme cookie and `data-theme` on every page), `SignedInErrorPageTests` (the error page with the menu, through MockMvc and `/error`). What MockMvc does not show runs against a real server (`@IntegrationTest(webEnvironment = RANDOM_PORT)`): `ErrorPagesTests` (errors forwarded to `/error`, no session for guests, JSON for scripts) and `SessionCookieTests` (cookie flags, the session never in a URL).
 - **Commands**: `CommandLineTests` starts the app without the web server.
 - **Emails**: `MailStandInConfiguration` starts GreenMail as the SMTP server; `NotificationTests` checks each kind of email, preferences, the per-link quiet period, the owner's language and that two simultaneous rejections send one email; `AccountSecurityEmailTests` the recovery and passkey emails; `EmailVerificationTests` the link that verifies an owner's address, and that nothing else goes to it before.
 - **Languages**: `MessageBundlesTests` (bundles have the same keys, templates name only existing ones), `PagesInEveryLanguageTests` (every page in every language, no missing text), `TemplateTextTests` (no text in templates, escaped `th:utext`), `OwnerLanguageTests` (an owner's language, and that `app_user` may update no other column of `owner`).
-- **Practice**: each change is checked with a mutation test by hand (break the code, see a test fail, restore it), and deployment changes are tried on a local copy of the production stack (`COMPOSE_PROJECT_NAME=...` to stay apart from the development database).
+- **Practice**: start with `git fetch`: the development clone has been dozens of commits behind `origin/main`, which is where work from other machines and release merges land. Each change is checked with a mutation test by hand (break the code, see a test fail, restore it), and deployment changes are tried on a local copy of the production stack (`COMPOSE_PROJECT_NAME=...` to stay apart from the development database).
+- **By hand in a browser**, for what no test runs: the JavaScript (`open.js` above all) and how pages look, in light and dark and at phone width. Run the dev app (`docker compose up -d`, `./gradlew bootRun`) and use Chrome; owner pages need the owner's passkey, which only the owner can use (sessions live in memory, so a restart signs them out). Sample rows go into the development database as its superuser (`docker compose exec -T db psql -U postgres -d welcome_home`) and are deleted afterwards. For the guest page to offer opening without any risk, add a `nuki_connection` with status `OK` and `api_token_encrypted` set to `'\x00'`: the token does not decrypt, so an opening fails as unavailable before anything reaches Nuki. Never with a real token. Chrome's window does not shrink below about 616 px: for phone widths the owner switches on DevTools' device mode, and sizes are read with JavaScript (`innerWidth`, `scrollWidth`).
 
 Never call Nuki's unlatch for real outside a guest sliding to open: it opens a real door. Development uses a real Nuki token only for read-only calls.
 
@@ -176,6 +182,8 @@ Release: a pull request named `Version X.Y.Z` from branch `release-X.Y.Z` that b
 | `README.md` | each feature in detail, configuration properties |
 
 ## Next steps and ideas
+
+**Where things stand (2026-10-25).** The latest release is 1.12.0. Production upgrades to it with Dockge's Update, which the owner does; after it, try sliding to open on a phone with a real link, as touch and screen readers (VoiceOver, TalkBack) were not tried. The next large piece of work is OAuth2 with Nuki, now granted and checked by hand.
 
 **OAuth2 with Nuki (v2).** Owners would authorize welcome-home in Nuki instead of pasting a token.
 
