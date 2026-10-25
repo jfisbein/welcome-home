@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -113,6 +116,32 @@ class InvitationRegistrationTests {
     }
 
     @Test
+    void ofTwoSimultaneousRegistrationsWithOneEmailTheSecondIsToldItIsTaken() throws Exception {
+        var invitation = invitationPath(false);
+        var passkey = passkeys.create(creationOptions(invitation, "alice@example.com"));
+
+        // The other registration, from another invitation, has inserted its owner but not committed yet: this
+        // one's check cannot see it, and its insert waits for the other's transaction.
+        try (var other = TestDatabaseConfiguration.newSessionsAsAppUser(postgres).getConnection()) {
+            other.setAutoCommit(false);
+            try (var insert = other.prepareStatement("INSERT INTO owner (email) VALUES ('alice@example.com')")) {
+                insert.executeUpdate();
+            }
+            var registering = CompletableFuture.supplyAsync(() -> post(invitation + "/register", passkey));
+            var migrator = TestDatabaseConfiguration.asMigrator(postgres);
+            await(() -> migrator.sql("SELECT count(*) FROM pg_locks WHERE NOT granted").query(Long.class).single() > 0);
+            other.commit();
+
+            assertThat(registering.get(10, TimeUnit.SECONDS))
+                    .hasStatus(HttpStatus.CONFLICT)
+                    .bodyJson().extractingPath("$.error").isEqualTo("email-taken");
+        }
+        assertThat(jdbc.sql("SELECT count(*) FROM owner").query(Long.class).single()).isEqualTo(1);
+        assertThat(jdbc.sql("SELECT count(*) FROM user_entities").query(Long.class).single()).isZero();
+        assertThat(mvc.get().uri(invitation)).as("the invitation stays usable").hasStatusOk();
+    }
+
+    @Test
     void unknownInvitationCannotStartARegistration() {
         assertThat(post("/invite/unknown/options", "{\"email\": \"alice@example.com\"}"))
                 .hasStatus(HttpStatus.GONE)
@@ -139,6 +168,14 @@ class InvitationRegistrationTests {
         assertThat(post(invitationPath(false) + "/register", "{}"))
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().extractingPath("$.error").isEqualTo("expired");
+    }
+
+    private static void await(BooleanSupplier condition) throws InterruptedException {
+        var deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (!condition.getAsBoolean()) {
+            assertThat(System.nanoTime()).as("waited 10 s").isLessThan(deadline);
+            Thread.sleep(20);
+        }
     }
 
     private String invitationPath(boolean grantsAdmin) {

@@ -188,8 +188,6 @@ Release: a pull request named `Version X.Y.Z` from branch `release-X.Y.Z` that b
 
 **Other ideas**, roughly by value:
 
-- Two people registering with the same email at the same moment, from two invitations: both pass the check in `OwnerRegistration.start`, and the unique constraint `owner_email_key` stops the second in `finish`, so no duplicate account is ever created, but that person gets a generic error instead of "Ya hay una cuenta con este email". Catching the constraint violation in `finish` as `RegistrationException(Reason.EMAIL_TAKEN)` would fix it.
-
 - A short guide for an owner who has just installed their Nuki lock, before the API token: activating Nuki Web for the lock (from the Nuki app) and signing in to Nuki Web. The token's steps are already on `/settings/nuki` ("Cómo conseguir el API token"); the guide could extend them there, in context and in the owner's language, rather than live outside the app. Check each step against Nuki's current app and help pages first, as their labels change.
 - More languages than Spanish and English, for owners and guests alike: a bundle each, as the README's "Adding a language" says (`messages_<tag>.properties` and `Languages.SUPPORTED`), whose tests check every key and every page. The work is translating, and someone checking each translation; Catalan, French or German, say, depending on the owners and their guests.
 - Re-encrypting stored Nuki tokens after an AEAD rotation, so that old keys can be dropped without owners pasting tokens again.

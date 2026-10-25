@@ -8,6 +8,7 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 
 import org.jspecify.annotations.Nullable;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.web.webauthn.api.AttestationConveyancePreference;
 import org.springframework.security.web.webauthn.api.AuthenticatorAttestationResponse;
 import org.springframework.security.web.webauthn.api.AuthenticatorSelectionCriteria;
@@ -174,7 +175,13 @@ class OwnerRegistration {
         if (owners.findByEmail(email).isPresent()) {
             throw new RegistrationException(Reason.EMAIL_TAKEN);
         }
-        return new OwnerAccount(owners.insert(email, isAdmin, language), email, isAdmin);
+        try {
+            return new OwnerAccount(owners.insert(email, isAdmin, language), email, isAdmin);
+        } catch (DuplicateKeyException e) {
+            // Another registration of the same email, from another invitation, passed the check above at the same
+            // time and committed first: owner_email_key stops this one, which rolls back.
+            throw new RegistrationException(Reason.EMAIL_TAKEN, e);
+        }
     }
 
     private static String normalize(@Nullable String email) {
