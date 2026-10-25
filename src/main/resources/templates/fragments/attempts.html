@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es" th:lang="${#locale.language}" th:attr="data-theme=${theme}" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- Guests' attempts, as audit.AttemptRow gives them, alike on the home page and in the history. withLock adds
+     the lock's column, for attempts on several locks. The origin is the country's flag, with the country and the
+     IP address in a tooltip shown on hover, on focus or when tapped, to its left so that the table's scrolling
+     box does not cut it; without a country, the IP address itself. -->
+<div th:fragment="table(attempts, withLock)" class="overflow-auto">
+    <table>
+        <thead>
+        <tr>
+            <th scope="col" th:text="#{history.column.date}">Fecha</th>
+            <th scope="col" th:if="${withLock}" th:text="#{home.attempts.column.lock}">Cerradura</th>
+            <th scope="col" th:text="#{history.column.link}">Enlace</th>
+            <th scope="col" th:text="#{history.column.outcome}">Resultado</th>
+            <th scope="col" th:text="#{history.column.origin}">Origen</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="attempt : ${attempts}">
+            <td th:text="${#temporals.format(attempt.occurredAt, #messages.msg('format.datetime-seconds'))}">
+                01/11/2030 15:02:13</td>
+            <td th:if="${withLock}"><a th:href="@{/locks/{id}/history(id=${attempt.lockId})}"
+                                       th:text="${attempt.lockName}">Casa</a></td>
+            <td><a th:href="@{/locks/{id}/history(id=${attempt.lockId},link=${attempt.linkId})}"
+                   th:text="${attempt.linkLabel}">Ana</a></td>
+            <td th:switch="${attempt.result.name()}">
+                <strong th:case="'OK'" th:text="${attempt.outcome}">Abierta</strong>
+                <span th:case="*" th:text="${attempt.outcome}">Denegado: caducado</span>
+            </td>
+            <td class="origin" th:with="origin=${attempt.origin}">
+                <span th:if="${origin.flag != null}" role="img" tabindex="0" data-placement="left"
+                      th:aria-label="${origin.description}" th:data-tooltip="${origin.description}"
+                      th:text="${origin.flag}">🇪🇸</span>
+                <small th:if="${origin.flag == null and origin.country != null}" tabindex="0" data-placement="left"
+                       th:data-tooltip="${origin.ip}" th:text="${origin.country}">Tor</small>
+                <small th:if="${origin.country == null}" th:text="${origin.ip}">192.0.2.10</small>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+</body>
+</html>

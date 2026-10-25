@@ -79,9 +79,9 @@ class HomePageTests {
         insertEvent(bobsLink, "2030-07-04T10:00:00Z", "OK", "opened");
 
         assertThat(home()).containsSubsequence(
-                        "03/07/2030 12:00", "Casa", "Ana", "Error: modo nocturno",
-                        "02/07/2030 06:00", "Garaje", "Carlos", "Abierta",
-                        "01/07/2030 12:00", "Casa", "Ana", "Denegado: caducado")
+                        "03/07/2030 12:00:00", "Casa", "Ana", "Error: modo nocturno",
+                        "02/07/2030 06:00:00", "Garaje", "Carlos", "Abierta",
+                        "01/07/2030 12:00:00", "Casa", "Ana", "Denegado: caducado")
                 .contains("href=\"/locks/" + casa + "/history?link=" + ana + "\"")
                 .as("another owner's attempts").doesNotContain("Invitado de Bob", "04/07/2030");
     }
@@ -92,7 +92,22 @@ class HomePageTests {
             insertEvent(ana, "2030-07-%02dT10:00:00Z".formatted(day), "OK", "opened");
         }
 
-        assertThat(home()).contains(">11/07/2030 12:00<", ">02/07/2030 12:00<").doesNotContain(">01/07/2030 12:00<");
+        assertThat(home()).contains(">11/07/2030 12:00:00<", ">02/07/2030 12:00:00<").doesNotContain(">01/07/2030 12:00:00<");
+    }
+
+    @Test
+    void attemptsShowAsInTheHistoryWithTheLockAndTheOrigin() {
+        insertEvent(ana, "2030-07-01T10:00:00Z", "OK", "opened");
+        migrator.sql("UPDATE access_event SET country = 'ES'").update();
+
+        var home = home();
+        var history = body(mvc.get().uri("/locks/" + casa + "/history").with(owner(ALICE)).exchange());
+        assertThat(home).containsSubsequence("Fecha", "Cerradura", "Enlace", "Resultado", "Origen")
+                .contains("data-tooltip=\"España · 198.51.100.1\">🇪🇸</span>");
+        assertThat(history).containsSubsequence("Fecha", "Enlace", "Resultado", "Origen")
+                .contains("data-tooltip=\"España · 198.51.100.1\">🇪🇸</span>");
+        assertThat(rowOf(home)).isEqualTo(rowOf(history).replace("<td>01/07/2030 12:00:00</td>",
+                "<td>01/07/2030 12:00:00</td><td><a href=\"/locks/" + casa + "/history\">Casa</a></td>"));
     }
 
     @Test
@@ -123,6 +138,12 @@ class HomePageTests {
                 "/passkeys", "/settings/passkeys", "/settings/language", "/settings/preferences");
         moved.forEach((from, to) -> assertThat(mvc.get().uri(from).with(owner(ALICE))).as(from)
                 .hasStatus(HttpStatus.MOVED_PERMANENTLY).hasRedirectedUrl(to));
+    }
+
+    /** The first row of the page's last table, the attempts', without the spaces between its tags. */
+    private static String rowOf(String page) {
+        return page.replaceAll("(?s).*<tbody>\\s*(<tr>.*?</tr>).*", "$1").replaceAll("\\s+", " ")
+                .replaceAll("> <", "><");
     }
 
     private String home() {

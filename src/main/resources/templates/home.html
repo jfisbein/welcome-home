@@ -53,32 +53,9 @@
     <section>
         <h2 th:text="#{home.attempts}">Últimos intentos de abrir</h2>
         <p th:if="${attempts.isEmpty()}" th:text="#{home.attempts.empty}">Todavía no hay intentos de abrir.</p>
-        <div class="overflow-auto" th:unless="${attempts.isEmpty()}">
-            <table>
-                <thead>
-                <tr>
-                    <th scope="col" th:text="#{history.column.date}">Fecha</th>
-                    <th scope="col" th:text="#{home.attempts.column.lock}">Cerradura</th>
-                    <th scope="col" th:text="#{history.column.link}">Enlace</th>
-                    <th scope="col" th:text="#{history.column.outcome}">Resultado</th>
-                </tr>
-                </thead>
-                <tbody>
-                <tr th:each="attempt : ${attempts}">
-                    <td th:text="${#temporals.format(attempt.occurredAt, #messages.msg('format.datetime'))}">
-                        01/11/2030 15:02</td>
-                    <td><a th:href="@{/locks/{id}/history(id=${attempt.lockId})}"
-                           th:text="${attempt.lockName}">Casa</a></td>
-                    <td><a th:href="@{/locks/{id}/history(id=${attempt.lockId},link=${attempt.linkId})}"
-                           th:text="${attempt.linkLabel}">Ana</a></td>
-                    <td th:switch="${attempt.result.name()}">
-                        <strong th:case="'OK'" th:text="${attempt.outcome}">Abierta</strong>
-                        <span th:case="*" th:text="${attempt.outcome}">Denegado: caducado</span>
-                    </td>
-                </tr>
-                </tbody>
-            </table>
-        </div>
+        <th:block th:unless="${attempts.isEmpty()}">
+            <div th:replace="~{fragments/attempts :: table(${attempts}, true)}"></div>
+        </th:block>
         <p th:unless="${attempts.isEmpty()}"><small th:text="#{home.attempts.note}">Cada uno a la hora de su
             cerradura.</small></p>
     </section>

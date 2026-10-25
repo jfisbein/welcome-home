@@ -136,26 +136,28 @@ class AccessHistoryTests {
     }
 
     @Test
-    void theCountryShowsNextToTheIpInTheReadersLanguage() {
+    void theOriginIsTheCountrysFlagWithTheCountryAndIpInATooltip() {
         insertEvent(ana, "2030-07-01T10:00:00Z", "OK", "opened", "198.51.100.7");
         insertEvent(ana, "2030-07-01T11:00:00Z", "OK", "opened", "198.51.100.8");
         insertEvent(ana, "2030-07-01T12:00:00Z", "OK", "opened", "198.51.100.9");
         migrator.sql("UPDATE access_event SET country = 'ES' WHERE ip = '198.51.100.8'").update();
         migrator.sql("UPDATE access_event SET country = 'T1' WHERE ip = '198.51.100.9'").update();
 
-        assertThat(body(history(casa, ""))).as("a flag named for those who cannot see it, and Tor by name")
-                .containsPattern(">198\\.51\\.100\\.8</span>\\s*<span role=\"img\"\\s+aria-label=\"España\" title=\"España\">🇪🇸</span>")
-                .containsPattern(">198\\.51\\.100\\.9</span>\\s*<small>Tor</small>")
-                .containsPattern(">198\\.51\\.100\\.7</span>\\s*</td>");
+        assertThat(body(history(casa, ""))).as("a flag named for those who cannot see it, Tor by name, else the IP")
+                .containsPattern("<span role=\"img\" tabindex=\"0\" data-placement=\"left\"\\s+aria-label=\"España · 198\\.51\\.100\\.8\"\\s+"
+                        + "data-tooltip=\"España · 198\\.51\\.100\\.8\">🇪🇸</span>")
+                .containsPattern("<small tabindex=\"0\" data-placement=\"left\"\\s+data-tooltip=\"198\\.51\\.100\\.9\">Tor</small>")
+                .contains("<small>198.51.100.7</small>")
+                .doesNotContain(">198.51.100.8<", ">198.51.100.9<");
         migrator.sql("UPDATE owner SET language = 'en' WHERE email = ?").param(ALICE).update();
-        assertThat(body(history(casa, ""))).contains("aria-label=\"Spain\" title=\"Spain\">🇪🇸<");
+        assertThat(body(history(casa, ""))).contains("data-tooltip=\"Spain · 198.51.100.8\">🇪🇸<");
     }
 
     @Test
     void aFlagIsTheCodesLettersAsRegionalIndicators() {
-        assertThat(AccessHistoryController.flag("ES")).isEqualTo("🇪🇸");
-        assertThat(AccessHistoryController.flag("GB")).isEqualTo("🇬🇧");
-        assertThat(AccessHistoryController.flag("T1")).isNull();
+        assertThat(AttemptRows.flag("ES")).isEqualTo("🇪🇸");
+        assertThat(AttemptRows.flag("GB")).isEqualTo("🇬🇧");
+        assertThat(AttemptRows.flag("T1")).isNull();
     }
 
     @Test

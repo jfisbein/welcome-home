@@ -12,38 +12,9 @@
     <p th:text="#{history.time-zone(${lock.timeZone})}">Hora de Europe/Madrid.</p>
 
     <p th:if="${events.isEmpty()}" th:text="#{history.empty}">Todavía no hay intentos de abrir.</p>
-    <div class="overflow-auto" th:unless="${events.isEmpty()}">
-        <table>
-            <thead>
-            <tr>
-                <th scope="col" th:text="#{history.column.date}">Fecha</th>
-                <th scope="col" th:text="#{history.column.link}">Enlace</th>
-                <th scope="col" th:text="#{history.column.outcome}">Resultado</th>
-                <th scope="col" th:text="#{history.column.ip}">IP</th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr th:each="event : ${events}">
-                <td th:text="${#temporals.format(event.occurredAt, #messages.msg('format.datetime-seconds'))}">
-                    1/11/2030 15:02:13</td>
-                <td><a th:href="@{/locks/{id}/history(id=${lock.id},link=${event.linkId})}"
-                       th:text="${event.linkLabel}">Ana</a></td>
-                <td th:switch="${event.result.name()}">
-                    <strong th:case="'OK'" th:text="${event.outcome}">Abierta</strong>
-                    <span th:case="*" th:text="${event.outcome}">Denegado: caducado</span>
-                </td>
-                <td>
-                    <span th:text="${event.ip}">192.0.2.10</span>
-                    <span th:if="${event.country != null and event.country.flag != null}" role="img"
-                          th:aria-label="${event.country.name}" th:title="${event.country.name}"
-                          th:text="${event.country.flag}">🇪🇸</span>
-                    <small th:if="${event.country != null and event.country.flag == null}"
-                           th:text="${event.country.name}">Tor</small>
-                </td>
-            </tr>
-            </tbody>
-        </table>
-    </div>
+    <th:block th:unless="${events.isEmpty()}">
+        <div th:replace="~{fragments/attempts :: table(${events}, false)}"></div>
+    </th:block>
 
     <p class="actions">
         <a th:if="${paged}" th:href="${newerUrl}" th:text="#{history.newer}">Más recientes</a>
