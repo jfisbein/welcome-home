@@ -48,52 +48,54 @@
     <section>
         <h2 th:text="#{links.heading}">Enlaces</h2>
         <p th:if="${links.isEmpty()}" th:text="#{links.empty}">Esta cerradura todavía no tiene enlaces.</p>
-        <table th:unless="${links.isEmpty()}">
-            <thead>
-            <tr>
-                <th scope="col" th:text="#{links.column.for}">Para</th>
-                <th scope="col" th:text="#{links.column.validity}">Validez</th>
-                <th scope="col" th:text="#{links.column.state}">Estado</th>
-                <th scope="col"></th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr th:each="link : ${links}">
-                <td th:text="${link.label}">Ana</td>
-                <td th:text="#{links.period(${#temporals.format(link.validFrom, #messages.msg('format.datetime'))}, ${#temporals.format(link.validUntil, #messages.msg('format.datetime'))})}">
-                    1/11/2030 15:00 – 3/11/2030 11:00
-                </td>
-                <td th:switch="${link.status.name()}">
-                    <span th:case="'PENDING'" th:text="#{links.status.pending}">Pendiente</span>
-                    <span th:case="'ACTIVE'"><strong th:text="#{links.status.active}">Activo</strong></span>
-                    <span th:case="'EXPIRED'" th:text="#{links.status.expired}">Caducado</span>
-                    <span th:case="'REVOKED'" th:text="#{links.status.revoked}">Revocado</span>
-                </td>
-                <td class="actions">
-                    <a th:if="${link.status.name() != 'REVOKED'}" th:href="@{/links/{id}(id=${link.id})}"
-                       th:text="#{common.edit}">Editar</a>
-                    <a th:href="@{/locks/{lockId}/history(lockId=${lock.id},link=${link.id})}"
-                       th:text="#{common.history}">Historial</a>
-                    <th:block th:if="${link.status.usable}">
-                        <button type="button" class="outline" th:data-copy-text="${link.url}"
-                                th:data-copied="#{common.copied}" th:text="#{common.copy}">Copiar</button>
-                        <button type="button" class="outline secondary" hidden th:data-share-url="${link.url}"
-                                th:data-share-title="#{links.share-title(${lock.name})}"
-                                th:text="#{common.share}">Compartir</button>
-                        <form th:action="@{/links/{id}/regenerate(id=${link.id})}" method="post"
-                              th:data-confirm="#{links.regenerate.confirm(${link.label})}">
-                            <button type="submit" class="outline secondary" th:title="#{links.regenerate.title}"
-                                    th:text="#{links.regenerate}">Regenerar</button>
-                        </form>
-                        <form th:action="@{/links/{id}/revoke(id=${link.id})}" method="post"
-                              th:data-confirm="#{links.revoke.confirm(${link.label})}">
-                            <button type="submit" class="outline contrast" th:text="#{links.revoke}">Revocar</button>
-                        </form>
-                    </th:block>
-                </td>
-            </tr>
-            </tbody>
-        </table>
+        <div class="overflow-auto" th:unless="${links.isEmpty()}">
+            <table>
+                <thead>
+                <tr>
+                    <th scope="col" th:text="#{links.column.for}">Para</th>
+                    <th scope="col" th:text="#{links.column.validity}">Validez</th>
+                    <th scope="col" th:text="#{links.column.state}">Estado</th>
+                    <th scope="col"></th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="link : ${links}">
+                    <td th:text="${link.label}">Ana</td>
+                    <td th:text="#{links.period(${#temporals.format(link.validFrom, #messages.msg('format.datetime'))}, ${#temporals.format(link.validUntil, #messages.msg('format.datetime'))})}">
+                        1/11/2030 15:00 – 3/11/2030 11:00
+                    </td>
+                    <td th:switch="${link.status.name()}">
+                        <span th:case="'PENDING'" th:text="#{links.status.pending}">Pendiente</span>
+                        <span th:case="'ACTIVE'"><strong th:text="#{links.status.active}">Activo</strong></span>
+                        <span th:case="'EXPIRED'" th:text="#{links.status.expired}">Caducado</span>
+                        <span th:case="'REVOKED'" th:text="#{links.status.revoked}">Revocado</span>
+                    </td>
+                    <td class="actions">
+                        <a th:if="${link.status.name() != 'REVOKED'}" th:href="@{/links/{id}(id=${link.id})}"
+                           th:text="#{common.edit}">Editar</a>
+                        <a th:href="@{/locks/{lockId}/history(lockId=${lock.id},link=${link.id})}"
+                           th:text="#{common.history}">Historial</a>
+                        <th:block th:if="${link.status.usable}">
+                            <button type="button" class="outline" th:data-copy-text="${link.url}"
+                                    th:data-copied="#{common.copied}" th:text="#{common.copy}">Copiar</button>
+                            <button type="button" class="outline secondary" hidden th:data-share-url="${link.url}"
+                                    th:data-share-title="#{links.share-title(${lock.name})}"
+                                    th:text="#{common.share}">Compartir</button>
+                            <form th:action="@{/links/{id}/regenerate(id=${link.id})}" method="post"
+                                  th:data-confirm="#{links.regenerate.confirm(${link.label})}">
+                                <button type="submit" class="outline secondary" th:title="#{links.regenerate.title}"
+                                        th:text="#{links.regenerate}">Regenerar</button>
+                            </form>
+                            <form th:action="@{/links/{id}/revoke(id=${link.id})}" method="post"
+                                  th:data-confirm="#{links.revoke.confirm(${link.label})}">
+                                <button type="submit" class="outline contrast" th:text="#{links.revoke}">Revocar</button>
+                            </form>
+                        </th:block>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
     </section>
 
     <p th:unless="${lock.active}" role="alert" th:text="#{links.inactive-lock}">
