@@ -119,7 +119,7 @@ class LockSyncTests {
     void syncAfterReconnectingLinksTheLocksToTheNewConnection() {
         connectNuki(ALICE, CASA_AND_GARAJE);
         sync(ALICE);
-        mvc.delete().uri("/nuki/connection").with(owner(ALICE)).with(csrf()).exchange();
+        mvc.delete().uri("/settings/nuki").with(owner(ALICE)).with(csrf()).exchange();
         assertThat(migrator.sql("SELECT bool_and(connection_id IS NULL) FROM lock").query(Boolean.class).single())
                 .isTrue();
 
@@ -175,7 +175,7 @@ class LockSyncTests {
     private void connectNuki(String email, String locksJson) {
         nukiLists(locksJson);
         NukiStandInConfiguration.logIsReadable(nuki);
-        assertThat(mvc.put().uri("/nuki/connection").with(owner(email)).with(csrf()).param("apiToken", "token-" + email))
+        assertThat(mvc.put().uri("/settings/nuki").with(owner(email)).with(csrf()).param("apiToken", "token-" + email))
                 .hasStatus(HttpStatus.FOUND);
     }
 

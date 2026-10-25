@@ -19,16 +19,16 @@ class LanguageController {
         this.owners = owners;
     }
 
-    @GetMapping("/language")
+    @GetMapping("/settings/language")
     String page() {
         return "language";
     }
 
-    @PutMapping("/language")
+    @PutMapping("/settings/language")
     String change(CurrentOwner owner, @RequestParam(defaultValue = "") String language, RedirectAttributes redirect) {
         var chosen = Languages.of(language).orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST));
         owners.setLanguage(owner.id(), chosen);
         redirect.addFlashAttribute("languageSaved", true);
-        return "redirect:/language";
+        return "redirect:/settings/language";
     }
 }

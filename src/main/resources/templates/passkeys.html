@@ -13,7 +13,7 @@
     <article th:if="${deleted}"><p th:text="#{passkeys.deleted(${deleted})}">Passkey borrada: iPhone.</p></article>
 
     <article th:each="passkey : ${passkeys}">
-        <form th:action="@{/passkeys/{id}(id=${passkey.credentialId})}" th:method="patch">
+        <form th:action="@{/settings/passkeys/{id}(id=${passkey.credentialId})}" th:method="patch">
             <fieldset role="group">
                 <input type="text" name="label" required th:maxlength="${maxLabelLength}" th:value="${passkey.label}"
                        th:aria-label="#{passkeys.name}">
@@ -29,7 +29,7 @@
                 <span th:unless="${passkey.lastUsed}" th:text="#{passkeys.never-used}">Todavía no se ha usado.</span>
             </small>
         </p>
-        <form th:if="${canDelete}" th:action="@{/passkeys/{id}(id=${passkey.credentialId})}" th:method="delete"
+        <form th:if="${canDelete}" th:action="@{/settings/passkeys/{id}(id=${passkey.credentialId})}" th:method="delete"
               th:data-confirm="#{passkeys.delete.confirm(${passkey.label})}">
             <button type="submit" class="outline contrast" th:text="#{passkeys.delete}">Borrar</button>
         </form>

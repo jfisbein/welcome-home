@@ -121,7 +121,7 @@ class LockStateTests {
     @Test
     void settingsStayAvailableWhenTheStateCannotBeRead() {
         assertThat(lockPage()).hasStatusOk().bodyText()
-                .contains("<a href=\"/nuki/connection\">conecta tu cuenta de Nuki</a>", "Guardar");
+                .contains("<a href=\"/settings/nuki\">conecta tu cuenta de Nuki</a>", "Guardar");
 
         connectNuki();
         nuki.stubFor(get("/smartlock/17").willReturn(status(503)));
@@ -144,7 +144,7 @@ class LockStateTests {
     private void connectNuki() {
         nuki.stubFor(get("/smartlock").willReturn(okJson("[]")));
         NukiStandInConfiguration.logIsReadable(nuki);
-        assertThat(mvc.put().uri("/nuki/connection").with(owner()).with(csrf()).param("apiToken", "alices-token"))
+        assertThat(mvc.put().uri("/settings/nuki").with(owner()).with(csrf()).param("apiToken", "alices-token"))
                 .hasStatus(HttpStatus.FOUND);
     }
 

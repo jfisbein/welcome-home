@@ -110,9 +110,9 @@ class OwnerIsolationTests {
                         .with(as).with(csrf()).exchange()),
                 new Attempt("POST /links/{linkId}/revoke", as -> mvc.post().uri("/links/" + bobsLink + "/revoke")
                         .with(as).with(csrf()).exchange()),
-                new Attempt("PATCH /passkeys/{credentialId}", as -> mvc.patch().uri("/passkeys/" + BOBS_PASSKEY)
+                new Attempt("PATCH /settings/passkeys/{credentialId}", as -> mvc.patch().uri("/settings/passkeys/" + BOBS_PASSKEY)
                         .with(as).with(csrf()).param("label", "Intruso").exchange()),
-                new Attempt("DELETE /passkeys/{credentialId}", as -> mvc.delete().uri("/passkeys/" + BOBS_PASSKEY)
+                new Attempt("DELETE /settings/passkeys/{credentialId}", as -> mvc.delete().uri("/settings/passkeys/" + BOBS_PASSKEY)
                         .with(as).with(csrf()).exchange()));
     }
 

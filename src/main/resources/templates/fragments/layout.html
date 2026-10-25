@@ -35,13 +35,13 @@
 <!-- Configuration's sections, each its own page; current: nuki, language, notifications or passkeys. -->
 <nav th:fragment="settings(current)" class="sections" th:aria-label="#{nav.settings}">
     <ul>
-        <li><a th:href="@{/nuki/connection}" th:attr="aria-current=${current == 'nuki'} ? 'page' : null"
+        <li><a th:href="@{/settings/nuki}" th:attr="aria-current=${current == 'nuki'} ? 'page' : null"
                th:text="#{nav.nuki}">Nuki</a></li>
-        <li><a th:href="@{/language}" th:attr="aria-current=${current == 'language'} ? 'page' : null"
+        <li><a th:href="@{/settings/language}" th:attr="aria-current=${current == 'language'} ? 'page' : null"
                th:text="#{nav.language}">Idioma</a></li>
-        <li><a th:href="@{/notifications}" th:attr="aria-current=${current == 'notifications'} ? 'page' : null"
+        <li><a th:href="@{/settings/notifications}" th:attr="aria-current=${current == 'notifications'} ? 'page' : null"
                th:text="#{nav.notifications}">Avisos</a></li>
-        <li><a th:href="@{/passkeys}" th:attr="aria-current=${current == 'passkeys'} ? 'page' : null"
+        <li><a th:href="@{/settings/passkeys}" th:attr="aria-current=${current == 'passkeys'} ? 'page' : null"
                th:text="#{nav.passkeys}">Passkeys</a></li>
     </ul>
 </nav>

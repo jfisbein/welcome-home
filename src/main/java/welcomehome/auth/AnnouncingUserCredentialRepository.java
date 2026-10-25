@@ -11,7 +11,7 @@ import org.springframework.security.web.webauthn.management.UserCredentialReposi
 
 /**
  * Spring Security's passkey store, publishing a {@link PasskeyAdded} when a passkey is added to an owner who
- * already had one, whichever way it was added: from {@code /passkeys} through Spring Security's endpoints, or
+ * already had one, whichever way it was added: from {@code /settings/passkeys} through Spring Security's endpoints, or
  * with a recovery link. A new owner's first passkey is no news to anyone, and signing in saves an existing
  * passkey again, to update it.
  */

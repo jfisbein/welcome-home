@@ -70,21 +70,21 @@ class NukiConnectionTests {
 
     @Test
     void anonymousVisitorIsSentToLogin() {
-        assertThat(mvc.get().uri("/nuki/connection"))
+        assertThat(mvc.get().uri("/settings/nuki"))
                 .hasStatus(HttpStatus.FOUND)
                 .redirectedUrl().endsWith("/login");
     }
 
     @Test
     void ownerWithoutConnectionIsAskedForAToken() {
-        assertThat(mvc.get().uri("/nuki/connection").with(owner(ALICE)))
+        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)))
                 .hasStatusOk()
                 .bodyText().contains("Todavía no has conectado", "API token");
     }
 
     @Test
     void howToGetATokenIsShownOpenUntilTheOwnerConnects() {
-        assertThat(mvc.get().uri("/nuki/connection").with(owner(ALICE)))
+        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)))
                 .bodyText().contains("<details open", "Cómo conseguir el API token",
                         "<a href=\"https://web.nuki.io\" target=\"_blank\" rel=\"noopener noreferrer\">",
                         "Generar token de API", "Ver dispositivos", "Gestionar dispositivos",
@@ -93,7 +93,7 @@ class NukiConnectionTests {
         nukiAccepts(TOKEN);
         connect(ALICE, TOKEN);
 
-        assertThat(mvc.get().uri("/nuki/connection").with(owner(ALICE)))
+        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)))
                 .bodyText().contains("Cómo conseguir el API token").doesNotContain("<details open");
     }
 
@@ -103,19 +103,19 @@ class NukiConnectionTests {
 
         var result = connect(ALICE, "  " + TOKEN + "\n");
 
-        assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/nuki/connection");
+        assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/settings/nuki");
         assertThat(result.getMvcResult().getFlashMap().get("connectedLocks")).isEqualTo(List.of("Casa"));
         var stored = storedToken(aliceId);
         assertThat(new String(stored, StandardCharsets.ISO_8859_1)).doesNotContain(TOKEN);
         assertThat(crypto.decryptApiToken(aliceId, stored)).isEqualTo(TOKEN);
         assertThat(migrator.sql("SELECT status FROM nuki_connection").query(String.class).single()).isEqualTo("OK");
-        assertThat(mvc.get().uri("/nuki/connection").with(owner(ALICE)))
+        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)))
                 .bodyText().contains("Conectado.", "Última comprobación");
     }
 
     @Test
     void pageNamesTheLocksJustFound() {
-        assertThat(mvc.get().uri("/nuki/connection").with(owner(ALICE)).flashAttr("connectedLocks", List.of("Casa")))
+        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)).flashAttr("connectedLocks", List.of("Casa")))
                 .bodyText().contains("Cerraduras encontradas", "Casa");
     }
 
@@ -123,7 +123,7 @@ class NukiConnectionTests {
     void htmlFormSendsThePutAsAPostWithHiddenMethod() {
         nukiAccepts(TOKEN);
 
-        assertThat(mvc.post().uri("/nuki/connection").with(owner(ALICE)).with(csrf())
+        assertThat(mvc.post().uri("/settings/nuki").with(owner(ALICE)).with(csrf())
                 .param("_method", "put").param("apiToken", TOKEN))
                 .hasStatus(HttpStatus.FOUND);
         assertThat(storedToken(aliceId)).isNotNull();
@@ -174,7 +174,7 @@ class NukiConnectionTests {
         nukiAccepts(TOKEN);
         connect(ALICE, TOKEN);
         migrator.sql("UPDATE nuki_connection SET status = 'DISCONNECTED'").update();
-        assertThat(mvc.get().uri("/nuki/connection").with(owner(ALICE))).bodyText().contains("Nuki ha rechazado");
+        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE))).bodyText().contains("Nuki ha rechazado");
 
         nukiAccepts(NEW_TOKEN);
         assertThat(connect(ALICE, NEW_TOKEN)).hasStatus(HttpStatus.FOUND);
@@ -188,18 +188,18 @@ class NukiConnectionTests {
         nukiAccepts(TOKEN);
         connect("bob@example.com", TOKEN);
 
-        assertThat(mvc.get().uri("/nuki/connection").with(owner(ALICE))).bodyText().contains("Todavía no has conectado");
+        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE))).bodyText().contains("Todavía no has conectado");
     }
 
     @Test
     void connectingRequiresTheCsrfToken() {
-        assertThat(mvc.put().uri("/nuki/connection").with(owner(ALICE)).param("apiToken", TOKEN))
+        assertThat(mvc.put().uri("/settings/nuki").with(owner(ALICE)).param("apiToken", TOKEN))
                 .hasStatus(HttpStatus.FORBIDDEN);
     }
 
     @Test
     void signedInUserWithoutOwnerIsForbidden() {
-        assertThat(mvc.get().uri("/nuki/connection").with(owner("deleted@example.com"))).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(mvc.get().uri("/settings/nuki").with(owner("deleted@example.com"))).hasStatus(HttpStatus.FORBIDDEN);
     }
 
     @Test
@@ -238,9 +238,9 @@ class NukiConnectionTests {
                 .update();
         var linkBefore = link();
 
-        var result = mvc.delete().uri("/nuki/connection").with(owner(ALICE)).with(csrf()).exchange();
+        var result = mvc.delete().uri("/settings/nuki").with(owner(ALICE)).with(csrf()).exchange();
 
-        assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/nuki/connection");
+        assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/settings/nuki");
         assertNoConnection();
         assertThat(migrator.sql("SELECT connection_id IS NULL FROM lock").query(Boolean.class).single()).isTrue();
         assertThat(link()).isEqualTo(linkBefore);
@@ -253,7 +253,7 @@ class NukiConnectionTests {
 
     @Test
     void pageConfirmsTheDisconnection() {
-        assertThat(mvc.get().uri("/nuki/connection").with(owner(ALICE)).flashAttr("disconnected", true))
+        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)).flashAttr("disconnected", true))
                 .bodyText().contains("Nuki desconectado", "Todavía no has conectado");
     }
 
@@ -262,7 +262,7 @@ class NukiConnectionTests {
         nukiAccepts(TOKEN);
         connect(ALICE, TOKEN);
 
-        assertThat(mvc.post().uri("/nuki/connection").with(owner(ALICE)).with(csrf()).param("_method", "delete"))
+        assertThat(mvc.post().uri("/settings/nuki").with(owner(ALICE)).with(csrf()).param("_method", "delete"))
                 .hasStatus(HttpStatus.FOUND);
         assertNoConnection();
     }
@@ -273,7 +273,7 @@ class NukiConnectionTests {
         connect(ALICE, TOKEN);
         connect("bob@example.com", TOKEN);
 
-        mvc.delete().uri("/nuki/connection").with(owner(ALICE)).with(csrf()).exchange();
+        mvc.delete().uri("/settings/nuki").with(owner(ALICE)).with(csrf()).exchange();
 
         assertThat(migrator.sql("SELECT o.email FROM nuki_connection c JOIN owner o ON o.id = c.owner_id")
                 .query(String.class).list()).containsExactly("bob@example.com");
@@ -284,7 +284,7 @@ class NukiConnectionTests {
         nukiAccepts(TOKEN);
         connect(ALICE, TOKEN);
 
-        assertThat(mvc.delete().uri("/nuki/connection").with(owner(ALICE))).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(mvc.delete().uri("/settings/nuki").with(owner(ALICE))).hasStatus(HttpStatus.FORBIDDEN);
         assertThat(storedToken(aliceId)).isNotNull();
     }
 
@@ -296,7 +296,7 @@ class NukiConnectionTests {
     }
 
     private MvcTestResult connect(String email, String apiToken) {
-        return mvc.put().uri("/nuki/connection").with(owner(email)).with(csrf()).param("apiToken", apiToken).exchange();
+        return mvc.put().uri("/settings/nuki").with(owner(email)).with(csrf()).param("apiToken", apiToken).exchange();
     }
 
     private void nukiAccepts(String token) {

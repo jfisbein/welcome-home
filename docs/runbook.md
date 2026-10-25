@@ -32,7 +32,7 @@ How to run welcome-home in production. It runs as a Dockge stack on `docker.frit
 
 5. **Start.** Deploy the stack. `db`, `app` and `backup` turn healthy within a minute or two, and `cloudflared` starts once `app` is. `https://welcome-home.example.com/actuator/health` answers `{"status":"UP"}` from outside.
 6. **First admin.** `docker compose run --rm app --bootstrap-admin` prints an invitation link, valid for 72 hours. Open it on your phone or computer, enter your email and create the passkey. Further owners are invited from `/admin/owners`.
-7. **Emails.** In SMTP2GO, verify the sender domain `example.com` (its DNS records) and create an SMTP user; its name and password are `secrets/smtp_username` and `smtp_password`. The sender is `NOTIFICATIONS_FROM` in `compose.yaml`. Check with "Enviarme un email de prueba" at `/notifications`.
+7. **Emails.** In SMTP2GO, verify the sender domain `example.com` (its DNS records) and create an SMTP user; its name and password are `secrets/smtp_username` and `smtp_password`. The sender is `NOTIFICATIONS_FROM` in `compose.yaml`. Check with "Enviarme un email de prueba" at `/settings/notifications`.
 8. **Off-site copy.** In zerobyte, a daily job after 04:00 that backs up the stack's `backups/` folder to B2, keeping 30 days of snapshots.
 
 ## Release and upgrade

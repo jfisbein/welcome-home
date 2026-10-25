@@ -60,11 +60,11 @@ class PasskeyManagementTests {
 
     @Test
     void pageListsOnlyTheOwnersPasskeysAndHowToAddOne() {
-        assertThat(mvc.get().uri("/passkeys").with(owner(ALICE)))
+        assertThat(mvc.get().uri("/settings/passkeys").with(owner(ALICE)))
                 .hasStatusOk()
                 .bodyText().contains("Tus passkeys", "value=\"Passkey\"", "Añadir passkey", "/js/passkeys.js")
                 .doesNotContain("Móvil de Bob");
-        assertThat(mvc.get().uri("/nuki/connection").with(owner(ALICE))).bodyText().contains("href=\"/passkeys\"");
+        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE))).bodyText().contains("href=\"/settings/passkeys\"");
     }
 
     @Test
@@ -79,24 +79,24 @@ class PasskeyManagementTests {
                 .hasStatusOk()
                 .bodyJson().extractingPath("$.success").isEqualTo(true);
 
-        assertThat(mvc.get().uri("/passkeys").with(owner(ALICE))).bodyText().contains("value=\"Portátil\"");
+        assertThat(mvc.get().uri("/settings/passkeys").with(owner(ALICE))).bodyText().contains("value=\"Portátil\"");
         assertSignsIn(laptop, true);
         assertSignsIn(phone, true);
     }
 
     @Test
     void renamingChangesOnlyThatPasskey() {
-        var result = mvc.patch().uri("/passkeys/" + credentialIdOf("Passkey")).with(owner(ALICE)).with(csrf())
+        var result = mvc.patch().uri("/settings/passkeys/" + credentialIdOf("Passkey")).with(owner(ALICE)).with(csrf())
                 .param("label", "  iPhone  ").exchange();
 
-        assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/passkeys");
+        assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/settings/passkeys");
         assertThat(labels()).containsExactlyInAnyOrder("iPhone", "Móvil de Bob");
     }
 
     @Test
     void aNameMustNotBeBlankOrTooLong() {
         for (var label : new String[] {"", "   ", "x".repeat(61)}) {
-            assertThat(mvc.patch().uri("/passkeys/" + credentialIdOf("Passkey")).with(owner(ALICE)).with(csrf())
+            assertThat(mvc.patch().uri("/settings/passkeys/" + credentialIdOf("Passkey")).with(owner(ALICE)).with(csrf())
                     .param("label", label))
                     .as(label).hasStatus(HttpStatus.BAD_REQUEST);
         }
@@ -106,12 +106,12 @@ class PasskeyManagementTests {
     @Test
     void aDeletedPasskeyNoLongerSignsIn() {
         addLaptop();
-        assertThat(mvc.get().uri("/passkeys").with(owner(ALICE))).bodyText()
+        assertThat(mvc.get().uri("/settings/passkeys").with(owner(ALICE))).bodyText()
                 .contains("data-confirm=\"La passkey «Passkey» dejará de servir para entrar. ¿Borrarla?\"",
                         "/js/confirm.js");
 
-        assertThat(mvc.delete().uri("/passkeys/" + credentialIdOf("Passkey")).with(owner(ALICE)).with(csrf()))
-                .hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/passkeys");
+        assertThat(mvc.delete().uri("/settings/passkeys/" + credentialIdOf("Passkey")).with(owner(ALICE)).with(csrf()))
+                .hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/settings/passkeys");
 
         assertThat(labels()).containsExactlyInAnyOrder("Portátil", "Móvil de Bob");
         assertSignsIn(phone, false);
@@ -120,10 +120,10 @@ class PasskeyManagementTests {
 
     @Test
     void theLastPasskeyCannotBeDeleted() {
-        assertThat(mvc.get().uri("/passkeys").with(owner(ALICE))).bodyText()
+        assertThat(mvc.get().uri("/settings/passkeys").with(owner(ALICE))).bodyText()
                 .contains("Es tu única passkey").doesNotContain("data-confirm");
 
-        assertThat(mvc.delete().uri("/passkeys/" + credentialIdOf("Passkey")).with(owner(ALICE)).with(csrf()))
+        assertThat(mvc.delete().uri("/settings/passkeys/" + credentialIdOf("Passkey")).with(owner(ALICE)).with(csrf()))
                 .hasStatus(HttpStatus.CONFLICT);
 
         assertThat(labels()).containsExactlyInAnyOrder("Passkey", "Móvil de Bob");
@@ -133,15 +133,15 @@ class PasskeyManagementTests {
     @Test
     void changesRequireTheCsrfToken() {
         var id = credentialIdOf("Passkey");
-        assertThat(mvc.patch().uri("/passkeys/" + id).with(owner(ALICE)).param("label", "x"))
+        assertThat(mvc.patch().uri("/settings/passkeys/" + id).with(owner(ALICE)).param("label", "x"))
                 .hasStatus(HttpStatus.FORBIDDEN);
-        assertThat(mvc.delete().uri("/passkeys/" + id).with(owner(ALICE))).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(mvc.delete().uri("/settings/passkeys/" + id).with(owner(ALICE))).hasStatus(HttpStatus.FORBIDDEN);
         assertThat(mvc.post().uri("/webauthn/register/options").with(owner(ALICE))).hasStatus(HttpStatus.FORBIDDEN);
     }
 
     @Test
     void anonymousVisitorIsSentToLogin() {
-        assertThat(mvc.get().uri("/passkeys")).hasStatus(HttpStatus.FOUND).redirectedUrl().endsWith("/login");
+        assertThat(mvc.get().uri("/settings/passkeys")).hasStatus(HttpStatus.FOUND).redirectedUrl().endsWith("/login");
     }
 
     private void addLaptop() {

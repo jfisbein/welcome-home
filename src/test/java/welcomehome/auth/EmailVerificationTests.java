@@ -142,14 +142,14 @@ class EmailVerificationTests {
     void thePanelAndTheNotificationsPageSaySoUntilThen() {
         assertThat(mvc.get().uri("/").with(owner())).hasStatusOk().bodyText()
                 .contains("Confirma tu email.", "Enviar el enlace de nuevo");
-        assertThat(mvc.get().uri("/notifications").with(owner())).hasStatusOk().bodyText()
-                .contains("Tu email no está confirmado").doesNotContain("/notifications/test");
+        assertThat(mvc.get().uri("/settings/notifications").with(owner())).hasStatusOk().bodyText()
+                .contains("Tu email no está confirmado").doesNotContain("/settings/notifications/test");
 
         migrator.sql("UPDATE owner SET email_verified_at = now()").update();
 
         assertThat(mvc.get().uri("/").with(owner())).bodyText().doesNotContain("Confirma tu email.");
-        assertThat(mvc.get().uri("/notifications").with(owner())).bodyText()
-                .doesNotContain("Tu email no está confirmado").contains("/notifications/test");
+        assertThat(mvc.get().uri("/settings/notifications").with(owner())).bodyText()
+                .doesNotContain("Tu email no está confirmado").contains("/settings/notifications/test");
     }
 
     @Test

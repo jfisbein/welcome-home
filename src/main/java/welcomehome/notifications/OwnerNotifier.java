@@ -90,7 +90,7 @@ class OwnerNotifier {
         }
         findRecipient(disconnected.ownerId()).ifPresent(to -> send(to.email(),
                 message(to, "notification.disconnected.subject"),
-                message(to, "notification.disconnected.body", app.link("/nuki/connection")) + footer(to)));
+                message(to, "notification.disconnected.body", app.link("/settings/nuki")) + footer(to)));
     }
 
     /**
@@ -108,7 +108,7 @@ class OwnerNotifier {
                         + accountFooter(to)));
     }
 
-    /** Also without a transaction: Spring Security stores a passkey added from /passkeys in none. */
+    /** Also without a transaction: Spring Security stores a passkey added from /settings/passkeys in none. */
     @Async
     @TransactionalEventListener(fallbackExecution = true)
     void on(PasskeyAdded added) {
@@ -117,7 +117,7 @@ class OwnerNotifier {
         }
         findRecipient(added.ownerEmail()).ifPresent(to -> send(to.email(),
                 message(to, "account.passkey-added.subject"),
-                message(to, "account.passkey-added.body", added.label(), app.link("/passkeys")) + accountFooter(to)));
+                message(to, "account.passkey-added.body", added.label(), app.link("/settings/passkeys")) + accountFooter(to)));
     }
 
     /** Also without a transaction, when the owner asks for the link again. */
@@ -154,7 +154,7 @@ class OwnerNotifier {
     }
 
     private String footer(Recipient to) {
-        return "\n--\n" + message(to, "notification.footer", app.link("/notifications")) + "\n";
+        return "\n--\n" + message(to, "notification.footer", app.link("/settings/notifications")) + "\n";
     }
 
     private String accountFooter(Recipient to) {

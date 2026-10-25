@@ -20,7 +20,7 @@ import welcomehome.db.OwnerTransactions;
 
 /** The owner's choice of emails, and a test email to check that they arrive. */
 @Controller
-@RequestMapping("/notifications")
+@RequestMapping("/settings/notifications")
 class NotificationsController {
 
     private static final Logger log = LoggerFactory.getLogger(NotificationsController.class);
@@ -57,7 +57,7 @@ class NotificationsController {
         var chosen = new NotificationPreferences(opened, failed, denied, disconnected);
         ownerTransactions.run(owner.id(), () -> preferences.save(owner.id(), chosen));
         redirect.addFlashAttribute("saved", true);
-        return "redirect:/notifications";
+        return "redirect:/settings/notifications";
     }
 
     /** In the owner's language, which is that of their pages. */
@@ -65,7 +65,7 @@ class NotificationsController {
     String sendTest(CurrentOwner owner, Locale locale, RedirectAttributes redirect) {
         if (!emailVerification.isVerified(owner.id())) {
             redirect.addFlashAttribute("testUnverified", true);
-            return "redirect:/notifications";
+            return "redirect:/settings/notifications";
         }
         try {
             mailer.send(owner.email(), messages.getMessage("notifications.test-email.subject", null, locale),
@@ -75,6 +75,6 @@ class NotificationsController {
             log.warn("Could not send a test email: {}", e.getMessage());
             redirect.addFlashAttribute("testFailed", true);
         }
-        return "redirect:/notifications";
+        return "redirect:/settings/notifications";
     }
 }

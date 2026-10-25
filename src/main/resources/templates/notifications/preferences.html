@@ -25,7 +25,7 @@
     </article>
 
     <p th:text="#{notifications.sent-to(${email})}">Te los enviamos a ana@example.com.</p>
-    <form th:action="@{/notifications}" th:method="put">
+    <form th:action="@{/settings/notifications}" th:method="put">
         <fieldset>
             <legend th:text="#{notifications.when}">Avísame cuando…</legend>
             <label>
@@ -48,7 +48,7 @@
         <button type="submit" th:text="#{common.save}">Guardar</button>
     </form>
 
-    <form th:if="${emailConfigured and emailVerified}" th:action="@{/notifications/test}" method="post">
+    <form th:if="${emailConfigured and emailVerified}" th:action="@{/settings/notifications/test}" method="post">
         <button type="submit" class="secondary" th:text="#{notifications.test}">Enviarme un email de prueba</button>
     </form>
 </main>

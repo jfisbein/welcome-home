@@ -36,14 +36,14 @@ class NotificationsWithoutEmailTests {
 
     @Test
     void thePageSaysThatNoEmailWillArrive() {
-        assertThat(mvc.get().uri("/notifications").with(owner())).hasStatusOk().bodyText()
-                .contains("El envío de emails no está configurado", "href=\"/notifications\"")
+        assertThat(mvc.get().uri("/settings/notifications").with(owner())).hasStatusOk().bodyText()
+                .contains("El envío de emails no está configurado", "href=\"/settings/notifications\"")
                 .doesNotContain("Enviarme un email de prueba");
     }
 
     @Test
     void aTestEmailFailsPolitely() {
-        var result = mvc.post().uri("/notifications/test").with(owner()).with(csrf()).exchange();
+        var result = mvc.post().uri("/settings/notifications/test").with(owner()).with(csrf()).exchange();
 
         assertThat(result).hasStatus3xxRedirection();
         assertThat(result.getMvcResult().getFlashMap().get("testFailed")).isEqualTo(true);

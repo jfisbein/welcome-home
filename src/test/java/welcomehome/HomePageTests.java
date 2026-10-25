@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
@@ -100,17 +101,27 @@ class HomePageTests {
 
     @Test
     void menuMarksTheCurrentSectionAndConfigurationLeadsToItsSections() {
-        assertThat(home()).contains("href=\"/locks\"", "href=\"/settings\"").doesNotContain("href=\"/passkeys\"");
-        assertThat(mvc.get().uri("/settings").with(owner(ALICE))).hasRedirectedUrl("/nuki/connection");
+        assertThat(home()).contains("href=\"/locks\"", "href=\"/settings\"").doesNotContain("href=\"/settings/passkeys\"");
+        assertThat(mvc.get().uri("/settings").with(owner(ALICE))).hasRedirectedUrl("/settings/nuki");
         assertThat(body(mvc.get().uri("/locks").with(owner(ALICE)).exchange()))
                 .contains("<a href=\"/locks\" aria-current=\"page\">Cerraduras</a>");
-        for (var section : new String[] {"/nuki/connection", "/language", "/notifications", "/passkeys"}) {
+        for (var section : new String[] {"/settings/nuki", "/settings/language", "/settings/notifications",
+                "/settings/passkeys"}) {
             assertThat(body(mvc.get().uri(section).with(owner(ALICE)).exchange()))
                     .as(section)
                     .contains("<a href=\"/settings\" aria-current=\"page\">Configuración</a>",
                             "<a href=\"" + section + "\" aria-current=\"page\">",
-                            "href=\"/nuki/connection\"", "href=\"/language\"", "href=\"/notifications\"",
-                            "href=\"/passkeys\"");
+                            "href=\"/settings/nuki\"", "href=\"/settings/language\"", "href=\"/settings/notifications\"",
+                            "href=\"/settings/passkeys\"");
+        }
+    }
+
+    @Test
+    void configurationsFormerAddressesLeadToItsSections() {
+        for (var section : new String[] {"nuki/connection:nuki", "notifications:notifications", "passkeys:passkeys"}) {
+            var paths = section.split(":");
+            assertThat(mvc.get().uri("/" + paths[0]).with(owner(ALICE))).as(paths[0])
+                    .hasStatus(HttpStatus.MOVED_PERMANENTLY).hasRedirectedUrl("/settings/" + paths[1]);
         }
     }
 

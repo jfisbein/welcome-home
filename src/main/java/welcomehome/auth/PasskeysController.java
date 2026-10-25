@@ -18,7 +18,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
  * (see static/js/passkeys.js). Another owner's passkey is not found.
  */
 @Controller
-@RequestMapping("/passkeys")
+@RequestMapping("/settings/passkeys")
 class PasskeysController {
 
     static final int MAX_LABEL_LENGTH = 60;
@@ -49,7 +49,7 @@ class PasskeysController {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
         redirect.addFlashAttribute("renamed", stripped);
-        return "redirect:/passkeys";
+        return "redirect:/settings/passkeys";
     }
 
     @DeleteMapping("/{credentialId}")
@@ -62,6 +62,6 @@ class PasskeysController {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "The last passkey cannot be deleted");
         }
         redirect.addFlashAttribute("deleted", passkey.label());
-        return "redirect:/passkeys";
+        return "redirect:/settings/passkeys";
     }
 }

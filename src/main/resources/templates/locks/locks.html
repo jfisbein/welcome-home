@@ -20,9 +20,9 @@
         <p th:text="#{locks.updated(${updated})}">Guardados los cambios de Casa.</p>
     </article>
     <article th:if="${syncError}" role="alert">
-        <p th:if="${syncError == 'not-connected'}" th:utext="#{locks.sync-error.not-connected(@{/nuki/connection})}">
+        <p th:if="${syncError == 'not-connected'}" th:utext="#{locks.sync-error.not-connected(@{/settings/nuki})}">
             Para sincronizar, primero conecta tu cuenta de Nuki.</p>
-        <p th:if="${syncError == 'rejected'}" th:utext="#{locks.sync-error.rejected(@{/nuki/connection})}">
+        <p th:if="${syncError == 'rejected'}" th:utext="#{locks.sync-error.rejected(@{/settings/nuki})}">
             Nuki no ha aceptado tu API token.</p>
         <p th:if="${syncError == 'unavailable'}" th:text="#{locks.sync-error.unavailable}">Nuki no responde.</p>
     </article>

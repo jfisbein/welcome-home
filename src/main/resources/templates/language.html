@@ -9,7 +9,7 @@
     <article th:if="${languageSaved}"><p th:text="#{language.saved}">Idioma guardado.</p></article>
     <p th:text="#{language.text}">Tus páginas y los emails que te enviamos están en este idioma.</p>
 
-    <form th:action="@{/language}" th:method="put">
+    <form th:action="@{/settings/language}" th:method="put">
         <fieldset role="group">
             <select name="language" th:aria-label="#{language.title}">
                 <option th:each="option : ${languages}" th:value="${option.tag}" th:lang="${option.tag}"

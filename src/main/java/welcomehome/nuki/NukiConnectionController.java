@@ -17,7 +17,7 @@ import welcomehome.auth.CurrentOwner;
  * back, not even after a failed attempt.
  */
 @Controller
-@RequestMapping("/nuki/connection")
+@RequestMapping("/settings/nuki")
 class NukiConnectionController {
 
     private static final String VIEW = "nuki/connection";
@@ -40,7 +40,7 @@ class NukiConnectionController {
         try {
             var locks = connections.connect(owner.id(), apiToken);
             redirect.addFlashAttribute("connectedLocks", locks.stream().map(SmartLock::name).toList());
-            return "redirect:/nuki/connection";
+            return "redirect:/settings/nuki";
         } catch (LockProviderException e) {
             var error = switch (e.reason()) {
                 case NUKI_ERROR, NO_ANSWER -> "unavailable";
@@ -58,6 +58,6 @@ class NukiConnectionController {
     String disconnect(CurrentOwner owner, RedirectAttributes redirect) {
         connections.remove(owner.id());
         redirect.addFlashAttribute("disconnected", true);
-        return "redirect:/nuki/connection";
+        return "redirect:/settings/nuki";
     }
 }

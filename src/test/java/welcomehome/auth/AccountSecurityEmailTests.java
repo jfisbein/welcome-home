@@ -95,7 +95,7 @@ class AccountSecurityEmailTests {
         var email = theOnlyEmail();
         assertThat(email.getSubject()).isEqualTo("Se ha añadido una passkey a tu cuenta de welcome-home");
         assertThat(email.getAllRecipients()).extracting(Object::toString).containsExactly(ALICE);
-        assertThat(text(email)).contains("«Portátil»", IntegrationTest.BASE_URL + "/passkeys",
+        assertThat(text(email)).contains("«Portátil»", IntegrationTest.BASE_URL + "/settings/passkeys",
                 "Este aviso se envía siempre");
 
         signIn(laptop);
@@ -135,7 +135,7 @@ class AccountSecurityEmailTests {
 
     @Test
     void theyAreSentWhateverTheOwnersPreferences() throws Exception {
-        assertThat(mvc.put().uri("/notifications").with(user(ALICE).roles("OWNER")).with(csrf()))
+        assertThat(mvc.put().uri("/settings/notifications").with(user(ALICE).roles("OWNER")).with(csrf()))
                 .hasStatus3xxRedirection();
 
         invitations.createPasskeyRecovery(null, aliceId);

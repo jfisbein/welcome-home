@@ -13,8 +13,7 @@ import welcomehome.nuki.NukiConnections;
 
 /**
  * The owner's home page: their locks and the latest attempts with their links. It also warns when their email
- * is not verified, and when Nuki is not connected or has rejected their API token. Configuration's entry
- * point is here too, since its sections live in several modules.
+ * is not verified, and when Nuki is not connected or has rejected their API token.
  */
 @Controller
 class HomeController {
@@ -42,11 +41,5 @@ class HomeController {
         model.addAttribute("locks", locks.findAll(owner.id()));
         model.addAttribute("attempts", recentAttempts.latest(owner.id(), RECENT_ATTEMPTS, locale));
         return "home";
-    }
-
-    /** Configuration has one page per section; the menu leads to the first. */
-    @GetMapping("/settings")
-    String settings() {
-        return "redirect:/nuki/connection";
     }
 }

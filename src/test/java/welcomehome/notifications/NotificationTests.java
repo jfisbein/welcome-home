@@ -101,7 +101,7 @@ class NotificationTests {
         assertThat(email.getFrom()).extracting(Object::toString).containsExactly(MailStandInConfiguration.FROM);
         assertThat(text(email)).contains("Ana ha abierto la puerta de Casa el ", "(hora de America/New_York)",
                 IntegrationTest.BASE_URL + "/locks/" + lockId + "/history?link=" + linkId,
-                IntegrationTest.BASE_URL + "/notifications");
+                IntegrationTest.BASE_URL + "/settings/notifications");
     }
 
     @Test
@@ -156,7 +156,7 @@ class NotificationTests {
         assertThat(text(email)).containsPattern("Ana opened the door of Casa on \\d{2}/\\d{2}/\\d{4} at \\d{2}:\\d{2}")
                 .contains("(America/New_York time)", "Choose which notifications you get");
 
-        assertThat(mvc.post().uri("/notifications/test").with(owner()).with(csrf())).hasStatus3xxRedirection();
+        assertThat(mvc.post().uri("/settings/notifications/test").with(owner()).with(csrf())).hasStatus3xxRedirection();
         await().atMost(Duration.ofSeconds(5)).until(() -> mail.getReceivedMessages().length == 2);
         assertThat(mail.getReceivedMessages()[1].getSubject()).isEqualTo("welcome-home test email");
     }
@@ -186,7 +186,7 @@ class NotificationTests {
 
         var email = theOnlyEmail();
         assertThat(email.getSubject()).isEqualTo("Nuki ha rechazado tu API token");
-        assertThat(text(email)).contains(IntegrationTest.BASE_URL + "/nuki/connection");
+        assertThat(text(email)).contains(IntegrationTest.BASE_URL + "/settings/nuki");
 
         assertThatThrownBy(() -> lockProvider.listLocks(aliceId)).as("already disconnected")
                 .isInstanceOf(LockProviderException.class);
@@ -214,15 +214,15 @@ class NotificationTests {
 
     @Test
     void anOwnerGetsOnlyTheEmailsTheyChose() throws Exception {
-        assertThat(mvc.get().uri("/notifications").with(owner())).hasStatusOk().bodyText()
+        assertThat(mvc.get().uri("/settings/notifications").with(owner())).hasStatusOk().bodyText()
                 .contains("name=\"opened\" value=\"true\" checked", "name=\"denied\" value=\"true\" checked")
                 .doesNotContain("no está configurado");
 
-        assertThat(mvc.put().uri("/notifications").with(owner()).with(csrf())
+        assertThat(mvc.put().uri("/settings/notifications").with(owner()).with(csrf())
                 .param("failed", "true").param("disconnected", "true"))
                 .hasStatus3xxRedirection();
 
-        assertThat(mvc.get().uri("/notifications").with(owner())).bodyText()
+        assertThat(mvc.get().uri("/settings/notifications").with(owner())).bodyText()
                 .contains("name=\"failed\" value=\"true\" checked")
                 .doesNotContain("name=\"opened\" value=\"true\" checked", "name=\"denied\" value=\"true\" checked");
         record(linkId, AccessOutcome.OPENED);
@@ -235,7 +235,7 @@ class NotificationTests {
 
     @Test
     void theOwnerCanSendThemselvesATestEmail() throws Exception {
-        assertThat(mvc.post().uri("/notifications/test").with(owner()).with(csrf())).hasStatus3xxRedirection();
+        assertThat(mvc.post().uri("/settings/notifications/test").with(owner()).with(csrf())).hasStatus3xxRedirection();
 
         var email = theOnlyEmail();
         assertThat(email.getSubject()).isEqualTo("Email de prueba de welcome-home");
@@ -244,8 +244,8 @@ class NotificationTests {
 
     @Test
     void changingPreferencesRequiresTheCsrfToken() throws Exception {
-        assertThat(mvc.put().uri("/notifications").with(owner())).hasStatus4xxClientError();
-        assertThat(mvc.post().uri("/notifications/test").with(owner())).hasStatus4xxClientError();
+        assertThat(mvc.put().uri("/settings/notifications").with(owner())).hasStatus4xxClientError();
+        assertThat(mvc.post().uri("/settings/notifications/test").with(owner())).hasStatus4xxClientError();
     }
 
     @Test

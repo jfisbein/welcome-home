@@ -87,7 +87,7 @@ class OpenDoorTests {
                 .param(aliceId).query(UUID.class).single();
         nuki.stubFor(get("/smartlock").willReturn(okJson("[]")));
         NukiStandInConfiguration.logIsReadable(nuki);
-        assertThat(mvc.put().uri("/nuki/connection").with(user(ALICE).roles("OWNER")).with(csrf())
+        assertThat(mvc.put().uri("/settings/nuki").with(user(ALICE).roles("OWNER")).with(csrf())
                 .param("apiToken", ALICES_NUKI_TOKEN))
                 .hasStatus(HttpStatus.FOUND);
         nuki.resetRequests();

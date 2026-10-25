@@ -16,9 +16,9 @@
         <p th:unless="${lock.active}" th:text="#{lock.inactive}">Esta cerradura ya no está en tu cuenta de Nuki.</p>
 
         <p th:if="${stateError == 'not-connected'}" role="alert"
-           th:utext="#{lock.state-error.not-connected(@{/nuki/connection})}">Para ver el estado, conecta Nuki.</p>
+           th:utext="#{lock.state-error.not-connected(@{/settings/nuki})}">Para ver el estado, conecta Nuki.</p>
         <p th:if="${stateError == 'rejected'}" role="alert"
-           th:utext="#{lock.state-error.rejected(@{/nuki/connection})}">Nuki no ha aceptado tu API token.</p>
+           th:utext="#{lock.state-error.rejected(@{/settings/nuki})}">Nuki no ha aceptado tu API token.</p>
         <p th:if="${stateError == 'not-found'}" role="alert"
            th:utext="#{lock.state-error.not-found(@{/locks})}">Nuki no encuentra esta cerradura.</p>
         <p th:if="${stateError == 'unavailable'}" role="alert" th:text="#{lock.state-error.unavailable}">

@@ -74,16 +74,16 @@ class OwnerLanguageTests {
     @Test
     void theOwnerChoosesTheirLanguageInConfiguration() {
         insertOwner("es");
-        assertThat(body(mvc.get().uri("/language").with(owner()).exchange()))
+        assertThat(body(mvc.get().uri("/settings/language").with(owner()).exchange()))
                 .containsPattern("<option value=\"es\" lang=\"es\"\\s+selected=\"selected\">Español</option>")
                 .contains("<option value=\"en\" lang=\"en\">English</option>");
 
-        assertThat(mvc.put().uri("/language").with(owner()).with(csrf()).param("language", "en"))
-                .hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/language");
+        assertThat(mvc.put().uri("/settings/language").with(owner()).with(csrf()).param("language", "en"))
+                .hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/settings/language");
 
         assertThat(language(ALICE)).isEqualTo("en");
         assertThat(home("es")).contains("<html lang=\"en\"", "Signed in as");
-        assertThat(body(mvc.get().uri("/language").with(owner()).flashAttr("languageSaved", true).exchange()))
+        assertThat(body(mvc.get().uri("/settings/language").with(owner()).flashAttr("languageSaved", true).exchange()))
                 .contains("Language saved.");
     }
 
@@ -91,9 +91,9 @@ class OwnerLanguageTests {
     void onlyALanguageWithTextsCanBeChosen() {
         insertOwner("es");
 
-        assertThat(mvc.put().uri("/language").with(owner()).with(csrf()).param("language", "fr"))
+        assertThat(mvc.put().uri("/settings/language").with(owner()).with(csrf()).param("language", "fr"))
                 .hasStatus(HttpStatus.BAD_REQUEST);
-        assertThat(mvc.put().uri("/language").with(owner()).param("language", "en"))
+        assertThat(mvc.put().uri("/settings/language").with(owner()).param("language", "en"))
                 .as("without the CSRF token").hasStatus(HttpStatus.FORBIDDEN);
         assertThat(language(ALICE)).isEqualTo("es");
     }

@@ -28,7 +28,7 @@ Signed-in owners have a menu at the top of every page:
 
 - **Home** (`/`, the "welcome-home" name): the owner's locks, each with its links and history, and their latest 10 guest attempts across all locks (`audit.RecentAttempts`), each in its lock's time zone and leading to that lock's or link's history. It also asks the owner to verify their email, to connect Nuki, or to paste a new API token when Nuki rejected theirs.
 - **Cerraduras** (`/locks`): syncing with Nuki, each lock's settings and state, its links and its history.
-- **Configuración** (`/settings`, which leads to its first section): one page per section, linked to each other by a row under the menu: Nuki (`/nuki/connection`), Idioma (`/language`), Avisos (`/notifications`) and Passkeys (`/passkeys`).
+- **Configuración** (`/settings`, which leads to its first section): one page per section, linked to each other by a row under the menu: Nuki (`/settings/nuki`), Idioma (`/settings/language`), Avisos (`/settings/notifications`) and Passkeys (`/settings/passkeys`). Their former addresses (`/nuki/connection`, `/notifications`, `/passkeys`), which emails sent before the move link to, redirect there permanently.
 - **Administración** (`/admin/owners`): admins only.
 
 The menu marks the section a page belongs to (`aria-current="page"`): each page passes it to the `menu` fragment of `fragments/layout.html`, and configuration's pages also pass theirs to the `settings` fragment.
@@ -76,7 +76,7 @@ Admins invite further owners from the admin panel (`/admin/owners`, linked from 
 
 "Dar de baja" (`DELETE /admin/owners`, after confirming) deletes an owner with everything of theirs, in one transaction: the owner row's foreign keys cascade to their Nuki connection, locks, links, history and recovery links, and their passkeys are deleted by email. Invitations they created stay, without a creator. An admin cannot delete themselves, so an admin is always left. The deleted data stays in the backups until they expire (30 days); the owner's Nuki API token should also be deleted in Nuki Web.
 
-Each owner manages their passkeys at `/passkeys` (Configuración → Passkeys): the list shows each one's name, when it was created and when it last signed in. An owner renames them (`PATCH /passkeys/{credentialId}`), deletes the one of a lost device (`DELETE /passkeys/{credentialId}`, after confirming; never the last one, so that nobody locks themselves out) and adds another from the device or password manager where they want it, with a name, through Spring Security's own `POST /webauthn/register/options` and `POST /webauthn/register`. Passkeys live in Spring Security's tables, which have no `owner_id`: every query joins `user_entities` by the owner's email, and another owner's passkey is a 404.
+Each owner manages their passkeys at `/settings/passkeys` (Configuración → Passkeys): the list shows each one's name, when it was created and when it last signed in. An owner renames them (`PATCH /settings/passkeys/{credentialId}`), deletes the one of a lost device (`DELETE /settings/passkeys/{credentialId}`, after confirming; never the last one, so that nobody locks themselves out) and adds another from the device or password manager where they want it, with a name, through Spring Security's own `POST /webauthn/register/options` and `POST /webauthn/register`. Passkeys live in Spring Security's tables, which have no `owner_id`: every query joins `user_entities` by the owner's email, and another owner's passkey is a 404.
 
 An owner who lost their passkey gets a passkey recovery link: from the admin panel ("Nueva passkey", next to each owner), or from the server for an admin who cannot sign in at all:
 
@@ -92,11 +92,11 @@ The app needs `BASE_URL` (its public URL, e.g. `https://welcome.example`) to bui
 
 The `nuki` module is the only one that talks to Nuki, through the Nuki Web API ([definition](https://api.nuki.io/static/swagger/swagger.json)) with each owner's API token. Other modules use the `LockProvider` interface, which takes an owner id: the module finds and decrypts that owner's token itself, so tokens never leave it in clear.
 
-Owners connect at `/nuki/connection` by pasting an API token generated in Nuki Web (Menu → API); the page explains how, step by step. The token needs only `smartlock.readOnly`, `smartlock.action` and `smartlock.log`: view the locks, operate them and read their log (in Nuki Web's Spanish form, "Ver dispositivos", "Gestionar dispositivos" and "Ver protocolos de cierre y obtener notificaciones de protocolo"). The token is stored only after `GET /smartlock` and `GET /smartlock/log` accept it, encrypted for its owner, and it is never shown again: openings are confirmed from the lock's log, so a token that may not read it is refused, with a message that names the three permissions. Whether it may operate the locks cannot be checked without acting on one. Pasting a new token replaces the old one and reconnects a disconnected account.
+Owners connect at `/settings/nuki` by pasting an API token generated in Nuki Web (Menu → API); the page explains how, step by step. The token needs only `smartlock.readOnly`, `smartlock.action` and `smartlock.log`: view the locks, operate them and read their log (in Nuki Web's Spanish form, "Ver dispositivos", "Gestionar dispositivos" and "Ver protocolos de cierre y obtener notificaciones de protocolo"). The token is stored only after `GET /smartlock` and `GET /smartlock/log` accept it, encrypted for its owner, and it is never shown again: openings are confirmed from the lock's log, so a token that may not read it is refused, with a message that names the three permissions. Whether it may operate the locks cannot be checked without acting on one. Pasting a new token replaces the old one and reconnects a disconnected account.
 
 When Nuki answers 401 to a stored token, the connection becomes `DISCONNECTED`: links stop opening and the owner's home page asks for a new token. A job checks every connection daily (`welcomehome.nuki.check-cron`, 08:00 server time by default), so that the owner learns about a revoked token before a guest does. A 403 (a permission missing) or an unanswered call does not disconnect. An unlatch refused with a 403 is recorded as `missing-permission`, so the history and the owner's email say that the token may not open, while the guest only reads that the door is not available.
 
-Disconnecting (`DELETE /nuki/connection`, the "Desconectar Nuki" button) deletes the token. Locks and links stay as they are, without any change of state, but cannot open the door until the owner connects again: guests see "not available".
+Disconnecting (`DELETE /settings/nuki`, the "Desconectar Nuki" button) deletes the token. Locks and links stay as they are, without any change of state, but cannot open the door until the owner connects again: guests see "not available".
 
 Calls time out and are retried with exponential backoff: on rate limiting (429, honoring `Retry-After`), and for reads also on server errors and timeouts. The unlatch action is retried only when Nuki cannot have run it (429, or no connection made), so a door never opens twice; after a timeout or a server error Nuki may have run it, so the opening goes on to read the lock's log instead. The defaults, under `welcomehome.nuki.*`:
 
@@ -157,7 +157,7 @@ Attempts hold IP addresses, which are personal data, so they are kept for `welco
 
 ## Notifications
 
-Owners get emails about their locks and choose which ones at `/notifications` (Configuración → Avisos); an owner who never chose gets them all:
+Owners get emails about their locks and choose which ones at `/settings/notifications` (Configuración → Avisos); an owner who never chose gets them all:
 
 | Kind | When | Example subject |
 |------|------|-----------------|
@@ -166,7 +166,7 @@ Owners get emails about their locks and choose which ones at `/notifications` (C
 | Denied | a guest's link is refused: not valid yet, expired, revoked, or too many attempts | "Casa: intento denegado con el enlace de Ana" |
 | Disconnected | Nuki rejects the owner's API token | "Nuki ha rechazado tu API token" |
 
-Emails go only to verified addresses (see First admin); the link that verifies one is the only exception. Two more emails, about the owner's account, are sent whatever the preferences: when a passkey recovery link is created for them, from the admin panel or with `--recover-owner`, and when a passkey is added to their account, from `/passkeys` or with a recovery link (not their first one, at registration). The first is sent on the thread that creates the link, as the recovery command exits right after; the second is announced by the store Spring Security keeps passkeys in, which tells an added passkey from one that signed in again.
+Emails go only to verified addresses (see First admin); the link that verifies one is the only exception. Two more emails, about the owner's account, are sent whatever the preferences: when a passkey recovery link is created for them, from the admin panel or with `--recover-owner`, and when a passkey is added to their account, from `/settings/passkeys` or with a recovery link (not their first one, at registration). The first is sent on the thread that creates the link, as the recovery command exits right after; the second is announced by the store Spring Security keeps passkeys in, which tells an added passkey from one that signed in again.
 
 Each email about a lock says when, in the lock's time zone, and links to the history. Their texts, like the history's outcomes, are in `src/main/resources/i18n/messages.properties`. About refused attempts there is at most one email per link per hour (`welcomehome.notifications.denied-quiet-period`), so that a leaked link being tried does not flood the owner. The page also sends a test email.
 
@@ -176,7 +176,7 @@ Emails go through any SMTP server, set with `spring.mail.host`, `spring.mail.por
 
 ## Languages
 
-The app speaks Spanish, the default, and English. A guest's pages are in their browser's language (its first one the app has texts for, else Spanish); a signed-in owner's pages and all their emails are in the language stored for them (`owner.language`): that of the pages they registered from, changed in Configuración → Idioma (`/language`, saved with `PUT /language`).
+The app speaks Spanish, the default, and English. A guest's pages are in their browser's language (its first one the app has texts for, else Spanish); a signed-in owner's pages and all their emails are in the language stored for them (`owner.language`): that of the pages they registered from, changed in Configuración → Idioma (`/settings/language`, saved with `PUT /settings/language`).
 
 Every text a person reads is in `src/main/resources/i18n/messages*.properties`: `messages.properties` in Spanish, `messages_en.properties` in English, with the same keys. Templates take them with `#{key}` (or `[[#{key}]]` next to a form field); a message with markup is rendered with `th:utext`, and any value it shows is escaped with `#strings.escapeXml`. Scripts take theirs from the page that loads them, as hidden lists or `data-*` attributes, as the Content Security Policy rules out inline scripts. Dates use each bundle's `format.*` patterns. Every message goes through `MessageFormat`, so an apostrophe is written `''`.
 

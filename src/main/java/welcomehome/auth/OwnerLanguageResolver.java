@@ -39,7 +39,7 @@ class OwnerLanguageResolver implements LocaleResolver {
         return resolved;
     }
 
-    /** An owner changes their language at /language; a guest's comes from their browser. */
+    /** An owner changes their language at /settings/language; a guest's comes from their browser. */
     @Override
     public void setLocale(HttpServletRequest request, @Nullable HttpServletResponse response, @Nullable Locale locale) {
         throw new UnsupportedOperationException("The language is the owner's setting or the browser's");

@@ -51,7 +51,7 @@
         </ol>
     </details>
 
-    <form th:action="@{/nuki/connection}" th:method="put">
+    <form th:action="@{/settings/nuki}" th:method="put">
         <p th:text="#{nuki.token.stored}">Se guarda cifrado y no se vuelve a mostrar.</p>
         <label>
             [[#{nuki.token}]]
@@ -69,7 +69,7 @@
     <section th:if="${connection != null}">
         <h2 th:text="#{nuki.disconnect}">Desconectar</h2>
         <p th:text="#{nuki.disconnect.text}">Borra tu API token de welcome-home.</p>
-        <form th:action="@{/nuki/connection}" th:method="delete">
+        <form th:action="@{/settings/nuki}" th:method="delete">
             <button type="submit" class="secondary" th:text="#{nuki.disconnect.button}">Desconectar Nuki</button>
         </form>
     </section>

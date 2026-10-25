@@ -11,7 +11,7 @@ document.getElementById("add-passkey").addEventListener("submit", async event =>
     const label = new FormData(event.target).get("label").trim();
     try {
         await WebAuthn.add(label);
-        window.location.href = "/passkeys?added";
+        window.location.href = "/settings/passkeys?added";
     } catch (e) {
         console.error(e);
         error.textContent = ADD_MESSAGES[e.name] || ADD_MESSAGES["default"];

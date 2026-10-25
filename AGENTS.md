@@ -110,7 +110,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 | Row-Level Security plus `owner_id` in every query | Isolation does not depend on every query being right. `OwnerIsolationTests` checks every route with an id. |
 | AEAD with the owner id as associated data | A ciphertext copied to another owner's row does not decrypt. |
 | Admins see only emails and dates | An admin is still just an owner to RLS. Recovery links are the exception the user chose: whoever holds one signs in as that owner, so the admin who creates one could. The owner is emailed when one is created and when a passkey is added, so its use is not hidden from them. |
-| Recovery adds a passkey and keeps the old ones | The user's choice; the owner then deletes the lost device's passkey at `/passkeys`, which never deletes the last one. |
+| Recovery adds a passkey and keeps the old ones | The user's choice; the owner then deletes the lost device's passkey at `/settings/passkeys`, which never deletes the last one. |
 | `CF-Connecting-IP` for the guest's IP, `forward-headers-strategy=framework` | The tunnel is the only way in, so Cloudflare's headers are trustworthy; `X-Forwarded-For` starts with whatever the client sent. |
 | `/o/{token}` masked in logs, `Referrer-Policy: no-referrer`, `noindex` | Guest URLs are bearer credentials. |
 | No CSRF token on `POST /api/open`, and no session for guests | The link's token in the body is the credential, which a forged request would need anyway; a CSRF token kept in the session went stale when a guest pressed "Abrir" more than 30 minutes after opening the page. |
@@ -179,7 +179,7 @@ Release: a pull request named `Version X.Y.Z` from branch `release-X.Y.Z` that b
 
 - Nuki needs one OAuth2 client for welcome-home: the client id is the "OAuth2 API key" in Nuki Web → API, with the redirect URL `https://welcome-home.example.com/nuki/callback`; the client secret is requested through "Solicitar integración API avanzada" (or developer@nuki.io). Follow Nuki's current OAuth2 guide on docs.nuki.io: older guides and forum posts describe outdated endpoints.
 - Request only the scopes the app uses: `smartlock.readOnly` (or `smartlock`), `smartlock.action`, `smartlock.log`.
-- Flow: `GET /nuki/connection/oauth` redirects to Nuki with a `state` bound to the session; `GET /nuki/callback` checks `state`, exchanges the code, checks the token with `GET /smartlock`, and stores it.
+- Flow: `GET /settings/nuki/oauth` redirects to Nuki with a `state` bound to the session; `GET /nuki/callback` checks `state`, exchanges the code, checks the token with `GET /smartlock`, and stores it.
 - Storage: extend `nuki_connection` with the kind of credential and the encrypted access and refresh tokens plus the access token's expiry (same AEAD and associated data as today). Spring Security's OAuth2 client stores tokens in clear (`oauth2_authorized_client`), so either keep the tokens in `nuki_connection` or write an encrypting `OAuth2AuthorizedClientService`.
 - `NukiConnections.callNuki` would get a valid access token first, refreshing it when it expires (one refresh at a time per owner); a failed refresh or a 401 marks the connection `DISCONNECTED`, as today. Pasted API tokens can stay as an alternative.
 - Tests: WireMock for Nuki's authorize and token endpoints, `state` mismatch, expired access token, failed refresh.
