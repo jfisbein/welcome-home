@@ -191,15 +191,15 @@ Emails go through any SMTP server, set with `spring.mail.host`, `spring.mail.por
 
 ## Languages
 
-The app speaks Spanish, the default, and English. A guest's pages are in their browser's language (its first one the app has texts for, else Spanish); a signed-in owner's pages and all their emails are in the language stored for them (`owner.language`): that of the pages they registered from, changed in Configuración → Preferencias (`/settings/preferences`, saved with `PUT /settings/language`).
+The app speaks Spanish, the default, English, French, German and Italian. A guest's pages are in their browser's language (its first one the app has texts for, else Spanish); a signed-in owner's pages and all their emails are in the language stored for them (`owner.language`): that of the pages they registered from, changed in Configuración → Preferencias (`/settings/preferences`, saved with `PUT /settings/language`).
 
-Every text a person reads is in `src/main/resources/i18n/messages*.properties`: `messages.properties` in Spanish, `messages_en.properties` in English, with the same keys. Templates take them with `#{key}` (or `[[#{key}]]` next to a form field); a message with markup is rendered with `th:utext`, and any value it shows is escaped with `#strings.escapeXml`. Scripts take theirs from the page that loads them, as hidden lists or `data-*` attributes, as the Content Security Policy rules out inline scripts. Dates use each bundle's `format.*` patterns. Every message goes through `MessageFormat`, so an apostrophe is written `''`.
+Every text a person reads is in `src/main/resources/i18n/messages*.properties`: `messages.properties` in Spanish, and `messages_<tag>.properties` for each other language (`en`, `fr`, `de`, `it`), with the same keys. Templates take them with `#{key}` (or `[[#{key}]]` next to a form field); a message with markup is rendered with `th:utext`, and any value it shows is escaped with `#strings.escapeXml`. Scripts take theirs from the page that loads them, as hidden lists or `data-*` attributes, as the Content Security Policy rules out inline scripts. Dates use each bundle's `format.*` patterns. Every message goes through `MessageFormat`, so an apostrophe is written `''`.
 
-Three tests keep it so: `MessageBundlesTests` (every bundle has exactly the Spanish bundle's keys, and every key a template names exists), `PagesInEveryLanguageTests` (every page renders in every language with no missing text) and `TemplateTextTests` (no template holds text of its own, and every `th:utext` escapes what it shows).
+Three tests keep it so: `MessageBundlesTests` (every bundle has exactly the Spanish bundle's keys, each message takes the same arguments as the Spanish one and shows its apostrophes, and every key a template names exists), `PagesInEveryLanguageTests` (every page renders in every language with no missing text) and `TemplateTextTests` (no template holds text of its own, and every `th:utext` escapes what it shows).
 
 ### Adding a language
 
-1. Copy `messages.properties` to `messages_<tag>.properties`, for example `messages_fr.properties`, and translate every value, `format.*` patterns included. The comments in `messages.properties` say what each argument is.
+1. Copy `messages.properties` to `messages_<tag>.properties`, for example `messages_ca.properties`, and translate every value, `format.*` patterns included. The comments in `messages.properties` say what each argument is. The steps to get an API token (`nuki.how.*`) and the permission named in `notification.reason.missing-permission` quote Nuki Web's own labels: take them from its translations, `https://web.nuki.io/assets/i18n/<tag>.json` (the `nuki-web-api.*` keys).
 2. Add the language to `Languages.SUPPORTED` in `src/main/java/welcomehome/config/Languages.java`.
 3. Run `./gradlew build`: the tests above check that the bundle has every key and that every page renders in it.
 

@@ -61,10 +61,12 @@ class OwnerLanguageTests {
     @Test
     void anOwnerKeepsTheLanguageTheyRegisteredIn() {
         register("ana@example.com", "en-GB,en;q=0.9");
-        register("bea@example.com", "fr-FR");
+        register("bea@example.com", "pt-PT");
+        register("cleo@example.com", "fr-FR");
 
         assertThat(language("ana@example.com")).isEqualTo("en");
-        assertThat(language("bea@example.com")).as("no bundle for French: the default").isEqualTo("es");
+        assertThat(language("bea@example.com")).as("no bundle for Portuguese: the default").isEqualTo("es");
+        assertThat(language("cleo@example.com")).isEqualTo("fr");
     }
 
     @Test
@@ -79,7 +81,10 @@ class OwnerLanguageTests {
         insertOwner("es");
         assertThat(body(mvc.get().uri("/settings/preferences").with(owner()).exchange()))
                 .containsPattern("<option value=\"es\" lang=\"es\"\\s+selected=\"selected\">Español</option>")
-                .contains("<option value=\"en\" lang=\"en\">English</option>");
+                .contains("<option value=\"en\" lang=\"en\">English</option>",
+                        "<option value=\"fr\" lang=\"fr\">Français</option>",
+                        "<option value=\"de\" lang=\"de\">Deutsch</option>",
+                        "<option value=\"it\" lang=\"it\">Italiano</option>");
 
         assertThat(mvc.put().uri("/settings/language").with(owner()).with(csrf()).param("language", "en"))
                 .hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/settings/preferences");
@@ -94,7 +99,7 @@ class OwnerLanguageTests {
     void onlyALanguageWithTextsCanBeChosen() {
         insertOwner("es");
 
-        assertThat(mvc.put().uri("/settings/language").with(owner()).with(csrf()).param("language", "fr"))
+        assertThat(mvc.put().uri("/settings/language").with(owner()).with(csrf()).param("language", "pt"))
                 .hasStatus(HttpStatus.BAD_REQUEST);
         assertThat(mvc.put().uri("/settings/language").with(owner()).param("language", "en"))
                 .as("without the CSRF token").hasStatus(HttpStatus.FORBIDDEN);

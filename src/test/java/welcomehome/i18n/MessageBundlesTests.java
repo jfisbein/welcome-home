@@ -5,10 +5,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.text.MessageFormat;
 import java.util.Locale;
 import java.util.Properties;
+import java.util.Set;
 import java.util.TreeSet;
+import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
@@ -34,6 +39,26 @@ class MessageBundlesTests {
         }
     }
 
+    /**
+     * A translation takes the same arguments as the default bundle's message, and MessageFormat shows it as
+     * written: an apostrophe written once would hide what follows it, arguments included.
+     */
+    @Test
+    void everyMessageTakesTheDefaultBundlesArgumentsAndShowsItsApostrophes() throws IOException {
+        var defaults = load("i18n/messages.properties");
+        var arguments = IntStream.range(0, 10).mapToObj(i -> "<argument " + i + ">").toArray();
+
+        for (var language : Languages.SUPPORTED) {
+            var messages = language.equals(Languages.DEFAULT) ? defaults : load(bundle(language));
+            for (var key : defaults.stringPropertyNames()) {
+                var message = messages.getProperty(key);
+                assertThat(arguments(message)).as(language + " " + key).isEqualTo(arguments(defaults.getProperty(key)));
+                assertThat(new MessageFormat(message, language).format(arguments)).as(language + " " + key)
+                        .isEqualTo(message.replace("''", "'").replaceAll("\\{(\\d)}", "<argument $1>"));
+            }
+        }
+    }
+
     @Test
     void everyKeyATemplateUsesIsInTheDefaultBundle() throws IOException {
         var keys = load("i18n/messages.properties").stringPropertyNames();
@@ -46,6 +71,11 @@ class MessageBundlesTests {
         }
 
         assertThat(keys).containsAll(used);
+    }
+
+    private static Set<String> arguments(String message) {
+        return Pattern.compile("\\{\\d}").matcher(message).results().map(MatchResult::group)
+                .collect(Collectors.toCollection(TreeSet::new));
     }
 
     private static String bundle(Locale language) {

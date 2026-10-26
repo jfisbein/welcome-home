@@ -126,9 +126,12 @@ class PagesInEveryLanguageTests {
     @Test
     void theBrowsersFirstLanguageWithTextsWinsAndSpanishIsTheRest() {
         assertThat(login("en-GB,en;q=0.9")).contains("<html lang=\"en\"", "Sign in with a passkey");
-        assertThat(login("de-DE,de;q=0.9,en;q=0.5")).contains("<html lang=\"en\"");
+        assertThat(login("nl-NL,nl;q=0.9,en;q=0.5")).contains("<html lang=\"en\"");
         assertThat(login("es-ES")).contains("<html lang=\"es\"", "Entrar con passkey");
-        assertThat(login("fr-FR")).as("no bundle: the default").contains("<html lang=\"es\"", "Entrar con passkey");
+        assertThat(login("fr-BE,fr;q=0.9")).contains("<html lang=\"fr\"", "Connexion");
+        assertThat(login("de-AT,de;q=0.9")).contains("<html lang=\"de\"", "Mit Passkey anmelden");
+        assertThat(login("it-CH")).contains("<html lang=\"it\"", "Accedi con passkey");
+        assertThat(login("pt-PT")).as("no bundle: the default").contains("<html lang=\"es\"", "Entrar con passkey");
         assertThat(body(mvc.get().uri("/login").exchange())).as("no Accept-Language").contains("<html lang=\"es\"");
     }
 
