@@ -206,7 +206,19 @@ Release: a pull request named `Version X.Y.Z` from branch `release-X.Y.Z` that b
 - Owners who cannot use a passkey. First learn why: today almost every device can hold one (iCloud Keychain, Google Password Manager, Bitwarden or 1Password), a computer without one can use the phone's by scanning a QR code, and a security key costs little; help on the invitation page, by platform, may be all it takes. If a real alternative is needed, a one-time code by email: the owner asks for it with their email, gets 6 digits valid for 10 minutes, and types them in the same browser, which a mail scanner opening a link could not use up, and which ties it to the browser that asked. Only to verified addresses, single use, kept as a hash like the verification link, rate limited by email and IP, and an email to the owner on each sign-in this way. Spring Security has one-time token login (`oneTimeTokenLogin()`), but its JDBC store keeps tokens in clear. It makes the email account the owner's credential, weaker than a passkey: so offer it per owner, or only until they add a passkey, and record the trade-off in Decisions. Passwords would add a secret to leak and still need resetting by email, and TOTP alone is a weak factor: neither is worth it here.
 - More languages than Spanish and English, for owners and guests alike: a bundle each, as the README's "Adding a language" says (`messages_<tag>.properties` and `Languages.SUPPORTED`), whose tests check every key and every page. The work is translating, and someone checking each translation; Catalan, French or German, say, depending on the owners and their guests.
 - Re-encrypting stored Nuki tokens after an AEAD rotation, so that old keys can be dropped without owners connecting again.
+- Confirming an unlatch with a Nuki webhook rather than by reading the lock's log until it shows (`UnlatchConfirmation`). With the Advanced API, Nuki sends webhooks (docs.nuki.io/guide/webhooks, read 2026-10-26). Its Advanced Unlock, Lock and Action answer a `requestId`, then POST the outcome to the client's central URL: `success`, and an error code when it fails. The POST is signed with HMAC-SHA256 (`X-Nuki-Signature-SHA256`); the plain `POST /smartlock/{id}/action` the app uses sends none.
+  - **Gain**: unlatching with Advanced Action and waiting for its webhook would tell a guest at once whether the door opened, or that it failed, rather than after 15 s without the log showing it, and with fewer calls to Nuki.
+  - **Fallback**: reading the log stays. Nuki documents no retries, and it may turn off an account's webhooks after several days of more than 5 % failed deliveries. Owners connected with an API token get none.
+  - **What it takes**:
+    - a public, sessionless `/nuki/webhook` that checks the signature;
+    - finding the owner from the `smartlockId` without an owner context, with a `SECURITY DEFINER` function like `resolve_link`;
+    - the `webhook.central` scope, so owners authorize again.
+  - **To find out first**:
+    - which accounts' events reach the central URL;
+    - where its secret is;
+    - whether an Advanced Action unlatch shows in the log with the same trigger.
+  - **Trying it**: Nuki cannot reach localhost, so the real thing is tried in production or through a tunnel.
 - Links with a maximum number of uses or a recurring schedule (`access_link` columns).
 - Geofence as a deterrent (browsers accept fake locations: store only distance and accuracy, and tell the guest first).
-- Nuki Opener, a local Nuki Bridge or MQTT adapter as another `LockProvider`, Nuki webhooks instead of polling the log.
+- Nuki Opener, a local Nuki Bridge or MQTT adapter as another `LockProvider`.
 - Cloudflare Access in front of the owner pages, excluding `/o/*` and `/api/open`.
