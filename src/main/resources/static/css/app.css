@@ -19,6 +19,46 @@
     padding: 0.25rem 0.75rem;
 }
 
+/* Below Pico's large width, where a link's six buttons take three lines of its row or more, or a table wider than
+   the screen, each link is a card: its label and state, its dates, then its buttons across the whole width. */
+@media (max-width: 1023px) {
+    table.links thead {
+        display: none;
+    }
+
+    table.links tr {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.25rem 1rem;
+        padding: 0.75rem 0;
+        border-bottom: var(--pico-border-width) solid var(--pico-table-border-color);
+    }
+
+    table.links td {
+        display: block;
+        padding: 0;
+        border: 0;
+    }
+
+    table.links td.label {
+        font-weight: bold;
+    }
+
+    table.links td.state {
+        grid-column: 2;
+        grid-row: 1;
+    }
+
+    table.links td.validity,
+    table.links td.buttons {
+        grid-column: 1 / -1;
+    }
+
+    table.links td.buttons {
+        margin-top: 0.5rem;
+    }
+}
+
 /* The page's place in the menu and in configuration's sections. */
 nav [aria-current="page"] {
     font-weight: bold;
