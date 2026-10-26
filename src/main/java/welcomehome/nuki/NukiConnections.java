@@ -94,14 +94,15 @@ public class NukiConnections {
      * Exchanges the code that Nuki sent back with the owner for the owner's tokens, checks them as
      * {@link #connect(UUID, String)} checks an API token, and stores them as the owner's connection.
      *
-     * @param redirectUri where Nuki sent the owner back, which the exchange repeats
+     * @param codeVerifier the PKCE verifier whose challenge went to Nuki with the owner
+     * @param redirectUri  where Nuki sent the owner back, which the exchange repeats
      * @return the smart locks that the authorization gives access to
      * @throws LockProviderException with {@link Reason#ACCESS_DENIED} if Nuki refuses the code,
      *                               {@link Reason#MISSING_PERMISSION} if the owner did not grant everything
      *                               welcome-home asked for, or {@link Reason#NUKI_ERROR} if Nuki does not answer
      */
-    List<SmartLock> connectAuthorized(UUID ownerId, String code, URI redirectUri) {
-        var tokens = notActing(() -> nuki.exchangeCode(code, redirectUri));
+    List<SmartLock> connectAuthorized(UUID ownerId, String code, String codeVerifier, URI redirectUri) {
+        var tokens = notActing(() -> nuki.exchangeCode(code, codeVerifier, redirectUri));
         var refreshToken = tokens.refreshToken();
         if (refreshToken == null || !tokens.grantsAll(NukiWebClient.SCOPES)) {
             throw new LockProviderException(Reason.MISSING_PERMISSION);

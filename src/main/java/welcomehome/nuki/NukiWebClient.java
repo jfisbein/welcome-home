@@ -3,9 +3,13 @@ package welcomehome.nuki;
 import java.net.ConnectException;
 import java.net.http.HttpClient;
 import java.net.http.HttpConnectTimeoutException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.net.URI;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -119,12 +123,14 @@ class NukiWebClient {
     }
 
     /**
-     * Where to send an owner to authorize welcome-home in Nuki.
+     * Where to send an owner to authorize welcome-home in Nuki. The request carries the PKCE challenge of the
+     * code verifier (RFC 7636, method S256), so that only who holds the verifier can exchange the code.
      *
-     * @param redirectUri where Nuki sends the owner back, one of the client's callback URLs in Nuki Web
-     * @param state       what Nuki sends back unchanged, to tie its answer to the request
+     * @param redirectUri  where Nuki sends the owner back, one of the client's callback URLs in Nuki Web
+     * @param state        what Nuki sends back unchanged, to tie its answer to the request
+     * @param codeVerifier the secret that {@link #exchangeCode} sends with the code
      */
-    URI authorizationUri(URI redirectUri, String state) {
+    URI authorizationUri(URI redirectUri, String state, String codeVerifier) {
         return UriComponentsBuilder.fromUri(properties.baseUrl())
                 .path("/oauth/authorize")
                 .queryParam("response_type", "code")
@@ -132,21 +138,36 @@ class NukiWebClient {
                 .queryParam("redirect_uri", "{redirectUri}")
                 .queryParam("scope", "{scope}")
                 .queryParam("state", "{state}")
+                .queryParam("code_challenge", "{codeChallenge}")
+                .queryParam("code_challenge_method", "S256")
                 .encode()
-                .buildAndExpand(properties.oauth().clientId(), redirectUri, String.join(" ", SCOPES), state)
+                .buildAndExpand(properties.oauth().clientId(), redirectUri, String.join(" ", SCOPES), state,
+                        codeChallenge(codeVerifier))
                 .toUri();
+    }
+
+    /** RFC 7636, section 4.2: the verifier's SHA-256, in base64url without padding. */
+    static String codeChallenge(String codeVerifier) {
+        try {
+            var hash = MessageDigest.getInstance("SHA-256").digest(codeVerifier.getBytes(StandardCharsets.US_ASCII));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("Every Java platform has SHA-256", e);
+        }
     }
 
     /**
      * Exchanges the code that Nuki sent back with the owner for the owner's tokens.
      *
+     * @param codeVerifier the verifier whose challenge went to Nuki with the owner
      * @throws LockProviderException with {@link Reason#ACCESS_DENIED} if Nuki refuses the code, for example
-     *                               because it expired or was used already
+     *                               because it expired, was used already or the verifier does not match it
      */
-    NukiTokens exchangeCode(String code, URI redirectUri) {
+    NukiTokens exchangeCode(String code, String codeVerifier, URI redirectUri) {
         var form = new LinkedMultiValueMap<String, String>();
         form.add("grant_type", "authorization_code");
         form.add("code", code);
+        form.add("code_verifier", codeVerifier);
         form.add("redirect_uri", redirectUri.toString());
         return requestTokens(form);
     }

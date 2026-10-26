@@ -4,6 +4,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.anyRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.anyUrl;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.matching;
 import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
@@ -14,8 +15,11 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 
@@ -85,7 +89,7 @@ class NukiAuthorizationTests {
     }
 
     @Test
-    void ownerIsSentToNukiWithAStateOfTheirOwn() {
+    void ownerIsSentToNukiWithAStateAndAPkceChallengeOfTheirOwn() {
         var location = authorize(ALICE);
 
         assertThat(location).startsWith(nuki.baseUrl() + "/oauth/authorize?response_type=code"
@@ -93,24 +97,32 @@ class NukiAuthorizationTests {
                 + "&redirect_uri=https%3A%2F%2Fwelcome.example%2Fnuki%2Fcallback"
                 + "&scope=smartlock.readOnly%20smartlock.action%20smartlock.log%20offline_access&state=");
         assertThat(state(location)).matches("[A-Za-z0-9_-]{43}");
+        assertThat(param(location, "code_challenge")).matches("[A-Za-z0-9_-]{43}");
+        assertThat(param(location, "code_challenge_method")).isEqualTo("S256");
         session = new MockHttpSession();
-        assertThat(state(authorize(ALICE))).isNotEqualTo(state(location));
+        var another = authorize(ALICE);
+        assertThat(state(another)).isNotEqualTo(state(location));
+        assertThat(param(another, "code_challenge")).isNotEqualTo(param(location, "code_challenge"));
         nuki.verify(0, anyRequestedFor(anyUrl()));
     }
 
     @Test
-    void ownerWhoAuthorizesIsConnectedWithTheirTokensEncrypted() {
+    void ownerWhoAuthorizesIsConnectedWithTheirTokensEncrypted() throws Exception {
         nukiGrants("the-code", "access-1", "refresh-1", SCOPE);
-        var state = state(authorize(ALICE));
+        var location = authorize(ALICE);
 
-        var result = callback(ALICE, "code=the-code&state=" + state + "&scope=" + SCOPE.replace(' ', '+'));
+        var result = callback(ALICE, "code=the-code&state=" + state(location) + "&scope=" + SCOPE.replace(' ', '+'));
 
         assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/settings/nuki");
         assertThat(result.getMvcResult().getFlashMap().get("connectedLocks")).isEqualTo(List.of("Casa"));
         nuki.verify(postRequestedFor(urlPathEqualTo("/oauth/token"))
                 .withFormParam("grant_type", equalTo("authorization_code"))
                 .withFormParam("code", equalTo("the-code"))
+                .withFormParam("code_verifier", matching("[A-Za-z0-9_-]{43}"))
                 .withFormParam("redirect_uri", equalTo(CALLBACK)));
+        var verifier = sentVerifier();
+        assertThat(s256(verifier)).isEqualTo(param(location, "code_challenge"));
+        assertThat(location).doesNotContain(verifier);
         var stored = stored(aliceId);
         assertThat(stored.credential()).isEqualTo("OAUTH2");
         assertThat(stored.status()).isEqualTo("OK");
@@ -293,9 +305,29 @@ class NukiAuthorizationTests {
     }
 
     private static String state(String location) {
-        var state = UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst("state");
-        assertThat(state).isNotNull();
-        return state;
+        return param(location, "state");
+    }
+
+    private static String param(String location, String name) {
+        var value = UriComponentsBuilder.fromUriString(location).build().getQueryParams().getFirst(name);
+        assertThat(value).isNotNull();
+        return value;
+    }
+
+    /** The PKCE verifier of the one code exchange that Nuki received. */
+    private String sentVerifier() {
+        var requests = nuki.findAll(postRequestedFor(urlPathEqualTo("/oauth/token")));
+        assertThat(requests).hasSize(1);
+        var verifier = UriComponentsBuilder.newInstance().query(requests.getFirst().getBodyAsString()).build()
+                .getQueryParams().getFirst("code_verifier");
+        assertThat(verifier).isNotNull();
+        return verifier;
+    }
+
+    /** RFC 7636's S256, worked out here rather than with the code under test. */
+    private static String s256(String verifier) throws NoSuchAlgorithmException {
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(
+                MessageDigest.getInstance("SHA-256").digest(verifier.getBytes(StandardCharsets.US_ASCII)));
     }
 
     /** Nuki exchanges the code for the tokens, and the access token lists one lock and reads the log. */

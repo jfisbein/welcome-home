@@ -22,8 +22,9 @@ import welcomehome.config.WelcomeHomeProperties;
  * Connecting Nuki with OAuth2: the owner is sent to Nuki to authorize welcome-home, and Nuki sends them back to
  * the callback with a code, which is exchanged for the owner's tokens. The state sent along is kept in the
  * owner's session and taken out on the way back, so a callback that this session did not start, or one that
- * comes twice, changes nothing. Every outcome ends on the Nuki connection page. Without an OAuth2 client, both
- * routes answer 404.
+ * comes twice, changes nothing. So is the PKCE code verifier, which never leaves the server until the exchange:
+ * a code that leaks on its way back, through a log or the browser's history, is useless without it. Every
+ * outcome ends on the Nuki connection page. Without an OAuth2 client, both routes answer 404.
  */
 @Controller
 class NukiAuthorizationController {
@@ -35,7 +36,8 @@ class NukiAuthorizationController {
     static final String PENDING = NukiAuthorizationController.class.getName() + ".pending";
 
     private static final SecureRandom RANDOM = new SecureRandom();
-    private static final int STATE_BYTES = 32;
+    /** 32 bytes are 43 characters in base64url, the shortest code verifier that RFC 7636 allows. */
+    private static final int RANDOM_BYTES = 32;
 
     private final NukiConnections connections;
     private final NukiWebClient nuki;
@@ -53,9 +55,10 @@ class NukiAuthorizationController {
     @GetMapping("/settings/nuki/oauth")
     String authorize(CurrentOwner owner, HttpSession session) {
         requireClient();
-        var state = Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes());
-        session.setAttribute(PENDING, new PendingAuthorization(owner.id(), state));
-        return "redirect:" + nuki.authorizationUri(app.link(CALLBACK_PATH), state);
+        var state = randomString();
+        var codeVerifier = randomString();
+        session.setAttribute(PENDING, new PendingAuthorization(owner.id(), state, codeVerifier));
+        return "redirect:" + nuki.authorizationUri(app.link(CALLBACK_PATH), state, codeVerifier);
     }
 
     @GetMapping(CALLBACK_PATH)
@@ -74,7 +77,8 @@ class NukiAuthorizationController {
             return backToTheConnection(redirect, "access_denied".equals(error) ? "cancelled" : "failed");
         }
         try {
-            var locks = connections.connectAuthorized(owner.id(), code, app.link(CALLBACK_PATH));
+            var locks = connections.connectAuthorized(owner.id(), code, expected.codeVerifier(),
+                    app.link(CALLBACK_PATH));
             redirect.addFlashAttribute("connectedLocks", locks.stream().map(SmartLock::name).toList());
             return "redirect:/settings/nuki";
         } catch (LockProviderException e) {
@@ -97,19 +101,20 @@ class NukiAuthorizationController {
         return "redirect:/settings/nuki";
     }
 
-    private static byte[] randomBytes() {
-        var bytes = new byte[STATE_BYTES];
+    private static String randomString() {
+        var bytes = new byte[RANDOM_BYTES];
         RANDOM.nextBytes(bytes);
-        return bytes;
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
     /**
      * An authorization that an owner started in this session.
      *
-     * @param ownerId the owner who started it
-     * @param state   what Nuki has to send back
+     * @param ownerId      the owner who started it
+     * @param state        what Nuki has to send back
+     * @param codeVerifier the PKCE secret that goes with the code when it is exchanged
      */
-    record PendingAuthorization(UUID ownerId, String state) implements Serializable {
+    record PendingAuthorization(UUID ownerId, String state, String codeVerifier) implements Serializable {
 
         boolean matches(UUID owner, @Nullable String returnedState) {
             return ownerId.equals(owner) && returnedState != null && MessageDigest.isEqual(

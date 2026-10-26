@@ -265,18 +265,22 @@ class NukiWebClientTests {
     }
 
     @Test
-    void sendsTheOwnerToAuthorizeWhatWelcomeHomeUses() {
-        assertThat(client.authorizationUri(CALLBACK, "the-state")).hasToString(nuki.baseUrl()
-                + "/oauth/authorize?response_type=code&client_id=client-id"
-                + "&redirect_uri=https%3A%2F%2Fwelcome.example%2Fnuki%2Fcallback"
-                + "&scope=smartlock.readOnly%20smartlock.action%20smartlock.log%20offline_access&state=the-state");
+    void sendsTheOwnerToAuthorizeWhatWelcomeHomeUsesWithThePkceChallenge() {
+        // The verifier and its S256 challenge from RFC 7636, appendix B.
+        assertThat(client.authorizationUri(CALLBACK, "the-state", "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"))
+                .hasToString(nuki.baseUrl()
+                        + "/oauth/authorize?response_type=code&client_id=client-id"
+                        + "&redirect_uri=https%3A%2F%2Fwelcome.example%2Fnuki%2Fcallback"
+                        + "&scope=smartlock.readOnly%20smartlock.action%20smartlock.log%20offline_access"
+                        + "&state=the-state&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+                        + "&code_challenge_method=S256");
     }
 
     @Test
-    void exchangesTheCodeWithTheClientsCredentialsInBothPlaces() {
+    void exchangesTheCodeWithTheVerifierAndTheClientsCredentialsInBothPlaces() {
         nuki.stubFor(post("/oauth/token").willReturn(okJson(tokens("access-1", "refresh-1"))));
 
-        assertThat(client.exchangeCode("the-code", CALLBACK))
+        assertThat(client.exchangeCode("the-code", "the-verifier", CALLBACK))
                 .isEqualTo(new NukiTokens("access-1", "refresh-1", Duration.ofSeconds(3599), SCOPE));
         nuki.verify(postRequestedFor(urlPathEqualTo("/oauth/token"))
                 .withHeader("Authorization", equalTo("Basic " + Base64.getEncoder()
@@ -284,6 +288,7 @@ class NukiWebClientTests {
                 .withHeader("Content-Type", containing("application/x-www-form-urlencoded"))
                 .withFormParam("grant_type", equalTo("authorization_code"))
                 .withFormParam("code", equalTo("the-code"))
+                .withFormParam("code_verifier", equalTo("the-verifier"))
                 .withFormParam("redirect_uri", equalTo(CALLBACK.toString()))
                 .withFormParam("client_id", equalTo(CLIENT_ID))
                 .withFormParam("client_secret", equalTo(CLIENT_SECRET)));
@@ -307,7 +312,7 @@ class NukiWebClientTests {
         nuki.stubFor(post("/oauth/token").willReturn(status(400).withHeader("Content-Type", "application/json")
                 .withBody("{\"error\": \"invalid_grant\"}")));
 
-        assertFailsWith(Reason.ACCESS_DENIED, () -> client.exchangeCode("used-code", CALLBACK));
+        assertFailsWith(Reason.ACCESS_DENIED, () -> client.exchangeCode("used-code", "the-verifier", CALLBACK));
         assertFailsWith(Reason.ACCESS_DENIED, () -> client.refresh("revoked"));
 
         nuki.stubFor(post("/oauth/token").willReturn(status(401)));
