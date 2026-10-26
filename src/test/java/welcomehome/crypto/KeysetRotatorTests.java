@@ -34,11 +34,11 @@ class KeysetRotatorTests {
 
     @Test
     void tokensStoredBeforeTheRotationStillDecrypt() throws Exception {
-        var before = crypto().encryptApiToken(OWNER, API_TOKEN);
+        var before = crypto().encryptAccessToken(OWNER, API_TOKEN);
 
         KeysetRotator.rotate(properties.aeadKeysetFile());
 
-        assertThat(crypto().decryptApiToken(OWNER, before)).isEqualTo(API_TOKEN);
+        assertThat(crypto().decryptAccessToken(OWNER, before)).isEqualTo(API_TOKEN);
     }
 
     @Test
@@ -46,11 +46,11 @@ class KeysetRotatorTests {
         var beforeRotation = crypto();
 
         var newKeyId = KeysetRotator.rotate(properties.aeadKeysetFile());
-        var after = crypto().encryptApiToken(OWNER, API_TOKEN);
+        var after = crypto().encryptAccessToken(OWNER, API_TOKEN);
 
         // Tink's ciphertext starts with a version byte and the id of the key that encrypted it.
         assertThat(ByteBuffer.wrap(after, 1, 4).getInt()).isEqualTo(newKeyId);
-        assertThatThrownBy(() -> beforeRotation.decryptApiToken(OWNER, after))
+        assertThatThrownBy(() -> beforeRotation.decryptAccessToken(OWNER, after))
                 .isInstanceOf(DecryptionFailedException.class);
     }
 

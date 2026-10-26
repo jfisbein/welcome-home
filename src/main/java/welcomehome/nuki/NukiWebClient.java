@@ -4,6 +4,7 @@ import java.net.ConnectException;
 import java.net.http.HttpClient;
 import java.net.http.HttpConnectTimeoutException;
 import java.time.Duration;
+import java.net.URI;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -11,27 +12,34 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.jspecify.annotations.Nullable;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.util.UriComponentsBuilder;
 import welcomehome.nuki.LockProviderException.Reason;
 
 /**
- * The Nuki Web API, called with an owner's API token, which is sent as a bearer token and never logged.
- * It translates Nuki's numeric codes into this module's types (see the API definition at
- * https://api.nuki.io/static/swagger/swagger.json).
+ * The Nuki Web API, called with an owner's access token (an API token or an OAuth2 access token), which is sent
+ * as a bearer token and never logged. It translates Nuki's numeric codes into this module's types (see the API
+ * definition at https://api.nuki.io/static/swagger/swagger.json), and gets OAuth2 tokens from Nuki's token
+ * endpoint (https://docs.nuki.io/guide/authorization/oauth2).
  *
  * <p>Failures worth retrying are retried with exponential backoff: rate limiting (429, honoring
  * Retry-After), and for reads also server errors and timeouts. The unlatch action is retried only when Nuki
  * cannot have run it, that is, on 429 or when no connection was made, so that a door never opens twice. When it
- * may have run it, after a timeout or a server error, the failure says so with {@link Reason#NO_ANSWER}.
+ * may have run it, after a timeout or a server error, the failure says so with {@link Reason#NO_ANSWER}. Token
+ * requests are retried the same way: Nuki takes an authorization code only once and rotates the refresh token
+ * on every refresh, so a request it may have answered is not sent again.
  */
 class NukiWebClient {
 
@@ -40,6 +48,10 @@ class NukiWebClient {
     /** Nuki Box and Nuki Opener: not smart locks. */
     private static final Set<Integer> NOT_LOCKS = Set.of(1, 2);
     private static final int SERVER_STATE_OK = 0;
+
+    /** What welcome-home asks Nuki for: to list locks, open them, read their logs, and keep its access. */
+    static final List<String> SCOPES = List.of("smartlock.readOnly", "smartlock.action", "smartlock.log",
+            "offline_access");
 
     private final RestClient rest;
     private final NukiProperties properties;
@@ -104,6 +116,83 @@ class NukiWebClient {
                 .headers(headers -> headers.setBearerAuth(apiToken))
                 .retrieve()
                 .toBodilessEntity());
+    }
+
+    /**
+     * Where to send an owner to authorize welcome-home in Nuki.
+     *
+     * @param redirectUri where Nuki sends the owner back, one of the client's callback URLs in Nuki Web
+     * @param state       what Nuki sends back unchanged, to tie its answer to the request
+     */
+    URI authorizationUri(URI redirectUri, String state) {
+        return UriComponentsBuilder.fromUri(properties.baseUrl())
+                .path("/oauth/authorize")
+                .queryParam("response_type", "code")
+                .queryParam("client_id", "{clientId}")
+                .queryParam("redirect_uri", "{redirectUri}")
+                .queryParam("scope", "{scope}")
+                .queryParam("state", "{state}")
+                .encode()
+                .buildAndExpand(properties.oauth().clientId(), redirectUri, String.join(" ", SCOPES), state)
+                .toUri();
+    }
+
+    /**
+     * Exchanges the code that Nuki sent back with the owner for the owner's tokens.
+     *
+     * @throws LockProviderException with {@link Reason#ACCESS_DENIED} if Nuki refuses the code, for example
+     *                               because it expired or was used already
+     */
+    NukiTokens exchangeCode(String code, URI redirectUri) {
+        var form = new LinkedMultiValueMap<String, String>();
+        form.add("grant_type", "authorization_code");
+        form.add("code", code);
+        form.add("redirect_uri", redirectUri.toString());
+        return requestTokens(form);
+    }
+
+    /**
+     * Gets new tokens with the refresh token. Nuki rotates it: the one returned replaces the one sent.
+     *
+     * @throws LockProviderException with {@link Reason#ACCESS_DENIED} if Nuki refuses the refresh token, for
+     *                               example because the owner revoked welcome-home's access
+     */
+    NukiTokens refresh(String refreshToken) {
+        var form = new LinkedMultiValueMap<String, String>();
+        form.add("grant_type", "refresh_token");
+        form.add("refresh_token", refreshToken);
+        return requestTokens(form);
+    }
+
+    /** With the client's credentials both as HTTP Basic and in the form, as Nuki was seen to accept them. */
+    private NukiTokens requestTokens(MultiValueMap<String, String> form) {
+        var oauth = properties.oauth();
+        form.add("client_id", oauth.clientId());
+        form.add("client_secret", oauth.clientSecret());
+        NukiTokenResponse response;
+        try {
+            response = call(false, () -> rest.post().uri("/oauth/token")
+                    .headers(headers -> headers.setBasicAuth(oauth.clientId(), oauth.clientSecret()))
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body(form)
+                    .retrieve()
+                    .body(NukiTokenResponse.class));
+        } catch (LockProviderException e) {
+            // invalid_grant, and every other refusal of the request: there are no tokens to be had with it.
+            if (e.getCause() instanceof RestClientResponseException refused
+                    && refused.getStatusCode().isSameCodeAs(HttpStatus.BAD_REQUEST)) {
+                throw new LockProviderException(Reason.ACCESS_DENIED, refused);
+            }
+            throw e;
+        }
+        var accessToken = response.accessToken();
+        if (accessToken == null || accessToken.isBlank() || !"bearer".equalsIgnoreCase(response.tokenType())) {
+            throw new LockProviderException(Reason.NUKI_ERROR);
+        }
+        // Nuki's access tokens last an hour; one with no lifetime stated is taken to last as long.
+        var expiresIn = response.expiresIn() == null ? NukiTokens.DEFAULT_LIFETIME
+                : Duration.ofSeconds(response.expiresIn());
+        return new NukiTokens(accessToken, response.refreshToken(), expiresIn, response.scope());
     }
 
     List<LockLogEntry> getRecentLog(String apiToken, long smartlockId) {
@@ -267,5 +356,18 @@ class NukiWebClient {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     record NukiLogEntry(Instant date, int action, int trigger, int state) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record NukiTokenResponse(@JsonProperty("access_token") @Nullable String accessToken,
+                             @JsonProperty("token_type") @Nullable String tokenType,
+                             @JsonProperty("expires_in") @Nullable Long expiresIn,
+                             @JsonProperty("refresh_token") @Nullable String refreshToken,
+                             @Nullable String scope) {
+
+        @Override
+        public String toString() {
+            return "NukiTokenResponse[tokenType=" + tokenType + ", expiresIn=" + expiresIn + ", scope=" + scope + "]";
+        }
     }
 }

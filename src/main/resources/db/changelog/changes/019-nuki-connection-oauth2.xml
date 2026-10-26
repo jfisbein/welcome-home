@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="019-nuki-connection-oauth2" author="welcome-home">
+        <comment>
+            A Nuki connection is either an API token the owner pasted or an OAuth2 authorization. The token sent
+            to Nuki, either one, is access_token_encrypted; an OAuth2 authorization also keeps its refresh token,
+            encrypted the same way, and when its access token expires. Breaks the 1.x releases, which read
+            api_token_encrypted: version 2.0.0.
+        </comment>
+
+        <renameColumn tableName="nuki_connection"
+                      oldColumnName="api_token_encrypted" newColumnName="access_token_encrypted"/>
+
+        <addColumn tableName="nuki_connection">
+            <column name="credential" type="text" defaultValue="API_TOKEN">
+                <constraints nullable="false"/>
+            </column>
+            <column name="refresh_token_encrypted" type="bytea"/>
+            <column name="access_token_expires_at" type="timestamptz"/>
+        </addColumn>
+
+        <sql>
+            ALTER TABLE nuki_connection ADD CONSTRAINT nuki_connection_credential_check CHECK (
+                (credential = 'API_TOKEN' AND refresh_token_encrypted IS NULL AND access_token_expires_at IS NULL)
+                OR (credential = 'OAUTH2' AND refresh_token_encrypted IS NOT NULL
+                    AND access_token_expires_at IS NOT NULL));
+        </sql>
+
+        <rollback>
+            <sql>
+                ALTER TABLE nuki_connection DROP CONSTRAINT nuki_connection_credential_check;
+            </sql>
+            <dropColumn tableName="nuki_connection" columnName="access_token_expires_at"/>
+            <dropColumn tableName="nuki_connection" columnName="refresh_token_encrypted"/>
+            <dropColumn tableName="nuki_connection" columnName="credential"/>
+            <renameColumn tableName="nuki_connection"
+                          oldColumnName="access_token_encrypted" newColumnName="api_token_encrypted"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

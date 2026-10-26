@@ -32,7 +32,7 @@ class MigrationCompatibilityTests {
      * The first changeset that must keep the previous release working. Those before it predate the rule; a new
      * major version moves it past the changesets that break, and production to that major's tag.
      */
-    static final int COMPATIBLE_FROM = 19;
+    static final int COMPATIBLE_FROM = 20;
 
     /** What the previous release relies on: tables and columns as they are, writes it makes, grants it uses. */
     static final Set<String> BREAKING_ELEMENTS = Set.of("dropTable", "dropColumn", "renameTable", "renameColumn",

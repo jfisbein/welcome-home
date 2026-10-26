@@ -83,18 +83,32 @@ class NukiConnectionTests {
     }
 
     @Test
-    void howToGetATokenIsShownOpenUntilTheOwnerConnects() {
+    void pastingATokenIsTheFoldedAwayAlternativeToConnectingWithNuki() {
         assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)))
-                .bodyText().contains("<details open", "Cómo conseguir el API token",
-                        "<a href=\"https://web.nuki.io\" target=\"_blank\" rel=\"noopener noreferrer\">",
-                        "Generar token de API", "Ver dispositivos", "Gestionar dispositivos",
-                        "Ver protocolos de cierre y obtener notificaciones de protocolo");
+                .bodyText().contains("<a href=\"/settings/nuki/oauth\" role=\"button\">Conectar con Nuki</a>",
+                        "Te llevamos a Nuki", "Cómo conseguir el API token", "Generar token de API")
+                .containsPattern("<details>\\s*<summary>Usar un API token en su lugar</summary>\\s*"
+                        + "<details open=\"open\">\\s*<summary>Cómo conseguir el API token</summary>");
+    }
 
+    @Test
+    void tokenFormStaysUnfoldedAfterAFailedAttempt() {
+        nuki.stubFor(get("/smartlock").willReturn(status(401)));
+
+        assertThat(connect(ALICE, TOKEN)).bodyText()
+                .containsPattern("<details open=\"open\">\\s*<summary>Usar un API token en su lugar</summary>")
+                .contains("Nuki no ha aceptado este API token");
+    }
+
+    @Test
+    void ownerConnectedWithATokenIsOfferedTheirNukiAccountInstead() {
         nukiAccepts(TOKEN);
         connect(ALICE, TOKEN);
 
         assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)))
-                .bodyText().contains("Cómo conseguir el API token").doesNotContain("<details open");
+                .bodyText().contains("Conectado con un API token.", "en lugar del API token",
+                        ">Usar tu cuenta de Nuki</a>", "<summary>Cambiar API token</summary>")
+                .doesNotContain(">Conectar con Nuki</a>");
     }
 
     @Test
@@ -107,10 +121,10 @@ class NukiConnectionTests {
         assertThat(result.getMvcResult().getFlashMap().get("connectedLocks")).isEqualTo(List.of("Casa"));
         var stored = storedToken(aliceId);
         assertThat(new String(stored, StandardCharsets.ISO_8859_1)).doesNotContain(TOKEN);
-        assertThat(crypto.decryptApiToken(aliceId, stored)).isEqualTo(TOKEN);
+        assertThat(crypto.decryptAccessToken(aliceId, stored)).isEqualTo(TOKEN);
         assertThat(migrator.sql("SELECT status FROM nuki_connection").query(String.class).single()).isEqualTo("OK");
         assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)))
-                .bodyText().contains("Conectado.", "Última comprobación");
+                .bodyText().contains("Conectado con un API token.", "Última comprobación");
     }
 
     @Test
@@ -179,7 +193,7 @@ class NukiConnectionTests {
         nukiAccepts(NEW_TOKEN);
         assertThat(connect(ALICE, NEW_TOKEN)).hasStatus(HttpStatus.FOUND);
 
-        assertThat(crypto.decryptApiToken(aliceId, storedToken(aliceId))).isEqualTo(NEW_TOKEN);
+        assertThat(crypto.decryptAccessToken(aliceId, storedToken(aliceId))).isEqualTo(NEW_TOKEN);
         assertThat(migrator.sql("SELECT status FROM nuki_connection").query(String.class).list()).containsExactly("OK");
     }
 
@@ -216,7 +230,7 @@ class NukiConnectionTests {
 
         migrator.sql("UPDATE nuki_connection SET status = 'DISCONNECTED'").update();
 
-        assertThat(mvc.get().uri("/").with(owner(ALICE))).bodyText().contains("Nuki ha rechazado tu API token");
+        assertThat(mvc.get().uri("/").with(owner(ALICE))).bodyText().contains("Nuki ha rechazado la conexión");
     }
 
     @Test
@@ -253,8 +267,11 @@ class NukiConnectionTests {
 
     @Test
     void pageConfirmsTheDisconnection() {
-        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)).flashAttr("disconnected", true))
-                .bodyText().contains("Nuki desconectado", "Todavía no has conectado");
+        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)).flashAttr("disconnected", "API_TOKEN"))
+                .bodyText().contains("Nuki desconectado: hemos borrado tu API token", "Todavía no has conectado");
+        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)).flashAttr("disconnected", "OAUTH2"))
+                .bodyText().contains("Nuki desconectado: hemos borrado los tokens", "Todavía no has conectado")
+                .doesNotContain("API token de welcome-home");
     }
 
     @Test
@@ -308,7 +325,7 @@ class NukiConnectionTests {
     }
 
     private byte[] storedToken(UUID ownerId) {
-        return migrator.sql("SELECT api_token_encrypted FROM nuki_connection WHERE owner_id = ?")
+        return migrator.sql("SELECT access_token_encrypted FROM nuki_connection WHERE owner_id = ?")
                 .param(ownerId)
                 .query(byte[].class)
                 .single();

@@ -13,6 +13,7 @@ class CryptoServiceTests {
     static final UUID ALICE = UUID.randomUUID();
     static final UUID BOB = UUID.randomUUID();
     static final String API_TOKEN = "a1b2c3d4e5f6";
+    static final String REFRESH_TOKEN = "f6e5d4c3b2a1";
 
     static CryptoService crypto;
 
@@ -23,25 +24,45 @@ class CryptoServiceTests {
 
     @Test
     void decryptsWhatItEncryptedForTheSameOwner() {
-        var encrypted = crypto.encryptApiToken(ALICE, API_TOKEN);
+        var encrypted = crypto.encryptAccessToken(ALICE, API_TOKEN);
 
-        assertThat(crypto.decryptApiToken(ALICE, encrypted)).isEqualTo(API_TOKEN);
+        assertThat(crypto.decryptAccessToken(ALICE, encrypted)).isEqualTo(API_TOKEN);
     }
 
     @Test
     void anotherOwnerCannotDecryptTheToken() {
-        var encrypted = crypto.encryptApiToken(ALICE, API_TOKEN);
+        var encrypted = crypto.encryptAccessToken(ALICE, API_TOKEN);
 
-        assertThatThrownBy(() -> crypto.decryptApiToken(BOB, encrypted))
+        assertThatThrownBy(() -> crypto.decryptAccessToken(BOB, encrypted))
                 .isInstanceOf(DecryptionFailedException.class);
     }
 
     @Test
     void alteredCiphertextIsRejected() {
-        var encrypted = crypto.encryptApiToken(ALICE, API_TOKEN);
+        var encrypted = crypto.encryptAccessToken(ALICE, API_TOKEN);
         encrypted[encrypted.length - 1] ^= 1;
 
-        assertThatThrownBy(() -> crypto.decryptApiToken(ALICE, encrypted))
+        assertThatThrownBy(() -> crypto.decryptAccessToken(ALICE, encrypted))
+                .isInstanceOf(DecryptionFailedException.class);
+    }
+
+    @Test
+    void refreshTokenDecryptsForTheSameOwnerOnly() {
+        var encrypted = crypto.encryptRefreshToken(ALICE, REFRESH_TOKEN);
+
+        assertThat(crypto.decryptRefreshToken(ALICE, encrypted)).isEqualTo(REFRESH_TOKEN);
+        assertThatThrownBy(() -> crypto.decryptRefreshToken(BOB, encrypted))
+                .isInstanceOf(DecryptionFailedException.class);
+    }
+
+    @Test
+    void neitherKindOfTokenStandsInForTheOther() {
+        var refreshToken = crypto.encryptRefreshToken(ALICE, REFRESH_TOKEN);
+        var accessToken = crypto.encryptAccessToken(ALICE, API_TOKEN);
+
+        assertThatThrownBy(() -> crypto.decryptAccessToken(ALICE, refreshToken))
+                .isInstanceOf(DecryptionFailedException.class);
+        assertThatThrownBy(() -> crypto.decryptRefreshToken(ALICE, accessToken))
                 .isInstanceOf(DecryptionFailedException.class);
     }
 }

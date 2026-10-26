@@ -75,8 +75,8 @@ class PagesInEveryLanguageTests {
         }
         var aliceId = migrator.sql("INSERT INTO owner (email, is_admin) VALUES (?, true) RETURNING id").param(ALICE)
                 .query(UUID.class).single();
-        migrator.sql("INSERT INTO nuki_connection (owner_id, api_token_encrypted, status) VALUES (?, ?, 'OK')")
-                .params(aliceId, crypto.encryptApiToken(aliceId, "alices-token")).update();
+        migrator.sql("INSERT INTO nuki_connection (owner_id, access_token_encrypted, status) VALUES (?, ?, 'OK')")
+                .params(aliceId, crypto.encryptAccessToken(aliceId, "alices-token")).update();
         lockId = migrator.sql("""
                         INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone)
                         VALUES (?, 17, 'Casa', 'Europe/Madrid') RETURNING id

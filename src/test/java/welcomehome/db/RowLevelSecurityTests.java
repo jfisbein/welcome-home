@@ -135,7 +135,7 @@ class RowLevelSecurityTests {
             migrator.sql("INSERT INTO owner (id, email) VALUES (?, ?)")
                     .params(rows.ownerId(), email)
                     .update();
-            migrator.sql("INSERT INTO nuki_connection (id, owner_id, api_token_encrypted, status) VALUES (?, ?, ?, 'OK')")
+            migrator.sql("INSERT INTO nuki_connection (id, owner_id, access_token_encrypted, status) VALUES (?, ?, ?, 'OK')")
                     .params(rows.connectionId(), rows.ownerId(), new byte[] {1})
                     .update();
             migrator.sql("""

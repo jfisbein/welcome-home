@@ -1,4 +1,8 @@
 spring:
+  config:
+    # Like the production stack's /run/secrets/config/: each file is the property its name says, such as Nuki's
+    # OAuth2 client, secrets/config/welcomehome.nuki.oauth.client-id and welcomehome.nuki.oauth.client-secret.
+    import: optional:configtree:secrets/config/
   datasource:
     url: jdbc:postgresql://localhost:5432/welcome_home
     username: app_user

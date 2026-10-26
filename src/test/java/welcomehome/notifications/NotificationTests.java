@@ -1,6 +1,7 @@
 package welcomehome.notifications;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.status;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -178,14 +179,14 @@ class NotificationTests {
 
     @Test
     void nukiRejectingTheTokenIsToldOnce() throws Exception {
-        migrator.sql("INSERT INTO nuki_connection (owner_id, api_token_encrypted, status) VALUES (?, ?, 'OK')")
-                .params(aliceId, crypto.encryptApiToken(aliceId, "rejected-token")).update();
+        migrator.sql("INSERT INTO nuki_connection (owner_id, access_token_encrypted, status) VALUES (?, ?, 'OK')")
+                .params(aliceId, crypto.encryptAccessToken(aliceId, "rejected-token")).update();
         nuki.stubFor(get("/smartlock").willReturn(status(401)));
 
         assertThatThrownBy(() -> lockProvider.listLocks(aliceId)).isInstanceOf(LockProviderException.class);
 
         var email = theOnlyEmail();
-        assertThat(email.getSubject()).isEqualTo("Nuki ha rechazado tu API token");
+        assertThat(email.getSubject()).isEqualTo("Nuki ha rechazado la conexión");
         assertThat(text(email)).contains(IntegrationTest.BASE_URL + "/settings/nuki");
 
         assertThatThrownBy(() -> lockProvider.listLocks(aliceId)).as("already disconnected")
@@ -194,9 +195,29 @@ class NotificationTests {
     }
 
     @Test
+    void nukiRefusingToRefreshTheAuthorizationIsToldOnce() throws Exception {
+        migrator.sql("""
+                        INSERT INTO nuki_connection (owner_id, credential, access_token_encrypted,
+                                                     refresh_token_encrypted, access_token_expires_at, status)
+                        VALUES (?, 'OAUTH2', ?, ?, now() - interval '1 minute', 'OK')
+                        """)
+                .params(aliceId, crypto.encryptAccessToken(aliceId, "expired-token"),
+                        crypto.encryptRefreshToken(aliceId, "revoked-token"))
+                .update();
+        nuki.stubFor(post("/oauth/token").willReturn(status(400)));
+
+        assertThatThrownBy(() -> lockProvider.listLocks(aliceId)).isInstanceOf(LockProviderException.class);
+
+        assertThat(theOnlyEmail().getSubject()).isEqualTo("Nuki ha rechazado la conexión");
+        assertThatThrownBy(() -> lockProvider.listLocks(aliceId)).as("already disconnected")
+                .isInstanceOf(LockProviderException.class);
+        assertNoMoreThan(1);
+    }
+
+    @Test
     void twoCallsRejectedAtOnceSendOneEmail() throws Exception {
-        migrator.sql("INSERT INTO nuki_connection (owner_id, api_token_encrypted, status) VALUES (?, ?, 'OK')")
-                .params(aliceId, crypto.encryptApiToken(aliceId, "rejected-token")).update();
+        migrator.sql("INSERT INTO nuki_connection (owner_id, access_token_encrypted, status) VALUES (?, ?, 'OK')")
+                .params(aliceId, crypto.encryptAccessToken(aliceId, "rejected-token")).update();
         // Slow enough for both calls to find the connection OK before either is rejected.
         nuki.stubFor(get("/smartlock").willReturn(status(401).withFixedDelay(500)));
 
@@ -209,7 +230,7 @@ class NotificationTests {
         }
 
         assertThat(nuki.getAllServeEvents()).as("both calls reached Nuki").hasSize(2);
-        assertThat(theOnlyEmail().getSubject()).isEqualTo("Nuki ha rechazado tu API token");
+        assertThat(theOnlyEmail().getSubject()).isEqualTo("Nuki ha rechazado la conexión");
     }
 
     @Test

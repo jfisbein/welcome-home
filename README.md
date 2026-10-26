@@ -26,7 +26,7 @@ The compiler runs [Error Prone](https://errorprone.info) with [NullAway](https:/
 
 Signed-in owners have a menu at the top of every page:
 
-- **Home** (`/`, the "welcome-home" name): the owner's locks, each with its links and history, and their latest 10 guest attempts across all locks (`audit.RecentAttempts`), each in its lock's time zone and leading to that lock's or link's history. It also asks the owner to verify their email, to connect Nuki, or to paste a new API token when Nuki rejected theirs.
+- **Home** (`/`, the "welcome-home" name): the owner's locks, each with its links and history, and their latest 10 guest attempts across all locks (`audit.RecentAttempts`), each in its lock's time zone and leading to that lock's or link's history. It also asks the owner to verify their email, to connect Nuki, or to connect it again when Nuki rejected the connection.
 - **Cerraduras** (`/locks`): syncing with Nuki, each lock's settings and state, its links and its history.
 - **Configuración** (`/settings`, which leads to its first section): one page per section, linked to each other by a row under the menu: Nuki (`/settings/nuki`), Preferencias (`/settings/preferences`: language and color theme), Avisos (`/settings/notifications`) and Passkeys (`/settings/passkeys`). Their former addresses (`/nuki/connection`, `/notifications`, `/passkeys`, which emails sent before the move link to, and `/settings/language`) redirect there permanently.
 - **Administración** (`/admin/owners`): admins only.
@@ -58,10 +58,10 @@ The app needs two Tink keysets and does not start without them:
 
 | Variable           | Keyset                    | Used for                     |
 |--------------------|---------------------------|------------------------------|
-| `AEAD_KEYSET_FILE` | AES-256-GCM               | Encrypting Nuki API tokens   |
+| `AEAD_KEYSET_FILE` | AES-256-GCM               | Encrypting Nuki tokens       |
 | `MAC_KEYSET_FILE`  | HMAC-SHA256, 128-bit tag  | Signing access links         |
 
-`./gradlew generateKeysets` writes both to `secrets/`, readable only by the current user, and never overwrites existing files. In production they are Docker secrets, backed up separately from the database: losing them means pasting every Nuki API token again and regenerating every access link. `./gradlew rotateAeadKeyset --args=<file>` adds a new primary key to an AEAD keyset; the earlier keys keep decrypting the tokens stored with them.
+`./gradlew generateKeysets` writes both to `secrets/`, readable only by the current user, and never overwrites existing files. In production they are Docker secrets, backed up separately from the database: losing them means every owner connecting Nuki again and regenerating every access link. `./gradlew rotateAeadKeyset --args=<file>` adds a new primary key to an AEAD keyset; the earlier keys keep decrypting the tokens stored with them.
 
 ## First admin
 
@@ -78,7 +78,7 @@ A new owner then gets an email with a link to verify that the address is theirs 
 
 Admins invite further owners from the admin panel (`/admin/owners`, linked from the owner's panel): each invitation has a note on who it is for and may make the new owner an admin too. Its link is shown only once, since only a hash of the token is stored. The panel lists owners' emails and registration dates, never their locks or links: Row-Level Security applies to admins like to any other owner.
 
-"Dar de baja" (`DELETE /admin/owners`, after confirming) deletes an owner with everything of theirs, in one transaction: the owner row's foreign keys cascade to their Nuki connection, locks, links, history and recovery links, and their passkeys are deleted by email. Invitations they created stay, without a creator. An admin cannot delete themselves, so an admin is always left. The deleted data stays in the backups until they expire (30 days); the owner's Nuki API token should also be deleted in Nuki Web.
+"Dar de baja" (`DELETE /admin/owners`, after confirming) deletes an owner with everything of theirs, in one transaction: the owner row's foreign keys cascade to their Nuki connection, locks, links, history and recovery links, and their passkeys are deleted by email. Invitations they created stay, without a creator. An admin cannot delete themselves, so an admin is always left. The deleted data stays in the backups until they expire (30 days); the owner's Nuki API token, if they pasted one, should also be deleted in Nuki Web.
 
 Each owner manages their passkeys at `/settings/passkeys` (Configuración → Passkeys): the list shows each one's name, when it was created and when it last signed in. An owner renames them (`PATCH /settings/passkeys/{credentialId}`), deletes the one of a lost device (`DELETE /settings/passkeys/{credentialId}`, after confirming; never the last one, so that nobody locks themselves out) and adds another from the device or password manager where they want it, with a name, through Spring Security's own `POST /webauthn/register/options` and `POST /webauthn/register`. Passkeys live in Spring Security's tables, which have no `owner_id`: every query joins `user_entities` by the owner's email, and another owner's passkey is a 404.
 
@@ -94,13 +94,23 @@ The app needs `BASE_URL` (its public URL, e.g. `https://welcome.example`) to bui
 
 ## Nuki
 
-The `nuki` module is the only one that talks to Nuki, through the Nuki Web API ([definition](https://api.nuki.io/static/swagger/swagger.json)) with each owner's API token. Other modules use the `LockProvider` interface, which takes an owner id: the module finds and decrypts that owner's token itself, so tokens never leave it in clear.
+The `nuki` module is the only one that talks to Nuki, through the Nuki Web API ([definition](https://api.nuki.io/static/swagger/swagger.json)) with each owner's access token: an OAuth2 access token, or an API token the owner pasted. Other modules use the `LockProvider` interface, which takes an owner id: the module finds and decrypts that owner's token itself, so tokens never leave it in clear.
 
-Owners connect at `/settings/nuki` by pasting an API token generated in Nuki Web (Menu → API); the page explains how, step by step. The token needs only `smartlock.readOnly`, `smartlock.action` and `smartlock.log`: view the locks, operate them and read their log (in Nuki Web's Spanish form, "Ver dispositivos", "Gestionar dispositivos" and "Ver protocolos de cierre y obtener notificaciones de protocolo"). The token is stored only after `GET /smartlock` and `GET /smartlock/log` accept it, encrypted for its owner, and it is never shown again: openings are confirmed from the lock's log, so a token that may not read it is refused, with a message that names the three permissions. Whether it may operate the locks cannot be checked without acting on one. Pasting a new token replaces the old one and reconnects a disconnected account.
+Owners connect at `/settings/nuki`, where "Conectar con Nuki" is the way offered first:
 
-When Nuki answers 401 to a stored token, the connection becomes `DISCONNECTED`: links stop opening and the owner's home page asks for a new token. A job checks every connection daily (`welcomehome.nuki.check-cron`, 08:00 server time by default), so that the owner learns about a revoked token before a guest does. A 403 (a permission missing) or an unanswered call does not disconnect. An unlatch refused with a 403 is recorded as `missing-permission`, so the history and the owner's email say that the token may not open, while the guest only reads that the door is not available.
+1. `GET /settings/nuki/oauth` keeps a random `state` in the owner's session and sends them to Nuki's `GET /oauth/authorize`, asking for `smartlock.readOnly`, `smartlock.action`, `smartlock.log` and `offline_access`. It is a link, not a form: the CSP's `form-action 'self'` would stop a form whose answer leaves the site.
+2. The owner signs in to Nuki and accepts; Nuki sends them back to `GET /nuki/callback` with a `code` and the `state`.
+3. The callback takes the `state` out of the session, so it works once, and goes on only if it matches and was started by the same owner. It exchanges the code at `POST /oauth/token` (the client's id and secret both as HTTP Basic and in the form), checks that every scope and a refresh token were granted, and checks the access token as a pasted one is checked (below). Then it stores the access token, the refresh token and when the access token expires, each encrypted for its owner, and goes back to `/settings/nuki`, which names the locks found.
 
-Disconnecting (`DELETE /settings/nuki`, the "Desconectar Nuki" button) deletes the token. Locks and links stay as they are, without any change of state, but cannot open the door until the owner connects again: guests see "not available".
+Every way back that fails, the owner saying no at Nuki included, ends on `/settings/nuki` with a message and nothing changed. Before a call, an access token that expires within 5 minutes is refreshed (`grant_type=refresh_token`), one refresh at a time per owner: Nuki rotates the refresh token, so the one it returns replaces the stored one. A refresh that Nuki refuses disconnects, as a rejected token does; one it does not answer is not repeated, and fails the call without disconnecting. The daily check (below) refreshes too, so a refresh token, which lasts 90 days, does not expire while the app runs. The callback's query is masked in logs, like guests' tokens.
+
+OAuth2 needs welcome-home's client at Nuki, which Nuki grants with its Advanced API (Nuki Web → API): its client id and secret go in `welcomehome.nuki.oauth.client-id` and `welcomehome.nuki.oauth.client-secret`, and its callback URLs must include `BASE_URL` followed by `/nuki/callback`. In production they are Docker secrets (see Production); in development, the files `secrets/config/welcomehome.nuki.oauth.client-id` and `secrets/config/welcomehome.nuki.oauth.client-secret`, which the dev profile reads. Without them, `/settings/nuki` offers only the API token, and the two routes answer 404.
+
+Pasting an API token generated in Nuki Web (Menu → API) is the alternative, folded under "Usar un API token en su lugar"; the page explains how, step by step. The token needs only `smartlock.readOnly`, `smartlock.action` and `smartlock.log`: view the locks, operate them and read their log (in Nuki Web's Spanish form, "Ver dispositivos", "Gestionar dispositivos" and "Ver protocolos de cierre y obtener notificaciones de protocolo"). The token is stored only after `GET /smartlock` and `GET /smartlock/log` accept it, encrypted for its owner, and it is never shown again: openings are confirmed from the lock's log, so a token that may not read it is refused, with a message that names the three permissions. Whether it may operate the locks cannot be checked without acting on one. Pasting a new token, or connecting with Nuki, replaces whatever connection there was and reconnects a disconnected account; the connection keeps its id, so locks keep it.
+
+When Nuki answers 401 to a stored token, the connection becomes `DISCONNECTED`: links stop opening and the owner's home page asks them to connect again. A job checks every connection daily (`welcomehome.nuki.check-cron`, 08:00 server time by default), so that the owner learns about a revoked token before a guest does. A 403 (a permission missing) or an unanswered call does not disconnect. An unlatch refused with a 403 is recorded as `missing-permission`, so the history and the owner's email say that the token may not open, while the guest only reads that the door is not available.
+
+Disconnecting (`DELETE /settings/nuki`, the "Desconectar Nuki" button) deletes the tokens. Locks and links stay as they are, without any change of state, but cannot open the door until the owner connects again: guests see "not available".
 
 Calls time out and are retried with exponential backoff: on rate limiting (429, honoring `Retry-After`), and for reads also on server errors and timeouts. The unlatch action is retried only when Nuki cannot have run it (429, or no connection made), so a door never opens twice; after a timeout or a server error Nuki may have run it, so the opening goes on to read the lock's log instead. The defaults, under `welcomehome.nuki.*`:
 
@@ -112,6 +122,7 @@ Calls time out and are retried with exponential backoff: on rate limiting (429, 
 | `max-attempts`    | `3`                   |
 | `initial-backoff` | `PT0.5S`, doubling    |
 | `max-backoff`     | `PT5S`                |
+| `oauth.client-id`, `oauth.client-secret` | none: OAuth2 off |
 
 ## Locks
 
@@ -166,9 +177,9 @@ Owners get emails about their locks and choose which ones at `/settings/notifica
 | Kind | When | Example subject |
 |------|------|-----------------|
 | Opened | a guest opens the door | "Casa: Ana ha abierto la puerta" |
-| Failed | a guest with a valid link cannot get in: the lock failed, night mode, Nuki did not answer, the API token may not open, or the door is unavailable; also an opening the lock did not confirm, with its own subject ("Casa: la cerradura no ha confirmado que Ana abriera la puerta") | "Casa: Ana no ha podido abrir la puerta" |
+| Failed | a guest with a valid link cannot get in: the lock failed, night mode, Nuki did not answer, the owner's token may not open, or the door is unavailable; also an opening the lock did not confirm, with its own subject ("Casa: la cerradura no ha confirmado que Ana abriera la puerta") | "Casa: Ana no ha podido abrir la puerta" |
 | Denied | a guest's link is refused: not valid yet, expired, revoked, or too many attempts | "Casa: intento denegado con el enlace de Ana" |
-| Disconnected | Nuki rejects the owner's API token | "Nuki ha rechazado tu API token" |
+| Disconnected | Nuki rejects the owner's token, or refuses to refresh it | "Nuki ha rechazado la conexión" |
 
 Emails go only to verified addresses (see First admin); the link that verifies one is the only exception. Two more emails, about the owner's account, are sent whatever the preferences: when a passkey recovery link is created for them, from the admin panel or with `--recover-owner`, and when a passkey is added to their account, from `/settings/passkeys` or with a recovery link (not their first one, at registration). The first is sent on the thread that creates the link, as the recovery command exits right after; the second is announced by the store Spring Security keeps passkeys in, which tells an added passkey from one that signed in again.
 
@@ -236,14 +247,14 @@ The keysets are mounted read-only and must be readable by uid 10001. The image h
 | tag `v1.2.3`            | `v1.2.3`, `v1` and `latest`                             |
 | tag `v1.3.0-rc.1`       | `v1.3.0-rc.1` only: a prerelease moves neither `v1` nor `latest` |
 
-A release is a tag on `main`: `git tag v1.2.3 && git push origin v1.2.3`. Once its image is published, the workflow also creates the GitHub release, with the description of the release pull request (branch `release-1.2.3`) as its notes. `deploy/compose.yaml` runs `:v1`, the latest 1.x release: upgrading is pulling it again, and rolling back is pinning the previous release, such as `:v1.9.1`. That works because releases within a major version are backward compatible, migrations included (AGENTS.md, Conventions).
+A release is a tag on `main`: `git tag v1.2.3 && git push origin v1.2.3`. Once its image is published, the workflow also creates the GitHub release, with the description of the release pull request (branch `release-1.2.3`) as its notes. `deploy/compose.yaml` runs `:v2`, the latest 2.x release: upgrading is pulling it again, and rolling back is pinning the previous release, such as `:v2.0.0`. That works because releases within a major version are backward compatible, migrations included (AGENTS.md, Conventions).
 
 [`docs/runbook.md`](docs/runbook.md) covers running it: first start, releases, rollback, restoring a dump, rotating the AEAD keyset and what to check when something fails.
 
 `deploy/` is the Dockge stack: copy it to the stack's folder on the server. `compose.yaml` runs four services and publishes no port:
 
 - `db`: Postgres 18. `db-init/01-create-roles.sh` creates `migrator` and `app_user` on the first start. Its network is internal: it has no way out.
-- `app`: the image, with a read-only file system, no capabilities, at most 1 GiB of memory (the JVM takes 75% of it for its heap), `TZ=Europe/Madrid` and `BASE_URL=https://welcome-home.example.com`. It reads its database passwords as properties from `/run/secrets/config/` (`spring.config.import=configtree:`), not from environment variables.
+- `app`: the image, with a read-only file system, no capabilities, at most 1 GiB of memory (the JVM takes 75% of it for its heap), `TZ=Europe/Madrid` and `BASE_URL=https://welcome-home.example.com`. It reads its database and SMTP passwords and Nuki's OAuth2 client as properties from `/run/secrets/config/` (`spring.config.import=configtree:`), not from environment variables.
 - `backup`: dumps the database to `backups/` (see [Backups](#backups)).
 - `cloudflared`: connects the tunnel, whose public hostname `welcome-home.example.com` points to `http://app:8080`. The tunnel is the only way in, which is what makes `CF-Connecting-IP` and `X-Forwarded-Proto` trustworthy.
 
@@ -259,6 +270,8 @@ Before the first `docker compose up`, create `secrets/` next to `compose.yaml`:
 | `tunnel_token`       | the Cloudflare tunnel's token                            |
 | `smtp_username`      | the SMTP user for owners' emails (SMTP2GO)               |
 | `smtp_password`      | its password                                             |
+| `nuki-oauth-client-id` | welcome-home's OAuth2 client id, from Nuki Web's API page; without an OAuth2 client, remove it and the next one from `compose.yaml` |
+| `nuki-oauth-client-secret` | its secret                                           |
 
 Write the passwords without a trailing newline (`printf`, or `tr -d '\n'`). Compose mounts each file with its host permissions and the containers run as different users (Postgres 999, the app 10001, cloudflared 65532), so: `chmod 700 secrets` (only root on the host can read them) and `chmod 444 secrets/*` (each container sees only its own). The database passwords are only read on the first start, when the volume is empty.
 
@@ -269,9 +282,9 @@ Create `backups/` as well, owned by the `backup` service's user: `install -d -o 
 The `backup` service dumps the database with `pg_dump` (custom format) to `backups/welcome_home-<date>-<time>.dump` when it starts and every day at 04:00, after the access events' purge, and deletes the dumps older than 30 days (`BACKUP_TIME`, `BACKUP_RETENTION_DAYS`). It dumps as the Postgres superuser, as Row-Level Security would hide every row from any other role. Its health check fails when the last dump is more than 25 hours old. To take a dump now, such as before an upgrade: `docker compose exec backup /backup/backup.sh now`.
 
 - **Off the server**: a restic job (such as zerobyte) copies `backups/` every day to another provider, such as Backblaze B2, after 04:00. Keep its snapshots for 30 days too, so that 30 days after an owner is deleted no copy of their data is left.
-- **Keysets**: never with the dumps. Keep `aead-keyset.json` and `mac-keyset.json` in a password manager (Vaultwarden), and update them there whenever they change. A dump without them still restores, but every Nuki API token must be pasted again and every access link regenerated. The other secrets can be generated anew on a new server.
+- **Keysets**: never with the dumps. Keep `aead-keyset.json` and `mac-keyset.json` in a password manager (Vaultwarden), and update them there whenever they change. A dump without them still restores, but every owner must connect Nuki again and every access link be regenerated. The other secrets can be generated anew on a new server.
 
-The dumps hold the encrypted Nuki API tokens, owners' e-mail addresses, link labels and guests' IP addresses: only root on the server can read them.
+The dumps hold the encrypted Nuki tokens, owners' e-mail addresses, link labels and guests' IP addresses: only root on the server can read them.
 
 To restore one, with the stack's `compose.yaml` next to the script:
 
@@ -289,8 +302,8 @@ Packages under `welcomehome`, verified with Spring Modulith (`ModularityTests`):
 |----------|-------------------------------------------------------------------|
 | `auth`   | Owner registration and login with passkeys                        |
 | `admin`  | Invitations and the owner list                                    |
-| `crypto` | Keysets, encryption of Nuki API tokens and signing of links       |
-| `nuki`   | Nuki Web API client behind `LockProvider`                         |
+| `crypto` | Keysets, encryption of Nuki tokens and signing of links           |
+| `nuki`   | Nuki Web API client behind `LockProvider`, connecting with OAuth2 or an API token |
 | `locks`  | Locks: sync, configuration and state                              |
 | `links`  | Access links: create, revoke, regenerate and edit                 |
 | `access` | Guest flow: validates the link and opens the door                 |

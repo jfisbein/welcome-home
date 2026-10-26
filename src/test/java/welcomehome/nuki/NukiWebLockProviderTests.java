@@ -102,8 +102,8 @@ class NukiWebLockProviderTests {
         connectWith(alice, ALICES_TOKEN);
         connectWith(bob, BOBS_TOKEN);
         migrator.sql("""
-                        UPDATE nuki_connection SET api_token_encrypted =
-                            (SELECT api_token_encrypted FROM nuki_connection WHERE owner_id = ?)
+                        UPDATE nuki_connection SET access_token_encrypted =
+                            (SELECT access_token_encrypted FROM nuki_connection WHERE owner_id = ?)
                         WHERE owner_id = ?
                         """)
                 .params(bob, alice)
@@ -142,7 +142,7 @@ class NukiWebLockProviderTests {
     @Test
     void tokenPastedWhileTheRejectedOneWasInUseStaysConnected() {
         connectWith(alice, ALICES_TOKEN);
-        var rejected = migrator.sql("SELECT api_token_encrypted FROM nuki_connection").query(byte[].class).single();
+        var rejected = migrator.sql("SELECT access_token_encrypted FROM nuki_connection").query(byte[].class).single();
         connectWith(alice, BOBS_TOKEN);
 
         ownerTransactions.run(alice, () -> connectionDao.markDisconnected(alice, rejected));

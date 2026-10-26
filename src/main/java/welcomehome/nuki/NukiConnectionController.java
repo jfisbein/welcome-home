@@ -13,8 +13,9 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import welcomehome.auth.CurrentOwner;
 
 /**
- * The owner's Nuki connection page: its state, and a form to paste an API token. The token is never shown
- * back, not even after a failed attempt.
+ * The owner's Nuki connection page: its state, the way to connect with OAuth2 when there is a client for it
+ * ({@link NukiAuthorizationController}), and a form to paste an API token. The token is never shown back, not
+ * even after a failed attempt.
  */
 @Controller
 @RequestMapping("/settings/nuki")
@@ -23,14 +24,17 @@ class NukiConnectionController {
     private static final String VIEW = "nuki/connection";
 
     private final NukiConnections connections;
+    private final NukiProperties properties;
 
-    NukiConnectionController(NukiConnections connections) {
+    NukiConnectionController(NukiConnections connections, NukiProperties properties) {
         this.connections = connections;
+        this.properties = properties;
     }
 
     @GetMapping
     String connection(CurrentOwner owner, Model model) {
         model.addAttribute("connection", connections.find(owner.id()).orElse(null));
+        model.addAttribute("authorization", properties.oauth().enabled());
         return VIEW;
     }
 
@@ -56,8 +60,8 @@ class NukiConnectionController {
 
     @DeleteMapping
     String disconnect(CurrentOwner owner, RedirectAttributes redirect) {
-        connections.remove(owner.id());
-        redirect.addFlashAttribute("disconnected", true);
+        connections.remove(owner.id())
+                .ifPresent(credential -> redirect.addFlashAttribute("disconnected", credential.name()));
         return "redirect:/settings/nuki";
     }
 }

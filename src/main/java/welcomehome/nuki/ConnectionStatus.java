@@ -5,8 +5,8 @@ package welcomehome.nuki;
  */
 public enum ConnectionStatus {
 
-    /** Nuki accepted the API token when it was last used or checked. */
+    /** Nuki accepted the connection's token when it was last used or checked. */
     OK,
-    /** Nuki rejected the API token: the owner has to paste a new one. */
+    /** Nuki rejected the connection's token: the owner has to connect Nuki again. */
     DISCONNECTED
 }

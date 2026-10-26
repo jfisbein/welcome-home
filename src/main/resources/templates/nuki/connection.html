@@ -19,56 +19,91 @@
     </article>
 
     <article th:if="${disconnected}">
-        <p th:text="#{nuki.disconnected}">Nuki desconectado: hemos borrado tu API token.</p>
+        <p th:if="${disconnected == 'API_TOKEN'}" th:text="#{nuki.disconnected}">
+            Nuki desconectado: hemos borrado tu API token.</p>
+        <p th:if="${disconnected == 'OAUTH2'}" th:text="#{nuki.disconnected.authorization}">
+            Nuki desconectado: hemos borrado los tokens con los que welcome-home entraba en tu cuenta de Nuki.</p>
+    </article>
+
+    <article th:if="${authorizationError}" role="alert">
+        <p th:if="${authorizationError == 'cancelled'}" th:text="#{nuki.authorization.cancelled}">
+            Has cancelado la autorización en Nuki.</p>
+        <p th:if="${authorizationError == 'failed'}" th:text="#{nuki.authorization.failed}">
+            No hemos podido completar la conexión con Nuki.</p>
+        <p th:if="${authorizationError == 'missing-permission'}" th:text="#{nuki.authorization.missing-permission}">
+            Nuki no ha dado a welcome-home todos los permisos que necesita.</p>
+        <p th:if="${authorizationError == 'unavailable'}" th:text="#{nuki.token.unavailable}">Nuki no responde.</p>
     </article>
 
     <p th:if="${connection == null}" th:text="#{nuki.not-connected}">Todavía no has conectado tu cuenta de Nuki.</p>
     <p th:if="${connection != null and connection.status.name() == 'OK'}">
-        [[#{nuki.ok}]]
+        [[${connection.credential.name() == 'OAUTH2'} ? #{nuki.ok.authorization} : #{nuki.ok.api-token}]]
         <span th:if="${connection.lastCheckedAt}"
               th:text="#{nuki.last-checked(${#temporals.format(connection.lastCheckedAt, #messages.msg('format.datetime'))})}">
             Última comprobación: 17/10/2026 16:40.
         </span>
     </p>
     <p th:if="${connection != null and connection.status.name() == 'DISCONNECTED'}" role="alert"
-       th:text="#{nuki.rejected}">Nuki ha rechazado tu API token.</p>
+       th:text="#{nuki.rejected}">Nuki ha rechazado la conexión.</p>
 
-    <details th:open="${connection == null}">
-        <summary th:text="#{nuki.how}">Cómo conseguir el API token</summary>
-        <ol>
-            <li th:utext="#{nuki.how.sign-in}">Entra en Nuki Web con tu cuenta de Nuki.</li>
-            <li th:utext="#{nuki.how.api}">En el menú de la izquierda, entra en API.</li>
-            <li th:utext="#{nuki.how.generate}">En Tokens API, pulsa Generar token de API.</li>
-            <li>
-                [[#{nuki.how.permissions}]]
-                <ul>
-                    <li th:utext="#{nuki.how.permission.view}">Ver dispositivos</li>
-                    <li th:utext="#{nuki.how.permission.operate}">Gestionar dispositivos</li>
-                    <li th:utext="#{nuki.how.permission.log}">Ver protocolos de cierre</li>
-                </ul>
-            </li>
-            <li th:utext="#{nuki.how.save}">Pulsa Guardar, copia el token y pégalo aquí debajo.</li>
-        </ol>
+    <th:block th:if="${authorization and (connection == null or connection.status.name() == 'DISCONNECTED'
+                      or connection.credential.name() == 'API_TOKEN')}">
+        <p th:text="${connection != null and connection.status.name() == 'OK'}
+                    ? #{nuki.authorization.switch.text} : #{nuki.authorization.text}">
+            Te llevamos a Nuki para que entres con tu cuenta y autorices a welcome-home.</p>
+        <p>
+            <a th:href="@{/settings/nuki/oauth}" role="button"
+               th:text="${connection == null} ? #{nuki.authorization.connect}
+                        : (${connection.status.name() == 'DISCONNECTED'} ? #{nuki.authorization.reconnect}
+                        : #{nuki.authorization.switch})">Conectar con Nuki</a>
+        </p>
+    </th:block>
+
+    <!-- With OAuth2, pasting an API token is the alternative, folded away; without it, the only way. -->
+    <details th:remove="${authorization} ? none : tag" th:open="${error != null}">
+        <summary th:if="${authorization}"
+                 th:text="${connection != null and connection.credential.name() == 'API_TOKEN'}
+                          ? #{nuki.change} : #{nuki.token.instead}">Usar un API token en su lugar</summary>
+
+        <details th:open="${connection == null or authorization}">
+            <summary th:text="#{nuki.how}">Cómo conseguir el API token</summary>
+            <ol>
+                <li th:utext="#{nuki.how.sign-in}">Entra en Nuki Web con tu cuenta de Nuki.</li>
+                <li th:utext="#{nuki.how.api}">En el menú de la izquierda, entra en API.</li>
+                <li th:utext="#{nuki.how.generate}">En Tokens API, pulsa Generar token de API.</li>
+                <li>
+                    [[#{nuki.how.permissions}]]
+                    <ul>
+                        <li th:utext="#{nuki.how.permission.view}">Ver dispositivos</li>
+                        <li th:utext="#{nuki.how.permission.operate}">Gestionar dispositivos</li>
+                        <li th:utext="#{nuki.how.permission.log}">Ver protocolos de cierre</li>
+                    </ul>
+                </li>
+                <li th:utext="#{nuki.how.save}">Pulsa Guardar, copia el token y pégalo aquí debajo.</li>
+            </ol>
+        </details>
+
+        <form th:action="@{/settings/nuki}" th:method="put">
+            <p th:text="#{nuki.token.stored}">Se guarda cifrado y no se vuelve a mostrar.</p>
+            <label>
+                [[#{nuki.token}]]
+                <input type="password" name="apiToken" autocomplete="off" required
+                       th:attr="aria-invalid=${error} ? 'true' : null">
+                <small th:if="${error == 'rejected'}" th:text="#{nuki.token.rejected}">
+                    Nuki no ha aceptado este API token.</small>
+                <small th:if="${error == 'missing-permission'}" th:text="#{nuki.token.missing-permission}">
+                    A este API token le falta alguno de los tres permisos.</small>
+                <small th:if="${error == 'unavailable'}" th:text="#{nuki.token.unavailable}">Nuki no responde.</small>
+            </label>
+            <button type="submit"
+                    th:text="${connection == null or connection.credential.name() == 'OAUTH2'} ? #{nuki.connect}
+                             : #{nuki.change}">Conectar</button>
+        </form>
     </details>
-
-    <form th:action="@{/settings/nuki}" th:method="put">
-        <p th:text="#{nuki.token.stored}">Se guarda cifrado y no se vuelve a mostrar.</p>
-        <label>
-            [[#{nuki.token}]]
-            <input type="password" name="apiToken" autocomplete="off" required
-                   th:attr="aria-invalid=${error} ? 'true' : null">
-            <small th:if="${error == 'rejected'}" th:text="#{nuki.token.rejected}">
-                Nuki no ha aceptado este API token.</small>
-            <small th:if="${error == 'missing-permission'}" th:text="#{nuki.token.missing-permission}">
-                A este API token le falta alguno de los tres permisos.</small>
-            <small th:if="${error == 'unavailable'}" th:text="#{nuki.token.unavailable}">Nuki no responde.</small>
-        </label>
-        <button type="submit" th:text="${connection == null} ? #{nuki.connect} : #{nuki.change}">Conectar</button>
-    </form>
 
     <section th:if="${connection != null}">
         <h2 th:text="#{nuki.disconnect}">Desconectar</h2>
-        <p th:text="#{nuki.disconnect.text}">Borra tu API token de welcome-home.</p>
+        <p th:text="#{nuki.disconnect.text}">Borra de welcome-home la conexión con Nuki.</p>
         <form th:action="@{/settings/nuki}" th:method="delete">
             <button type="submit" class="secondary" th:text="#{nuki.disconnect.button}">Desconectar Nuki</button>
         </form>

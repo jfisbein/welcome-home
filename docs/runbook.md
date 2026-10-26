@@ -5,7 +5,7 @@ How to run welcome-home in production. It runs as a Dockge stack on `docker.frit
 | What               | Where                                                                  |
 |--------------------|------------------------------------------------------------------------|
 | Public URL         | yours; `https://welcome-home.example.com` stands for it here           |
-| Image              | `ghcr.io/jfisbein/welcome-home:v1`, the latest 1.x release             |
+| Image              | `ghcr.io/jfisbein/welcome-home:v2`, the latest 2.x release             |
 | Secrets            | `secrets/` in the stack's folder; the keysets also in Vaultwarden      |
 | Database dumps     | `backups/` in the stack's folder, copied daily to B2 by zerobyte       |
 | Tunnel             | Cloudflare Zero Trust: its own tunnel, with only this public hostname  |
@@ -46,7 +46,7 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 
 Once the workflow has finished, on the server:
 
-1. In Dockge, update the stack: it pulls `:v1` and `cloudflared:latest` again and recreates what changed.
+1. In Dockge, update the stack: it pulls `:v2` and `cloudflared:latest` again and recreates what changed.
 2. Liquibase migrates the database as `app` starts. Check that `app` turns healthy and that `docker compose logs app` shows no errors. The release that runs:
 
    ```sh
@@ -55,11 +55,20 @@ Once the workflow has finished, on the server:
 
 No dump first. Within a major version migrations only add to the schema, and each runs in a transaction: a migration that fails leaves the database as it was, and the previous release keeps working with one that succeeds (`MigrationCompatibilityTests` checks it). The `backup` service's nightly dump is still there.
 
-A new major version, such as `v2`, may break compatibility: read its release notes, take a dump first (`docker compose exec backup /backup/backup.sh now`), and change the `app` image to `:v2`, with whatever else the notes ask for.
+A new major version, such as `v3`, may break compatibility: read its release notes, take a dump first (`docker compose exec backup /backup/backup.sh now`), and change the `app` image to `:v3`, with whatever else the notes ask for.
+
+### From 1.x to 2.0
+
+2.0.0 lets owners connect Nuki with OAuth2, and renames `nuki_connection.api_token_encrypted` to `access_token_encrypted`, which 1.x releases cannot read.
+
+1. Take a dump: `docker compose exec backup /backup/backup.sh now`.
+2. Check that `secrets/nuki-oauth-client-id` and `secrets/nuki-oauth-client-secret` hold the client id and secret from Nuki Web's API page (`chmod 444`, like the other secrets).
+3. In Dockge, edit the stack as `deploy/compose.yaml` now has it: the `app` image `:v2`, and the two secrets, under `app`'s `secrets:` and in the file's `secrets:`. Deploy.
+4. Check that `app` turns healthy and runs 2.0.0, and that `/settings/nuki` offers "Conectar con Nuki". An owner connected with an API token stays connected.
 
 ## Roll back
 
-Pin the previous release, such as `ghcr.io/jfisbein/welcome-home:v1.9.1`, and deploy. Within a major version the older release works with the newer schema, so nothing else is needed; go back to `:v1` once a fixed release is out. Rolling back to an earlier major version means restoring the dump taken before upgrading (next section).
+Pin the previous release, such as `ghcr.io/jfisbein/welcome-home:v2.0.0`, and deploy. Within a major version the older release works with the newer schema, so nothing else is needed; go back to `:v2` once a fixed release is out. Rolling back to an earlier major version means restoring the dump taken before upgrading (next section), and pinning that major's last release, such as `:v1.12.0`.
 
 ## Restore a dump
 

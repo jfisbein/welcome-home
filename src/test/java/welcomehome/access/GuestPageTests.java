@@ -60,7 +60,7 @@ class GuestPageTests {
                         """)
                 .param(ownerId).query(UUID.class).single();
         // The page reads only the connection's status: the token is never decrypted.
-        migrator.sql("INSERT INTO nuki_connection (owner_id, api_token_encrypted, status) VALUES (?, '\\x00', 'OK')")
+        migrator.sql("INSERT INTO nuki_connection (owner_id, access_token_encrypted, status) VALUES (?, '\\x00', 'OK')")
                 .param(ownerId).update();
     }
 

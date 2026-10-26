@@ -18,6 +18,12 @@ import org.springframework.test.context.DynamicPropertyRegistrar;
 @TestConfiguration(proxyBeanMethods = false)
 public class NukiStandInConfiguration {
 
+    /** welcome-home's OAuth2 client at the stand-in. */
+    public static final String CLIENT_ID = "welcome-home-client";
+
+    /** Its secret. */
+    public static final String CLIENT_SECRET = "welcome-home-secret";
+
     @Bean(destroyMethod = "stop")
     WireMockServer nukiStandIn() {
         var server = new WireMockServer(wireMockConfig().dynamicPort());
@@ -30,6 +36,9 @@ public class NukiStandInConfiguration {
         return registry -> {
             registry.add("welcomehome.nuki.base-url", nukiStandIn::baseUrl);
             registry.add("welcomehome.nuki.initial-backoff", () -> "PT0.01S");
+            // Files end with a newline, which the client id and secret do not.
+            registry.add("welcomehome.nuki.oauth.client-id", () -> CLIENT_ID + "\n");
+            registry.add("welcomehome.nuki.oauth.client-secret", () -> CLIENT_SECRET + "\n");
             // Confirming an opening reads the stand-in's log: no need to wait as for a real lock.
             registry.add("welcomehome.access.confirmation.interval", () -> "PT0.1S");
             registry.add("welcomehome.access.confirmation.timeout", () -> "PT1S");

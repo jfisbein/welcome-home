@@ -26,8 +26,8 @@
         <a th:href="@{/settings/nuki}" role="button" th:text="#{home.connect.button}">Conectar Nuki</a>
     </article>
     <article th:if="${nukiConnection != null and nukiConnection.status.name() == 'DISCONNECTED'}" role="alert">
-        <p th:utext="#{home.disconnected.text}"><strong>Nuki ha rechazado tu API token.</strong></p>
-        <a th:href="@{/settings/nuki}" role="button" th:text="#{home.disconnected.button}">Pegar un API token nuevo</a>
+        <p th:utext="#{home.disconnected.text}"><strong>Nuki ha rechazado la conexión.</strong></p>
+        <a th:href="@{/settings/nuki}" role="button" th:text="#{home.disconnected.button}">Volver a conectar Nuki</a>
     </article>
 
     <section>

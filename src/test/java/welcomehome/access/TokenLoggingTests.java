@@ -2,6 +2,7 @@ package welcomehome.access;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.util.UUID;
 
@@ -76,6 +77,15 @@ class TokenLoggingTests {
                 .exchange();
 
         assertThat(output.getAll()).contains("OpenRequest[token=***]").doesNotContain(mac());
+    }
+
+    @Test
+    void nukisWayBackLogsNoCode(CapturedOutput output) {
+        mvc.get().uri("/nuki/callback?code=the-authorization-code&state=the-state")
+                .with(user("alice@example.com").roles("OWNER")).exchange();
+
+        assertThat(output.getAll()).contains("/nuki/callback?***")
+                .doesNotContain("the-authorization-code").doesNotContain("the-state");
     }
 
     /** The token's secret part: the link id before the dot is no secret. */

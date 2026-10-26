@@ -205,7 +205,7 @@ class AdminPanelTests {
 
     @Test
     void adminDeletesAnOwnerWithEverythingOfTheirs() {
-        migrator.sql("INSERT INTO nuki_connection (owner_id, api_token_encrypted, status) VALUES (?, '\\x00', 'OK')")
+        migrator.sql("INSERT INTO nuki_connection (owner_id, access_token_encrypted, status) VALUES (?, '\\x00', 'OK')")
                 .param(bobId).update();
         migrator.sql("""
                         INSERT INTO access_event (owner_id, link_id, lock_id, result)
