@@ -29,9 +29,11 @@ import java.util.concurrent.TimeUnit;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.jayway.jsonpath.JsonPath;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -44,6 +46,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
 import welcomehome.TestDatabaseConfiguration;
+import welcomehome.crypto.CryptoService;
 import welcomehome.crypto.LinkTokenSigner;
 import welcomehome.nuki.NukiStandInConfiguration;
 
@@ -67,6 +70,9 @@ class OpenDoorTests {
 
     @Autowired
     PostgreSQLContainer postgres;
+
+    @Autowired
+    CryptoService crypto;
 
     JdbcClient migrator;
     UUID lockId;
@@ -105,7 +111,106 @@ class OpenDoorTests {
         nuki.verify(1, postRequestedFor(urlPathEqualTo("/smartlock/17/action"))
                 .withHeader("Authorization", equalTo("Bearer " + ALICES_NUKI_TOKEN))
                 .withRequestBody(equalToJson("{\"action\": 3}")));
+        nuki.verify(0, postRequestedFor(urlPathEqualTo("/smartlock/17/action/advanced")));
         assertThat(lastEvent()).isEqualTo("OK|opened|" + ip + "|Guest browser");
+    }
+
+    @Test
+    void anOwnerWhoAuthorizedWelcomeHomeUnlatchesWithTheAdvancedApiAndNukisReportConfirmsAtOnce() {
+        authorizeWelcomeHome();
+        var requestId = nukiAcceptsTheReportedUnlatch();
+        lockLogShowsNothingNew();
+        // Nuki's report may arrive even before its answer to the request.
+        nukiReports(requestId, true, null);
+        var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
+
+        assertThat(open(signer.sign(link, 1))).hasStatusOk().bodyJson().extractingPath("$.result").isEqualTo("opened");
+
+        nuki.verify(1, postRequestedFor(urlPathEqualTo("/smartlock/17/action/advanced"))
+                .withHeader("Authorization", equalTo("Bearer " + ALICES_NUKI_TOKEN))
+                .withRequestBody(equalToJson("{\"action\": 3}")));
+        nuki.verify(0, postRequestedFor(urlPathEqualTo("/smartlock/17/action")));
+        nuki.verify(0, getRequestedFor(urlPathEqualTo("/smartlock/17/log")));
+        assertThat(lastEvent()).isEqualTo("OK|opened|" + ip + "|Guest browser");
+    }
+
+    @Test
+    void nukisReportArrivingWhileTheGuestWaitsConfirms() throws Exception {
+        authorizeWelcomeHome();
+        var requestId = nukiAcceptsTheReportedUnlatch();
+        lockLogShowsNothingNew();
+        var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
+
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var reported = executor.submit(() -> {
+                var deadline = Instant.now().plusSeconds(5);
+                while (nuki.findAll(postRequestedFor(urlPathEqualTo("/smartlock/17/action/advanced"))).isEmpty()
+                       && Instant.now().isBefore(deadline)) {
+                    Thread.sleep(10);
+                }
+                nukiReports(requestId, true, null);
+                return null;
+            });
+
+            assertThat(open(signer.sign(link, 1))).hasStatusOk().bodyJson().extractingPath("$.result")
+                    .isEqualTo("opened");
+            reported.get(5, TimeUnit.SECONDS);
+        }
+    }
+
+    /** Night mode is Nuki's error code 0x4F, a blocked motor 0x42; 0xFF, a device it could not reach. */
+    @ParameterizedTest
+    @CsvSource({"\"4f\", night-mode", "\"42\", lock-failed", "\"ff\", lock-failed"})
+    void failuresThatNukiReportsAreTold(String errorCode, String result) {
+        authorizeWelcomeHome();
+        var requestId = nukiAcceptsTheReportedUnlatch();
+        lockLogShowsNothingNew();
+        nukiReports(requestId, false, errorCode);
+        var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
+
+        assertThat(open(signer.sign(link, 1))).hasStatus(HttpStatus.SERVICE_UNAVAILABLE)
+                .bodyJson().extractingPath("$.result").isEqualTo(result);
+        assertThat(lastEvent()).startsWith("ERROR|" + result + "|");
+    }
+
+    @Test
+    void withoutNukisReportTheLocksLogStillConfirms() {
+        authorizeWelcomeHome();
+        nukiAcceptsTheReportedUnlatch();
+        lockLogShowsUnlatch(0);
+        var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
+
+        assertThat(open(signer.sign(link, 1))).hasStatusOk().bodyJson().extractingPath("$.result").isEqualTo("opened");
+    }
+
+    /** It ran nothing: the plain action is sent instead, and only a 401 to that one disconnects. */
+    @ParameterizedTest
+    @ValueSource(ints = {401, 402, 403, 426})
+    void anUnlatchThatNukiRefusesToReportIsSentWithoutAReport(int status) {
+        authorizeWelcomeHome();
+        nuki.stubFor(post("/smartlock/17/action/advanced").willReturn(status(status)));
+        nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));
+        lockLogShowsUnlatch(0);
+        var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
+
+        assertThat(open(signer.sign(link, 1))).hasStatusOk().bodyJson().extractingPath("$.result").isEqualTo("opened");
+
+        nuki.verify(1, postRequestedFor(urlPathEqualTo("/smartlock/17/action/advanced")));
+        nuki.verify(1, postRequestedFor(urlPathEqualTo("/smartlock/17/action")));
+        assertThat(migrator.sql("SELECT status FROM nuki_connection").query(String.class).single()).isEqualTo("OK");
+    }
+
+    @Test
+    void aReportedUnlatchThatNukiMayHaveRunIsNotSentAgain() {
+        authorizeWelcomeHome();
+        nuki.stubFor(post("/smartlock/17/action/advanced").willReturn(status(503)));
+        lockLogShowsUnlatch(0);
+        var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
+
+        assertThat(open(signer.sign(link, 1))).hasStatusOk().bodyJson().extractingPath("$.result").isEqualTo("opened");
+
+        nuki.verify(1, postRequestedFor(urlPathEqualTo("/smartlock/17/action/advanced")));
+        nuki.verify(0, postRequestedFor(urlPathEqualTo("/smartlock/17/action")));
     }
 
     @Test
@@ -513,6 +618,39 @@ class OpenDoorTests {
         assertThat(open(signer.sign(link, 1))).as(result).hasStatus(status)
                 .bodyJson().extractingPath("$.result").isEqualTo(result);
         assertThat(lastEvent()).startsWith("DENIED|" + result + "|");
+    }
+
+    /** Alice's connection becomes an authorization of welcome-home's OAuth2 client, with the same access token. */
+    private void authorizeWelcomeHome() {
+        var aliceId = migrator.sql("SELECT id FROM owner WHERE email = ?").param(ALICE).query(UUID.class).single();
+        migrator.sql("""
+                        UPDATE nuki_connection SET credential = 'OAUTH2', refresh_token_encrypted = ?,
+                                                   access_token_expires_at = now() + interval '1 hour'
+                        """)
+                .param(crypto.encryptRefreshToken(aliceId, "alices-refresh-token")).update();
+    }
+
+    /** Nuki accepts an unlatch of Alice's lock with its Advanced API, and answers with a new request id. */
+    private String nukiAcceptsTheReportedUnlatch() {
+        var requestId = UUID.randomUUID().toString();
+        nuki.stubFor(post("/smartlock/17/action/advanced").willReturn(okJson("{\"requestId\": \"" + requestId + "\"}")));
+        return requestId;
+    }
+
+    /** Nuki's webhook with the outcome of a request, signed as Nuki signs it. */
+    private void nukiReports(String requestId, boolean success, @Nullable String errorCode) {
+        var body = """
+                {"type": "SmartlockAction", "requestId": "%s", "smartlockId": 17, "success": %s%s}
+                """.formatted(requestId, success, errorCode == null ? "" : ", \"errorCode\": " + errorCode);
+        assertThat(mvc.post().uri("/nuki/webhook").contentType(MediaType.APPLICATION_JSON).content(body)
+                .header("X-Nuki-Signature-SHA256", NukiStandInConfiguration.signature(body)))
+                .hasStatus(HttpStatus.NO_CONTENT);
+    }
+
+    /** The lock's log shows only an unlatch from an hour ago, which is not the guest's. */
+    private void lockLogShowsNothingNew() {
+        nuki.stubFor(get(urlPathEqualTo("/smartlock/17/log"))
+                .willReturn(okJson(log(Instant.now().minus(Duration.ofHours(1)), 3, 0))));
     }
 
     /** The lock's log shows an unlatch from now, which ended with the given Nuki completion state. */

@@ -17,13 +17,17 @@ import welcomehome.nuki.LockLogEntry;
 import welcomehome.nuki.LockProvider;
 import welcomehome.nuki.LockProviderException;
 import welcomehome.nuki.LockTrigger;
+import welcomehome.nuki.PendingAction;
 
 /**
- * Waits for a lock to confirm an unlatch that Nuki accepted, by reading the lock's log until an unlatch
- * entry from after the request shows up. An unlatch by hand, with the lock's button or by an accessory in
- * the same few seconds is someone else's, not the guest's, so it does not count. An Opener's electric strike
- * actuation is taken to show up the same way, as Nuki's action 3; Nuki does not document its log, so an opening
- * that the log does not confirm is logged with the entries the log had.
+ * Waits for a lock to confirm an unlatch that Nuki accepted: Nuki's report of its outcome, where it sends one,
+ * or the lock's log, read until an unlatch entry from after the request shows up, whichever comes first. The log
+ * stays as the way that always works: Nuki reports only to owners connected with OAuth2, and only once its
+ * webhook URL is set; it documents no retries, and turns the webhooks off after too many failures. An unlatch by
+ * hand, with the lock's button or by an accessory in the same few seconds is someone else's, not the guest's, so
+ * it does not count. An Opener's electric strike actuation is taken to show up the same way, as Nuki's action 3;
+ * Nuki does not document its log, so an opening that the log does not confirm is logged with the entries the log
+ * had.
  */
 @Component
 class UnlatchConfirmation {
@@ -50,23 +54,28 @@ class UnlatchConfirmation {
 
     /**
      * @param requestedAt when the unlatch was sent to Nuki
+     * @param unlatch     the unlatch Nuki accepted, which it may report
      * @return {@link AccessOutcome#OPENED}, {@link AccessOutcome#LOCK_FAILED}, {@link AccessOutcome#NIGHT_MODE}, or
-     * {@link AccessOutcome#NOT_CONFIRMED} if the log did not show the unlatch in time
+     * {@link AccessOutcome#NOT_CONFIRMED} if neither a report nor the log told in time
      */
-    AccessOutcome await(UUID ownerId, long nukiSmartlockId, Instant requestedAt) {
+    AccessOutcome await(UUID ownerId, long nukiSmartlockId, Instant requestedAt, PendingAction unlatch) {
         var deadline = Instant.now().plus(settings.timeout());
         List<LockLogEntry> since = List.of();
         while (true) {
-            sleep(settings.interval());
+            // Between two reads of the log, a report ends the wait at once.
+            var reported = unlatch.awaitOutcome(settings.interval());
+            if (reported.isPresent()) {
+                return result(reported.get());
+            }
             try {
                 since = lockProvider.getRecentLog(ownerId, nukiSmartlockId).stream()
                         .filter(entry -> !entry.occurredAt().isBefore(requestedAt.minus(CLOCK_SKEW)))
                         .toList();
-                var unlatch = since.stream()
+                var logged = since.stream()
                         .filter(entry -> entry.action() == LockAction.UNLATCH && NUKI_WEB_API.contains(entry.trigger()))
                         .findFirst();
-                if (unlatch.isPresent()) {
-                    return result(unlatch.get());
+                if (logged.isPresent()) {
+                    return result(logged.get().state());
                 }
             } catch (LockProviderException e) {
                 // Nuki failing may pass, so keep trying until the deadline; without the permission to read the
@@ -83,18 +92,11 @@ class UnlatchConfirmation {
         }
     }
 
-    private static AccessOutcome result(LockLogEntry unlatch) {
-        if (unlatch.state() == LockActionState.REJECTED_NIGHT_MODE) {
-            return AccessOutcome.NIGHT_MODE;
-        }
-        return unlatch.succeeded() ? AccessOutcome.OPENED : AccessOutcome.LOCK_FAILED;
-    }
-
-    private static void sleep(Duration duration) {
-        try {
-            Thread.sleep(duration);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+    private static AccessOutcome result(LockActionState state) {
+        return switch (state) {
+            case SUCCEEDED -> AccessOutcome.OPENED;
+            case REJECTED_NIGHT_MODE -> AccessOutcome.NIGHT_MODE;
+            case MOTOR_BLOCKED, FAILED -> AccessOutcome.LOCK_FAILED;
+        };
     }
 }

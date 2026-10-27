@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
@@ -52,6 +53,15 @@ class NukiConnectionWithoutAuthorizationTests {
     void neitherAuthorizingNorItsCallbackExists() {
         assertThat(mvc.get().uri("/settings/nuki/oauth").with(owner())).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(mvc.get().uri("/nuki/callback").with(owner()).param("code", "c").param("state", "s"))
+                .hasStatus(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void noWebhookIsTakenWithoutTheSecretNukiSignsItWith() {
+        var body = "{\"requestId\": \"r-1\", \"smartlockId\": 17, \"success\": true}";
+
+        assertThat(mvc.post().uri("/nuki/webhook").contentType(MediaType.APPLICATION_JSON).content(body)
+                .header("X-Nuki-Signature-SHA256", NukiStandInConfiguration.signature(body)))
                 .hasStatus(HttpStatus.NOT_FOUND);
     }
 

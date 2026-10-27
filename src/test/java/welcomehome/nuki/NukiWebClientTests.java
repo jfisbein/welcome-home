@@ -141,6 +141,65 @@ class NukiWebClientTests {
     }
 
     @Test
+    void reportedUnlatchSendsActionThreeToTheAdvancedApiAndReturnsTheRequestId() {
+        nuki.stubFor(post("/smartlock/17/action/advanced").willReturn(okJson("{\"requestId\": \"r-17\"}")));
+
+        assertThat(client.unlatchReported(TOKEN, LOCK_ID)).contains("r-17");
+
+        nuki.verify(1, postRequestedFor(urlPathEqualTo("/smartlock/17/action/advanced"))
+                .withHeader("Authorization", equalTo("Bearer " + TOKEN))
+                .withRequestBody(equalToJson("{\"action\": 3}")));
+    }
+
+    /** Nuki ran nothing, so the plain action may be sent instead; a 401 is left to it, which disconnects. */
+    @ParameterizedTest
+    @CsvSource({"400", "401", "402", "403", "404", "409", "423", "426"})
+    void reportedUnlatchThatNukiRefusesIsNothingAndNotRetried(int status) {
+        nuki.stubFor(post("/smartlock/17/action/advanced").willReturn(status(status)));
+
+        assertThat(client.unlatchReported(TOKEN, LOCK_ID)).isEmpty();
+        nuki.verify(1, postRequestedFor(urlPathEqualTo("/smartlock/17/action/advanced")));
+    }
+
+    @Test
+    void reportedUnlatchIsRetriedAsTheUnlatchIs() {
+        nuki.stubFor(post("/smartlock/17/action/advanced").willReturn(status(429)));
+        nuki.stubFor(post("/smartlock/18/action/advanced").willReturn(status(503)));
+        nuki.stubFor(post("/smartlock/19/action/advanced").willReturn(slow(okJson("{\"requestId\": \"r-19\"}"))));
+
+        assertFailsWith(Reason.NUKI_ERROR, () -> client.unlatchReported(TOKEN, LOCK_ID));
+        assertFailsWith(Reason.NO_ANSWER, () -> client.unlatchReported(TOKEN, 18));
+        assertFailsWith(Reason.NO_ANSWER, () -> client.unlatchReported(TOKEN, 19));
+        nuki.verify(MAX_ATTEMPTS, postRequestedFor(urlPathEqualTo("/smartlock/17/action/advanced")));
+        nuki.verify(1, postRequestedFor(urlPathEqualTo("/smartlock/18/action/advanced")));
+        nuki.verify(1, postRequestedFor(urlPathEqualTo("/smartlock/19/action/advanced")));
+    }
+
+    /** Nuki accepted it, so the lock may unlatch: only its log can tell, as when Nuki does not answer. */
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', textBlock = """
+            {}
+            {"requestId": ""}
+            {"requestId": 17}
+            not json
+            """)
+    void acceptedUnlatchWithoutARequestIdIsNoAnswer(String answer) {
+        nuki.stubFor(post("/smartlock/17/action/advanced").willReturn(okJson(answer)));
+
+        assertFailsWith(Reason.NO_ANSWER, () -> client.unlatchReported(TOKEN, LOCK_ID));
+        nuki.verify(1, postRequestedFor(urlPathEqualTo("/smartlock/17/action/advanced")));
+    }
+
+    @Test
+    void acceptedUnlatchWithAnEmptyAnswerIsNoAnswer() {
+        nuki.stubFor(post("/smartlock/17/action/advanced").willReturn(status(200)));
+        nuki.stubFor(post("/smartlock/18/action/advanced").willReturn(status(204)));
+
+        assertFailsWith(Reason.NO_ANSWER, () -> client.unlatchReported(TOKEN, LOCK_ID));
+        assertFailsWith(Reason.NO_ANSWER, () -> client.unlatchReported(TOKEN, 18));
+    }
+
+    @Test
     void readsTheLatestLogEntries() {
         nuki.stubFor(get(urlPathEqualTo("/smartlock/17/log")).withQueryParam("limit", equalTo("20")).willReturn(okJson("""
                 [

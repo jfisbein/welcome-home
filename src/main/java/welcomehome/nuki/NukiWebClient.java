@@ -12,11 +12,14 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -29,6 +32,8 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 import welcomehome.nuki.LockProviderException.Reason;
 
 /**
@@ -40,11 +45,15 @@ import welcomehome.nuki.LockProviderException.Reason;
  * <p>Failures worth retrying are retried with exponential backoff: rate limiting (429, honoring
  * Retry-After), and for reads also server errors and timeouts. The unlatch action is retried only when Nuki
  * cannot have run it, that is, on 429 or when no connection was made, so that a door never opens twice. When it
- * may have run it, after a timeout or a server error, the failure says so with {@link Reason#NO_ANSWER}. Token
+ * may have run it, after a timeout or a server error, the failure says so with {@link Reason#NO_ANSWER}. The same
+ * holds for the unlatch through the Advanced API, whose outcome Nuki reports with a webhook. Token
  * requests are retried the same way: Nuki takes an authorization code only once and rotates the refresh token
  * on every refresh, so a request it may have answered is not sent again.
  */
 class NukiWebClient {
+
+    private static final Logger log = LoggerFactory.getLogger(NukiWebClient.class);
+    private static final JsonMapper JSON = JsonMapper.builder().build();
 
     /** Unlatch on a smart lock; on an Opener, actuate the electric strike, which opens the entrance. */
     private static final int UNLATCH = 3;
@@ -114,6 +123,51 @@ class NukiWebClient {
                 .body(Map.of("action", UNLATCH))
                 .retrieve()
                 .toBodilessEntity());
+    }
+
+    /**
+     * Asks Nuki to unlatch with its Advanced API, which reports the outcome with a webhook to welcome-home's
+     * central webhook URL once the lock has run it. The request is retried as {@link #unlatch} is.
+     *
+     * @return the id of the request, which the webhook carries; empty if Nuki refused the request (an HTTP status
+     * 4xx other than 429), and so ran nothing
+     * @throws LockProviderException as {@link #unlatch} does; with {@link Reason#NO_ANSWER} also when Nuki accepted
+     *                               the request but its answer carries no request id
+     */
+    Optional<String> unlatchReported(String accessToken, long smartlockId) {
+        String answer;
+        try {
+            answer = call(false, () -> {
+                var body = rest.post().uri("/smartlock/{id}/action/advanced", smartlockId)
+                        .headers(headers -> headers.setBearerAuth(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(Map.of("action", UNLATCH))
+                        .retrieve()
+                        .toEntity(String.class)
+                        .getBody();
+                // An empty answer is still an accepted request, unlike for the calls that read.
+                return body == null ? "" : body;
+            });
+        } catch (LockProviderException e) {
+            if (e.getCause() instanceof RestClientResponseException refused
+                    && refused.getStatusCode().is4xxClientError()
+                    && !refused.getStatusCode().isSameCodeAs(HttpStatus.TOO_MANY_REQUESTS)) {
+                log.info("Nuki refused to unlatch smartlock {} with its Advanced API: {}", smartlockId,
+                        refused.getStatusCode().value());
+                return Optional.empty();
+            }
+            throw e;
+        }
+        // Accepted: whatever the answer says, the lock may unlatch, so only its log can tell.
+        try {
+            var requestId = JSON.readTree(answer).path("requestId");
+            if (requestId.isString() && !requestId.stringValue().isBlank()) {
+                return Optional.of(requestId.stringValue());
+            }
+        } catch (JacksonException ignored) {
+            // As with no request id.
+        }
+        throw new LockProviderException(Reason.NO_ANSWER);
     }
 
     /** Reads the latest entry of the account's log, only to learn whether the token may read logs. */

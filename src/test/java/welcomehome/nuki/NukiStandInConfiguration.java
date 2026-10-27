@@ -6,6 +6,13 @@ import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 
+import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.util.HexFormat;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+
 import com.github.tomakehurst.wiremock.WireMockServer;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -43,6 +50,34 @@ public class NukiStandInConfiguration {
             registry.add("welcomehome.access.confirmation.interval", () -> "PT0.1S");
             registry.add("welcomehome.access.confirmation.timeout", () -> "PT1S");
         };
+    }
+
+    /**
+     * Signs a webhook's body as Nuki does, with the client's secret: its HMAC-SHA256 in lowercase hexadecimal, for
+     * the X-Nuki-Signature-SHA256 header (https://docs.nuki.io/guide/webhooks/monitoring).
+     *
+     * @param body the webhook's body, exactly as sent
+     * @return the signature
+     */
+    public static String signature(String body) {
+        return hmacSha256(CLIENT_SECRET, body);
+    }
+
+    /**
+     * The HMAC-SHA256 of a text with a key, in lowercase hexadecimal.
+     *
+     * @param key  the key, as UTF-8
+     * @param text the text, as UTF-8
+     * @return the HMAC
+     */
+    public static String hmacSha256(String key, String text) {
+        try {
+            var mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            return HexFormat.of().formatHex(mac.doFinal(text.getBytes(StandardCharsets.UTF_8)));
+        } catch (GeneralSecurityException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     /**

@@ -27,9 +27,10 @@ import welcomehome.config.WelcomeHomeProperties;
  * {@link WebAuthnRelyingPartyOperations}. The admin panel under {@code /admin} is for admins only.
  *
  * <p>CSRF protection is Spring Security's default: every POST needs the token, which pages put in a meta tag
- * for static/js/webauthn.js. The exception is {@code POST /api/open}: the link's token in the body is the
+ * for static/js/webauthn.js. The exceptions are {@code POST /api/open}: the link's token in the body is the
  * guest's only credential, which a forged request would need anyway, and a token kept in the session went stale
- * when a guest opened from a page opened more than a session's lifetime earlier. On top of Spring Security's
+ * when a guest opened from a page opened more than a session's lifetime earlier; and {@code POST /nuki/webhook},
+ * whose credential is Nuki's signature of the body. On top of Spring Security's
  * default headers, a strict Content Security Policy (only the app's own scripts and styles, nothing inline), no
  * referrer, so that tokens in URLs never leak, and HSTS for a year, sent only over HTTPS. The session cookie is
  * set in application.yaml.
@@ -54,8 +55,8 @@ class SecurityConfiguration {
     SecurityFilterChain securityFilterChain(HttpSecurity http) {
         http
                 .authorizeHttpRequests(requests -> requests
-                        .requestMatchers("/login", "/invite/**", "/email/verify/**", "/o/**", "/api/open", "/css/**",
-                                "/js/**",
+                        .requestMatchers("/login", "/invite/**", "/email/verify/**", "/o/**", "/api/open",
+                                "/nuki/webhook", "/css/**", "/js/**",
                                 "/favicon.ico", "/favicon.svg", "/apple-touch-icon.png", "/actuator/health",
                                 // The error page, for a guest's error on a public route; an unknown URL still
                                 // sends a visitor who is not signed in to /login, so no route shows it exists.
@@ -63,7 +64,7 @@ class SecurityConfiguration {
                         .permitAll()
                         .requestMatchers("/admin/**").hasRole(OwnerUserDetailsService.ADMIN)
                         .anyRequest().authenticated())
-                .csrf(csrf -> csrf.ignoringRequestMatchers("/api/open"))
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/api/open", "/nuki/webhook"))
                 .webAuthn(webAuthn -> webAuthn.disableDefaultRegistrationPage(true))
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login")))

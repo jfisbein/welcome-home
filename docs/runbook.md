@@ -35,6 +35,14 @@ How to run welcome-home in production. It runs as a Dockge stack on `docker.frit
 7. **Emails.** In SMTP2GO, verify the sender domain `example.com` (its DNS records) and create an SMTP user; its name and password are `secrets/smtp_username` and `smtp_password`. The sender is `NOTIFICATIONS_FROM` in `compose.yaml`. Check with "Enviarme un email de prueba" at `/settings/notifications`.
 8. **Off-site copy.** In zerobyte, a daily job after 04:00 that backs up the stack's `backups/` folder to B2, keeping 30 days of snapshots.
 
+## Nuki's webhook URL
+
+Owners connected with OAuth2 learn at once whether the door opened when Nuki reports it with a webhook; without one, the lock's log confirms it a few seconds later, as before 2.5.0. The URL is the OAuth2 client's, set once in Nuki Web, after a release with `/nuki/webhook` (2.5.0 on) runs:
+
+1. In Nuki Web, API → Advanced API, set the webhook URL to `https://welcome-home.example.com/nuki/webhook`. The app needs none of the device events: untick them all. Turning webhooks on makes Nuki send a test webhook, `{}`, which the app answers with 204, logging "Nuki sent a webhook that reports no action".
+2. The same tab lists Nuki's last 300 webhooks with the status the app answered: 204 is right. 401 means that `secrets/nuki-oauth-client-secret` is not the client secret shown there; the app logs "Refused a webhook that Nuki did not sign".
+3. Nuki turns a client's webhooks off after several days of failing more than 5 % of them in a day, and emails the account first. Fix the cause, then reactivate them in the same tab.
+
 ## Release and upgrade
 
 A release is a version tag on `main`; the workflow tests it, publishes the image `vX.Y.Z` (plus `vX` and `latest`) and creates the GitHub release, whose notes come from the release pull request.
@@ -142,4 +150,5 @@ The link's **Historial** shows whether, when and from which IP address it was us
 | `backup` unhealthy | No dump in the last 25 hours: `docker compose logs backup`, and check that the disk has room. |
 | Guests see "Esta puerta no está disponible ahora mismo" | The lock is inactive, or the owner's Nuki connection is disconnected: the owner's home page says which, and pasting a new API token fixes the latter. |
 | Sliding to open fails for every guest | Cloudflare's Bot Fight Mode or a WAF rule may be challenging `POST /api/open`: check Security → Events in Cloudflare. Otherwise `docker compose logs app` shows what Nuki answered. |
+| Openings take seconds to confirm for owners connected with OAuth2 | Nuki's webhooks are not arriving: see "Nuki's webhook URL" above. `docker compose logs app` shows "Nuki reported request ..." for each one that does. |
 | An owner lost their passkey | An admin creates a passkey recovery link for them in `/admin/owners` ("Nueva passkey") and sends it; the owner keeps their other passkeys, and then deletes the lost device's one in Configuración → Passkeys. If the one who lost it is the only admin: `docker compose run --rm app --recover-owner=<email>` on the server. A passkey kept in a synced password manager (such as Vaultwarden) survives a lost device. |

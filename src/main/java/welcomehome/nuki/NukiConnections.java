@@ -9,6 +9,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -144,6 +145,14 @@ public class NukiConnections {
      *                               {@link Reason#NUKI_ERROR} at most, as the call was not made
      */
     <T extends @Nullable Object> T callNuki(UUID ownerId, Function<String, T> call) {
+        return callNukiWithCredential(ownerId, (_, accessToken) -> call.apply(accessToken));
+    }
+
+    /**
+     * Calls Nuki as {@link #callNuki} does, telling the call how the owner connected Nuki: only an OAuth2
+     * authorization is welcome-home's own client's, whose Advanced API Nuki grants.
+     */
+    <T extends @Nullable Object> T callNukiWithCredential(UUID ownerId, BiFunction<NukiCredential, String, T> call) {
         var stored = connected(ownerId);
         if (stored.credential() == NukiCredential.OAUTH2 && expiresSoon(stored)) {
             stored = refresh(ownerId);
@@ -151,7 +160,7 @@ public class NukiConnections {
         var accessTokenEncrypted = stored.accessTokenEncrypted();
         var accessToken = decrypted(() -> crypto.decryptAccessToken(ownerId, accessTokenEncrypted));
         try {
-            return call.apply(accessToken);
+            return call.apply(stored.credential(), accessToken);
         } catch (LockProviderException e) {
             if (e.reason() == Reason.ACCESS_DENIED) {
                 disconnect(ownerId, accessTokenEncrypted);
