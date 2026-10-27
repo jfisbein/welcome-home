@@ -84,7 +84,8 @@ nav.menu ul {
     }
 }
 
-/* Configuration's sections: tabs under the menu, the current one underlined. */
+/* Configuration's sections: tabs under the menu, the current one underlined. Where they do not fit, as on a phone
+   in English, French or German, they go on to a further row, each label whole, instead of overflowing. */
 nav.sections {
     justify-content: flex-start;
     margin-bottom: var(--pico-typography-spacing-vertical);
@@ -92,6 +93,7 @@ nav.sections {
 }
 
 nav.sections ul {
+    flex-wrap: wrap;
     margin-left: 0;
 }
 
@@ -105,6 +107,13 @@ nav.sections li a {
     border-bottom: 2px solid transparent;
     border-radius: 0;
     color: var(--pico-muted-color);
+    white-space: nowrap;
+}
+
+@media (max-width: 575px) {
+    nav.sections li a {
+        padding: 0.5rem;
+    }
 }
 
 nav.sections li a:hover {
