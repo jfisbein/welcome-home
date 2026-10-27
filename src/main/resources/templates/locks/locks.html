@@ -27,7 +27,8 @@
         <p th:if="${syncError == 'unavailable'}" th:text="#{locks.sync-error.unavailable}">Nuki no responde.</p>
     </article>
 
-    <p th:if="${locks.isEmpty()}" th:text="#{locks.empty}">Todavía no tienes cerraduras.</p>
+    <p th:if="${locks.isEmpty()}" th:utext="#{locks.empty(@{/settings/nuki#nuki-web})}">
+        Todavía no tienes cerraduras.</p>
     <div class="overflow-auto" th:if="${!locks.isEmpty()}">
         <table>
             <thead>

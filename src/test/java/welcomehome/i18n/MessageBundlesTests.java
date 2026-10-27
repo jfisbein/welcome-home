@@ -59,6 +59,22 @@ class MessageBundlesTests {
         }
     }
 
+    /** Nuki's help center has its pages in each of the app's languages: a translation links to its own. */
+    @Test
+    void linksToNukisHelpCenterAreInTheBundlesLanguage() throws IOException {
+        var helpCenter = Pattern.compile("https://help\\.nuki\\.io/hc/([\\w-]+)/");
+
+        for (var language : Languages.SUPPORTED) {
+            var messages = load(language.equals(Languages.DEFAULT) ? "i18n/messages.properties" : bundle(language));
+            var locales = new TreeSet<String>();
+            for (var key : messages.stringPropertyNames()) {
+                helpCenter.matcher(messages.getProperty(key)).results().forEach(link -> locales.add(link.group(1)));
+            }
+            assertThat(locales).as(language.toString())
+                    .containsOnly(language.getLanguage().equals("en") ? "en-001" : language.getLanguage());
+        }
+    }
+
     @Test
     void everyKeyATemplateUsesIsInTheDefaultBundle() throws IOException {
         var keys = load("i18n/messages.properties").stringPropertyNames();

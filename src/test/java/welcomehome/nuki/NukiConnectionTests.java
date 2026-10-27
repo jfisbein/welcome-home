@@ -130,7 +130,26 @@ class NukiConnectionTests {
     @Test
     void pageNamesTheLocksJustFound() {
         assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)).flashAttr("connectedLocks", List.of("Casa")))
-                .bodyText().contains("Cerraduras encontradas", "Casa");
+                .bodyText().contains("Cerraduras encontradas", "Casa", "<details id=\"nuki-web\">");
+    }
+
+    @Test
+    void guideToActivatingNukiWebIsFoldedAway() {
+        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)))
+                .bodyText()
+                .containsPattern("<details id=\"nuki-web\">\\s*"
+                        + "<summary>¿Acabas de instalar tu Nuki\\?</summary>")
+                .contains("<strong>Características y configuración</strong>",
+                        "href=\"https://help.nuki.io/hc/es/articles/4402921104145\"",
+                        "href=\"https://help.nuki.io/hc/es/articles/360016485718\"",
+                        "<a href=\"/locks\">Cerraduras</a>");
+    }
+
+    @Test
+    void guideUnfoldsWhenConnectingFoundNoLocks() {
+        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)).flashAttr("connectedLocks", List.of()))
+                .bodyText().contains("no hemos encontrado ninguna cerradura en tu cuenta: actívalas en Nuki Web",
+                        "<details id=\"nuki-web\" open=\"open\">");
     }
 
     @Test

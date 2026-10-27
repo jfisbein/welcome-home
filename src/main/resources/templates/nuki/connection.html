@@ -46,6 +46,20 @@
     <p th:if="${connection != null and connection.status.name() == 'DISCONNECTED'}" role="alert"
        th:text="#{nuki.rejected}">Nuki ha rechazado la conexión.</p>
 
+    <!-- Nuki Web, and so welcome-home, sees only the devices activated for it in the Nuki app, one by one: the
+         first thing to do after installing one. Unfolded when connecting found no locks. -->
+    <details id="nuki-web" th:open="${connectedLocks != null and connectedLocks.isEmpty()}">
+        <summary th:text="#{nuki.web}">¿Acabas de instalar tu Nuki?</summary>
+        <p th:text="#{nuki.web.text}">Solo vemos los dispositivos que has activado en Nuki Web.</p>
+        <ol>
+            <li th:utext="#{nuki.web.online}">Pon el dispositivo en línea.</li>
+            <li th:utext="#{nuki.web.activate}">En la app de Nuki, entra en Características y configuración y luego
+                en Nuki Web.</li>
+            <li th:text="#{nuki.web.each}">Repite el paso anterior con cada dispositivo.</li>
+            <li th:utext="#{nuki.web.connect(@{/locks})}">Conecta Nuki aquí con esa misma cuenta de Nuki Web.</li>
+        </ol>
+    </details>
+
     <th:block th:if="${authorization and (connection == null or connection.status.name() == 'DISCONNECTED'
                       or connection.credential.name() == 'API_TOKEN')}">
         <p th:text="${connection != null and connection.status.name() == 'OK'}

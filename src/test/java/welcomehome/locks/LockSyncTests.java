@@ -176,7 +176,8 @@ class LockSyncTests {
         sync(BOB);
 
         assertThat(mvc.get().uri("/locks").with(owner(ALICE))).bodyText()
-                .contains("Todavía no tienes cerraduras").doesNotContain("Casa (Nuki)");
+                .contains("Todavía no tienes cerraduras", "<a href=\"/settings/nuki#nuki-web\">actívalas en Nuki Web</a>")
+                .doesNotContain("Casa (Nuki)");
         connectNuki(ALICE, CASA_AND_GARAJE);
         sync(ALICE);
         assertThat(migrator.sql("SELECT count(*) FROM lock l JOIN owner o ON o.id = l.owner_id WHERE o.email = ?")
