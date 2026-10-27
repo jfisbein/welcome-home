@@ -138,6 +138,42 @@ class GuestPageTests {
     }
 
     @Test
+    void linkWithAnEntranceOffersTheEntranceFirstThenTheDoor() {
+        insertOpenerAsEntrance();
+        var link = insertLink("now() - interval '1 day'", "now() + interval '1 day'", false);
+
+        assertThat(body(guestPage(signer.sign(link, 1))))
+                .containsPattern("(?s)<h2>Portal</h2>.*<input type=\"range\" id=\"open-entrance\"[^>]*"
+                        + "aria-label=\"Desliza para abrir el portal\"\\s+data-door=\"entrance\" data-opener=\"true\">"
+                        + ".*<h2>Puerta</h2>.*<input type=\"range\" id=\"open\"[^>]*"
+                        + "aria-label=\"Desliza para abrir\"\\s+data-door=\"lock\" data-opener=\"false\">")
+                .as("each slider carries its own messages")
+                .contains("Portal abierto: empújalo ya", "Puerta abierta: empújala.");
+    }
+
+    @Test
+    void inactiveEntranceLeavesTheDoorToOpen() {
+        var portal = insertOpenerAsEntrance();
+        migrator.sql("UPDATE lock SET active = false WHERE id = ?").param(portal).update();
+        var link = insertLink("now() - interval '1 day'", "now() + interval '1 day'", false);
+
+        assertThat(body(guestPage(signer.sign(link, 1))))
+                .contains("<p role=\"alert\">El portal no está disponible ahora mismo", OPEN_BUTTON)
+                .doesNotContain("id=\"open-entrance\"", "<p role=\"alert\">" + UNAVAILABLE);
+    }
+
+    @Test
+    void anOpenersOwnLinkSpeaksOfTheEntrance() {
+        lockId = insertOpenerAsEntrance();
+        var link = insertLink("now() - interval '1 day'", "now() + interval '1 day'", false);
+
+        assertThat(body(guestPage(signer.sign(link, 1))))
+                .containsPattern("<input type=\"range\" id=\"open\"[^>]*aria-label=\"Desliza para abrir el portal\"")
+                .contains("Portal abierto: empújalo ya")
+                .doesNotContain("<h2>");
+    }
+
+    @Test
     void everyInvalidTokenGetsTheSameNotFoundPage() {
         var link = insertLink("now() - interval '1 day'", "now() + interval '1 day'", false);
         var token = signer.sign(link, 1);
@@ -175,6 +211,17 @@ class GuestPageTests {
         }
         assertThat(mvc.get().uri("/login")).as("the pages that post forms keep theirs")
                 .bodyText().contains("name=\"_csrf\"");
+    }
+
+    /** An Opener "Portal" at the entrance of the lock's building. */
+    private UUID insertOpenerAsEntrance() {
+        var portal = migrator.sql("""
+                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone, device_type)
+                        SELECT owner_id, 19, 'Portal', time_zone, 'OPENER' FROM lock WHERE id = ? RETURNING id
+                        """)
+                .param(lockId).query(UUID.class).single();
+        migrator.sql("UPDATE lock SET entrance_lock_id = ? WHERE id = ?").params(portal, lockId).update();
+        return portal;
     }
 
     private void assertUnavailable(String token) {

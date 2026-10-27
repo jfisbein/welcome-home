@@ -54,7 +54,7 @@ class NukiWebClientTests {
     }
 
     @Test
-    void listsTheSmartLocksOfTheAccountButNotOpenersOrBoxes() {
+    void listsTheSmartLocksAndOpenersOfTheAccountButNotBoxes() {
         nuki.stubFor(get("/smartlock").withHeader("Authorization", equalTo("Bearer " + TOKEN)).willReturn(okJson("""
                 [
                   {"smartlockId": 17, "type": 5, "name": "Casa", "serverState": 0, "config": {"timezoneId": 37}},
@@ -64,8 +64,10 @@ class NukiWebClientTests {
                 ]
                 """)));
 
-        assertThat(client.listLocks(TOKEN))
-                .containsExactly(new SmartLock(17, "Casa", "Europe/Berlin"), new SmartLock(18, "Garaje", null));
+        assertThat(client.listLocks(TOKEN)).containsExactly(
+                new SmartLock(17, DeviceType.SMART_LOCK, "Casa", "Europe/Berlin"),
+                new SmartLock(18, DeviceType.SMART_LOCK, "Garaje", null),
+                new SmartLock(19, DeviceType.OPENER, "Portal", null));
     }
 
     @Test
@@ -80,6 +82,21 @@ class NukiWebClientTests {
                 """)));
 
         assertThat(client.getState(TOKEN, LOCK_ID)).isEqualTo(new LockState(LockStatus.LOCKED, true, false, 52, true));
+    }
+
+    /** An Opener's states mean something else than a lock's: its 1 is online, not locked. */
+    @ParameterizedTest
+    @CsvSource({"1, READY", "3, RING_TO_OPEN", "5, OPENING", "7, OPENING", "0, UNKNOWN", "253, UNKNOWN"})
+    void readsTheStateOfAnOpener(int nukiState, LockStatus status) {
+        nuki.stubFor(get("/smartlock/19").willReturn(okJson("""
+                {
+                  "smartlockId": 19, "type": 2, "name": "Portal", "serverState": 0,
+                  "state": {"mode": 2, "state": %d, "batteryCritical": false},
+                  "advancedConfig": {"intercomId": 7, "electricStrikeDuration": 3000}
+                }
+                """.formatted(nukiState))));
+
+        assertThat(client.getState(TOKEN, 19)).isEqualTo(new LockState(status, true, false, null, false));
     }
 
     @Test
@@ -137,12 +154,18 @@ class NukiWebClientTests {
                 """)));
 
         assertThat(client.getRecentLog(TOKEN, LOCK_ID)).containsExactly(
-                new LockLogEntry(Instant.parse("2026-10-17T11:03:45Z"), LockAction.DOOR_OPENED, LockTrigger.SYSTEM, LockActionState.SUCCEEDED),
-                new LockLogEntry(Instant.parse("2026-10-17T11:03:30Z"), LockAction.UNLATCH, LockTrigger.WEB, LockActionState.SUCCEEDED),
-                new LockLogEntry(Instant.parse("2026-10-17T09:00:00Z"), LockAction.UNLOCK, LockTrigger.APP, LockActionState.MOTOR_BLOCKED),
-                new LockLogEntry(Instant.parse("2026-10-17T08:30:00Z"), LockAction.UNLATCH, LockTrigger.WEB, LockActionState.REJECTED_NIGHT_MODE),
-                new LockLogEntry(Instant.parse("2026-10-17T08:15:00Z"), LockAction.UNLATCH, LockTrigger.WEB, LockActionState.FAILED),
-                new LockLogEntry(Instant.parse("2026-10-17T08:00:00Z"), LockAction.OTHER, LockTrigger.BUTTON, LockActionState.SUCCEEDED));
+                new LockLogEntry(Instant.parse("2026-10-17T11:03:45Z"), LockAction.DOOR_OPENED, LockTrigger.SYSTEM, LockActionState.SUCCEEDED,
+                        "240/0/0"),
+                new LockLogEntry(Instant.parse("2026-10-17T11:03:30Z"), LockAction.UNLATCH, LockTrigger.WEB, LockActionState.SUCCEEDED,
+                        "3/4/0"),
+                new LockLogEntry(Instant.parse("2026-10-17T09:00:00Z"), LockAction.UNLOCK, LockTrigger.APP, LockActionState.MOTOR_BLOCKED,
+                        "1/5/1"),
+                new LockLogEntry(Instant.parse("2026-10-17T08:30:00Z"), LockAction.UNLATCH, LockTrigger.WEB, LockActionState.REJECTED_NIGHT_MODE,
+                        "3/4/10"),
+                new LockLogEntry(Instant.parse("2026-10-17T08:15:00Z"), LockAction.UNLATCH, LockTrigger.WEB, LockActionState.FAILED,
+                        "3/4/4"),
+                new LockLogEntry(Instant.parse("2026-10-17T08:00:00Z"), LockAction.OTHER, LockTrigger.BUTTON, LockActionState.SUCCEEDED,
+                        "4/2/0"));
     }
 
     @Test

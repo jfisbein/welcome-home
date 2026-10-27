@@ -83,6 +83,22 @@ class LockSyncTests {
     }
 
     @Test
+    void openersAreImportedAsOpeners() {
+        connectNuki(ALICE, """
+                [
+                  {"smartlockId": 17, "type": 5, "name": "Casa", "serverState": 0},
+                  {"smartlockId": 19, "type": 2, "name": "Portal", "serverState": 0}
+                ]
+                """);
+
+        sync(ALICE);
+
+        assertThat(migrator.sql("SELECT nuki_smartlock_id || '|' || device_type FROM lock ORDER BY nuki_smartlock_id")
+                .query(String.class).list()).containsExactly("17|SMART_LOCK", "19|OPENER");
+        assertThat(mvc.get().uri("/locks").with(owner(ALICE))).bodyText().contains("Portal", "Nuki Opener");
+    }
+
+    @Test
     void laterSyncsKeepTheOwnersChoicesAndDeactivateLocksThatAreGone() {
         connectNuki(ALICE, CASA_AND_GARAJE);
         sync(ALICE);

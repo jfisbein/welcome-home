@@ -219,6 +219,84 @@ class OpenDoorTests {
     }
 
     @Test
+    void entranceSlideActuatesTheOpenerAndIsRecordedWithIt() {
+        var portal = insertOpenerAsEntrance();
+        nuki.stubFor(post("/smartlock/19/action").willReturn(status(204)));
+        nuki.stubFor(get(urlPathEqualTo("/smartlock/19/log")).willReturn(okJson(log(Instant.now(), 3, 0))));
+        var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
+
+        assertThat(openDoor(signer.sign(link, 1), "entrance")).hasStatusOk()
+                .bodyJson().extractingPath("$.result").isEqualTo("opened");
+
+        nuki.verify(1, postRequestedFor(urlPathEqualTo("/smartlock/19/action"))
+                .withHeader("Authorization", equalTo("Bearer " + ALICES_NUKI_TOKEN))
+                .withRequestBody(equalToJson("{\"action\": 3}")));
+        nuki.verify(0, postRequestedFor(urlPathEqualTo("/smartlock/17/action")));
+        assertThat(lastEvent()).isEqualTo("OK|opened|" + ip + "|Guest browser");
+        assertThat(lastEventsDoors()).isEqualTo(lockId + "|" + portal);
+    }
+
+    @Test
+    void theLocksSlideOpensTheLockAlsoWithAnEntrance() {
+        insertOpenerAsEntrance();
+        nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));
+        lockLogShowsUnlatch(0);
+        var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
+
+        assertThat(openDoor(signer.sign(link, 1), "lock")).hasStatusOk()
+                .bodyJson().extractingPath("$.result").isEqualTo("opened");
+
+        nuki.verify(0, postRequestedFor(urlPathEqualTo("/smartlock/19/action")));
+        assertThat(lastEventsDoors()).isEqualTo(lockId.toString());
+    }
+
+    @Test
+    void entranceIsUnavailableWhenTheLockHasNoneOrItIsInactive() {
+        var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
+
+        assertThat(openDoor(signer.sign(link, 1), "entrance")).hasStatus(HttpStatus.SERVICE_UNAVAILABLE)
+                .bodyJson().extractingPath("$.result").isEqualTo("unavailable");
+        assertThat(lastEventsDoors()).isEqualTo(lockId.toString());
+
+        var portal = insertOpenerAsEntrance();
+        migrator.sql("UPDATE lock SET active = false WHERE id = ?").param(portal).update();
+        assertThat(openDoor(signer.sign(link, 1), "entrance")).hasStatus(HttpStatus.SERVICE_UNAVAILABLE)
+                .bodyJson().extractingPath("$.result").isEqualTo("unavailable");
+        assertThat(lastEventsDoors()).isEqualTo(lockId + "|" + portal);
+        nuki.verify(0, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
+    void revokedLinkOpensNoEntrance() {
+        insertOpenerAsEntrance();
+        var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
+        migrator.sql("UPDATE access_link SET revoked_at = now() WHERE id = ?").param(link).update();
+
+        assertThat(openDoor(signer.sign(link, 1), "entrance")).hasStatus(HttpStatus.GONE)
+                .bodyJson().extractingPath("$.result").isEqualTo("revoked");
+        nuki.verify(0, anyRequestedFor(anyUrl()));
+    }
+
+    /** An Opener on its own, with its own links: they open it as a lock's links open the lock. */
+    @Test
+    void anOpenersOwnLinkActuatesIt() {
+        var portal = insertOpenerAsEntrance();
+        nuki.stubFor(post("/smartlock/19/action").willReturn(status(204)));
+        nuki.stubFor(get(urlPathEqualTo("/smartlock/19/log")).willReturn(okJson(log(Instant.now(), 3, 0))));
+        var link = migrator.sql("""
+                        INSERT INTO access_link (owner_id, lock_id, label, valid_from, valid_until)
+                        SELECT owner_id, id, 'Ana', now() - interval '1 hour', now() + interval '1 day' FROM lock
+                        WHERE id = ? RETURNING id
+                        """)
+                .param(portal).query(UUID.class).single();
+
+        assertThat(open(signer.sign(link, 1))).hasStatusOk().bodyJson().extractingPath("$.result").isEqualTo("opened");
+
+        nuki.verify(1, postRequestedFor(urlPathEqualTo("/smartlock/19/action")));
+        assertThat(lastEventsDoors()).isEqualTo(portal.toString());
+    }
+
+    @Test
     void unlatchWithNoAnswerIsConfirmedFromTheLog() {
         nuki.stubFor(post("/smartlock/17/action").willReturn(status(503)));
         var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
@@ -411,6 +489,15 @@ class OpenDoorTests {
     }
 
     private MvcTestResult open(String token, String from) {
+        return send(from, "{\"token\": \"" + token + "\"}");
+    }
+
+    /** Opens one of the link's doors, as the guest page does: {@code lock} or {@code entrance}. */
+    private MvcTestResult openDoor(String token, String door) {
+        return send(ip, "{\"token\": \"" + token + "\", \"door\": \"" + door + "\"}");
+    }
+
+    private MvcTestResult send(String from, String body) {
         return mvc.post().uri("/api/open")
                 .with(request -> {
                     request.setRemoteAddr(from);
@@ -418,7 +505,7 @@ class OpenDoorTests {
                 })
                 .header("User-Agent", "Guest browser")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"token\": \"" + token + "\"}")
+                .content(body)
                 .exchange();
     }
 
@@ -451,6 +538,26 @@ class OpenDoorTests {
                         ORDER BY occurred_at DESC LIMIT 1
                         """)
                 .query(String.class).single();
+    }
+
+    /** The latest event's lock and, if the guest opened that, its entrance, as "lockId|entranceLockId". */
+    private String lastEventsDoors() {
+        return migrator.sql("""
+                        SELECT concat_ws('|', lock_id, entrance_lock_id) FROM access_event
+                        ORDER BY occurred_at DESC LIMIT 1
+                        """)
+                .query(String.class).single();
+    }
+
+    /** Alice's Opener "Portal", Nuki id 19, at the entrance of her lock's building. */
+    private UUID insertOpenerAsEntrance() {
+        var portal = migrator.sql("""
+                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone, device_type)
+                        SELECT owner_id, 19, 'Portal', time_zone, 'OPENER' FROM lock WHERE id = ? RETURNING id
+                        """)
+                .param(lockId).query(UUID.class).single();
+        migrator.sql("UPDATE lock SET entrance_lock_id = ? WHERE id = ?").params(portal, lockId).update();
+        return portal;
     }
 
     private UUID insertLink(String validFrom, String validUntil) {

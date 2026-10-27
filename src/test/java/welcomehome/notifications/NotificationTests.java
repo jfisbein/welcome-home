@@ -105,6 +105,24 @@ class NotificationTests {
                 IntegrationTest.BASE_URL + "/settings/notifications");
     }
 
+    /** The Opener is the door that opened; the history is still the link's, under its lock. */
+    @Test
+    void anOpeningOfTheBuildingEntranceNamesTheOpener() throws Exception {
+        var openerId = migrator.sql("""
+                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone, device_type)
+                        VALUES (?, 19, 'Portal', 'Europe/Madrid', 'OPENER') RETURNING id
+                        """)
+                .param(aliceId).query(UUID.class).single();
+
+        accessEvents.record(new AccessEvent(aliceId, linkId, lockId, openerId, AccessOutcome.OPENED, "203.0.113.7",
+                "ES", "curl"));
+
+        var email = theOnlyEmail();
+        assertThat(email.getSubject()).isEqualTo("Portal: Ana ha abierto la puerta");
+        assertThat(text(email)).contains("Ana ha abierto la puerta de Portal el ", "(hora de America/New_York)",
+                IntegrationTest.BASE_URL + "/locks/" + lockId + "/history?link=" + linkId);
+    }
+
     @Test
     void aFailureSaysWhyTheGuestCouldNotGetIn() throws Exception {
         record(linkId, AccessOutcome.NIGHT_MODE);
@@ -277,7 +295,7 @@ class NotificationTests {
     }
 
     private void record(UUID link, AccessOutcome outcome) {
-        accessEvents.record(new AccessEvent(aliceId, link, lockId, outcome, "203.0.113.7", "ES", "curl"));
+        accessEvents.record(new AccessEvent(aliceId, link, lockId, null, outcome, "203.0.113.7", "ES", "curl"));
     }
 
     private UUID insertLink(String label) {

@@ -76,7 +76,7 @@ class TokenLoggingTests {
                 .content("{\"token\": \"" + token + "\"}")
                 .exchange();
 
-        assertThat(output.getAll()).contains("OpenRequest[token=***]").doesNotContain(mac());
+        assertThat(output.getAll()).contains("OpenRequest[token=***, door=null]").doesNotContain(mac());
     }
 
     @Test

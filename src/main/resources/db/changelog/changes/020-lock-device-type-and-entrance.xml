@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Foreign keys include owner_id, as in 006-lock: foreign key checks skip Row-Level Security, so a lock can
+        only name an entrance of its own owner, and an event only a lock of its own owner.
+    -->
+    <changeSet id="020-lock-device-type-and-entrance" author="welcome-home">
+        <comment>
+            A lock is a smart lock or a Nuki Opener, which opens a building's entrance through its intercom. A smart
+            lock may name the Opener of its building's entrance: its links then open both. An attempt at that
+            entrance is recorded with the link's lock, as every attempt is, and the Opener in entrance_lock_id.
+        </comment>
+
+        <addColumn tableName="lock">
+            <column name="device_type" type="text" defaultValue="SMART_LOCK">
+                <constraints nullable="false"/>
+            </column>
+            <column name="entrance_lock_id" type="uuid"/>
+        </addColumn>
+
+        <addColumn tableName="access_event">
+            <column name="entrance_lock_id" type="uuid"/>
+        </addColumn>
+
+        <createIndex indexName="access_event_entrance_idx" tableName="access_event">
+            <column name="owner_id"/>
+            <column name="entrance_lock_id"/>
+            <column name="occurred_at" descending="true"/>
+        </createIndex>
+
+        <sql>
+            ALTER TABLE lock ADD CONSTRAINT lock_device_type_check CHECK (device_type IN ('SMART_LOCK', 'OPENER'));
+            ALTER TABLE lock ADD CONSTRAINT lock_entrance_not_itself_check CHECK (entrance_lock_id &lt;&gt; id);
+
+            -- Locks are only deleted with their owner; SET NULL on one column of a composite key, as in 006-lock.
+            ALTER TABLE lock ADD CONSTRAINT lock_entrance_fkey
+                FOREIGN KEY (owner_id, entrance_lock_id) REFERENCES lock (owner_id, id)
+                ON DELETE SET NULL (entrance_lock_id);
+
+            ALTER TABLE access_event ADD CONSTRAINT access_event_entrance_fkey
+                FOREIGN KEY (owner_id, entrance_lock_id) REFERENCES lock (owner_id, id)
+                ON DELETE CASCADE;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

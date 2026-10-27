@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * The owners' Nuki smart locks, whatever the way to reach them: the Nuki Web API first, a Bridge or MQTT
+ * The owners' Nuki smart locks and Openers, whatever the way to reach them: the Nuki Web API first, a Bridge or MQTT
  * later, without changes to the modules that use it.
  *
  * <p>Every method takes the owner whose Nuki connection to use: the provider finds that owner's
@@ -14,10 +14,10 @@ import java.util.UUID;
 public interface LockProvider {
 
     /**
-     * Lists the owner's smart locks.
+     * Lists the owner's smart locks and Openers.
      *
      * @param ownerId the owner whose Nuki connection to use
-     * @return the smart locks of the owner's Nuki account
+     * @return the smart locks and Openers of the owner's Nuki account
      * @throws LockProviderException if the locks cannot be listed
      */
     List<SmartLock> listLocks(UUID ownerId);
@@ -33,7 +33,8 @@ public interface LockProvider {
     LockState getState(UUID ownerId, long smartlockId);
 
     /**
-     * Asks the lock to unlatch, that is, to unlock and pull the latch so that the door opens with a push.
+     * Asks the lock to unlatch, that is, to unlock and pull the latch so that the door opens with a push; an
+     * Opener instead actuates the electric strike, so that the entrance opens with a push for a few seconds.
      * Nuki runs the action asynchronously: a normal return only means that it was accepted, and the
      * lock's state or log confirms it later.
      *

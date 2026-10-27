@@ -30,14 +30,15 @@ class AttemptRows {
     }
 
     /**
-     * @param reason  the code that {@link AccessEvent} recorded
-     * @param country the country code Cloudflare gave, if any
+     * @param entranceName the name of the Opener at the lock's building entrance, if the guest opened that
+     * @param reason       the code that {@link AccessEvent} recorded
+     * @param country      the country code Cloudflare gave, if any
      */
     AttemptRow row(OffsetDateTime occurredAt, ZoneId zone, UUID lockId, String lockName, UUID linkId,
-                   String linkLabel, AccessResult result, @Nullable String reason, @Nullable String ip,
-                   @Nullable String country, Locale locale) {
-        return new AttemptRow(occurredAt.atZoneSameInstant(zone), lockId, lockName, linkId, linkLabel, result,
-                outcome(reason, locale), origin(ip, country, locale));
+                   String linkLabel, @Nullable String entranceName, AccessResult result, @Nullable String reason,
+                   @Nullable String ip, @Nullable String country, Locale locale) {
+        return new AttemptRow(occurredAt.atZoneSameInstant(zone), lockId, lockName, linkId, linkLabel, entranceName,
+                result, outcome(reason, locale), origin(ip, country, locale));
     }
 
     /** What an event's reason code means to the owner; a code no outcome has is shown as it is. */

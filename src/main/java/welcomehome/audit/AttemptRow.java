@@ -13,12 +13,14 @@ import org.jspecify.annotations.Nullable;
  * @param lockName   the lock's name
  * @param linkId     the link the guest used
  * @param linkLabel  the link's label
+ * @param entranceName the name of the Opener at the lock's building entrance, if the guest opened that rather
+ *                   than the lock
  * @param result     whether the door opened, the app refused, or the lock or Nuki failed
  * @param outcome    what happened, in words
  * @param origin     where the guest was
  */
 public record AttemptRow(ZonedDateTime occurredAt, UUID lockId, String lockName, UUID linkId, String linkLabel,
-                         AccessResult result, String outcome, Origin origin) {
+                         @Nullable String entranceName, AccessResult result, String outcome, Origin origin) {
 
     /**
      * Where a guest was: their IP address and, if Cloudflare knew it, their country.

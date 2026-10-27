@@ -40,7 +40,10 @@
             </thead>
             <tbody>
             <tr th:each="lock : ${locks}">
-                <td th:text="${lock.name}">Casa</td>
+                <td>
+                    <span th:text="${lock.name}">Casa</span>
+                    <br th:if="${lock.opener}"><small th:if="${lock.opener}" th:text="#{locks.opener}">Nuki Opener</small>
+                </td>
                 <td th:text="${lock.timeZone}">Europe/Madrid</td>
                 <td th:text="${lock.active} ? #{locks.active} : #{locks.inactive}">Activa</td>
                 <td>

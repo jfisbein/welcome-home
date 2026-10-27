@@ -43,7 +43,7 @@ import welcomehome.nuki.LockProviderException.Reason;
 @Import(NukiStandInConfiguration.class)
 class NukiTokenRefreshTests {
 
-    static final List<SmartLock> CASA = List.of(new SmartLock(17, "Casa", null));
+    static final List<SmartLock> CASA = List.of(new SmartLock(17, DeviceType.SMART_LOCK, "Casa", null));
 
     @Autowired
     LockProvider locks;

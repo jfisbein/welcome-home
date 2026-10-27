@@ -3,6 +3,7 @@ package welcomehome.locks;
 import java.util.UUID;
 
 import jakarta.servlet.http.HttpServletResponse;
+import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -20,7 +21,7 @@ import welcomehome.nuki.LockProviderException;
 
 /**
  * The owner's locks: their list, their sync with Nuki, and each lock's page with its live state and its
- * settings. Another owner's lock is not found.
+ * settings. Another owner's lock is not found, nor offered or accepted as an entrance.
  */
 @Controller
 @RequestMapping("/locks")
@@ -66,6 +67,7 @@ class LocksController {
         model.addAttribute("name", lock.name());
         model.addAttribute("timeZone", lock.timeZone());
         model.addAttribute("relockingHandledElsewhere", lock.relockingHandledElsewhere());
+        model.addAttribute("entranceLockId", lock.entranceLockId());
         return editView(owner, lock, model);
     }
 
@@ -73,20 +75,27 @@ class LocksController {
     String update(CurrentOwner owner, @PathVariable UUID lockId, @RequestParam(defaultValue = "") String name,
                   @RequestParam(defaultValue = "") String timeZone,
                   @RequestParam(defaultValue = "false") boolean relockingHandledElsewhere,
+                  @RequestParam(required = false) @Nullable UUID entranceLockId,
                   Model model, HttpServletResponse response, RedirectAttributes redirect) {
         var lock = locks.find(owner.id(), lockId).orElseThrow(LocksController::notFound);
         var normalizedName = LockSettings.normalizeName(name);
         var validTimeZone = LockSettings.isTimeZone(timeZone);
-        if (normalizedName.isEmpty() || !validTimeZone) {
+        // Only one of the owner's Openers: another owner's lock, or a smart lock, is no entrance.
+        var validEntrance = entranceLockId == null || LockSettings.entrances(lock, locks.findAll(owner.id())).stream()
+                .anyMatch(entrance -> entrance.id().equals(entranceLockId));
+        if (normalizedName.isEmpty() || !validTimeZone || !validEntrance) {
             response.setStatus(HttpStatus.BAD_REQUEST.value());
             model.addAttribute("name", name);
             model.addAttribute("timeZone", timeZone);
             model.addAttribute("relockingHandledElsewhere", relockingHandledElsewhere);
+            model.addAttribute("entranceLockId", entranceLockId);
             model.addAttribute("nameError", normalizedName.isEmpty());
             model.addAttribute("timeZoneError", !validTimeZone);
+            model.addAttribute("entranceError", !validEntrance);
             return editView(owner, lock, model);
         }
-        if (!lockSettings.update(owner.id(), lockId, normalizedName.get(), timeZone, relockingHandledElsewhere)) {
+        if (!lockSettings.update(owner.id(), lockId, normalizedName.get(), timeZone, relockingHandledElsewhere,
+                entranceLockId)) {
             throw notFound();
         }
         redirect.addFlashAttribute("updated", normalizedName.get());
@@ -97,6 +106,7 @@ class LocksController {
     private String editView(CurrentOwner owner, OwnerLock lock, Model model) {
         model.addAttribute("lock", lock);
         model.addAttribute("timeZones", LockSettings.TIME_ZONES);
+        model.addAttribute("entrances", LockSettings.entrances(lock, locks.findAll(owner.id())));
         if (lock.active()) {
             try {
                 model.addAttribute("state", lockProvider.getState(owner.id(), lock.nukiSmartlockId()));

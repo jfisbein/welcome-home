@@ -86,6 +86,31 @@ class AccessHistoryTests {
                 .doesNotContain("198.51.100.2");
     }
 
+    /**
+     * An attempt at Casa's building entrance is one of Ana's link's, so it shows with Casa's, named after the Opener;
+     * the Opener's own history shows it too, leading to Ana's link under Casa.
+     */
+    @Test
+    void attemptsAtTheBuildingEntranceShowWithTheLinkAndTheOpener() {
+        var portal = migrator.sql("""
+                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone, device_type)
+                        SELECT owner_id, 20, 'Portal del 5', time_zone, 'OPENER' FROM lock WHERE id = ? RETURNING id
+                        """)
+                .param(casa).query(UUID.class).single();
+        insertEvent(ana, "2030-07-01T10:00:00Z", "OK", "opened", "198.51.100.1");
+        insertEvent(ana, "2030-07-01T09:58:00Z", "OK", "opened", "198.51.100.2");
+        migrator.sql("UPDATE access_event SET entrance_lock_id = ? WHERE ip = '198.51.100.2'").param(portal).update();
+
+        assertThat(body(history(casa, "?link=" + ana))).containsSubsequence(
+                "12:00:00", "Ana", "198.51.100.1", "11:58:00", "Ana", "Portal: Portal del 5", "198.51.100.2");
+        assertThat(body(history(casa, ""))).contains("Portal: Portal del 5", "198.51.100.1");
+        assertThat(body(history(portal, ""))).contains("Portal: Portal del 5", "198.51.100.2",
+                        "href=\"/locks/" + casa + "/history?link=" + ana + "\"")
+                .doesNotContain("198.51.100.1");
+        assertThat(body(mvc.get().uri("/").with(owner(ALICE)).exchange())).as("the home page's latest attempts")
+                .contains("Portal: Portal del 5");
+    }
+
     @Test
     void historyComesInPagesOfFifty() {
         migrator.sql("""

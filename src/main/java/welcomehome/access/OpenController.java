@@ -13,8 +13,8 @@ import org.springframework.web.bind.annotation.RestController;
 import welcomehome.audit.AccessOutcome;
 
 /**
- * The guest page's slide to open. The token travels in the body, not in the URL, and the answer is a
- * short code for the page to explain.
+ * The guest page's slide to open, for the link's lock or its building entrance. The token travels in the body,
+ * not in the URL, and the answer is a short code for the page to explain.
  */
 @RestController
 class OpenController {
@@ -32,8 +32,8 @@ class OpenController {
     @PostMapping("/api/open")
     ResponseEntity<Map<String, String>> open(@RequestBody OpenRequest request, HttpServletRequest http) {
         var token = request.token() == null ? "" : request.token();
-        var result = openDoor.open(token, clientIp.of(http), clientCountry.of(http).orElse(null),
-                http.getHeader(HttpHeaders.USER_AGENT));
+        var result = openDoor.open(token, Door.of(request.door()), clientIp.of(http),
+                clientCountry.of(http).orElse(null), http.getHeader(HttpHeaders.USER_AGENT));
         return ResponseEntity.status(status(result)).body(Map.of("result", result.code()));
     }
 
@@ -50,12 +50,17 @@ class OpenController {
         };
     }
 
-    /** Spring logs the body it reads at DEBUG, so toString leaves the token out. */
-    record OpenRequest(@Nullable String token) {
+    /**
+     * Spring logs the body it reads at DEBUG, so toString leaves the token out.
+     *
+     * @param door {@code entrance} to open the building entrance of the link's lock, or anything else, absent
+     *             included, to open the lock
+     */
+    record OpenRequest(@Nullable String token, @Nullable String door) {
 
         @Override
         public String toString() {
-            return "OpenRequest[token=***]";
+            return "OpenRequest[token=***, door=" + door + "]";
         }
     }
 }

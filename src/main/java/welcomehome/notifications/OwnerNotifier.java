@@ -180,14 +180,16 @@ class OwnerNotifier {
 
     private Optional<AttemptDetails> findDetails(AccessAttempted attempt) {
         return ownerTransactions.execute(attempt.ownerId(), () -> jdbc.sql("""
-                        SELECT o.email, o.language, l.label, k.name AS lock_name, k.time_zone
+                        SELECT o.email, o.language, l.label, coalesce(d.name, k.name) AS lock_name, k.time_zone
                         FROM access_link l
                         JOIN lock k ON k.id = l.lock_id
+                        LEFT JOIN lock d ON d.owner_id = l.owner_id AND d.id = CAST(:entranceLockId AS uuid)
                         JOIN owner o ON o.id = l.owner_id
                         WHERE l.id = :linkId AND l.owner_id = :ownerId AND o.email_verified_at IS NOT NULL
                         """)
                 .param("linkId", attempt.linkId())
                 .param("ownerId", attempt.ownerId())
+                .param("entranceLockId", attempt.entranceLockId())
                 .query((rs, row) -> new AttemptDetails(
                         new Recipient(rs.getString("email"), language(rs.getString("language"))),
                         rs.getString("label"), rs.getString("lock_name"), rs.getString("time_zone")))

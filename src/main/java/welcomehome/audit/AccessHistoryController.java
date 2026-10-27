@@ -20,7 +20,8 @@ import welcomehome.auth.CurrentOwner;
 import welcomehome.locks.Locks;
 
 /**
- * A lock's history, or one of its links' with {@code ?link=}, in the lock's time zone.
+ * A lock's history, or one of its links' with {@code ?link=}, in the lock's time zone. An Opener's also shows the
+ * attempts at the entrance it opens for other locks' links.
  */
 @Controller
 class AccessHistoryController {
@@ -51,8 +52,9 @@ class AccessHistoryController {
                 PAGE_SIZE);
         model.addAttribute("lock", lock);
         model.addAttribute("events", page.events().stream()
-                .map(event -> rows.row(event.occurredAt(), zone, lock.id(), lock.name(), event.linkId(),
-                        event.linkLabel(), event.result(), event.reason(), event.ip(), event.country(), locale))
+                .map(event -> rows.row(event.occurredAt(), zone, event.lockId(), event.lockName(), event.linkId(),
+                        event.linkLabel(), event.entranceName(), event.result(), event.reason(), event.ip(),
+                        event.country(), locale))
                 .toList());
         model.addAttribute("filtered", link != null);
         model.addAttribute("paged", before != null);

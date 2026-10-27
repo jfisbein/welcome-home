@@ -6,13 +6,14 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import welcomehome.db.OwnerTransactions;
 
 /**
- * What an owner configures on a lock: its name, its time zone and whether the door is relocked some other
- * way than Auto Lock. Links store their start and end in UTC, so changing the time zone changes how they
- * are shown, not when they are valid.
+ * What an owner configures on a lock: its name, its time zone, whether the door is relocked some other way than
+ * Auto Lock, and for a smart lock, the Opener at its building's entrance. Links store their start and end in UTC,
+ * so changing the time zone changes how they are shown, not when they are valid.
  */
 @Service
 class LockSettings {
@@ -39,13 +40,28 @@ class LockSettings {
     }
 
     /**
-     * @param name     a name already checked with {@link #normalizeName}
-     * @param timeZone a time zone already checked with {@link #isTimeZone}
+     * @param name           a name already checked with {@link #normalizeName}
+     * @param timeZone       a time zone already checked with {@link #isTimeZone}
+     * @param entranceLockId an entrance among those {@link #entrances} offers, or null for none
      * @return whether the owner has that lock
      */
-    boolean update(UUID ownerId, UUID lockId, String name, String timeZone, boolean relockingHandledElsewhere) {
-        return ownerTransactions.execute(ownerId,
-                () -> locks.updateSettings(ownerId, lockId, name, timeZone, relockingHandledElsewhere));
+    boolean update(UUID ownerId, UUID lockId, String name, String timeZone, boolean relockingHandledElsewhere,
+                   @Nullable UUID entranceLockId) {
+        return ownerTransactions.execute(ownerId, () -> locks.updateSettings(ownerId, lockId, name, timeZone,
+                relockingHandledElsewhere, entranceLockId));
+    }
+
+    /**
+     * The locks that may open a lock's building entrance: the owner's Openers, for a smart lock. An Opener has
+     * none, as it is an entrance itself.
+     *
+     * @param ownersLocks all the owner's locks
+     */
+    static List<OwnerLock> entrances(OwnerLock lock, List<OwnerLock> ownersLocks) {
+        if (lock.opener()) {
+            return List.of();
+        }
+        return ownersLocks.stream().filter(OwnerLock::opener).toList();
     }
 
     /** @return the name without surrounding spaces, or empty if it is blank or too long */

@@ -28,5 +28,6 @@
     <include file="changes/017-access-event-country.xml" relativeToChangelogFile="true"/>
     <include file="changes/018-owner-email-verification.xml" relativeToChangelogFile="true"/>
     <include file="changes/019-nuki-connection-oauth2.xml" relativeToChangelogFile="true"/>
+    <include file="changes/020-lock-device-type-and-entrance.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

@@ -12,7 +12,6 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Supplier;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -47,10 +46,12 @@ import welcomehome.nuki.LockProviderException.Reason;
  */
 class NukiWebClient {
 
+    /** Unlatch on a smart lock; on an Opener, actuate the electric strike, which opens the entrance. */
     private static final int UNLATCH = 3;
     private static final int LOG_ENTRIES = 20;
-    /** Nuki Box and Nuki Opener: not smart locks. */
-    private static final Set<Integer> NOT_LOCKS = Set.of(1, 2);
+    /** Nuki Box: nothing to open. */
+    private static final int BOX = 1;
+    private static final int OPENER = 2;
     private static final int SERVER_STATE_OK = 0;
 
     /** What welcome-home asks Nuki for: to list locks, open them, read their logs, and keep its access. */
@@ -84,8 +85,8 @@ class NukiWebClient {
                 .body(new ParameterizedTypeReference<>() {
                 }));
         return smartlocks.stream()
-                .filter(smartlock -> !NOT_LOCKS.contains(smartlock.type()))
-                .map(smartlock -> new SmartLock(smartlock.smartlockId(), smartlock.name(),
+                .filter(smartlock -> smartlock.type() != BOX)
+                .map(smartlock -> new SmartLock(smartlock.smartlockId(), deviceType(smartlock.type()), smartlock.name(),
                         smartlock.config() == null ? null : NukiTimeZones.byId(smartlock.config().timezoneId())))
                 .toList();
     }
@@ -97,8 +98,9 @@ class NukiWebClient {
                 .body(NukiSmartlock.class));
         var state = smartlock.state();
         var advancedConfig = smartlock.advancedConfig();
+        var opener = deviceType(smartlock.type()) == DeviceType.OPENER;
         return new LockState(
-                state == null ? LockStatus.UNKNOWN : status(state.state()),
+                state == null ? LockStatus.UNKNOWN : opener ? openerStatus(state.state()) : status(state.state()),
                 smartlock.serverState() == SERVER_STATE_OK,
                 state != null && Boolean.TRUE.equals(state.batteryCritical()),
                 state == null ? null : state.batteryCharge(),
@@ -225,7 +227,7 @@ class NukiWebClient {
                 }));
         return entries.stream()
                 .map(entry -> new LockLogEntry(entry.date(), action(entry.action()), trigger(entry.trigger()),
-                        actionState(entry.state())))
+                        actionState(entry.state()), entry.action() + "/" + entry.trigger() + "/" + entry.state()))
                 .toList();
     }
 
@@ -321,6 +323,21 @@ class NukiWebClient {
             case 254 -> LockStatus.MOTOR_BLOCKED;
             default -> LockStatus.UNKNOWN;
         };
+    }
+
+    /** An Opener's states are its own: it locks nothing, and opens the entrance only for a few seconds. */
+    static LockStatus openerStatus(int nukiState) {
+        return switch (nukiState) {
+            case 1 -> LockStatus.READY;
+            case 3 -> LockStatus.RING_TO_OPEN;
+            case 5, 7 -> LockStatus.OPENING;
+            default -> LockStatus.UNKNOWN;
+        };
+    }
+
+    /** Smart Locks of every generation, and the Smart Door, are smart locks; only an Opener is not. */
+    static DeviceType deviceType(int nukiType) {
+        return nukiType == OPENER ? DeviceType.OPENER : DeviceType.SMART_LOCK;
     }
 
     static LockActionState actionState(int nukiState) {

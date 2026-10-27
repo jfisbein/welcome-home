@@ -3,9 +3,12 @@ package welcomehome.access;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import welcomehome.audit.AccessOutcome;
 import welcomehome.nuki.LockAction;
@@ -18,10 +21,14 @@ import welcomehome.nuki.LockTrigger;
 /**
  * Waits for a lock to confirm an unlatch that Nuki accepted, by reading the lock's log until an unlatch
  * entry from after the request shows up. An unlatch by hand, with the lock's button or by an accessory in
- * the same few seconds is someone else's, not the guest's, so it does not count.
+ * the same few seconds is someone else's, not the guest's, so it does not count. An Opener's electric strike
+ * actuation is taken to show up the same way, as Nuki's action 3; Nuki does not document its log, so an opening
+ * that the log does not confirm is logged with the entries the log had.
  */
 @Component
 class UnlatchConfirmation {
+
+    private static final Logger log = LoggerFactory.getLogger(UnlatchConfirmation.class);
 
     /**
      * The triggers an unlatch through the Nuki Web API may carry. Nuki documents 4 (web), but the unlatches
@@ -48,12 +55,15 @@ class UnlatchConfirmation {
      */
     AccessOutcome await(UUID ownerId, long nukiSmartlockId, Instant requestedAt) {
         var deadline = Instant.now().plus(settings.timeout());
+        List<LockLogEntry> since = List.of();
         while (true) {
             sleep(settings.interval());
             try {
-                var unlatch = lockProvider.getRecentLog(ownerId, nukiSmartlockId).stream()
-                        .filter(entry -> entry.action() == LockAction.UNLATCH && NUKI_WEB_API.contains(entry.trigger()))
+                since = lockProvider.getRecentLog(ownerId, nukiSmartlockId).stream()
                         .filter(entry -> !entry.occurredAt().isBefore(requestedAt.minus(CLOCK_SKEW)))
+                        .toList();
+                var unlatch = since.stream()
+                        .filter(entry -> entry.action() == LockAction.UNLATCH && NUKI_WEB_API.contains(entry.trigger()))
                         .findFirst();
                 if (unlatch.isPresent()) {
                     return result(unlatch.get());
@@ -66,6 +76,8 @@ class UnlatchConfirmation {
                 }
             }
             if (!Instant.now().isBefore(deadline)) {
+                log.info("Nuki smartlock {} logged no unlatch within {}; its entries since the request: {}",
+                        nukiSmartlockId, settings.timeout(), since);
                 return AccessOutcome.NOT_CONFIRMED;
             }
         }

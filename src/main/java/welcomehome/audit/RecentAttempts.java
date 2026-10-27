@@ -37,10 +37,12 @@ public class RecentAttempts {
     public List<AttemptRow> latest(UUID ownerId, int limit, Locale locale) {
         return ownerTransactions.execute(ownerId, () -> jdbc.sql("""
                         SELECT e.occurred_at, k.time_zone, e.lock_id, k.name AS lock_name, e.link_id,
-                               l.label AS link_label, e.result, e.reason, host(e.ip) AS ip, e.country
+                               l.label AS link_label, d.name AS entrance_name, e.result, e.reason,
+                               host(e.ip) AS ip, e.country
                         FROM access_event e
                         JOIN lock k ON k.owner_id = e.owner_id AND k.id = e.lock_id
                         JOIN access_link l ON l.owner_id = e.owner_id AND l.id = e.link_id
+                        LEFT JOIN lock d ON d.owner_id = e.owner_id AND d.id = e.entrance_lock_id
                         WHERE e.owner_id = :ownerId
                         ORDER BY e.occurred_at DESC, e.id DESC
                         LIMIT :limit
@@ -54,6 +56,7 @@ public class RecentAttempts {
                         rs.getString("lock_name"),
                         rs.getObject("link_id", UUID.class),
                         rs.getString("link_label"),
+                        rs.getString("entrance_name"),
                         AccessResult.valueOf(rs.getString("result")),
                         rs.getString("reason"),
                         rs.getString("ip"),

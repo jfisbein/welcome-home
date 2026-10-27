@@ -40,15 +40,16 @@ public class AccessEvents {
         var trimmedUserAgent = userAgent;
         ownerTransactions.run(event.ownerId(), () -> {
             var occurredAt = jdbc.sql("""
-                            INSERT INTO access_event (owner_id, link_id, lock_id, result, reason, ip, country,
-                                                      user_agent)
-                            VALUES (:ownerId, :linkId, :lockId, :result, :reason, CAST(:ip AS inet), :country,
-                                    :userAgent)
+                            INSERT INTO access_event (owner_id, link_id, lock_id, entrance_lock_id, result, reason,
+                                                      ip, country, user_agent)
+                            VALUES (:ownerId, :linkId, :lockId, :entranceLockId, :result, :reason, CAST(:ip AS inet),
+                                    :country, :userAgent)
                             RETURNING occurred_at
                             """)
                     .param("ownerId", event.ownerId())
                     .param("linkId", event.linkId())
                     .param("lockId", event.lockId())
+                    .param("entranceLockId", event.entranceLockId())
                     .param("result", event.outcome().result().name())
                     .param("reason", event.outcome().code())
                     .param("ip", event.ip())
@@ -56,8 +57,8 @@ public class AccessEvents {
                     .param("userAgent", trimmedUserAgent)
                     .query(OffsetDateTime.class)
                     .single();
-            events.publishEvent(new AccessAttempted(event.ownerId(), event.linkId(), event.lockId(), event.outcome(),
-                    occurredAt.toInstant()));
+            events.publishEvent(new AccessAttempted(event.ownerId(), event.linkId(), event.lockId(),
+                    event.entranceLockId(), event.outcome(), occurredAt.toInstant()));
         });
     }
 }

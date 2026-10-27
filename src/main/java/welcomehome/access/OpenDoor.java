@@ -12,6 +12,7 @@ import welcomehome.audit.AccessEvents;
 import welcomehome.audit.AccessOutcome;
 import welcomehome.links.LinkStatus;
 import welcomehome.locks.Locks;
+import welcomehome.locks.OwnerLock;
 import welcomehome.nuki.LockProvider;
 import welcomehome.nuki.LockProviderException;
 import welcomehome.nuki.LockProviderException.Reason;
@@ -23,10 +24,12 @@ import welcomehome.nuki.LockProviderException.Reason;
  *     <li>the link exists, its MAC is valid and it is not revoked;</li>
  *     <li>rate limit per link;</li>
  *     <li>within the link's dates;</li>
- *     <li>the door is available: its lock is active and the owner's Nuki connection is OK.</li>
+ *     <li>the door is available: its lock is active and the owner's Nuki connection is OK; for the building
+ *     entrance, the link's lock has one, an Opener, and it is active.</li>
  * </ol>
- * Only then is the door unlatched, in the context of the owner that resolve_link returned, which the
- * verified MAC vouches for, and once per lock at a time: concurrent guests share one action and its result.
+ * Only then is the door unlatched, or the entrance's electric strike actuated, in the context of the owner that
+ * resolve_link returned, which the verified MAC vouches for, and once per lock at a time: concurrent guests share
+ * one action and its result.
  * The result waits for the lock's log to confirm the unlatch, also when Nuki did not answer the unlatch, as it
  * may have run it. Every attempt with a valid link is recorded in the owner's history.
  */
@@ -52,7 +55,7 @@ class OpenDoor {
         this.accessEvents = accessEvents;
     }
 
-    AccessOutcome open(String token, String ip, @Nullable String country, @Nullable String userAgent) {
+    AccessOutcome open(String token, Door door, String ip, @Nullable String country, @Nullable String userAgent) {
         if (!rateLimiter.tryAttemptFromIp(ip)) {
             return AccessOutcome.TOO_MANY_ATTEMPTS;
         }
@@ -61,14 +64,17 @@ class OpenDoor {
             return AccessOutcome.INVALID;
         }
         var guestLink = found.get();
-        var result = checkAndUnlatch(guestLink);
         var link = guestLink.link();
-        accessEvents.record(new AccessEvent(link.ownerId(), link.linkId(), link.lockId(), result, ip, country,
-                userAgent));
+        // The token is verified: the entrance may be read, and the attempt is recorded with it.
+        var entrance = door == Door.ENTRANCE ? guestLinks.entrance(link).orElse(null) : null;
+        var result = checkAndUnlatch(guestLink, door, entrance);
+        accessEvents.record(new AccessEvent(link.ownerId(), link.linkId(), link.lockId(),
+                entrance == null ? null : entrance.id(), result, ip, country, userAgent));
         return result;
     }
 
-    private AccessOutcome checkAndUnlatch(GuestLink guestLink) {
+    /** @param entrance the link's entrance, for {@link Door#ENTRANCE}, or null if it has none */
+    private AccessOutcome checkAndUnlatch(GuestLink guestLink, Door door, @Nullable OwnerLock entrance) {
         var link = guestLink.link();
         if (guestLink.status() == LinkStatus.REVOKED) {
             return AccessOutcome.REVOKED;
@@ -81,6 +87,13 @@ class OpenDoor {
         }
         if (guestLink.status() == LinkStatus.EXPIRED) {
             return AccessOutcome.EXPIRED;
+        }
+        if (door == Door.ENTRANCE) {
+            if (entrance == null || !guestLinks.entranceAvailable(link, entrance)) {
+                return AccessOutcome.UNAVAILABLE;
+            }
+            var openerSmartlockId = entrance.nukiSmartlockId();
+            return lockActions.runOnce(entrance.id(), () -> unlatchAndConfirm(link.ownerId(), openerSmartlockId));
         }
         if (!guestLinks.doorAvailable(link)) {
             return AccessOutcome.UNAVAILABLE;

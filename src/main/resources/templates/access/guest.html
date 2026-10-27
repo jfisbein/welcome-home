@@ -9,22 +9,35 @@
             Este enlace abre la puerta del 1/11/2030 15:00 al 3/11/2030 11:00 (hora de Europe/Madrid).
         </p>
 
-        <th:block th:if="${canOpen}">
-            <!-- Slide to open: a touch by mistake, in a pocket or while scrolling, does not open the door. A native
-                 range, so that keyboards and screen readers work it too (see open.js). -->
-            <div class="slide-to-open">
-                <span class="slide-label" aria-hidden="true" th:data-busy-text="#{guest.opening}"
-                      th:text="#{guest.open}">Desliza para abrir</span>
-                <input type="range" id="open" min="0" max="100" step="1" value="0" th:aria-label="#{guest.open}">
-            </div>
-            <p id="open-result" role="status" hidden></p>
-            <p><small th:text="#{guest.hint}">Pulsa cuando estés delante de la puerta.</small></p>
-            <!-- What open.js shows after the slide, by outcome. -->
-            <div id="open-messages" hidden>
-                <span th:each="outcome : ${outcomes}" th:data-outcome="${outcome}"
-                      th:text="${#messages.msg('guest.result.' + outcome)}">Puerta abierta: empújala.</span>
-            </div>
-        </th:block>
+        <!-- One slide to open per door, the building entrance first. Slide to open: a touch by mistake, in a
+             pocket or while scrolling, does not open the door. A native range, so that keyboards and screen
+             readers work it too (see open.js). -->
+        <section class="door" th:each="door : ${doors}">
+            <h2 th:if="${doors.size() > 1}" th:text="${door.opener} ? #{guest.entrance.heading} : #{guest.door.heading}">
+                Portal</h2>
+            <th:block th:if="${door.available}">
+                <div class="slide-to-open">
+                    <!-- The same short text on every track, which the heading above names; screen readers hear
+                         which door from the range's own label. -->
+                    <span class="slide-label" aria-hidden="true" th:data-busy-text="#{guest.opening}"
+                          th:text="#{guest.open}">Desliza para abrir</span>
+                    <input type="range" th:id="${door.id}" min="0" max="100" step="1" value="0"
+                           th:aria-label="${door.opener} ? #{guest.entrance.open} : #{guest.open}"
+                           th:data-door="${door.door}" th:data-opener="${door.opener}">
+                </div>
+                <p class="open-result" role="status" hidden></p>
+                <p><small th:text="${door.opener} ? #{guest.entrance.hint} : #{guest.hint}">
+                    Pulsa cuando estés delante de la puerta.</small></p>
+                <!-- What open.js shows after the slide, by outcome. -->
+                <div class="open-messages" hidden>
+                    <span th:each="message : ${door.messages}" th:data-outcome="${message.key}"
+                          th:text="${message.value}">Puerta abierta: empújala.</span>
+                </div>
+            </th:block>
+            <p th:unless="${door.available}" role="alert"
+               th:text="${door.opener} ? #{guest.entrance.unavailable} : #{guest.unavailable}">
+                Esta puerta no está disponible.</p>
+        </section>
 
         <p th:if="${status.name() == 'PENDING'}" role="alert"
            th:text="#{guest.pending(${#temporals.format(validFrom, #messages.msg('format.datetime'))})}">
@@ -32,7 +45,6 @@
         </p>
         <p th:if="${status.name() == 'EXPIRED'}" role="alert" th:text="#{guest.expired}">Este enlace ha caducado.</p>
         <p th:if="${status.name() == 'REVOKED'}" role="alert" th:text="#{guest.revoked}">Este enlace se ha revocado.</p>
-        <p th:if="${unavailable}" role="alert" th:text="#{guest.unavailable}">Esta puerta no está disponible.</p>
     </article>
 </main>
 <script th:if="${canOpen}" th:src="@{/js/open.js}"></script>

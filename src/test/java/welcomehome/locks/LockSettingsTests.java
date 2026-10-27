@@ -97,6 +97,48 @@ class LockSettingsTests {
     }
 
     @Test
+    void ownerChoosesOneOfTheirOpenersAsTheLocksEntrance() {
+        assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE))).as("without an Opener, no entrance")
+                .bodyText().doesNotContain("Portal del edificio");
+        var portal = insertLock(ownerOf(alicesLock), 19, "Portal", "OPENER");
+
+        assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE)))
+                .bodyText().contains("Portal del edificio", "Ninguno", "Portal");
+        assertThat(updateEntrance(alicesLock, portal.toString())).hasStatus(HttpStatus.FOUND);
+        assertThat(entrance(alicesLock)).isEqualTo(portal.toString());
+
+        assertThat(updateEntrance(alicesLock, "")).hasStatus(HttpStatus.FOUND);
+        assertThat(entrance(alicesLock)).isEqualTo("none");
+    }
+
+    /** Neither another owner's Opener, nor a smart lock, nor the lock itself; and an Opener has no entrance. */
+    @Test
+    void anEntranceIsOneOfTheOwnersOpeners() {
+        var alice = ownerOf(alicesLock);
+        var portal = insertLock(alice, 19, "Portal", "OPENER");
+        var garaje = insertLock(alice, 18, "Garaje", "SMART_LOCK");
+        var bobsPortal = insertLock(ownerOf(bobsLock), 19, "Portal de Bob", "OPENER");
+
+        for (var entrance : new UUID[] {garaje, bobsPortal, alicesLock, UUID.randomUUID()}) {
+            assertThat(updateEntrance(alicesLock, entrance.toString())).as(entrance.toString())
+                    .hasStatus(HttpStatus.BAD_REQUEST)
+                    .bodyText().contains("Elige uno de tus Nuki Opener de la lista");
+        }
+        assertThat(updateEntrance(portal, portal.toString())).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(entrance(alicesLock)).isEqualTo("none");
+        assertThat(entrance(portal)).isEqualTo("none");
+    }
+
+    @Test
+    void anOpenersPageSaysWhatItIsWithoutAutoLockOrEntrance() {
+        var portal = insertLock(ownerOf(alicesLock), 19, "Portal", "OPENER");
+
+        assertThat(mvc.get().uri("/locks/" + portal).with(owner(ALICE))).hasStatusOk().bodyText()
+                .contains("Es un Nuki Opener")
+                .doesNotContain("Portal del edificio", "El bloqueo lo gestiono de otra forma");
+    }
+
+    @Test
     void htmlFormSendsThePatchAsAPostWithHiddenMethod() {
         assertThat(mvc.post().uri("/locks/" + alicesLock).with(owner(ALICE)).with(csrf())
                 .param("_method", "patch").param("name", "Casa").param("timeZone", "Europe/Madrid"))
@@ -116,6 +158,32 @@ class LockSettingsTests {
         return mvc.patch().uri("/locks/" + lockId).with(owner(email)).with(csrf())
                 .param("name", name).param("timeZone", timeZone)
                 .exchange();
+    }
+
+    private MvcTestResult updateEntrance(UUID lockId, String entranceLockId) {
+        return mvc.patch().uri("/locks/" + lockId).with(owner(ALICE)).with(csrf())
+                .param("name", "Casa").param("timeZone", "Europe/Berlin").param("entranceLockId", entranceLockId)
+                .exchange();
+    }
+
+    private String entrance(UUID lockId) {
+        return migrator.sql("SELECT coalesce(entrance_lock_id::text, 'none') FROM lock WHERE id = ?")
+                .param(lockId).query(String.class).single();
+    }
+
+    private UUID ownerOf(UUID lockId) {
+        return migrator.sql("SELECT owner_id FROM lock WHERE id = ?").param(lockId).query(UUID.class).single();
+    }
+
+    private UUID insertLock(UUID ownerId, long nukiSmartlockId, String name, String deviceType) {
+        return migrator.sql("""
+                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone, device_type)
+                        VALUES (?, ?, ?, 'Europe/Berlin', ?)
+                        RETURNING id
+                        """)
+                .params(ownerId, nukiSmartlockId, name, deviceType)
+                .query(UUID.class)
+                .single();
     }
 
     private String settings(UUID lockId) {

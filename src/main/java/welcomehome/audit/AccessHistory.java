@@ -29,16 +29,21 @@ class AccessHistory {
     }
 
     /**
+     * Finds a lock's events: those of its links, at the lock or at its building entrance, and for an Opener also
+     * those of the locks whose entrance it is.
+     *
      * @param linkId only this link's events, or all of the lock's if null
      * @param before only events before this one, or the latest if null
      */
     HistoryPage find(UUID ownerId, UUID lockId, @Nullable UUID linkId, @Nullable Cursor before, int pageSize) {
         var events = ownerTransactions.execute(ownerId, () -> jdbc.sql("""
-                        SELECT e.id, e.occurred_at, e.link_id, l.label AS link_label, e.result, e.reason,
-                               host(e.ip) AS ip, e.country
+                        SELECT e.id, e.occurred_at, e.lock_id, k.name AS lock_name, e.link_id, l.label AS link_label,
+                               d.name AS entrance_name, e.result, e.reason, host(e.ip) AS ip, e.country
                         FROM access_event e
                         JOIN access_link l ON l.owner_id = e.owner_id AND l.id = e.link_id
-                        WHERE e.owner_id = :ownerId AND e.lock_id = :lockId
+                        JOIN lock k ON k.owner_id = e.owner_id AND k.id = e.lock_id
+                        LEFT JOIN lock d ON d.owner_id = e.owner_id AND d.id = e.entrance_lock_id
+                        WHERE e.owner_id = :ownerId AND (e.lock_id = :lockId OR e.entrance_lock_id = :lockId)
                           AND (CAST(:linkId AS uuid) IS NULL OR e.link_id = :linkId)
                           AND (CAST(:before AS timestamptz) IS NULL OR e.occurred_at < :before
                                OR (e.occurred_at = :before AND e.id < CAST(:beforeId AS uuid)))
@@ -76,12 +81,16 @@ class AccessHistory {
     /**
      * A guest's attempt.
      *
-     * @param reason  the short code that {@link AccessEvent} recorded
-     * @param ip      the guest's IP address
-     * @param country the guest's country code, if known
+     * @param lockId       the link's lock
+     * @param lockName     its name
+     * @param entranceName the name of the Opener at the lock's building entrance, if the guest opened that
+     * @param reason       the short code that {@link AccessEvent} recorded
+     * @param ip           the guest's IP address
+     * @param country      the guest's country code, if known
      */
-    record HistoryEvent(UUID id, OffsetDateTime occurredAt, UUID linkId, String linkLabel, AccessResult result,
-                        @Nullable String reason, @Nullable String ip, @Nullable String country) {
+    record HistoryEvent(UUID id, OffsetDateTime occurredAt, UUID lockId, String lockName, UUID linkId,
+                        String linkLabel, @Nullable String entranceName, AccessResult result, @Nullable String reason,
+                        @Nullable String ip, @Nullable String country) {
     }
 
     /**

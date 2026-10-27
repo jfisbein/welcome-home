@@ -2,7 +2,8 @@
 <html lang="es" th:lang="${#locale.language}" th:attr="data-theme=${theme}" xmlns:th="http://www.thymeleaf.org">
 <body>
 <!-- Guests' attempts, as audit.AttemptRow gives them, alike on the home page and in the history. withLock adds
-     the lock's column, for attempts on several locks. The origin is the country's flag, with the country and the
+     the lock's column, for attempts on several locks. An attempt at a lock's building entrance names the Opener
+     under the link. The origin is the country's flag, with the country and the
      IP address in a tooltip shown on hover, on focus or when tapped, to its left so that the table's scrolling
      box does not cut it; without a country, the IP address itself. -->
 <div th:fragment="table(attempts, withLock)" class="overflow-auto">
@@ -23,7 +24,9 @@
             <td th:if="${withLock}"><a th:href="@{/locks/{id}/history(id=${attempt.lockId})}"
                                        th:text="${attempt.lockName}">Casa</a></td>
             <td><a th:href="@{/locks/{id}/history(id=${attempt.lockId},link=${attempt.linkId})}"
-                   th:text="${attempt.linkLabel}">Ana</a></td>
+                   th:text="${attempt.linkLabel}">Ana</a>
+                <br th:if="${attempt.entranceName != null}"><small th:if="${attempt.entranceName != null}"
+                       th:text="#{history.entrance(${attempt.entranceName})}">Portal: Portal</small></td>
             <td th:switch="${attempt.result.name()}">
                 <strong th:case="'OK'" th:text="${attempt.outcome}">Abierta</strong>
                 <span th:case="*" th:text="${attempt.outcome}">Denegado: caducado</span>

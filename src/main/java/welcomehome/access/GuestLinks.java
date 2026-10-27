@@ -6,6 +6,8 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 import welcomehome.crypto.LinkTokenSigner;
 import welcomehome.links.LinkStatus;
+import welcomehome.locks.Locks;
+import welcomehome.locks.OwnerLock;
 import welcomehome.nuki.ConnectionStatus;
 import welcomehome.nuki.NukiConnections;
 
@@ -19,11 +21,13 @@ class GuestLinks {
     private final LinkTokenSigner signer;
     private final ResolvedLinkDao resolvedLinks;
     private final NukiConnections nukiConnections;
+    private final Locks locks;
 
-    GuestLinks(LinkTokenSigner signer, ResolvedLinkDao resolvedLinks, NukiConnections nukiConnections) {
+    GuestLinks(LinkTokenSigner signer, ResolvedLinkDao resolvedLinks, NukiConnections nukiConnections, Locks locks) {
         this.signer = signer;
         this.resolvedLinks = resolvedLinks;
         this.nukiConnections = nukiConnections;
+        this.locks = locks;
     }
 
     /**
@@ -45,7 +49,42 @@ class GuestLinks {
      * owner's Nuki connection is OK. It reads only the database, so the guest page can ask too.
      */
     boolean doorAvailable(ResolvedLink link) {
-        return link.lockActive() && nukiConnections.find(link.ownerId())
+        return link.lockActive() && connected(link);
+    }
+
+    /**
+     * Tells whether a link's entrance can be opened at all, as {@link #doorAvailable} does for its lock.
+     *
+     * @param entrance the link's entrance, as {@link #entrance} found it
+     */
+    boolean entranceAvailable(ResolvedLink link, OwnerLock entrance) {
+        return entrance.active() && connected(link);
+    }
+
+    /**
+     * The link's lock as its owner sees it, read in the owner's context: only for a link whose token was verified.
+     *
+     * @return the lock, or empty if it is gone
+     */
+    Optional<OwnerLock> lock(ResolvedLink link) {
+        return locks.find(link.ownerId(), link.lockId());
+    }
+
+    /**
+     * The Opener at the building entrance of a link's lock, read in the owner's context: only for a link whose token
+     * was verified.
+     *
+     * @return the Opener, or empty if the lock has no entrance
+     */
+    Optional<OwnerLock> entrance(ResolvedLink link) {
+        return lock(link).flatMap(lock -> {
+            var entranceId = lock.entranceLockId();
+            return entranceId == null ? Optional.empty() : locks.find(link.ownerId(), entranceId);
+        });
+    }
+
+    private boolean connected(ResolvedLink link) {
+        return nukiConnections.find(link.ownerId())
                 .filter(connection -> connection.status() == ConnectionStatus.OK)
                 .isPresent();
     }

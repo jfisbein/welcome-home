@@ -13,6 +13,7 @@
 
     <section>
         <h2 th:text="#{lock.state}">Estado</h2>
+        <p th:if="${lock.opener}" th:text="#{lock.opener-intro}">Es un Nuki Opener: abre el portal unos segundos.</p>
         <p th:unless="${lock.active}" th:text="#{lock.inactive}">Esta cerradura ya no está en tu cuenta de Nuki.</p>
 
         <p th:if="${stateError == 'not-connected'}" role="alert"
@@ -26,13 +27,16 @@
 
         <th:block th:if="${state}">
             <dl>
-                <dt th:text="#{lock.status}">Cerradura</dt>
+                <dt th:text="${lock.opener} ? #{lock.status.entrance} : #{lock.status}">Cerradura</dt>
                 <dd th:switch="${state.status.name()}">
                     <span th:case="'LOCKED'" th:text="#{lock.status.locked}">Bloqueada</span>
                     <span th:case="'UNLOCKED'" th:text="#{lock.status.unlocked}">Desbloqueada</span>
                     <span th:case="'UNLATCHED'" th:text="#{lock.status.unlatched}">Abierta</span>
                     <span th:case="'MOVING'" th:text="#{lock.status.moving}">Moviéndose</span>
                     <span th:case="'MOTOR_BLOCKED'" th:text="#{lock.status.motor-blocked}">Motor bloqueado</span>
+                    <span th:case="'READY'" th:text="#{lock.status.ready}">Listo para abrir</span>
+                    <span th:case="'RING_TO_OPEN'" th:text="#{lock.status.ring-to-open}">Ring to Open</span>
+                    <span th:case="'OPENING'" th:text="#{lock.status.opening}">Abriendo el portal</span>
                     <span th:case="*" th:text="#{lock.status.unknown}">Estado desconocido</span>
                 </dd>
                 <dt th:text="#{lock.connection}">Conexión</dt>
@@ -43,15 +47,17 @@
                     th:text="#{lock.battery.charge(${state.batteryCharge})}">80 %</dd>
                 <dd th:if="${!state.batteryCritical and state.batteryCharge == null}" th:text="#{lock.battery.ok}">
                     Correcta</dd>
-                <dt th:text="#{lock.auto-lock}">Auto Lock</dt>
-                <dd th:if="${state.autoLockEnabled}" th:text="#{lock.auto-lock.on}">Activado</dd>
-                <dd th:if="${!state.autoLockEnabled and lock.relockingHandledElsewhere}"
-                    th:text="#{lock.auto-lock.off-elsewhere}">Desactivado: el bloqueo lo gestionas de otra forma.</dd>
-                <dd th:if="${!state.autoLockEnabled and !lock.relockingHandledElsewhere}"
-                    th:text="#{lock.auto-lock.off}">Desactivado</dd>
+                <th:block th:unless="${lock.opener}">
+                    <dt th:text="#{lock.auto-lock}">Auto Lock</dt>
+                    <dd th:if="${state.autoLockEnabled}" th:text="#{lock.auto-lock.on}">Activado</dd>
+                    <dd th:if="${!state.autoLockEnabled and lock.relockingHandledElsewhere}"
+                        th:text="#{lock.auto-lock.off-elsewhere}">Desactivado: el bloqueo lo gestionas de otra forma.</dd>
+                    <dd th:if="${!state.autoLockEnabled and !lock.relockingHandledElsewhere}"
+                        th:text="#{lock.auto-lock.off}">Desactivado</dd>
+                </th:block>
             </dl>
 
-            <article th:if="${!state.autoLockEnabled and !lock.relockingHandledElsewhere}" role="alert">
+            <article th:if="${!lock.opener and !state.autoLockEnabled and !lock.relockingHandledElsewhere}" role="alert">
                 <p th:utext="#{lock.auto-lock.warning}"><strong>Auto Lock está desactivado.</strong></p>
                 <p th:text="#{lock.auto-lock.advice}">Actívalo en la app de Nuki.</p>
             </article>
@@ -77,7 +83,18 @@
                 <small th:if="${timeZoneError}" th:text="#{lock.time-zone.error}">Elige una zona horaria.</small>
                 <small th:unless="${timeZoneError}" th:text="#{lock.time-zone.hint}">Las fechas de los enlaces.</small>
             </label>
-            <label>
+            <label th:unless="${entrances.isEmpty()}">
+                [[#{lock.entrance}]]
+                <select name="entranceLockId" th:attr="aria-invalid=${entranceError} ? 'true' : null">
+                    <option value="" th:text="#{lock.entrance.none}">Ninguno</option>
+                    <option th:each="entrance : ${entrances}" th:value="${entrance.id}" th:text="${entrance.name}"
+                            th:selected="${entrance.id == entranceLockId}">Portal</option>
+                </select>
+                <small th:if="${entranceError}" th:text="#{lock.entrance.error}">Elige uno de tus Opener.</small>
+                <small th:unless="${entranceError}" th:text="#{lock.entrance.hint}">
+                    Los enlaces de esta cerradura abrirán también el portal.</small>
+            </label>
+            <label th:unless="${lock.opener}">
                 <input type="checkbox" name="relockingHandledElsewhere" value="true"
                        th:checked="${relockingHandledElsewhere}">
                 [[#{lock.relocking-elsewhere}]]
