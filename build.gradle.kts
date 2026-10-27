@@ -63,7 +63,7 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
     errorprone("com.google.errorprone:error_prone_core:2.50.0")
-    errorprone("com.uber.nullaway:nullaway:0.14.2")
+    errorprone("com.uber.nullaway:nullaway:0.14.3")
 }
 
 // Error Prone's default checks, plus nullness at compile time: in the app's code nothing is null unless it is
