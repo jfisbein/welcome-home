@@ -95,7 +95,8 @@ class NukiAuthorizationTests {
         assertThat(location).startsWith(nuki.baseUrl() + "/oauth/authorize?response_type=code"
                 + "&client_id=" + NukiStandInConfiguration.CLIENT_ID
                 + "&redirect_uri=https%3A%2F%2Fwelcome.example%2Fnuki%2Fcallback"
-                + "&scope=smartlock.readOnly%20smartlock.action%20smartlock.log%20offline_access&state=");
+                + "&scope=smartlock.readOnly%20smartlock.action%20smartlock.log%20offline_access%20webhook.central"
+                + "&state=");
         assertThat(state(location)).matches("[A-Za-z0-9_-]{43}");
         assertThat(param(location, "code_challenge")).matches("[A-Za-z0-9_-]{43}");
         assertThat(param(location, "code_challenge_method")).isEqualTo("S256");
@@ -183,6 +184,32 @@ class NukiAuthorizationTests {
         assertFailed(callback(ALICE, "error=server_error&state=" + state), "failed");
         nuki.verify(0, anyRequestedFor(anyUrl()));
         assertNoConnection();
+    }
+
+    @Test
+    void clientThatMayNotAskForWebhooksSendsTheOwnerToNukiAgainWithoutThemOnce() {
+        var first = authorize(ALICE);
+
+        var again = askedAgain(callback(ALICE, "error=invalid_scope&state=" + state(first)));
+
+        assertThat(param(again, "scope")).isEqualTo(SCOPE.replace(" ", "%20"));
+        assertThat(state(again)).isNotEqualTo(state(first));
+        assertThat(param(again, "code_challenge")).isNotEqualTo(param(first, "code_challenge"));
+        assertFailed(callback(ALICE, "error=invalid_scope&state=" + state(again)), "failed");
+        nuki.verify(0, anyRequestedFor(anyUrl()));
+        assertNoConnection();
+    }
+
+    @Test
+    void ownerOfAClientThatMayNotAskForWebhooksIsConnectedWithoutThem() throws Exception {
+        nukiGrants("the-code", "access-1", "refresh-1", SCOPE);
+        var again = askedAgain(callback(ALICE, "error=invalid_scope&state=" + state(authorize(ALICE))));
+
+        var result = callback(ALICE, "code=the-code&state=" + state(again));
+
+        assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/settings/nuki");
+        assertThat(s256(sentVerifier())).isEqualTo(param(again, "code_challenge"));
+        assertThat(stored(aliceId).status()).isEqualTo("OK");
     }
 
     @Test
@@ -286,6 +313,14 @@ class NukiAuthorizationTests {
         assertThat(result).hasStatus(HttpStatus.FOUND);
         var location = result.getMvcResult().getResponse().getRedirectedUrl();
         assertThat(location).isNotNull();
+        return location;
+    }
+
+    /** Where the callback sent the owner back to Nuki. */
+    private String askedAgain(MvcTestResult result) {
+        assertThat(result).hasStatus(HttpStatus.FOUND);
+        var location = result.getMvcResult().getResponse().getRedirectedUrl();
+        assertThat(location).startsWith(nuki.baseUrl() + "/oauth/authorize?");
         return location;
     }
 

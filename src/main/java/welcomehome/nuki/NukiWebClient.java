@@ -63,9 +63,16 @@ class NukiWebClient {
     private static final int OPENER = 2;
     private static final int SERVER_STATE_OK = 0;
 
-    /** What welcome-home asks Nuki for: to list locks, open them, read their logs, and keep its access. */
+    /** What welcome-home needs from Nuki: to list locks, open them, read their logs, and keep its access. */
     static final List<String> SCOPES = List.of("smartlock.readOnly", "smartlock.action", "smartlock.log",
             "offline_access");
+
+    /**
+     * What welcome-home also asks for, without needing it: Nuki reports the Advanced API's actions only to central
+     * webhooks, which need it, and refused an advanced unlatch with a 401 to a token without it (2026-10-28). A
+     * client whose Advanced API has no webhooks may not ask for it.
+     */
+    static final String WEBHOOKS = "webhook.central";
 
     private final RestClient rest;
     private final NukiProperties properties;
@@ -185,8 +192,10 @@ class NukiWebClient {
      * @param redirectUri  where Nuki sends the owner back, one of the client's callback URLs in Nuki Web
      * @param state        what Nuki sends back unchanged, to tie its answer to the request
      * @param codeVerifier the secret that {@link #exchangeCode} sends with the code
+     * @param withWebhooks whether to ask for {@link #WEBHOOKS} too
      */
-    URI authorizationUri(URI redirectUri, String state, String codeVerifier) {
+    URI authorizationUri(URI redirectUri, String state, String codeVerifier, boolean withWebhooks) {
+        var scopes = withWebhooks ? String.join(" ", SCOPES) + " " + WEBHOOKS : String.join(" ", SCOPES);
         return UriComponentsBuilder.fromUri(properties.baseUrl())
                 .path("/oauth/authorize")
                 .queryParam("response_type", "code")
@@ -197,7 +206,7 @@ class NukiWebClient {
                 .queryParam("code_challenge", "{codeChallenge}")
                 .queryParam("code_challenge_method", "S256")
                 .encode()
-                .buildAndExpand(properties.oauth().clientId(), redirectUri, String.join(" ", SCOPES), state,
+                .buildAndExpand(properties.oauth().clientId(), redirectUri, scopes, state,
                         codeChallenge(codeVerifier))
                 .toUri();
     }
