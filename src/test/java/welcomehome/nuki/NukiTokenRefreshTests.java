@@ -23,7 +23,10 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -41,6 +44,7 @@ import welcomehome.nuki.LockProviderException.Reason;
 @IntegrationTest
 @AutoConfigureMockMvc
 @Import(NukiStandInConfiguration.class)
+@ExtendWith(OutputCaptureExtension.class)
 class NukiTokenRefreshTests {
 
     static final List<SmartLock> CASA = List.of(new SmartLock(17, DeviceType.SMART_LOCK, "Casa", null));
@@ -89,6 +93,20 @@ class NukiTokenRefreshTests {
         assertThat(crypto.decryptRefreshToken(aliceId, column("refresh_token_encrypted"))).isEqualTo("refresh-2");
         assertThat(expiresAt()).isBetween(OffsetDateTime.now().plusSeconds(3599 - 60),
                 OffsetDateTime.now().plusSeconds(3599));
+    }
+
+    @Test
+    void refreshLogsTheScopesThatNukiGrants(CapturedOutput output) {
+        insertAuthorization("access-1", "refresh-1", "-1 minute");
+        nukiRefreshes("refresh-1", "access-2", "refresh-2");
+        nukiListsCasaFor("access-2");
+
+        assertThat(locks.listLocks(aliceId)).isEqualTo(CASA);
+
+        assertThat(output.getAll())
+                .contains("Nuki refreshed the tokens of owner " + aliceId
+                        + " with the scopes smartlock.readOnly smartlock.action smartlock.log offline_access")
+                .doesNotContain("access-1", "refresh-1", "access-2", "refresh-2");
     }
 
     @Test

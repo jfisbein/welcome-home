@@ -14,6 +14,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import welcomehome.crypto.CryptoService;
@@ -32,6 +34,7 @@ import welcomehome.nuki.NukiConnectionDao.StoredConnection;
 public class NukiConnections {
 
     /** Far longer than any real token: longer input is rejected without calling Nuki. */
+    private static final Logger log = LoggerFactory.getLogger(NukiConnections.class);
     private static final int MAX_TOKEN_LENGTH = 1000;
 
     /** An access token this close to expiring is refreshed first, so that it does not expire during a call. */
@@ -104,6 +107,7 @@ public class NukiConnections {
      */
     List<SmartLock> connectAuthorized(UUID ownerId, String code, String codeVerifier, URI redirectUri) {
         var tokens = notActing(() -> nuki.exchangeCode(code, codeVerifier, redirectUri));
+        log.info("Nuki granted owner {} the scopes {}", ownerId, tokens.scopeForLog());
         var refreshToken = tokens.refreshToken();
         if (refreshToken == null || !tokens.grantsAll(NukiWebClient.SCOPES)) {
             throw new LockProviderException(Reason.MISSING_PERMISSION);
@@ -199,6 +203,7 @@ public class NukiConnections {
                 }
                 throw e;
             }
+            log.info("Nuki refreshed the tokens of owner {} with the scopes {}", ownerId, tokens.scopeForLog());
             // Nuki rotates the refresh token, but one that is not returned stays valid (RFC 6749, section 6).
             var newRefreshToken = tokens.refreshToken() == null ? refreshToken : tokens.refreshToken();
             var accessTokenEncrypted = crypto.encryptAccessToken(ownerId, tokens.accessToken());

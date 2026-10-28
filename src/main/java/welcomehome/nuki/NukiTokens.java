@@ -32,6 +32,15 @@ record NukiTokens(String accessToken, @Nullable String refreshToken, Duration ex
         return scope == null || Arrays.asList(scope.strip().split("\\s+")).containsAll(scopes);
     }
 
+    /**
+     * What the tokens allow, for the log: Nuki's scopes on one line.
+     *
+     * @return the scopes Nuki granted, or that it granted what was asked for
+     */
+    String scopeForLog() {
+        return scope == null ? "asked for" : scope.replaceAll("[\\p{Cntrl}\\s]+", " ").strip();
+    }
+
     @Override
     public String toString() {
         return "NukiTokens[expiresIn=" + expiresIn + ", scope=" + scope + "]";

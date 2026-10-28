@@ -26,7 +26,10 @@ import java.util.UUID;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
@@ -48,6 +51,7 @@ import welcomehome.crypto.CryptoService;
 @IntegrationTest
 @AutoConfigureMockMvc
 @Import(NukiStandInConfiguration.class)
+@ExtendWith(OutputCaptureExtension.class)
 class NukiAuthorizationTests {
 
     static final String ALICE = "alice@example.com";
@@ -136,6 +140,20 @@ class NukiAuthorizationTests {
         assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)))
                 .bodyText().contains("Conectado con tu cuenta de Nuki.", "<summary>Usar un API token en su lugar</summary>")
                 .doesNotContain("/settings/nuki/oauth", "Te llevamos a Nuki");
+    }
+
+    @Test
+    void scopesThatNukiGrantsAreLoggedWhetherOrNotTheyAreEnough(CapturedOutput output) {
+        nukiGrants("everything", "access-1", "refresh-1", SCOPE + " webhook.central");
+        callback(ALICE, "code=everything&state=" + state(authorize(ALICE)));
+        nuki.resetAll();
+        nukiGrants("no-action", "access-2", "refresh-2", "smartlock.readOnly\\nsmartlock.log offline_access");
+        assertFailed(callback(ALICE, "code=no-action&state=" + state(authorize(ALICE))), "missing-permission");
+
+        assertThat(output.getAll())
+                .contains("Nuki granted owner " + aliceId + " the scopes " + SCOPE + " webhook.central")
+                .contains("Nuki granted owner " + aliceId + " the scopes smartlock.readOnly smartlock.log offline_access")
+                .doesNotContain("access-1", "refresh-1", "access-2", "refresh-2");
     }
 
     @Test
