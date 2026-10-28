@@ -9,6 +9,9 @@ const FINAL = ["expired", "revoked", "invalid"];
 // push in time may slide again sooner.
 const ENABLE_AGAIN_AFTER_MS = 60 * 1000;
 const OPENER_ENABLE_AGAIN_AFTER_MS = 10 * 1000;
+// Meanwhile the thumb goes back to the start once the guest has seen it at the end, but the slider stays off, so
+// that a touch by mistake right after an opening, with the page still open, does not open again.
+const SLIDE_BACK_AFTER_MS = 2 * 1000;
 // How far from the thumb, as a share of the track, a pointer may start a slide: a touch on the track itself, by
 // mistake, does not move the thumb there.
 const THUMB_REACH = 0.15;
@@ -135,6 +138,7 @@ function setUp(door, slider) {
         if (RETRY_NOW.includes(result)) {
             enable();
         } else if (!FINAL.includes(result)) {
+            setTimeout(slideBack, SLIDE_BACK_AFTER_MS);
             setTimeout(enable, enableAgainAfter);
         }
     }
