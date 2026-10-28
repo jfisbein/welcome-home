@@ -26,8 +26,9 @@ import welcomehome.config.WelcomeHomeProperties;
  * owner's session and taken out on the way back, so a callback that this session did not start, or one that
  * comes twice, changes nothing. So is the PKCE code verifier, which never leaves the server until the exchange:
  * a code that leaks on its way back, through a log or the browser's history, is useless without it. The owner
- * is asked for Nuki's webhooks too, and sent to Nuki again without them if the client may not ask for them.
- * Every other outcome ends on the Nuki connection page. Without an OAuth2 client, both routes answer 404.
+ * is asked for the scopes of Nuki's Advanced API too, and sent to Nuki again without them if the client may not
+ * ask for them. Every other outcome ends on the Nuki connection page. Without an OAuth2 client, both routes answer
+ * 404.
  */
 @Controller
 class NukiAuthorizationController {
@@ -73,9 +74,9 @@ class NukiAuthorizationController {
         if (!(pending instanceof PendingAuthorization expected) || !expected.matches(owner.id(), state)) {
             return backToTheConnection(redirect, "failed");
         }
-        if ("invalid_scope".equals(error) && expected.withWebhooks()) {
-            log.info("Nuki's OAuth2 client may not ask for {}: authorizing without it, so the lock's log alone "
-                    + "confirms openings", NukiWebClient.WEBHOOKS);
+        if ("invalid_scope".equals(error) && expected.withAdvanced()) {
+            log.info("Nuki's OAuth2 client may not ask for {}: authorizing without them, so the lock's log alone "
+                    + "confirms openings", String.join(" ", NukiWebClient.ADVANCED_SCOPES));
             return toNuki(owner, session, false);
         }
         if (error != null || code == null) {
@@ -97,11 +98,11 @@ class NukiAuthorizationController {
     }
 
     /** Starts an authorization in the owner's session and sends them to Nuki with it. */
-    private String toNuki(CurrentOwner owner, HttpSession session, boolean withWebhooks) {
+    private String toNuki(CurrentOwner owner, HttpSession session, boolean withAdvanced) {
         var state = randomString();
         var codeVerifier = randomString();
-        session.setAttribute(PENDING, new PendingAuthorization(owner.id(), state, codeVerifier, withWebhooks));
-        return "redirect:" + nuki.authorizationUri(app.link(CALLBACK_PATH), state, codeVerifier, withWebhooks);
+        session.setAttribute(PENDING, new PendingAuthorization(owner.id(), state, codeVerifier, withAdvanced));
+        return "redirect:" + nuki.authorizationUri(app.link(CALLBACK_PATH), state, codeVerifier, withAdvanced);
     }
 
     private void requireClient() {
@@ -127,9 +128,9 @@ class NukiAuthorizationController {
      * @param ownerId      the owner who started it
      * @param state        what Nuki has to send back
      * @param codeVerifier the PKCE secret that goes with the code when it is exchanged
-     * @param withWebhooks whether it asks for Nuki's webhooks too
+     * @param withAdvanced whether it asks for the scopes of Nuki's Advanced API too
      */
-    record PendingAuthorization(UUID ownerId, String state, String codeVerifier, boolean withWebhooks)
+    record PendingAuthorization(UUID ownerId, String state, String codeVerifier, boolean withAdvanced)
             implements Serializable {
 
         boolean matches(UUID owner, @Nullable String returnedState) {

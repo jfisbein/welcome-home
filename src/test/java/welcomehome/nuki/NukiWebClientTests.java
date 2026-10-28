@@ -378,7 +378,7 @@ class NukiWebClientTests {
                         + "/oauth/authorize?response_type=code&client_id=client-id"
                         + "&redirect_uri=https%3A%2F%2Fwelcome.example%2Fnuki%2Fcallback"
                         + "&scope=smartlock.readOnly%20smartlock.action%20smartlock.log%20offline_access"
-                        + "%20webhook.central"
+                        + "%20webhook.central%20smartlock"
                         + "&state=the-state&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
                         + "&code_challenge_method=S256");
     }
