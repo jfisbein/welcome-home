@@ -41,7 +41,7 @@ Owners connected with OAuth2 learn at once whether the door opened when Nuki rep
 
 1. In Nuki Web, API → Advanced API, set the webhook URL to `https://welcome-home.example.com/nuki/webhook`. The app needs none of the device events: untick them all. Turning webhooks on makes Nuki send a test webhook, `{}`, which the app answers with 204, logging "Nuki sent a webhook that reports no action".
 2. The same tab lists Nuki's last 300 webhooks with the status the app answered: 204 is right. 401 means that `secrets/nuki-oauth-client-secret` is not the client secret shown there; the app logs "Refused a webhook that Nuki did not sign".
-3. An owner connected with OAuth2 before 2.5.4 connects again: at `/settings/nuki`, "Desconectar Nuki" and then "Conectar con Nuki" (their links do not open meanwhile). Their tokens lack the `webhook.central` or `smartlock` scope, and Nuki refuses their advanced unlatches, which the app then replaces with the plain action, logging "Nuki refused to unlatch smartlock ... with its Advanced API: 401".
+3. An owner connected with OAuth2 before 2.5.1 connects again: at `/settings/nuki`, "Desconectar Nuki" and then "Conectar con Nuki" (their links do not open meanwhile). Their tokens lack the `webhook.central` scope, and Nuki refuses their advanced unlatches, which the app then replaces with the plain action, logging "Nuki refused to unlatch smartlock ... with its Advanced API: 401".
 4. Nuki turns a client's webhooks off after several days of failing more than 5 % of them in a day, and emails the account first. Fix the cause, then reactivate them in the same tab.
 
 ## Release and upgrade

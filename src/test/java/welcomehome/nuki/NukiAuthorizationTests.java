@@ -99,8 +99,7 @@ class NukiAuthorizationTests {
         assertThat(location).startsWith(nuki.baseUrl() + "/oauth/authorize?response_type=code"
                 + "&client_id=" + NukiStandInConfiguration.CLIENT_ID
                 + "&redirect_uri=https%3A%2F%2Fwelcome.example%2Fnuki%2Fcallback"
-                + "&scope=smartlock.readOnly%20smartlock.action%20smartlock.log%20offline_access"
-                + "%20webhook.central%20smartlock"
+                + "&scope=smartlock.readOnly%20smartlock.action%20smartlock.log%20offline_access%20webhook.central"
                 + "&state=");
         assertThat(state(location)).matches("[A-Za-z0-9_-]{43}");
         assertThat(param(location, "code_challenge")).matches("[A-Za-z0-9_-]{43}");

@@ -70,13 +70,10 @@ class NukiWebClient {
             "offline_access");
 
     /**
-     * What welcome-home also asks for, for Nuki's Advanced API, without needing it. {@code webhook.central}: Nuki
-     * reports the Advanced API's actions only to central webhooks, which need it. {@code smartlock}, which also
-     * lets welcome-home manage the devices: Nuki refused an advanced unlatch to a token with every other scope
-     * here ("Token doesn't match required scopes!", 2026-10-28), and its webhooks guide asks for it in its example.
-     * A client whose Advanced API has no webhooks may not ask for them.
+     * What welcome-home also asks for, without needing it: Nuki reports the Advanced API's actions only to central
+     * webhooks, which need it. A client whose Advanced API has no webhooks may not ask for it.
      */
-    static final List<String> ADVANCED_SCOPES = List.of("webhook.central", "smartlock");
+    static final String WEBHOOKS = "webhook.central";
 
     private final RestClient rest;
     private final NukiProperties properties;
@@ -211,10 +208,10 @@ class NukiWebClient {
      * @param redirectUri  where Nuki sends the owner back, one of the client's callback URLs in Nuki Web
      * @param state        what Nuki sends back unchanged, to tie its answer to the request
      * @param codeVerifier the secret that {@link #exchangeCode} sends with the code
-     * @param withAdvanced whether to ask for the {@link #ADVANCED_SCOPES} too
+     * @param withWebhooks whether to ask for {@link #WEBHOOKS} too
      */
-    URI authorizationUri(URI redirectUri, String state, String codeVerifier, boolean withAdvanced) {
-        var scopes = String.join(" ", SCOPES) + (withAdvanced ? " " + String.join(" ", ADVANCED_SCOPES) : "");
+    URI authorizationUri(URI redirectUri, String state, String codeVerifier, boolean withWebhooks) {
+        var scopes = withWebhooks ? String.join(" ", SCOPES) + " " + WEBHOOKS : String.join(" ", SCOPES);
         return UriComponentsBuilder.fromUri(properties.baseUrl())
                 .path("/oauth/authorize")
                 .queryParam("response_type", "code")
