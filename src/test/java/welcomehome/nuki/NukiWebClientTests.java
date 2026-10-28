@@ -27,11 +27,15 @@ import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import welcomehome.nuki.LockProviderException.Reason;
 
+@ExtendWith(OutputCaptureExtension.class)
 class NukiWebClientTests {
 
     static final String TOKEN = "test-api-token";
@@ -159,6 +163,26 @@ class NukiWebClientTests {
 
         assertThat(client.unlatchReported(TOKEN, LOCK_ID)).isEmpty();
         nuki.verify(1, postRequestedFor(urlPathEqualTo("/smartlock/17/action/advanced")));
+    }
+
+    @Test
+    void refusedReportedUnlatchLogsNukisReasonOnOneLineAndCutShort(CapturedOutput output) {
+        nuki.stubFor(post("/smartlock/17/action/advanced").willReturn(status(401)
+                .withHeader("WWW-Authenticate", "Bearer error=\"insufficient_scope\"")
+                .withBody("{\"detailMessage\":\r\n  \"Your account forbids the execution\"}")));
+        nuki.stubFor(post("/smartlock/18/action/advanced").willReturn(status(403).withBody("x".repeat(1000))));
+        nuki.stubFor(post("/smartlock/19/action/advanced").willReturn(status(400)));
+
+        assertThat(client.unlatchReported(TOKEN, LOCK_ID)).isEmpty();
+        assertThat(client.unlatchReported(TOKEN, 18)).isEmpty();
+        assertThat(client.unlatchReported(TOKEN, 19)).isEmpty();
+
+        assertThat(output.getAll())
+                .contains("Nuki refused to unlatch smartlock 17 with its Advanced API: 401 (Bearer "
+                        + "error=\"insufficient_scope\" {\"detailMessage\": \"Your account forbids the execution\"})")
+                .contains("Nuki refused to unlatch smartlock 18 with its Advanced API: 403 (" + "x".repeat(300) + "...)")
+                .contains("Nuki refused to unlatch smartlock 19 with its Advanced API: 400" + System.lineSeparator())
+                .doesNotContain(TOKEN);
     }
 
     @Test

@@ -62,6 +62,8 @@ class NukiWebClient {
     private static final int BOX = 1;
     private static final int OPENER = 2;
     private static final int SERVER_STATE_OK = 0;
+    /** As much of Nuki's reason for a refusal as is logged. */
+    private static final int REASON_LENGTH = 300;
 
     /** What welcome-home needs from Nuki: to list locks, open them, read their logs, and keep its access. */
     static final List<String> SCOPES = List.of("smartlock.readOnly", "smartlock.action", "smartlock.log",
@@ -159,8 +161,8 @@ class NukiWebClient {
             if (e.getCause() instanceof RestClientResponseException refused
                     && refused.getStatusCode().is4xxClientError()
                     && !refused.getStatusCode().isSameCodeAs(HttpStatus.TOO_MANY_REQUESTS)) {
-                log.info("Nuki refused to unlatch smartlock {} with its Advanced API: {}", smartlockId,
-                        refused.getStatusCode().value());
+                log.info("Nuki refused to unlatch smartlock {} with its Advanced API: {}{}", smartlockId,
+                        refused.getStatusCode().value(), reason(refused));
                 return Optional.empty();
             }
             throw e;
@@ -183,6 +185,21 @@ class NukiWebClient {
                 .headers(headers -> headers.setBearerAuth(apiToken))
                 .retrieve()
                 .toBodilessEntity());
+    }
+
+    /**
+     * Nuki's reason for refusing a request, for the log: its {@code WWW-Authenticate} challenge and its answer, on
+     * one line and cut short, or nothing if it gave none. Only Nuki's answer is logged, never the request and its token.
+     */
+    private static String reason(RestClientResponseException refused) {
+        var headers = refused.getResponseHeaders();
+        var challenge = headers == null ? null : headers.getFirst(HttpHeaders.WWW_AUTHENTICATE);
+        var answer = refused.getResponseBodyAsString(StandardCharsets.UTF_8);
+        var text = ((challenge == null ? "" : challenge) + " " + answer).replaceAll("[\\p{Cntrl}\\s]+", " ").strip();
+        if (text.isEmpty()) {
+            return "";
+        }
+        return " (" + (text.length() > REASON_LENGTH ? text.substring(0, REASON_LENGTH) + "..." : text) + ")";
     }
 
     /**
