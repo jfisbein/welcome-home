@@ -39,10 +39,11 @@ Pages follow the system's light or dark theme, as Pico CSS does by itself. In Co
 
 ## Database
 
-`deploy/db-init/01-create-roles.sh` creates two roles when an empty Postgres starts:
+`deploy/db-init/01-create-roles.sh` creates the roles when an empty Postgres starts:
 
 - `migrator`: owns the database and the schema; migrations run as this role.
 - `app_user`: the application's user; no ownership and no `BYPASSRLS`, only the grants that migrations give it.
+- `backup_reader`, only when its password is given (`BACKUP_READER_PASSWORD` or `BACKUP_READER_PASSWORD_FILE`): an off-site backup tool's, with `BYPASSRLS` and `pg_read_all_data`, so it reads every row and writes nothing.
 
 Liquibase runs the changesets in `src/main/resources/db/changelog/` at startup as `migrator` (`spring.liquibase.user` / `spring.liquibase.password`), while the app connects as `app_user` (`spring.datasource.username` / `spring.datasource.password`). Outside the dev profile, set them with the `SPRING_LIQUIBASE_*` and `SPRING_DATASOURCE_*` environment variables.
 
@@ -261,7 +262,7 @@ A release is a tag on `main`: `git tag v1.2.3 && git push origin v1.2.3`. Once i
 
 `deploy/` is the Dockge stack: copy it to the stack's folder on the server. `compose.yaml` runs four services and publishes no port:
 
-- `db`: Postgres 18. `db-init/01-create-roles.sh` creates `migrator` and `app_user` on the first start. Its network is internal: it has no way out.
+- `db`: Postgres 18. `db-init/01-create-roles.sh` creates `migrator`, `app_user` and `backup_reader` on the first start. Its networks are internal: it has no way out. `dbbackup`, the second one, is for a backup tool on the same Docker host (see [Backups](#backups)).
 - `app`: the image, with a read-only file system, no capabilities, at most 1 GiB of memory (the JVM takes 75% of it for its heap), `TZ=Europe/Madrid` and `BASE_URL=https://welcome-home.example.com`. It reads its database and SMTP passwords and Nuki's OAuth2 client as properties from `/run/secrets/config/` (`spring.config.import=configtree:`), not from environment variables.
 - `backup`: dumps the database to `backups/` (see [Backups](#backups)).
 - `cloudflared`: connects the tunnel, whose public hostname `welcome-home.example.com` points to `http://app:8080`. The tunnel is the only way in, which is what makes `CF-Connecting-IP` and `X-Forwarded-Proto` trustworthy.
@@ -273,6 +274,7 @@ Before the first `docker compose up`, create `secrets/` next to `compose.yaml`:
 | `postgres_password`  | Postgres superuser's password, such as `openssl rand -base64 24` |
 | `migrator_password`  | `migrator`'s password                                    |
 | `app_user_password`  | `app_user`'s password                                    |
+| `backup_reader_password` | `backup_reader`'s password, for the off-site backup tool |
 | `aead-keyset.json`   | the AEAD keyset (`./gradlew generateKeysets`)            |
 | `mac-keyset.json`    | the MAC keyset                                           |
 | `tunnel_token`       | the Cloudflare tunnel's token                            |
@@ -289,7 +291,7 @@ Create `backups/` as well, owned by the `backup` service's user: `install -d -o 
 
 The `backup` service dumps the database with `pg_dump` (custom format) to `backups/welcome_home-<date>-<time>.dump` when it starts and every day at 04:00, after the access events' purge, and deletes the dumps older than 30 days (`BACKUP_TIME`, `BACKUP_RETENTION_DAYS`). It dumps as the Postgres superuser, as Row-Level Security would hide every row from any other role. Its health check fails when the last dump is more than 25 hours old. To take a dump now, such as before an upgrade: `docker compose exec backup /backup/backup.sh now`.
 
-- **Off the server**: a restic job (such as zerobyte) copies `backups/` every day to another provider, such as Backblaze B2, after 04:00. Keep its snapshots for 30 days too, so that 30 days after an owner is deleted no copy of their data is left.
+- **Off the server**: a database backup tool on the same Docker host, such as Databasus, dumps the database every day to another provider, such as Backblaze B2. Its stack joins `dbbackup` as the external network `welcome-home_dbbackup` and connects to `welcome-home-db-1:5432` as `backup_reader`: no port is published, and the tool reaches neither `app` nor the internet through it. Alternatively, a restic job (such as zerobyte) copies `backups/` after 04:00. Either way, keep its copies for 30 days at most, deleted ones included (a bucket that keeps old versions keeps them too), so that 30 days after an owner is deleted no copy of their data is left.
 - **Keysets**: never with the dumps. Keep `aead-keyset.json` and `mac-keyset.json` in a password manager (Vaultwarden), and update them there whenever they change. A dump without them still restores, but every owner must connect Nuki again and every access link be regenerated. The other secrets can be generated anew on a new server.
 
 The dumps hold the encrypted Nuki tokens, owners' e-mail addresses, link labels and guests' IP addresses: only root on the server can read them.
@@ -300,7 +302,7 @@ To restore one, with the stack's `compose.yaml` next to the script:
 ./restore.sh backups/welcome_home-20261018-040000.dump
 ```
 
-It stops `app` and `backup`, drops the database and recreates it from the dump with its owner, grants and Liquibase history, and starts both again: the app migrates it if the dump comes from an older version, and `backup` takes a dump of the restored database. On a new server, create `secrets/` (with the keysets from the password manager) and `backups/` first and start `db`, so that `db-init` creates the roles; the passwords may be new ones.
+It stops `app` and `backup`, drops the database and recreates it from the dump with its owner, grants and Liquibase history, and starts both again: the app migrates it if the dump comes from an older version, and `backup` takes a dump of the restored database. On a new server, create `secrets/` (with the keysets from the password manager) and `backups/` first and start `db`, so that `db-init` creates the roles; the passwords may be new ones. `backup_reader` must be among them: dumps carry its `CONNECT` grant, and `pg_restore --create` stops without it.
 
 ## Modules
 

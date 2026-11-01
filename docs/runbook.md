@@ -7,7 +7,7 @@ How to run welcome-home in production. It runs as a Dockge stack on `docker.frit
 | Public URL         | yours; `https://welcome-home.example.com` stands for it here           |
 | Image              | `ghcr.io/jfisbein/welcome-home:v2`, the latest 2.x release             |
 | Secrets            | `secrets/` in the stack's folder; the keysets also in Vaultwarden      |
-| Database dumps     | `backups/` in the stack's folder, copied daily to B2 by zerobyte       |
+| Database dumps     | `backups/` in the stack's folder; off-site, Databasus's daily dumps in B2 |
 | Tunnel             | Cloudflare Zero Trust: its own tunnel, with only this public hostname  |
 
 ## First start
@@ -19,7 +19,7 @@ How to run welcome-home in production. It runs as a Dockge stack on `docker.frit
 
    ```sh
    mkdir secrets && chmod 700 secrets
-   for name in postgres_password migrator_password app_user_password; do
+   for name in postgres_password migrator_password app_user_password backup_reader_password; do
        openssl rand -base64 24 | tr -d '\n' > secrets/$name
    done
    # the two keysets, as secrets/aead-keyset.json and secrets/mac-keyset.json
@@ -33,7 +33,31 @@ How to run welcome-home in production. It runs as a Dockge stack on `docker.frit
 5. **Start.** Deploy the stack. `db`, `app` and `backup` turn healthy within a minute or two, and `cloudflared` starts once `app` is. `https://welcome-home.example.com/actuator/health` answers `{"status":"UP"}` from outside.
 6. **First admin.** `docker compose run --rm app --bootstrap-admin` prints an invitation link, valid for 72 hours. Open it on your phone or computer, enter your email and create the passkey. Further owners are invited from `/admin/owners`.
 7. **Emails.** In SMTP2GO, verify the sender domain `example.com` (its DNS records) and create an SMTP user; its name and password are `secrets/smtp_username` and `smtp_password`. The sender is `NOTIFICATIONS_FROM` in `compose.yaml`. Check with "Enviarme un email de prueba" at `/settings/notifications`.
-8. **Off-site copy.** In zerobyte, a daily job after 04:00 that backs up the stack's `backups/` folder to B2, keeping 30 days of snapshots.
+8. **Off-site copy.** Databasus, a stack on the same Docker host, dumps the database to B2 every day:
+   1. In Databasus's `compose.yaml`, join the network that `db` shares with it, which this stack creates on every start:
+
+      ```yaml
+      services:
+        databasus:
+          networks:
+            - default
+            - welcome-home_dbbackup
+      networks:
+        welcome-home_dbbackup:
+          external: true
+      ```
+
+   2. On a database created before `backup_reader` existed, `db-init` did not create it: create it by hand, as root in the stack's folder, with `docker compose exec db psql -U postgres -d welcome_home` and the password in `secrets/backup_reader_password`:
+
+      ```sql
+      CREATE ROLE backup_reader LOGIN BYPASSRLS PASSWORD '<secrets/backup_reader_password>';
+      GRANT CONNECT ON DATABASE welcome_home TO backup_reader;
+      GRANT pg_read_all_data TO backup_reader;
+      ```
+
+   3. In Databasus, add a PostgreSQL database: host `welcome-home-db-1`, port 5432, database `welcome_home`, user `backup_reader` with the password in `secrets/backup_reader_password`. Databasus lists `BYPASSRLS` among the role's privileges and offers no read-only user of its own instead, because of Row-Level Security: that is right. A daily backup after the access events' purge at 03:30, such as 04:15; **keep 30 days at most**, and check that the bucket deletes what Databasus deletes rather than keeping old versions, so that 30 days after an owner is deleted no copy of their data is left.
+
+   While Databasus is attached, `docker compose down` here reports `Resource is still in use` for `welcome-home_dbbackup`: the network stays, and the next start uses it again.
 
 ## Nuki's webhook URL
 
@@ -88,9 +112,9 @@ ls -lt backups/                                   # the newest dumps first
 
 Run it as root: `backups/` is readable only by root and the `backup` service's user. The script stops `app` and `backup`, replaces the database with the dump and starts both again. Whatever happened after the dump is lost: owners, links and history alike.
 
-To get a dump from B2, restore it with zerobyte into any folder and pass its path to `restore.sh`.
+A dump taken before `backup_reader` existed brings the database back without its `CONNECT` grant, and Databasus then fails to connect: run that `GRANT CONNECT` from "First start" again. Not while Databasus is dumping: `pg_restore` cannot drop a database that someone is connected to, and stops before changing anything. To start from Databasus's copy in B2, such as on a new server, download the backup in Databasus (Download, a `pg_dump` custom archive) and pass its path to `restore.sh`.
 
-**On a new server:** follow "First start" with the keysets from Vaultwarden (new passwords and a new tunnel token are fine), but do not deploy the whole stack yet: start only `db` (`docker compose up -d db`), so that it creates the roles, then run `restore.sh`, then deploy the rest. Without the keysets the dump still restores, but every owner has to paste their Nuki API token again and every access link has to be regenerated.
+**On a new server:** follow "First start" with the keysets from Vaultwarden (new passwords and a new tunnel token are fine), but do not deploy the whole stack yet: start only `db` (`docker compose up -d db`), so that it creates the roles, then run `restore.sh`, then deploy the rest. `backup_reader` must be among those roles, as the dumps carry its `CONNECT` grant and `pg_restore --create` stops without it; with a new password, change it in Databasus too. Without the keysets the dump still restores, but every owner has to paste their Nuki API token again and every access link has to be regenerated.
 
 Rehearse a restore now and then, on a copy of the stack under another project name (`COMPOSE_PROJECT_NAME=welcome-home-test`) on any Docker host, so that the procedure is known to work before it is needed.
 

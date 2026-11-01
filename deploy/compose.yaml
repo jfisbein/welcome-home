@@ -12,16 +12,19 @@ services:
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       MIGRATOR_PASSWORD_FILE: /run/secrets/migrator_password
       APP_USER_PASSWORD_FILE: /run/secrets/app_user_password
+      BACKUP_READER_PASSWORD_FILE: /run/secrets/backup_reader_password
     secrets:
       - postgres_password
       - migrator_password
       - app_user_password
+      - backup_reader_password
     volumes:
       - ./db-init:/docker-entrypoint-initdb.d:ro
       # Since Postgres 18 the image keeps its data in /var/lib/postgresql/<major>/docker.
       - db-data:/var/lib/postgresql
     networks:
       - backend
+      - dbbackup
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d welcome_home"]
       interval: 10s
@@ -156,6 +159,11 @@ networks:
   backend:
     internal: true
   frontend: {}
+  # For an off-site backup tool on the same Docker host, such as Databasus: its stack joins this network as the
+  # external welcome-home_dbbackup and reaches the database as welcome-home-db-1:5432, as backup_reader, without
+  # a published port and without reaching app. Defined here so that every start recreates it.
+  dbbackup:
+    internal: true
 
 secrets:
   postgres_password:
@@ -164,6 +172,8 @@ secrets:
     file: ./secrets/migrator_password
   app_user_password:
     file: ./secrets/app_user_password
+  backup_reader_password:
+    file: ./secrets/backup_reader_password
   aead_keyset:
     file: ./secrets/aead-keyset.json
   mac_keyset:
