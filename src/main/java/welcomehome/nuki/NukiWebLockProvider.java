@@ -2,6 +2,7 @@ package welcomehome.nuki;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.stereotype.Component;
@@ -25,6 +26,11 @@ class NukiWebLockProvider implements LockProvider {
         this.connections = connections;
         this.nuki = nuki;
         this.reports = reports;
+    }
+
+    @Override
+    public Optional<LockConnection> findConnection(UUID ownerId) {
+        return connections.find(ownerId).map(connection -> new LockConnection(connection.id(), connection.status()));
     }
 
     @Override

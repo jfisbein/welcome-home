@@ -34,7 +34,7 @@ import welcomehome.nuki.NukiConnectionDao.StoredConnection;
  * until Nuki accepts the stored credentials again, which is tried for {@link #RECHECK_FOR}.
  */
 @Service
-public class NukiConnections {
+class NukiConnections {
 
     private static final Logger log = LoggerFactory.getLogger(NukiConnections.class);
 
@@ -76,7 +76,7 @@ public class NukiConnections {
      * @param ownerId the owner
      * @return the connection, or empty if the owner has never connected Nuki
      */
-    public Optional<NukiConnection> find(UUID ownerId) {
+    Optional<NukiConnection> find(UUID ownerId) {
         return ownerTransactions.execute(ownerId, () -> connections.find(ownerId))
                 .map(stored -> new NukiConnection(stored.id(), stored.credential(), stored.status(),
                         stored.lastCheckedAt()));

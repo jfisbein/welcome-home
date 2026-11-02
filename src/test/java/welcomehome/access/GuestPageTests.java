@@ -1,7 +1,10 @@
 package welcomehome.access;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import java.nio.charset.StandardCharsets;
 import java.time.DayOfWeek;
@@ -72,7 +75,9 @@ class GuestPageTests {
 
     @AfterEach
     void getNeverCallsTheLockProvider() {
-        verifyNoInteractions(lockProvider);
+        // Reading the connection is the app's own: only asking the provider to do anything would count.
+        verify(lockProvider, atLeast(0)).findConnection(any());
+        verifyNoMoreInteractions(lockProvider);
     }
 
     @Test

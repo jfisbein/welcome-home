@@ -11,8 +11,8 @@ import welcomehome.links.LinkSchedules;
 import welcomehome.links.LinkStatus;
 import welcomehome.locks.Locks;
 import welcomehome.locks.OwnerLock;
-import welcomehome.nuki.ConnectionStatus;
-import welcomehome.nuki.NukiConnections;
+import welcomehome.nuki.LockConnection;
+import welcomehome.nuki.LockProvider;
 
 /**
  * Turns the token of a guest's URL into a link the app can trust: it resolves the link and accepts it only
@@ -23,15 +23,15 @@ class GuestLinks {
 
     private final LinkTokenSigner signer;
     private final ResolvedLinkDao resolvedLinks;
-    private final NukiConnections nukiConnections;
+    private final LockProvider lockProvider;
     private final Locks locks;
     private final LinkSchedules schedules;
 
-    GuestLinks(LinkTokenSigner signer, ResolvedLinkDao resolvedLinks, NukiConnections nukiConnections, Locks locks,
+    GuestLinks(LinkTokenSigner signer, ResolvedLinkDao resolvedLinks, LockProvider lockProvider, Locks locks,
                LinkSchedules schedules) {
         this.signer = signer;
         this.resolvedLinks = resolvedLinks;
-        this.nukiConnections = nukiConnections;
+        this.lockProvider = lockProvider;
         this.locks = locks;
         this.schedules = schedules;
     }
@@ -104,9 +104,7 @@ class GuestLinks {
     }
 
     private boolean connected(ResolvedLink link) {
-        return nukiConnections.find(link.ownerId())
-                .filter(connection -> connection.status() == ConnectionStatus.OK)
-                .isPresent();
+        return lockProvider.findConnection(link.ownerId()).filter(LockConnection::works).isPresent();
     }
 
     /**
