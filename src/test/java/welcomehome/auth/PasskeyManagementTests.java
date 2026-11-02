@@ -45,6 +45,7 @@ class PasskeyManagementTests {
 
     final PasskeyEmulator phone = new PasskeyEmulator(IntegrationTest.BASE_URL);
     final PasskeyEmulator laptop = new PasskeyEmulator(IntegrationTest.BASE_URL);
+    final PasskeyEmulator bobsPhone = new PasskeyEmulator(IntegrationTest.BASE_URL);
 
     @BeforeEach
     void registerAliceOnHerPhoneAndBob() {
@@ -53,7 +54,7 @@ class PasskeyManagementTests {
             migrator.sql("DELETE FROM " + table).update();
         }
         register(ALICE, phone);
-        register(BOB, new PasskeyEmulator(IntegrationTest.BASE_URL));
+        register(BOB, bobsPhone);
         jdbc.sql("UPDATE user_credentials SET label = 'Móvil de Bob' FROM user_entities u "
                 + "WHERE u.id = user_entity_user_id AND u.name = ?").param(BOB).update();
     }
@@ -119,6 +120,44 @@ class PasskeyManagementTests {
     }
 
     @Test
+    void deletingAPasskeyEndsTheOwnersOtherSessionsButNotTheirs() {
+        addLaptop();
+        var onPhone = signedIn(phone);
+        var onLaptop = signedIn(laptop);
+        var bobs = signedIn(bobsPhone);
+        for (var session : List.of(onPhone, onLaptop, bobs)) {
+            assertThat(mvc.get().uri("/settings/passkeys").session(session)).hasStatusOk();
+        }
+
+        assertThat(mvc.delete().uri("/settings/passkeys/" + credentialIdOf("Passkey")).session(onLaptop).with(csrf()))
+                .hasStatus(HttpStatus.FOUND);
+
+        assertThat(onPhone.isInvalid()).as("the session on the phone just deleted").isTrue();
+        assertThat(mvc.get().uri("/settings/passkeys").session(onPhone)).hasStatus(HttpStatus.FOUND)
+                .redirectedUrl().contains("/login");
+        assertThat(mvc.get().uri("/settings/passkeys").session(onLaptop)).as("the one asking").hasStatusOk();
+        assertThat(mvc.get().uri("/settings/passkeys").session(bobs)).as("another owner").hasStatusOk();
+    }
+
+    @Test
+    void signingInGetsANewSessionId() {
+        var visit = new MockHttpSession();
+        var before = visit.getId();
+        var options = body(mvc.post().uri("/webauthn/authenticate/options").session(visit).with(csrf()).exchange());
+
+        var result = mvc.post().uri("/login/webauthn").session(visit).with(csrf())
+                .with(request -> {
+                    // As with a browser that sent the session's cookie, unlike MockMvc by default.
+                    request.setRequestedSessionIdValid(true);
+                    return request;
+                })
+                .contentType(MediaType.APPLICATION_JSON).content(phone.get(options)).exchange();
+
+        assertThat(result).hasStatusOk();
+        assertThat(visit.getId()).isNotEqualTo(before);
+    }
+
+    @Test
     void theLastPasskeyCannotBeDeleted() {
         assertThat(mvc.get().uri("/settings/passkeys").with(owner(ALICE))).bodyText()
                 .contains("Es tu única passkey").doesNotContain("data-confirm");
@@ -158,6 +197,14 @@ class PasskeyManagementTests {
                 .contentType(MediaType.APPLICATION_JSON).content("{\"email\": \"" + email + "\"}").exchange());
         assertThat(mvc.post().uri(invitation + "/register").session(session).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content(device.create(options))).hasStatusOk();
+    }
+
+    private MockHttpSession signedIn(PasskeyEmulator device) {
+        var visit = new MockHttpSession();
+        var options = body(mvc.post().uri("/webauthn/authenticate/options").session(visit).with(csrf()).exchange());
+        assertThat(mvc.post().uri("/login/webauthn").session(visit).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content(device.get(options))).hasStatusOk();
+        return visit;
     }
 
     private void assertSignsIn(PasskeyEmulator device, boolean expected) {
