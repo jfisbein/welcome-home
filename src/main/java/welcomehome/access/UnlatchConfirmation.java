@@ -2,21 +2,17 @@ package welcomehome.access;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.EnumSet;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import welcomehome.audit.AccessOutcome;
-import welcomehome.nuki.LoggedAction;
 import welcomehome.nuki.ActionResult;
 import welcomehome.nuki.LockLogEntry;
 import welcomehome.nuki.LockProvider;
 import welcomehome.nuki.LockProviderException;
-import welcomehome.nuki.LockTrigger;
 import welcomehome.nuki.PendingAction;
 
 /**
@@ -33,13 +29,6 @@ import welcomehome.nuki.PendingAction;
 class UnlatchConfirmation {
 
     private static final Logger log = LoggerFactory.getLogger(UnlatchConfirmation.class);
-
-    /**
-     * The triggers an unlatch through the Nuki Web API may carry. Nuki documents 4 (web), but the unlatches
-     * welcome-home sent were logged with 0 (system), as were the owner's own from the Nuki app; so an unlatch
-     * from the app at the same moment is still taken for the guest's.
-     */
-    static final Set<LockTrigger> NUKI_WEB_API = EnumSet.of(LockTrigger.SYSTEM, LockTrigger.WEB);
 
     /** The lock's clock and the server's may differ a little: entries this much older than the request count. */
     static final Duration CLOCK_SKEW = Duration.ofSeconds(5);
@@ -72,7 +61,7 @@ class UnlatchConfirmation {
                         .filter(entry -> !entry.occurredAt().isBefore(requestedAt.minus(CLOCK_SKEW)))
                         .toList();
                 var logged = since.stream()
-                        .filter(entry -> entry.action() == LoggedAction.UNLATCH && NUKI_WEB_API.contains(entry.trigger()))
+                        .filter(LockLogEntry::isRemoteUnlatch)
                         .findFirst();
                 if (logged.isPresent()) {
                     return result(logged.get().result());

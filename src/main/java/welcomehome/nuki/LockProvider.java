@@ -2,6 +2,7 @@ package welcomehome.nuki;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -13,6 +14,14 @@ import java.util.UUID;
  * owner, or a valid access link of the owner, asks for it.
  */
 public interface LockProvider {
+
+    /**
+     * Finds the owner's connection, without asking the provider anything.
+     *
+     * @param ownerId the owner
+     * @return the connection, or empty if the owner has never made one
+     */
+    Optional<LockConnection> findConnection(UUID ownerId);
 
     /**
      * Lists the owner's smart locks and Openers.

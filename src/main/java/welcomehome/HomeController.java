@@ -10,7 +10,7 @@ import welcomehome.auth.CurrentOwner;
 import welcomehome.auth.EmailVerification;
 import welcomehome.locks.LockChecks;
 import welcomehome.locks.Locks;
-import welcomehome.nuki.NukiConnections;
+import welcomehome.nuki.LockProvider;
 
 /**
  * The owner's home page: their locks, what is wrong with them, and the latest attempts with their links. It also
@@ -21,15 +21,15 @@ class HomeController {
 
     static final int RECENT_ATTEMPTS = 10;
 
-    private final NukiConnections nukiConnections;
+    private final LockProvider lockProvider;
     private final EmailVerification emailVerification;
     private final Locks locks;
     private final LockChecks lockChecks;
     private final RecentAttempts recentAttempts;
 
-    HomeController(NukiConnections nukiConnections, EmailVerification emailVerification, Locks locks,
+    HomeController(LockProvider lockProvider, EmailVerification emailVerification, Locks locks,
                    LockChecks lockChecks, RecentAttempts recentAttempts) {
-        this.nukiConnections = nukiConnections;
+        this.lockProvider = lockProvider;
         this.emailVerification = emailVerification;
         this.locks = locks;
         this.lockChecks = lockChecks;
@@ -42,7 +42,7 @@ class HomeController {
         // Before reading the connection: Nuki rejecting the token here disconnects it, which this page then says.
         model.addAttribute("lockWarnings", lockChecks.warnings(owner.id(), ownerLocks));
         model.addAttribute("email", owner.email());
-        model.addAttribute("nukiConnection", nukiConnections.find(owner.id()).orElse(null));
+        model.addAttribute("nukiConnection", lockProvider.findConnection(owner.id()).orElse(null));
         model.addAttribute("emailVerified", emailVerification.isVerified(owner.id()));
         model.addAttribute("locks", ownerLocks);
         model.addAttribute("attempts", recentAttempts.latest(owner.id(), RECENT_ATTEMPTS, locale));

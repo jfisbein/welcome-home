@@ -8,12 +8,11 @@ import java.util.stream.Collectors;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import welcomehome.db.OwnerTransactions;
-import welcomehome.nuki.ConnectionStatus;
+import welcomehome.nuki.LockConnection;
 import welcomehome.nuki.LockProvider;
 import welcomehome.nuki.LockProviderException;
 import welcomehome.nuki.LockProviderException.Reason;
 import welcomehome.nuki.NukiConnected;
-import welcomehome.nuki.NukiConnections;
 import welcomehome.nuki.NukiDevice;
 
 /**
@@ -25,14 +24,12 @@ import welcomehome.nuki.NukiDevice;
 class LockSync {
 
     private final LockProvider lockProvider;
-    private final NukiConnections nukiConnections;
     private final LockDao locks;
     private final OwnerTransactions ownerTransactions;
 
-    LockSync(LockProvider lockProvider, NukiConnections nukiConnections, LockDao locks,
+    LockSync(LockProvider lockProvider, LockDao locks,
              OwnerTransactions ownerTransactions) {
         this.lockProvider = lockProvider;
-        this.nukiConnections = nukiConnections;
         this.locks = locks;
         this.ownerTransactions = ownerTransactions;
     }
@@ -56,8 +53,8 @@ class LockSync {
     }
 
     private SyncResult sync(UUID ownerId, boolean keepLocksIfNoneListed) {
-        var connection = nukiConnections.find(ownerId)
-                .filter(found -> found.status() == ConnectionStatus.OK)
+        var connection = lockProvider.findConnection(ownerId)
+                .filter(LockConnection::works)
                 .orElseThrow(() -> new LockProviderException(Reason.NOT_CONNECTED));
         // Outside the transaction: no database connection is held while waiting for Nuki.
         var devices = lockProvider.listLocks(ownerId);
@@ -67,7 +64,7 @@ class LockSync {
     /** Imports what Nuki has just listed: an owner who connects it should not have to ask for that. */
     @EventListener
     void on(NukiConnected connected) {
-        nukiConnections.find(connected.ownerId()).ifPresent(connection ->
+        lockProvider.findConnection(connected.ownerId()).ifPresent(connection ->
                 apply(connected.ownerId(), connection.id(), connected.devices(), true));
     }
 
