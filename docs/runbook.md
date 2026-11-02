@@ -6,14 +6,28 @@ How to run welcome-home in production. It runs as a Dockge stack on a server of 
 |--------------------|------------------------------------------------------------------------|
 | Public URL         | yours; `https://welcome-home.example.com` stands for it here           |
 | Image              | `ghcr.io/jfisbein/welcome-home:v2`, the latest 2.x release             |
-| Secrets            | `secrets/` in the stack's folder; the keysets also in Vaultwarden      |
-| Database dumps     | `backups/` in the stack's folder; off-site, Databasus's daily dumps in B2 |
+| Secrets            | `secrets/` in the stack's folder; the keysets also in a password manager |
+| Database dumps     | `backups/` in the stack's folder; off-site, wherever your backup tool puts them |
 | Tunnel             | Cloudflare Zero Trust: its own tunnel, with only this public hostname  |
+
+What the stack needs, and what is up to you. The names in brackets are what this runbook uses as examples; any other does as well.
+
+| Needed | What for |
+|---|---|
+| A Docker host with Compose, such as a Dockge stack | Runs the four services |
+| A Cloudflare tunnel | The only way in, which the app's trust in Cloudflare's headers relies on |
+| A safe place for the keysets, away from the dumps (Vaultwarden) | Without them, a dump cannot decrypt Nuki tokens or keep links working |
+
+| Optional | Without it |
+|---|---|
+| An SMTP server (SMTP2GO) | No emails: remove `SPRING_MAIL_HOST` from `compose.yaml`, and leave the files `smtp_username` and `smtp_password` empty, as it still asks for them. The pages then say that emails are off |
+| Nuki's OAuth2 client, granted with its Advanced API | Owners connect by pasting an API token: the files `nuki-oauth-client-id` and `-secret` stay empty |
+| An off-site backup tool (Databasus, dumping to Backblaze B2) | Dumps stay only in `backups/` on the server, lost with it |
 
 ## First start
 
 1. **Tunnel.** In Cloudflare Zero Trust, create a tunnel for welcome-home alone, with the public hostname `welcome-home.example.com` pointing to `http://app:8080`, and copy its token.
-2. **Keysets.** On a development machine, `./gradlew generateKeysets` writes them to `secrets/` (production's own: never the development ones). Store `aead-keyset.json` and `mac-keyset.json` in Vaultwarden, then delete them from the development machine once they are on the server.
+2. **Keysets.** On a development machine, `./gradlew generateKeysets` writes them to `secrets/` (production's own: never the development ones). Store `aead-keyset.json` and `mac-keyset.json` in your password manager, then delete them from the development machine once they are on the server.
 3. **Stack.** Create the stack in Dockge from `deploy/compose.yaml`, and copy `deploy/db-init/`, `deploy/backup/` and `deploy/restore.sh` next to it.
 4. **Secrets.** In the stack's folder:
 
@@ -24,8 +38,8 @@ How to run welcome-home in production. It runs as a Dockge stack on a server of 
    done
    # the two keysets, as secrets/aead-keyset.json and secrets/mac-keyset.json
    printf '%s' '<tunnel token>' > secrets/tunnel_token
-   printf '%s' '<SMTP2GO user>' > secrets/smtp_username
-   printf '%s' '<SMTP2GO password>' > secrets/smtp_password
+   printf '%s' '<SMTP user>' > secrets/smtp_username         # empty without an SMTP server
+   printf '%s' '<SMTP password>' > secrets/smtp_password
    printf '%s' '<client id>' > secrets/nuki-oauth-client-id
    printf '%s' '<client secret>' > secrets/nuki-oauth-client-secret
    chmod 444 secrets/*
@@ -36,8 +50,8 @@ How to run welcome-home in production. It runs as a Dockge stack on a server of 
 
 5. **Start.** Deploy the stack. `db`, `app` and `backup` turn healthy within a minute or two, and `cloudflared` starts once `app` is. `https://welcome-home.example.com/actuator/health` answers `{"status":"UP"}` from outside.
 6. **First admin.** `docker compose run --rm app --bootstrap-admin` prints an invitation link, valid for 72 hours. Open it on your phone or computer, enter your email and create the passkey. Further owners are invited from `/admin/owners`.
-7. **Emails.** In SMTP2GO, verify the sender domain `example.com` (its DNS records) and create an SMTP user; its name and password are `secrets/smtp_username` and `smtp_password`. The sender is `NOTIFICATIONS_FROM` in `compose.yaml`. Check with "Enviarme un email de prueba" at `/settings/notifications`.
-8. **Off-site copy.** Databasus, a stack on the same Docker host, dumps the database to B2 every day:
+7. **Emails**, optional. With SMTP2GO, for example: verify the sender domain `example.com` (its DNS records) and create an SMTP user; its name and password are `secrets/smtp_username` and `smtp_password`. The server is `SPRING_MAIL_HOST` and `SPRING_MAIL_PORT` in `compose.yaml`, and the sender `NOTIFICATIONS_FROM`. Check with "Enviarme un email de prueba" at `/settings/notifications`.
+8. **Off-site copy**, optional but recommended. Any tool that can reach the database over `dbbackup` as `backup_reader` will do. With Databasus, for example, a stack on the same Docker host that dumps the database to B2 every day:
    1. In Databasus's `compose.yaml`, join the network that `db` shares with it, which this stack creates on every start:
 
       ```yaml
@@ -118,7 +132,7 @@ Run it as root: `backups/` is readable only by root and the `backup` service's u
 
 A dump taken before `backup_reader` existed brings the database back without its `CONNECT` grant, and Databasus then fails to connect: run that `GRANT CONNECT` from "First start" again. Not while Databasus is dumping: `pg_restore` cannot drop a database that someone is connected to, and stops before changing anything. To start from Databasus's copy in B2, such as on a new server, download the backup in Databasus (Download, a `pg_dump` custom archive) and pass its path to `restore.sh`.
 
-**On a new server:** follow "First start" with the keysets from Vaultwarden (new passwords and a new tunnel token are fine), but do not deploy the whole stack yet: start only `db` (`docker compose up -d db`), so that it creates the roles, then run `restore.sh`, then deploy the rest. `backup_reader` must be among those roles, as the dumps carry its `CONNECT` grant and `pg_restore --create` stops without it; with a new password, change it in Databasus too. Without the keysets the dump still restores, but every owner has to paste their Nuki API token again and every access link has to be regenerated.
+**On a new server:** follow "First start" with the keysets from your password manager (new passwords and a new tunnel token are fine), but do not deploy the whole stack yet: start only `db` (`docker compose up -d db`), so that it creates the roles, then run `restore.sh`, then deploy the rest. `backup_reader` must be among those roles, as the dumps carry its `CONNECT` grant and `pg_restore --create` stops without it; with a new password, change it in Databasus too. Without the keysets the dump still restores, but every owner has to paste their Nuki API token again and every access link has to be regenerated.
 
 CI tries `backup.sh` and `restore.sh` on every change, on a copy of the stack with test data (`.github/scripts/test_backup_restore.sh`). That says that the scripts work, not that your dumps do, so still rehearse a restore of a real dump now and then, on a copy of the stack under another project name (`COMPOSE_PROJECT_NAME=welcome-home-test`) on any Docker host.
 
@@ -138,8 +152,8 @@ Since Postgres 18 the image keeps its data in `/var/lib/postgresql/<major>/docke
 
 The AEAD keyset encrypts the owners' Nuki tokens: pasted API tokens, and OAuth2 access and refresh tokens. Rotating it adds a new primary key: tokens stored from then on use it, and the earlier keys stay in the keyset to decrypt the tokens already stored.
 
-1. Copy `aead-keyset.json` from Vaultwarden to a development machine and run `./gradlew rotateAeadKeyset --args=<path to aead-keyset.json>`. It prints the new primary key's id.
-2. Store the rotated file in Vaultwarden, replacing the old one.
+1. Copy `aead-keyset.json` from your password manager to a development machine and run `./gradlew rotateAeadKeyset --args=<path to aead-keyset.json>`. It prints the new primary key's id.
+2. Store the rotated file in your password manager, replacing the old one.
 3. On the server, replace `secrets/aead-keyset.json` with it (`chmod 444`) and restart `app`: `docker compose restart app`. Delete the copy on the development machine.
 
 Tokens stay encrypted with the key they were stored with until they are stored again. OAuth2 tokens are, on the first refresh after the rotation, within a day at most as the daily check refreshes them; a pasted API token only when its owner pastes it again. A disconnected connection is not refreshed. To see how many connections each key encrypts (the id is in the ciphertext, after a version byte):
@@ -159,7 +173,7 @@ A key that no token uses can be removed from the keyset (`jq 'del(.key[] | selec
 
 Once the old key encrypts no token, remove it.
 
-**If the MAC keyset leaked**, anyone who knows a link's id can forge its URL. Replace it with a new one (`./gradlew generateKeysets` into an empty folder, keeping only `mac-keyset.json`), store it in Vaultwarden and on the server, and restart `app`: every access link changes, and owners have to share their links again.
+**If the MAC keyset leaked**, anyone who knows a link's id can forge its URL. Replace it with a new one (`./gradlew generateKeysets` into an empty folder, keeping only `mac-keyset.json`), store it in your password manager and on the server, and restart `app`: every access link changes, and owners have to share their links again.
 
 ## An owner leaves
 

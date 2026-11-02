@@ -52,10 +52,11 @@ services:
       SPRING_CONFIG_IMPORT: configtree:/run/secrets/config/
       AEAD_KEYSET_FILE: /run/secrets/aead_keyset
       MAC_KEYSET_FILE: /run/secrets/mac_keyset
-      # Owners' emails, through SMTP2GO with STARTTLS; the sender must be verified there.
+      # Owners' emails, optional: any SMTP server with STARTTLS. SMTP2GO here, as an example; without
+      # SPRING_MAIL_HOST nothing is sent, and the smtp_* files may be empty.
       SPRING_MAIL_HOST: mail.smtp2go.com
       SPRING_MAIL_PORT: "2525"
-      # An example: your own sender, on a domain verified in SMTP2GO.
+      # An example: your own sender, on a domain your SMTP server accepts.
       NOTIFICATIONS_FROM: "welcome-home <avisos@example.com>"
     secrets:
       - source: app_user_password
