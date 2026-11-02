@@ -52,9 +52,7 @@ class AccessHistoryController {
                 PAGE_SIZE);
         model.addAttribute("lock", lock);
         model.addAttribute("events", page.events().stream()
-                .map(event -> rows.row(event.occurredAt(), zone, event.lockId(), event.lockName(), event.linkId(),
-                        event.linkLabel(), event.entranceName(), event.result(), event.reason(), event.ip(),
-                        event.country(), locale))
+                .map(event -> rows.row(event, zone, locale))
                 .toList());
         model.addAttribute("filtered", link != null);
         model.addAttribute("paged", before != null);

@@ -1,9 +1,7 @@
 package welcomehome.audit;
 
-import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.Locale;
-import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.MessageSource;
@@ -30,15 +28,15 @@ class AttemptRows {
     }
 
     /**
-     * @param entranceName the name of the Opener at the lock's building entrance, if the guest opened that
-     * @param reason       the code that {@link AccessEvent} recorded
-     * @param country      the country code Cloudflare gave, if any
+     * The row of an attempt.
+     *
+     * @param zone   the time zone to show it in
+     * @param locale the language of its outcome and country
      */
-    AttemptRow row(OffsetDateTime occurredAt, ZoneId zone, UUID lockId, String lockName, UUID linkId,
-                   String linkLabel, @Nullable String entranceName, AccessResult result, @Nullable String reason,
-                   @Nullable String ip, @Nullable String country, Locale locale) {
-        return new AttemptRow(occurredAt.atZoneSameInstant(zone), lockId, lockName, linkId, linkLabel, entranceName,
-                result, outcome(reason, locale), origin(ip, country, locale));
+    AttemptRow row(StoredAttempt attempt, ZoneId zone, Locale locale) {
+        return new AttemptRow(attempt.occurredAt().atZoneSameInstant(zone), attempt.lockId(), attempt.lockName(),
+                attempt.linkId(), attempt.linkLabel(), attempt.entranceName(), attempt.result(),
+                outcome(attempt.reason(), locale), origin(attempt.ip(), attempt.country(), locale));
     }
 
     /** What an event's reason code means to the owner; a code no outcome has is shown as it is. */
