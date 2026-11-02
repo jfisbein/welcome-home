@@ -9,7 +9,8 @@ import welcomehome.nuki.LockProviderException.Reason;
 
 /**
  * Brings every owner's locks in line with their Nuki account once a day, so that a lock removed from it shows as
- * such on the owner's pages without their pressing anything.
+ * such on the owner's pages without their pressing anything, and then looks for problems at them that the owner
+ * should hear of.
  */
 @Component
 class LockSyncJob {
@@ -17,10 +18,12 @@ class LockSyncJob {
     private static final Logger log = LoggerFactory.getLogger(LockSyncJob.class);
 
     private final LockSync lockSync;
+    private final LockProblems problems;
     private final LockDao locks;
 
-    LockSyncJob(LockSync lockSync, LockDao locks) {
+    LockSyncJob(LockSync lockSync, LockProblems problems, LockDao locks) {
         this.lockSync = lockSync;
+        this.problems = problems;
         this.locks = locks;
     }
 
@@ -40,6 +43,15 @@ class LockSyncJob {
             } catch (RuntimeException e) {
                 // One owner's failure must not stop the others' sync; the next run tries again.
                 log.warn("Could not sync the locks of owner {}: {}", ownerId, e.getMessage());
+            }
+            try {
+                problems.check(ownerId);
+            } catch (LockProviderException e) {
+                if (e.reason() != Reason.NOT_CONNECTED) {
+                    log.warn("Could not check the locks of owner {}: {}", ownerId, e.getMessage());
+                }
+            } catch (RuntimeException e) {
+                log.warn("Could not check the locks of owner {}: {}", ownerId, e.getMessage());
             }
         }
     }

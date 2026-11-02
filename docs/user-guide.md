@@ -69,7 +69,7 @@ The home page and **Cerraduras** warn you in red about a lock with no connection
 
 **Who has come in.** The home page shows the latest attempts, and each lock's **Historial** all of them: when, with which link, what happened and from where. Attempts are kept for a year.
 
-**Emails.** In **Configuración → Avisos**, choose whether you hear of openings, failures, refused attempts and problems with Nuki. Use **Enviarme un email de prueba** to check that they arrive. Emails about your account, such as a passkey added, always come.
+**Emails.** In **Configuración → Avisos**, choose whether you hear of openings, failures, refused attempts, problems with Nuki and a lock's problems: a critical battery, no connection or a blocked motor, once a day at most and only when they start. Use **Enviarme un email de prueba** to check that they arrive. Emails about your account, such as a passkey added, always come.
 
 ## If a guest cannot get in
 

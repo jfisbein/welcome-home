@@ -44,6 +44,10 @@
                 <input type="checkbox" name="disconnected" value="true" th:checked="${preferences.disconnected}">
                 [[#{notifications.disconnected}]]
             </label>
+            <label>
+                <input type="checkbox" name="lockProblems" value="true" th:checked="${preferences.lockProblems}">
+                [[#{notifications.lock-problems}]]
+            </label>
         </fieldset>
         <button type="submit" th:text="#{common.save}">Guardar</button>
     </form>
