@@ -23,6 +23,13 @@ class LockDao {
         this.jdbc = jdbc;
     }
 
+    /** From owner, which has no Row-Level Security: without an owner context lock shows no rows. */
+    List<UUID> allOwnerIds() {
+        return jdbc.sql("SELECT id FROM owner ORDER BY created_at")
+                .query((rs, row) -> rs.getObject("id", UUID.class))
+                .list();
+    }
+
     List<OwnerLock> findAll(UUID ownerId) {
         return jdbc.sql("""
                         SELECT id, nuki_smartlock_id, name, time_zone, active, relocking_handled_elsewhere, device_type,

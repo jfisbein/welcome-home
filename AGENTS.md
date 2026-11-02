@@ -20,7 +20,7 @@ Functional:
 
 - Registration only by single-use invitation (72 h); sign-in only with passkeys, no passwords. The first admin comes from a command line invitation (`--bootstrap-admin`).
 - An owner connects Nuki by authorizing welcome-home in Nuki (OAuth2), or by pasting a Nuki Web API token. Either is checked against Nuki before it is stored, encrypted; an OAuth2 access token is refreshed before it expires. A refresh it refuses, or a 401 that it repeats when asked once more, marks the connection `DISCONNECTED`; a daily job checks every connection, and an hourly one tries those disconnected in the last 7 days, connecting them again if Nuki accepts them.
-- Locks are imported from Nuki, smart locks and Nuki Openers alike; each has a name, a time zone (from Nuki where possible) and can be deactivated when it leaves the Nuki account. A smart lock may have one of the owner's Openers as its building entrance: its links then open both, the entrance first.
+- Locks are imported from Nuki, when the owner asks and every day, smart locks and Nuki Openers alike; each has a name, a time zone (from Nuki where possible) and can be deactivated when it leaves the Nuki account. A smart lock may have one of the owner's Openers as its building entrance: its links then open both, the entrance first.
 - A link has a label and a validity window entered in the lock's time zone and stored in UTC. Its state (pending, active, expired, revoked) is computed, never stored. It may be limited to certain days of the week with hours for each, one range per day, local to the lock.
 - A guest's GET never acts on the lock: only a POST after sliding to open unlatches (link previews in WhatsApp, Telegram or Slack make GETs). The guest learns whether the door opened, failed, or was refused in night mode.
 - Every attempt with a valid link is recorded with IP address and browser; attempts are purged after a retention (365 days).
@@ -84,7 +84,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 
 | Table | Owner | Also used in SQL by |
 |-------|-------|---------------------|
-| `owner` | `auth` (registration inserts it) | `admin`: lists owners and deletes one; `audit`, `nuki`: owner ids for their daily jobs; `notifications`: the owner's email |
+| `owner` | `auth` (registration inserts it) | `admin`: lists owners and deletes one; `audit`, `locks`, `nuki`: owner ids for their daily jobs; `notifications`: the owner's email |
 | `user_entities`, `user_credentials` | `auth` (Spring Security's passkey store) | `admin`: deletes an owner's passkeys |
 | `invitation` | `admin` | none (`auth` goes through `InvitationService`) |
 | `nuki_connection` | `nuki` | none |
@@ -96,7 +96,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 
 **Roles in Postgres**: `migrator` owns the schema and runs Liquibase; the app connects as `app_user`, with no ownership and no `BYPASSRLS`; the off-site backup tool reads as `backup_reader`, with `BYPASSRLS` and `pg_read_all_data` and no other grant. No `FORCE ROW LEVEL SECURITY`, so that `resolve_link` (owned by `migrator`) sees the link. Roles come from `deploy/db-init/01-create-roles.sh`, used by development, tests and production alike.
 
-**Jobs** (`@Scheduled`, server time zone): Nuki connection check (08:00), trying disconnected connections again (hourly), access event purge (03:30), purge of invitations expired more than 30 days ago (03:35); in production a separate `backup` container dumps the database at 04:00.
+**Jobs** (`@Scheduled`, server time zone): Nuki connection check (08:00), trying disconnected connections again (hourly), locks' sync (08:15), access event purge (03:30), purge of invitations expired more than 30 days ago (03:35); in production a separate `backup` container dumps the database at 04:00.
 
 **Commands**: `--bootstrap-admin` and `--recover-owner=<email>` start the app without the web server (`WelcomeHomeApplication.runsACommand`), print a link and exit. Anything web-only must stay optional without a web server (see `CommandLineTests`).
 
