@@ -9,7 +9,7 @@ A private web app where a few owners connect their Nuki account and create date-
 **Roles**
 
 - **Owner**: connects Nuki by authorizing welcome-home in Nuki (OAuth2) or with an API token, imports locks, creates, edits, regenerates and revokes links, reads each lock's history.
-- **Admin**: an owner who can also invite owners, list them, create passkey recovery links and delete owners. Admins never see other owners' locks, links or history.
+- **Admin**: an owner who can also invite owners, list them, create passkey recovery links, list and cancel both kinds of link, and delete owners. Admins never see other owners' locks, links or history.
 - **Guest**: no account; has only a link.
 
 **In production**: a Dockge stack on a private server, reached only through its own Cloudflare Tunnel. Image `ghcr.io/jfisbein/welcome-home`, at the major version's tag (`:v2`). The repository is public, so its public URL, its host and how to reach it are not here (Conventions): `https://welcome-home.example.com` stands for the URL, and the owner has the rest.

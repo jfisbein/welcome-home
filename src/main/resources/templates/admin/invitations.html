@@ -33,8 +33,46 @@
         </label>
         <button type="submit" th:text="#{admin.invitation.create}">Crear invitación</button>
     </form>
+
+    <section id="pending">
+        <h2 th:text="#{admin.pending.heading}">Enlaces sin usar</h2>
+        <article th:if="${cancelledFor}">
+            <p th:text="#{admin.pending.cancelled(${cancelledFor})}">Enlace para Ana anulado: ya no sirve.</p>
+        </article>
+        <p th:if="${pending.isEmpty()}" th:text="#{admin.pending.empty}">No hay enlaces sin usar.</p>
+        <div class="overflow-auto" th:unless="${pending.isEmpty()}">
+            <table>
+                <thead>
+                <tr>
+                    <th scope="col" th:text="#{admin.pending.column.for}">Para quién</th>
+                    <th scope="col" th:text="#{admin.pending.column.kind}">Qué es</th>
+                    <th scope="col" th:text="#{admin.pending.column.expires}">Caduca</th>
+                    <th scope="col"></th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="link : ${pending}">
+                    <td th:text="${link.recipient}">Ana</td>
+                    <td th:switch="${link.recovery ? 'recovery' : (link.grantsAdmin ? 'admin' : 'owner')}">
+                        <span th:case="'recovery'" th:text="#{admin.pending.kind.recovery}">Nueva passkey</span>
+                        <span th:case="'admin'" th:text="#{admin.pending.kind.admin}">Invitación de admin</span>
+                        <span th:case="*" th:text="#{admin.pending.kind.owner}">Invitación</span>
+                    </td>
+                    <td th:text="${#temporals.format(link.expiresAt, #messages.msg('format.datetime'))}">1/1/2026 10:00</td>
+                    <td class="actions">
+                        <form th:action="@{/admin/invitations/{id}(id=${link.id})}" th:method="delete"
+                              th:data-confirm="#{admin.pending.cancel.confirm(${link.recipient})}">
+                            <button type="submit" class="outline contrast" th:text="#{admin.pending.cancel}">Anular</button>
+                        </form>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
     <p><a th:href="@{/admin/owners}" th:text="#{admin.back}">Volver a propietarios</a></p>
 </main>
 <script th:src="@{/js/copy.js}"></script>
+<script th:src="@{/js/confirm.js}"></script>
 </body>
 </html>

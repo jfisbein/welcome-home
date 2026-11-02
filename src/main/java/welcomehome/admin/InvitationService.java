@@ -1,6 +1,7 @@
 package welcomehome.admin;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -88,6 +89,20 @@ public class InvitationService {
      */
     public Optional<RedeemableInvitation> redeem(String token) {
         return isPlausible(token) ? invitations.markUsed(InvitationTokens.hash(token)) : Optional.empty();
+    }
+
+    /** The links that could still be used, for the admin panel. */
+    List<InvitationDao.PendingLink> findPending() {
+        return invitations.findPending();
+    }
+
+    /**
+     * Cancels a link that could still be used: from then on it opens nothing.
+     *
+     * @return whom it was for, or empty if there is no such link
+     */
+    Optional<String> cancel(UUID id) {
+        return invitations.deletePending(id);
     }
 
     private static boolean isPlausible(String token) {

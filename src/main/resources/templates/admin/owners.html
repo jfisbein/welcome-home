@@ -23,7 +23,11 @@
         <p th:text="#{admin.deleted(${deletedEmail})}">Cuenta de ana@example.com dada de baja.</p>
     </article>
 
-    <p><a th:href="@{/admin/invitations}" role="button" th:text="#{admin.invite}">Invitar a un propietario</a></p>
+    <p class="actions">
+        <a th:href="@{/admin/invitations}" role="button" th:text="#{admin.invite}">Invitar a un propietario</a>
+        <a th:href="@{/admin/invitations} + '#pending'" role="button" class="secondary"
+           th:text="#{admin.pending.heading}">Enlaces sin usar</a>
+    </p>
     <div class="overflow-auto">
         <table>
             <thead>

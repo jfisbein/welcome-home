@@ -144,6 +144,8 @@ class OwnerIsolationTests {
                         .flatMap(method -> info.getPatternValues().stream().map(path -> method + " " + path)))
                 .filter(route -> route.contains("{"))
                 .filter(route -> !TOKEN_ROUTES.contains(route))
+                // A link no owner has: any admin may cancel any of them, and AdminPanelTests covers who may.
+                .filter(route -> !route.equals("DELETE /admin/invitations/{id}"))
                 .collect(Collectors.toSet());
 
         assertThat(attemptsOnBobsResources().stream().map(Attempt::route))
