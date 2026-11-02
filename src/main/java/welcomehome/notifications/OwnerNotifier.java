@@ -3,8 +3,6 @@ package welcomehome.notifications;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Locale;
-import java.util.Optional;
 import java.util.UUID;
 
 import com.github.benmanes.caffeine.cache.Cache;
@@ -13,7 +11,6 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSource;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.mail.MailException;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -25,9 +22,10 @@ import welcomehome.audit.AccessOutcome;
 import welcomehome.auth.EmailVerification;
 import welcomehome.auth.EmailVerificationRequested;
 import welcomehome.auth.PasskeyAdded;
-import welcomehome.config.Languages;
 import welcomehome.config.WelcomeHomeProperties;
 import welcomehome.db.OwnerTransactions;
+import welcomehome.notifications.RecipientDao.AttemptDetails;
+import welcomehome.notifications.RecipientDao.Recipient;
 import welcomehome.nuki.NukiDisconnected;
 import welcomehome.nuki.NukiReconnected;
 
@@ -47,18 +45,18 @@ class OwnerNotifier {
     private final Mailer mailer;
     private final NotificationPreferenceDao preferences;
     private final OwnerTransactions ownerTransactions;
-    private final JdbcClient jdbc;
+    private final RecipientDao recipients;
     private final WelcomeHomeProperties app;
     private final Cache<UUID, Boolean> recentlyDenied;
     private final MessageSource messages;
 
     OwnerNotifier(Mailer mailer, NotificationPreferenceDao preferences, OwnerTransactions ownerTransactions,
-                  JdbcClient jdbc, WelcomeHomeProperties app, NotificationProperties properties,
+                  RecipientDao recipients, WelcomeHomeProperties app, NotificationProperties properties,
                   MessageSource messages) {
         this.mailer = mailer;
         this.preferences = preferences;
         this.ownerTransactions = ownerTransactions;
-        this.jdbc = jdbc;
+        this.recipients = recipients;
         this.app = app;
         this.recentlyDenied = Caffeine.newBuilder().expireAfterWrite(properties.deniedQuietPeriod()).build();
         this.messages = messages;
@@ -79,7 +77,8 @@ class OwnerNotifier {
             return;
         }
         var keys = EmailKeys.of(attempt.outcome());
-        findDetails(attempt).ifPresent(details ->
+        var found = ownerTransactions.execute(attempt.ownerId(), () -> recipients.findAttemptDetails(attempt));
+        found.ifPresent(details ->
                 send(details.recipient().email(), subject(keys, details), body(keys, details, attempt)));
     }
 
@@ -89,7 +88,7 @@ class OwnerNotifier {
         if (!mailer.isConfigured() || !wants(disconnected.ownerId(), NotificationKind.DISCONNECTED)) {
             return;
         }
-        findRecipient(disconnected.ownerId()).ifPresent(to -> send(to.email(),
+        recipients.find(disconnected.ownerId()).ifPresent(to -> send(to.email(),
                 message(to, "notification.disconnected.subject"),
                 message(to, "notification.disconnected.body", app.link("/settings/nuki")) + footer(to)));
     }
@@ -100,7 +99,7 @@ class OwnerNotifier {
         if (!mailer.isConfigured() || !wants(reconnected.ownerId(), NotificationKind.DISCONNECTED)) {
             return;
         }
-        findRecipient(reconnected.ownerId()).ifPresent(to -> send(to.email(),
+        recipients.find(reconnected.ownerId()).ifPresent(to -> send(to.email(),
                 message(to, "notification.reconnected.subject"),
                 message(to, "notification.reconnected.body") + footer(to)));
     }
@@ -114,7 +113,7 @@ class OwnerNotifier {
         if (!mailer.isConfigured()) {
             return;
         }
-        findRecipient(created.ownerId()).ifPresent(to -> send(to.email(),
+        recipients.find(created.ownerId()).ifPresent(to -> send(to.email(),
                 message(to, "account.recovery-created.subject"),
                 message(to, "account.recovery-created.body", String.valueOf(InvitationService.VALIDITY.toHours()))
                         + accountFooter(to)));
@@ -127,7 +126,7 @@ class OwnerNotifier {
         if (!mailer.isConfigured()) {
             return;
         }
-        findRecipient(added.ownerEmail()).ifPresent(to -> send(to.email(),
+        recipients.find(added.ownerEmail()).ifPresent(to -> send(to.email(),
                 message(to, "account.passkey-added.subject"),
                 message(to, "account.passkey-added.body", added.label(), app.link("/settings/passkeys")) + accountFooter(to)));
     }
@@ -188,55 +187,6 @@ class OwnerNotifier {
         } catch (MailException e) {
             log.warn("Could not send a notification: {}", e.getMessage());
         }
-    }
-
-    private Optional<AttemptDetails> findDetails(AccessAttempted attempt) {
-        return ownerTransactions.execute(attempt.ownerId(), () -> jdbc.sql("""
-                        SELECT o.email, o.language, l.label, coalesce(d.name, k.name) AS lock_name, k.time_zone
-                        FROM access_link l
-                        JOIN lock k ON k.id = l.lock_id
-                        LEFT JOIN lock d ON d.owner_id = l.owner_id AND d.id = CAST(:entranceLockId AS uuid)
-                        JOIN owner o ON o.id = l.owner_id
-                        WHERE l.id = :linkId AND l.owner_id = :ownerId AND o.email_verified_at IS NOT NULL
-                        """)
-                .param("linkId", attempt.linkId())
-                .param("ownerId", attempt.ownerId())
-                .param("entranceLockId", attempt.entranceLockId())
-                .query((rs, row) -> new AttemptDetails(
-                        new Recipient(rs.getString("email"), language(rs.getString("language"))),
-                        rs.getString("label"), rs.getString("lock_name"), rs.getString("time_zone")))
-                .optional());
-    }
-
-    private Optional<Recipient> findRecipient(UUID ownerId) {
-        return jdbc.sql("SELECT email, language FROM owner WHERE id = :ownerId AND email_verified_at IS NOT NULL")
-                .param("ownerId", ownerId)
-                .query((rs, row) -> new Recipient(rs.getString("email"), language(rs.getString("language"))))
-                .optional();
-    }
-
-    private Optional<Recipient> findRecipient(String email) {
-        return jdbc.sql("SELECT email, language FROM owner WHERE email = :email AND email_verified_at IS NOT NULL")
-                .param("email", email)
-                .query((rs, row) -> new Recipient(rs.getString("email"), language(rs.getString("language"))))
-                .optional();
-    }
-
-    /** An owner's language, or the default if the app no longer has texts for it. */
-    private static Locale language(String tag) {
-        return Languages.of(tag).orElse(Languages.DEFAULT);
-    }
-
-    /**
-     * Whom an email goes to, and in which language.
-     *
-     * @param email    the owner's email
-     * @param language the owner's language
-     */
-    private record Recipient(String email, Locale language) {
-    }
-
-    private record AttemptDetails(Recipient recipient, String label, String lockName, String timeZone) {
     }
 
     /**

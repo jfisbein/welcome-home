@@ -2,13 +2,11 @@ package welcomehome.audit;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import welcomehome.db.OwnerTransactions;
 
@@ -20,11 +18,11 @@ import welcomehome.db.OwnerTransactions;
 @Service
 class AccessHistory {
 
-    private final JdbcClient jdbc;
+    private final AccessEventDao accessEvents;
     private final OwnerTransactions ownerTransactions;
 
-    AccessHistory(JdbcClient jdbc, OwnerTransactions ownerTransactions) {
-        this.jdbc = jdbc;
+    AccessHistory(AccessEventDao accessEvents, OwnerTransactions ownerTransactions) {
+        this.accessEvents = accessEvents;
         this.ownerTransactions = ownerTransactions;
     }
 
@@ -36,28 +34,8 @@ class AccessHistory {
      * @param before only events before this one, or the latest if null
      */
     HistoryPage find(UUID ownerId, UUID lockId, @Nullable UUID linkId, @Nullable Cursor before, int pageSize) {
-        var events = ownerTransactions.execute(ownerId, () -> jdbc.sql("""
-                        SELECT e.id, e.occurred_at, e.lock_id, k.name AS lock_name, e.link_id, l.label AS link_label,
-                               d.name AS entrance_name, e.result, e.reason, host(e.ip) AS ip, e.country
-                        FROM access_event e
-                        JOIN access_link l ON l.owner_id = e.owner_id AND l.id = e.link_id
-                        JOIN lock k ON k.owner_id = e.owner_id AND k.id = e.lock_id
-                        LEFT JOIN lock d ON d.owner_id = e.owner_id AND d.id = e.entrance_lock_id
-                        WHERE e.owner_id = :ownerId AND (e.lock_id = :lockId OR e.entrance_lock_id = :lockId)
-                          AND (CAST(:linkId AS uuid) IS NULL OR e.link_id = :linkId)
-                          AND (CAST(:before AS timestamptz) IS NULL OR e.occurred_at < :before
-                               OR (e.occurred_at = :before AND e.id < CAST(:beforeId AS uuid)))
-                        ORDER BY e.occurred_at DESC, e.id DESC
-                        LIMIT :limit
-                        """)
-                .param("ownerId", ownerId)
-                .param("lockId", lockId)
-                .param("linkId", linkId)
-                .param("before", before == null ? null : OffsetDateTime.ofInstant(before.occurredAt(), ZoneOffset.UTC))
-                .param("beforeId", before == null ? null : before.id())
-                .param("limit", pageSize + 1)
-                .query(HistoryEvent.class)
-                .list());
+        var events = ownerTransactions.execute(ownerId,
+                () -> accessEvents.findByLock(ownerId, lockId, linkId, before, pageSize + 1));
         if (events.size() <= pageSize) {
             return new HistoryPage(events, null);
         }
@@ -68,14 +46,7 @@ class AccessHistory {
 
     /** @return the label of the lock's link, or empty if the lock has no such link */
     Optional<String> linkLabel(UUID ownerId, UUID lockId, UUID linkId) {
-        return ownerTransactions.execute(ownerId, () -> jdbc.sql("""
-                        SELECT label FROM access_link WHERE owner_id = :ownerId AND lock_id = :lockId AND id = :linkId
-                        """)
-                .param("ownerId", ownerId)
-                .param("lockId", lockId)
-                .param("linkId", linkId)
-                .query(String.class)
-                .optional());
+        return ownerTransactions.execute(ownerId, () -> accessEvents.findLinkLabel(ownerId, lockId, linkId));
     }
 
     /**

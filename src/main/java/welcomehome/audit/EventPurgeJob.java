@@ -2,13 +2,9 @@ package welcomehome.audit;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import welcomehome.db.OwnerTransactions;
@@ -22,12 +18,12 @@ class EventPurgeJob {
 
     private static final Logger log = LoggerFactory.getLogger(EventPurgeJob.class);
 
-    private final JdbcClient jdbc;
+    private final AccessEventDao accessEvents;
     private final OwnerTransactions ownerTransactions;
     private final Duration retention;
 
-    EventPurgeJob(JdbcClient jdbc, OwnerTransactions ownerTransactions, AuditProperties properties) {
-        this.jdbc = jdbc;
+    EventPurgeJob(AccessEventDao accessEvents, OwnerTransactions ownerTransactions, AuditProperties properties) {
+        this.accessEvents = accessEvents;
         this.ownerTransactions = ownerTransactions;
         this.retention = properties.retention();
     }
@@ -36,15 +32,9 @@ class EventPurgeJob {
     void purgeAll() {
         var cutoff = Instant.now().minus(retention);
         var purged = 0;
-        var ownerIds = jdbc.sql("SELECT id FROM owner").query((rs, row) -> rs.getObject("id", UUID.class)).list();
-        for (var ownerId : ownerIds) {
+        for (var ownerId : accessEvents.allOwnerIds()) {
             try {
-                purged += ownerTransactions.execute(ownerId, () -> jdbc.sql("""
-                                DELETE FROM access_event WHERE owner_id = :ownerId AND occurred_at < :cutoff
-                                """)
-                        .param("ownerId", ownerId)
-                        .param("cutoff", OffsetDateTime.ofInstant(cutoff, ZoneOffset.UTC))
-                        .update());
+                purged += ownerTransactions.execute(ownerId, () -> accessEvents.deleteOlderThan(ownerId, cutoff));
             } catch (RuntimeException e) {
                 // One owner's failure must not stop the others' purge; the next run tries again.
                 log.warn("Could not purge the history of owner {}: {}", ownerId, e.getMessage());
