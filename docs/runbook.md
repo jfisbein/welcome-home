@@ -1,6 +1,6 @@
 # Runbook
 
-How to run welcome-home in production. It runs as a Dockge stack on `docker.fritz.box`, from the files in `deploy/` (see "Production" in the [README](../README.md) for what each service does). Commands run as root in the stack's folder, `/opt/stacks/welcome-home` with Dockge's defaults.
+How to run welcome-home in production. It runs as a Dockge stack on a server of your own, from the files in `deploy/` (see "Production" in the [README](../README.md) for what each service does). Commands run as root in the stack's folder.
 
 | What               | Where                                                                  |
 |--------------------|------------------------------------------------------------------------|
@@ -12,7 +12,7 @@ How to run welcome-home in production. It runs as a Dockge stack on `docker.frit
 
 ## First start
 
-1. **Tunnel.** In Cloudflare Zero Trust, create a tunnel for welcome-home alone, with the public hostname `welcome-home.example.com` pointing to `http://app:8080`, and copy its token. Remove the earlier route to `docker.fritz.box:7070`.
+1. **Tunnel.** In Cloudflare Zero Trust, create a tunnel for welcome-home alone, with the public hostname `welcome-home.example.com` pointing to `http://app:8080`, and copy its token.
 2. **Keysets.** On a development machine, `./gradlew generateKeysets` writes them to `secrets/` (production's own: never the development ones). Store `aead-keyset.json` and `mac-keyset.json` in Vaultwarden, then delete them from the development machine once they are on the server.
 3. **Stack.** Create the stack in Dockge from `deploy/compose.yaml`, and copy `deploy/db-init/`, `deploy/backup/` and `deploy/restore.sh` next to it.
 4. **Secrets.** In the stack's folder:
