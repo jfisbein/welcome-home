@@ -4,6 +4,7 @@ import java.security.Principal;
 import java.util.UUID;
 
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -28,10 +29,12 @@ class AdminController {
 
     private final OwnerDao owners;
     private final InvitationService invitations;
+    private final ApplicationEventPublisher events;
 
-    AdminController(OwnerDao owners, InvitationService invitations) {
+    AdminController(OwnerDao owners, InvitationService invitations, ApplicationEventPublisher events) {
         this.owners = owners;
         this.invitations = invitations;
+        this.events = events;
     }
 
     @GetMapping("/owners")
@@ -50,6 +53,7 @@ class AdminController {
         if (email.equals(admin.getName())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "An admin cannot delete themselves");
         }
+        owners.findIdByEmail(email).ifPresent(ownerId -> events.publishEvent(new OwnerDeleting(ownerId)));
         if (!owners.delete(email)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }

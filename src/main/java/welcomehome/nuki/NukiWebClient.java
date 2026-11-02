@@ -283,6 +283,30 @@ class NukiWebClient {
         return requestTokens(form);
     }
 
+    /**
+     * Revokes an authorization at Nuki with its refresh token, which also ends its access tokens (RFC 7009, section
+     * 2.1). Without a client there is nothing to revoke with, nor any authorization of welcome-home's to revoke.
+     *
+     * @throws LockProviderException if Nuki does not confirm it
+     */
+    void revoke(String refreshToken) {
+        var oauth = properties.oauth();
+        if (!oauth.enabled()) {
+            return;
+        }
+        var form = new LinkedMultiValueMap<String, String>();
+        form.add("token", refreshToken);
+        form.add("token_type_hint", "refresh_token");
+        form.add("client_id", oauth.clientId());
+        form.add("client_secret", oauth.clientSecret());
+        call(false, () -> rest.post().uri(properties.revocationUrl())
+                .headers(headers -> headers.setBasicAuth(oauth.clientId(), oauth.clientSecret()))
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body(form)
+                .retrieve()
+                .toBodilessEntity());
+    }
+
     /** With the client's credentials both as HTTP Basic and in the form, as Nuki was seen to accept them. */
     private NukiTokens requestTokens(MultiValueMap<String, String> form) {
         var oauth = properties.oauth();
