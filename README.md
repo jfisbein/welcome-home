@@ -131,7 +131,7 @@ Calls time out and are retried with exponential backoff: on rate limiting (429, 
 
 ## Locks
 
-`/locks` lists the owner's locks; "Sincronizar con Nuki" (`POST /locks/sync`) brings them in line with the Nuki account. New locks are imported with their Nuki name and time zone, which the owner can change. Nuki reports the time zone as an id from [its list](https://docs.nuki.io/guide/overview/concepts/), with one zone per region (a lock in Madrid reports `Europe/Berlin`, which has the same rules); a lock without one gets the server's time zone. Later syncs keep those choices. Locks no longer in the account become inactive, keeping their links; if they come back, they are active again. Each sync also links the locks to the owner's current Nuki connection.
+`/locks` lists the owner's locks; "Actualizar desde Nuki" (`POST /locks/sync`) brings them in line with the Nuki account. New locks are imported with their Nuki name and time zone, which the owner can change. Nuki reports the time zone as an id from [its list](https://docs.nuki.io/guide/overview/concepts/), with one zone per region (a lock in Madrid reports `Europe/Berlin`, which has the same rules); a lock without one gets the server's time zone. Later syncs keep those choices. Locks no longer in the account become inactive, keeping their links; if they come back, they are active again. Each sync also links the locks to the owner's current Nuki connection.
 
 Each lock's settings page (`GET /locks/{id}`, saved with `PATCH /locks/{id}`) changes its name, which guests see, and its time zone, one of the IANA region zones or UTC. Link dates are entered and shown in the lock's time zone but stored in UTC, so changing the time zone changes how existing links are shown, not when they are valid.
 
@@ -147,9 +147,9 @@ A link may be limited to certain days and hours: the form's "Limitar a ciertos d
 
 The same page lists the lock's links with their state, computed and never stored (`LinkStatus`): revoked if revoked, otherwise pending before the start, active from the start (inclusive) to the end (exclusive), and expired after. Pending and active links can be copied, or shared through the device's share sheet where the browser supports it. Narrower than 1024 px, where a link's buttons no longer fit beside its dates, each link shows as a card instead of a table row: its label and state, its dates, then its buttons.
 
-"Revocar" (`POST /links/{id}/revoke`) revokes a link at once and for good: from then on it opens nothing, whatever its dates. Revoking again keeps the first revocation time.
+"Anular" (`POST /links/{id}/revoke`) revokes a link at once and for good: from then on it opens nothing, whatever its dates. Revoking again keeps the first revocation time.
 
-"Regenerar" (`POST /links/{id}/regenerate`), for a URL that leaked, asks first, and so does "Revocar": the browser shows what will happen before the form is sent (`data-confirm`, `confirm.js`). It increments the link's `token_version`: every earlier URL stops working and the page shows the new one. Dates, label and state stay the same; revoked links are not regenerated.
+"Cambiar enlace" (`POST /links/{id}/regenerate`), for a URL that leaked, asks first, and so does "Anular": the browser shows what will happen before the form is sent (`data-confirm`, `confirm.js`). It increments the link's `token_version`: every earlier URL stops working and the page shows the new one. Dates, label and state stay the same; revoked links are not regenerated.
 
 "Editar" (`GET /links/{id}`, saved with `PATCH /links/{id}`) changes a link's label, dates and schedule, with the same checks as creating one; an expired link can be extended this way. Its URL stays the same. Revoked links cannot be edited.
 

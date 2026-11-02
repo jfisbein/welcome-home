@@ -160,8 +160,8 @@ An admin deletes them in `/admin/owners` ("Dar de baja"): their account, passkey
 
 The owner, on the lock's links page:
 
-- **Regenerar**, to keep the link for the same guest: the leaked URL stops working at once and the page shows a new one, with the same dates.
-- **Revocar**, to end it: from then on it opens nothing.
+- **Cambiar enlace**, to keep the link for the same guest: the leaked URL stops working at once and the page shows a new one, with the same dates.
+- **Anular**, to end it: from then on it opens nothing.
 
 The link's **Historial** shows whether, when and from which IP address it was used.
 

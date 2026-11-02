@@ -183,7 +183,7 @@ class NotificationTests {
     @Test
     void refusedAttemptsWithALinkAreToldOnceInAWhile() throws Exception {
         record(linkId, AccessOutcome.EXPIRED);
-        assertThat(text(theOnlyEmail())).contains("el enlace ha caducado", "regenéralo o revócalo");
+        assertThat(text(theOnlyEmail())).contains("el enlace ha caducado", "cámbialo o anúlalo");
 
         // Emails are sent on other threads: one attempt at a time, so that the first one is the one told.
         record(linkId, AccessOutcome.TOO_MANY_ATTEMPTS);
