@@ -5,7 +5,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * A {@link LockProvider} call failed. The reason tells callers what to show: an owner can fix
  * {@link Reason#NOT_CONNECTED}, {@link Reason#ACCESS_DENIED} and {@link Reason#MISSING_PERMISSION} by
- * pasting a new API token, and a guest sees "not available" for any of them.
+ * connecting Nuki again, and a guest sees "not available" for any of them.
  */
 public class LockProviderException extends RuntimeException {
 

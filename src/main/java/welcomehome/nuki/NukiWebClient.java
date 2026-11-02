@@ -100,29 +100,29 @@ class NukiWebClient {
                 .build();
     }
 
-    List<SmartLock> listLocks(String apiToken) {
-        return devices(apiToken).stream()
+    List<SmartLock> listLocks(String accessToken) {
+        return devices(accessToken).stream()
                 .map(smartlock -> new SmartLock(smartlock.smartlockId(), deviceType(smartlock.type()), smartlock.name(),
                         smartlock.config() == null ? null : NukiTimeZones.byId(smartlock.config().timezoneId())))
                 .toList();
     }
 
-    LockState getState(String apiToken, long smartlockId) {
+    LockState getState(String accessToken, long smartlockId) {
         return lockState(call(true, () -> rest.get().uri("/smartlock/{id}", smartlockId)
-                .headers(headers -> headers.setBearerAuth(apiToken))
+                .headers(headers -> headers.setBearerAuth(accessToken))
                 .retrieve()
                 .body(NukiSmartlock.class)));
     }
 
-    Map<Long, LockState> listStates(String apiToken) {
-        return devices(apiToken).stream()
+    Map<Long, LockState> listStates(String accessToken) {
+        return devices(accessToken).stream()
                 .collect(Collectors.toMap(NukiSmartlock::smartlockId, NukiWebClient::lockState));
     }
 
     /** The account's smart locks and Openers, with all that Nuki says of each in one request. */
-    private List<NukiSmartlock> devices(String apiToken) {
+    private List<NukiSmartlock> devices(String accessToken) {
         List<NukiSmartlock> smartlocks = call(true, () -> rest.get().uri("/smartlock")
-                .headers(headers -> headers.setBearerAuth(apiToken))
+                .headers(headers -> headers.setBearerAuth(accessToken))
                 .retrieve()
                 .body(new ParameterizedTypeReference<>() {
                 }));
@@ -141,9 +141,9 @@ class NukiWebClient {
                 advancedConfig != null && Boolean.TRUE.equals(advancedConfig.autoLock()));
     }
 
-    void unlatch(String apiToken, long smartlockId) {
+    void unlatch(String accessToken, long smartlockId) {
         call(false, () -> rest.post().uri("/smartlock/{id}/action", smartlockId)
-                .headers(headers -> headers.setBearerAuth(apiToken))
+                .headers(headers -> headers.setBearerAuth(accessToken))
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of("action", UNLATCH))
                 .retrieve()
@@ -196,9 +196,9 @@ class NukiWebClient {
     }
 
     /** Reads the latest entry of the account's log, only to learn whether the token may read logs. */
-    void checkLogAccess(String apiToken) {
+    void checkLogAccess(String accessToken) {
         call(true, () -> rest.get().uri("/smartlock/log?limit={limit}", 1)
-                .headers(headers -> headers.setBearerAuth(apiToken))
+                .headers(headers -> headers.setBearerAuth(accessToken))
                 .retrieve()
                 .toBodilessEntity());
     }
@@ -358,10 +358,10 @@ class NukiWebClient {
         }
     }
 
-    List<LockLogEntry> getRecentLog(String apiToken, long smartlockId) {
+    List<LockLogEntry> getRecentLog(String accessToken, long smartlockId) {
         List<NukiLogEntry> entries = call(true, () -> rest.get()
                 .uri("/smartlock/{id}/log?limit={limit}", smartlockId, LOG_ENTRIES)
-                .headers(headers -> headers.setBearerAuth(apiToken))
+                .headers(headers -> headers.setBearerAuth(accessToken))
                 .retrieve()
                 .body(new ParameterizedTypeReference<>() {
                 }));
