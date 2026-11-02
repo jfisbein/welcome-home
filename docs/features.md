@@ -26,7 +26,7 @@ Owners register only through single-use invitations, valid for 72 hours. The fir
 docker compose run --rm app --bootstrap-admin         # production
 ```
 
-Opening an invitation link asks for an email and creates a passkey on that device; owners then sign in with it at `/login`. There are no passwords.
+Opening an invitation link asks for an email and creates a passkey on that device; owners then sign in with it at `/login`. There are no passwords. Registering and signing in require the passkey to verify its user, with a PIN, fingerprint or face: a security key without a PIN is refused.
 
 A new owner then gets an email with a link to verify that the address is theirs (valid 7 days; the home page offers to send another, at most every 5 minutes). Opening the link shows a button, and only pressing it verifies the address, as mail scanners open links and one at a mistyped address must not verify it. Until then no other email goes to the address, and the home page and the notifications page say so. The link's token is kept only as a SHA-256, with its expiry, on the owner's row. Owners registered before this existed count as verified.
 

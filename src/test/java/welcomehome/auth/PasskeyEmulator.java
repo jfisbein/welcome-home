@@ -28,7 +28,41 @@ final class PasskeyEmulator {
     private final JsonMapper json = JsonMapper.builder().build();
 
     PasskeyEmulator(String origin) {
+        this(origin, true);
+    }
+
+    /**
+     * A security key that did not verify its user, such as one without a PIN: its registrations say so. The emulated
+     * authenticator always verifies, so the flag is cleared afterwards, which "none" attestation, signing nothing,
+     * allows. Its sign-ins are not changed, as clearing the flag would break their signature instead.
+     */
+    static PasskeyEmulator withoutUserVerification(String origin) {
+        return new PasskeyEmulator(origin, false);
+    }
+
+    /** The user verified bit in an authenticator data's flags, the byte after the 32 bytes of the RP id's hash. */
+    private static final int USER_VERIFIED = 0x04;
+    private static final int FLAGS = 32;
+
+    private final boolean verifiesUser;
+
+    private PasskeyEmulator(String origin, boolean verifiesUser) {
+        this.verifiesUser = verifiesUser;
         browser = new ClientPlatform(new Origin(origin), new WebAuthnAuthenticatorAdaptor(new NoneAttestationAuthenticator()));
+    }
+
+    private byte[] asAttested(byte[] attestationObject) {
+        if (verifiesUser) {
+            return attestationObject;
+        }
+        var cbor = webauthn4j.getCborConverter();
+        @SuppressWarnings("unchecked")
+        Map<String, Object> attestation = cbor.readValue(attestationObject, Map.class);
+        var authData = ((byte[]) attestation.get("authData")).clone();
+        authData[FLAGS] &= (byte) ~USER_VERIFIED;
+        var changed = new LinkedHashMap<String, Object>(attestation);
+        changed.put("authData", authData);
+        return cbor.writeValueAsBytes(changed);
     }
 
     /** navigator.credentials.create: returns the body posted to /invite/{token}/register. */
@@ -41,7 +75,7 @@ final class PasskeyEmulator {
                 "rawId", BASE64_URL.encodeToString(credential.getRawId()),
                 "type", "public-key",
                 "response", Map.of(
-                        "attestationObject", BASE64_URL.encodeToString(response.getAttestationObject()),
+                        "attestationObject", BASE64_URL.encodeToString(asAttested(response.getAttestationObject())),
                         "clientDataJSON", BASE64_URL.encodeToString(response.getClientDataJSON()),
                         "transports", List.of()),
                 "clientExtensionResults", Map.of()));

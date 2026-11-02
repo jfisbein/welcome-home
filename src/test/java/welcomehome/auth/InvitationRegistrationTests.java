@@ -90,6 +90,27 @@ class InvitationRegistrationTests {
     }
 
     @Test
+    void passkeysMustVerifyTheirUser() {
+        var options = creationOptions(invitationPath(false), "alice@example.com");
+        assertThat(options).contains("\"userVerification\":\"required\"");
+        var requestOptions = body(mvc.post().uri("/webauthn/authenticate/options").session(new MockHttpSession())
+                .with(csrf()).exchange());
+        assertThat(requestOptions).contains("\"userVerification\":\"required\"");
+    }
+
+    @Test
+    void aKeyThatDidNotVerifyItsUserCannotRegister() {
+        var invitation = invitationPath(false);
+        var keyWithoutPin = PasskeyEmulator.withoutUserVerification(IntegrationTest.BASE_URL);
+
+        assertThat(post(invitation + "/register", keyWithoutPin.create(creationOptions(invitation, "bob@example.com"))))
+                .hasStatus4xxClientError();
+
+        assertThat(jdbc.sql("SELECT count(*) FROM owner").query(Long.class).single()).isZero();
+        assertThat(jdbc.sql("SELECT count(*) FROM user_credentials").query(Long.class).single()).isZero();
+    }
+
+    @Test
     void ownerInvitationDoesNotGrantAdmin() {
         var invitation = invitationPath(false);
 
