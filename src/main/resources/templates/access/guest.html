@@ -59,7 +59,7 @@
             </p>
         </th:block>
         <p th:if="${status.name() == 'EXPIRED'}" role="alert" th:text="#{guest.expired}">Este enlace ha caducado.</p>
-        <p th:if="${status.name() == 'REVOKED'}" role="alert" th:text="#{guest.revoked}">Este enlace se ha revocado.</p>
+        <p th:if="${status.name() == 'REVOKED'}" role="alert" th:text="#{guest.revoked}">Este enlace se ha anulado.</p>
     </article>
 </main>
 <script th:if="${canOpen}" th:src="@{/js/open.js}"></script>

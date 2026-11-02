@@ -32,8 +32,8 @@ class GuestPageTests {
 
     static final String OPEN_BUTTON = "id=\"open\"";
     static final String NOT_YET_VALID = "Este enlace todavía no es válido.";
-    static final String EXPIRED = "Este enlace ha caducado.";
-    static final String REVOKED = "Este enlace se ha revocado.";
+    static final String EXPIRED = "Este enlace ha caducado. Pide uno nuevo a quien te lo envió.";
+    static final String REVOKED = "Este enlace se ha anulado. Pide uno nuevo a quien te lo envió.";
     static final String UNAVAILABLE = "Esta puerta no está disponible ahora mismo.";
     static final String OUTSIDE_SCHEDULE_NOTICE = "<p role=\"alert\">A esta hora este enlace no abre la puerta.";
     static final ZoneId NEW_YORK = ZoneId.of("America/New_York");

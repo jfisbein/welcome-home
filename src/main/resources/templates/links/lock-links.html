@@ -45,7 +45,7 @@
     </article>
 
     <article th:if="${revokedLabel}">
-        <p th:text="#{links.revoked(${revokedLabel})}">Enlace de Ana revocado: ya no abre la puerta.</p>
+        <p th:text="#{links.revoked(${revokedLabel})}">Enlace de Ana anulado: ya no abre la puerta.</p>
     </article>
 
     <section>
@@ -73,7 +73,7 @@
                         <span th:case="'PENDING'" th:text="#{links.status.pending}">Pendiente</span>
                         <span th:case="'ACTIVE'"><strong th:text="#{links.status.active}">Activo</strong></span>
                         <span th:case="'EXPIRED'" th:text="#{links.status.expired}">Caducado</span>
-                        <span th:case="'REVOKED'" th:text="#{links.status.revoked}">Revocado</span>
+                        <span th:case="'REVOKED'" th:text="#{links.status.revoked}">Anulado</span>
                     </td>
                     <td class="buttons">
                         <div class="actions">
@@ -90,12 +90,12 @@
                                 <form th:action="@{/links/{id}/regenerate(id=${link.id})}" method="post"
                                       th:data-confirm="#{links.regenerate.confirm(${link.label})}">
                                     <button type="submit" class="outline secondary" th:title="#{links.regenerate.title}"
-                                            th:text="#{links.regenerate}">Regenerar</button>
+                                            th:text="#{links.regenerate}">Cambiar enlace</button>
                                 </form>
                                 <form th:action="@{/links/{id}/revoke(id=${link.id})}" method="post"
                                       th:data-confirm="#{links.revoke.confirm(${link.label})}">
                                     <button type="submit" class="outline contrast"
-                                            th:text="#{links.revoke}">Revocar</button>
+                                            th:text="#{links.revoke}">Anular</button>
                                 </form>
                             </th:block>
                         </div>
@@ -104,6 +104,8 @@
                 </tbody>
             </table>
         </div>
+        <p th:unless="${links.?[status.usable].isEmpty()}"><small th:text="#{links.actions.hint}">
+            «Cambiar enlace» crea una dirección nueva. «Anular» hace que deje de abrir la puerta.</small></p>
     </section>
 
     <p th:unless="${lock.active}" role="alert" th:text="#{links.inactive-lock}">

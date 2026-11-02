@@ -60,7 +60,7 @@ class LinkListTests {
         assertThat(page()).containsSubsequence(
                 "Ana Pérez", "Pendiente",
                 "Bea Ruiz", "Activo",
-                "Dani Sanz", "Revocado",
+                "Dani Sanz", "Anulado",
                 "Carlos Gil", "Caducado");
     }
 
@@ -92,6 +92,16 @@ class LinkListTests {
                 "data-confirm=\"El enlace actual de Bea dejará de funcionar ahora mismo",
                 "data-confirm=\"El enlace de Bea dejará de abrir la puerta para siempre",
                 "/js/confirm.js");
+    }
+
+    @Test
+    void whatTheActionsDoIsSaidOnThePageOnlyWhileALinkHasThem() {
+        var hint = "«Anular» hace que deje de abrir la puerta para siempre";
+        insertLink(lockId, "Ana", "now() - interval '2 days'", "now() - interval '1 day'", false);
+        assertThat(page()).doesNotContain(hint);
+
+        insertLink(lockId, "Bea", "now()", "now() + interval '1 day'", false);
+        assertThat(page()).contains(hint);
     }
 
     @Test
