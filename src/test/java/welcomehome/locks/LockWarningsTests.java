@@ -28,6 +28,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.nuki.NukiStandInConfiguration;
 
@@ -59,15 +60,16 @@ class LockWarningsTests {
     PostgreSQLContainer postgres;
 
     JdbcClient migrator;
+    TestData data;
     UUID aliceId;
 
     @BeforeEach
     void insertAliceWithALock() {
         nuki.resetAll();
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         migrator.sql("DELETE FROM owner").update();
-        aliceId = migrator.sql("INSERT INTO owner (email) VALUES (?) RETURNING id")
-                .param(ALICE).query(UUID.class).single();
+        aliceId = data.owner(ALICE);
         insertLock(17, "Casa", "SMART_LOCK");
     }
 
@@ -184,11 +186,11 @@ class LockWarningsTests {
     }
 
     private void insertLock(long nukiSmartlockId, String name, String deviceType) {
-        migrator.sql("""
-                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone, device_type)
-                        VALUES (?, ?, ?, 'Europe/Madrid', ?)
-                        """)
-                .params(aliceId, nukiSmartlockId, name, deviceType).update();
+        if ("OPENER".equals(deviceType)) {
+            data.opener(aliceId, nukiSmartlockId, name);
+        } else {
+            data.lock(aliceId, nukiSmartlockId, name);
+        }
     }
 
     private String body(String page) {

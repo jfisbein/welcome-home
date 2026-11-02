@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 
 @IntegrationTest
@@ -32,10 +33,12 @@ class BootstrapAdminTests {
     PostgreSQLContainer postgres;
 
     JdbcClient migrator;
+    TestData data;
 
     @BeforeEach
     void emptyDatabase() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         migrator.sql("DELETE FROM invitation").update();
         migrator.sql("DELETE FROM owner").update();
     }
@@ -61,7 +64,7 @@ class BootstrapAdminTests {
 
     @Test
     void refusesWhenAnAdminExists() {
-        migrator.sql("INSERT INTO owner (email, is_admin) VALUES ('admin@example.com', true)").update();
+        data.admin("admin@example.com");
 
         assertThat(bootstrapAdmin.createAdminInvitation()).isEmpty();
         assertThat(jdbc.sql("SELECT count(*) FROM invitation").query(Long.class).single()).isZero();
@@ -69,7 +72,7 @@ class BootstrapAdminTests {
 
     @Test
     void ownersWhoAreNotAdminsDoNotPreventTheBootstrap() {
-        migrator.sql("INSERT INTO owner (email) VALUES ('owner@example.com')").update();
+        data.owner("owner@example.com");
 
         assertThat(bootstrapAdmin.createAdminInvitation()).isPresent();
     }

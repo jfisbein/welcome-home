@@ -25,6 +25,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.crypto.LinkTokenSigner;
 import welcomehome.nuki.LockProvider;
@@ -55,22 +56,18 @@ class GuestPageTests {
     LockProvider lockProvider;
 
     JdbcClient migrator;
+    TestData data;
     UUID lockId;
 
     @BeforeEach
     void insertAConnectedLock() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         migrator.sql("DELETE FROM owner").update();
-        var ownerId = migrator.sql("INSERT INTO owner (email) VALUES ('alice@example.com') RETURNING id")
-                .query(UUID.class).single();
-        lockId = migrator.sql("""
-                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone)
-                        VALUES (?, 17, 'Casa de Alice', 'America/New_York') RETURNING id
-                        """)
-                .param(ownerId).query(UUID.class).single();
+        var ownerId = data.owner("alice@example.com");
+        lockId = data.lock(ownerId, 17, "Casa de Alice", "America/New_York");
         // The page reads only the connection's status: the token is never decrypted.
-        migrator.sql("INSERT INTO nuki_connection (owner_id, access_token_encrypted, status) VALUES (?, '\\x00', 'OK')")
-                .param(ownerId).update();
+        data.apiToken(ownerId, new byte[] {0});
     }
 
     @AfterEach
@@ -296,13 +293,7 @@ class GuestPageTests {
 
     /** An Opener "Portal" at the entrance of the lock's building. */
     private UUID insertOpenerAsEntrance() {
-        var portal = migrator.sql("""
-                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone, device_type)
-                        SELECT owner_id, 19, 'Portal', time_zone, 'OPENER' FROM lock WHERE id = ? RETURNING id
-                        """)
-                .param(lockId).query(UUID.class).single();
-        migrator.sql("UPDATE lock SET entrance_lock_id = ? WHERE id = ?").params(portal, lockId).update();
-        return portal;
+        return data.entrance(lockId, 19, "Portal");
     }
 
     private void assertUnavailable(String token) {
@@ -318,17 +309,10 @@ class GuestPageTests {
     }
 
     private void insertSchedule(UUID link, DayOfWeek day, String opens, String closes) {
-        migrator.sql("""
-                        INSERT INTO access_link_schedule (owner_id, link_id, day_of_week, opens_at, closes_at)
-                        SELECT owner_id, id, ?, ?::time, ?::time FROM access_link WHERE id = ?
-                        """)
-                .params(day.getValue(), opens, closes, link).update();
+        data.schedule(link, day, opens, closes);
     }
 
     private UUID insertLink(String validFrom, String validUntil, boolean revoked) {
-        return migrator.sql("INSERT INTO access_link (owner_id, lock_id, label, valid_from, valid_until, revoked_at) "
-                        + "SELECT owner_id, id, 'Etiqueta privada', " + validFrom + ", " + validUntil + ", "
-                        + (revoked ? "now()" : "NULL") + " FROM lock WHERE id = ? RETURNING id")
-                .param(lockId).query(UUID.class).single();
+        return data.link(lockId, "Etiqueta privada", validFrom, validUntil, revoked ? "now()" : null);
     }
 }

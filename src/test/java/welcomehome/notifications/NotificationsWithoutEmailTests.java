@@ -12,6 +12,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 
 /** Without an SMTP server, as in development: the page says so and nothing is sent. */
@@ -30,8 +31,9 @@ class NotificationsWithoutEmailTests {
     @BeforeEach
     void insertAlice() {
         var migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        var data = new TestData(migrator);
         migrator.sql("DELETE FROM owner").update();
-        migrator.sql("INSERT INTO owner (email) VALUES (?)").param(ALICE).update();
+        data.owner(ALICE);
     }
 
     @Test

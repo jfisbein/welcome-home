@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.crypto.CryptoService;
 import welcomehome.crypto.LinkTokenSigner;
@@ -42,6 +43,7 @@ class GuestSlideTests extends BrowserTest {
     PostgreSQLContainer postgres;
 
     JdbcClient migrator;
+    TestData data;
     UUID linkId;
     Locator slider;
 
@@ -49,21 +51,11 @@ class GuestSlideTests extends BrowserTest {
     void openAGuestPage() {
         nuki.resetAll();
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         migrator.sql("DELETE FROM owner").update();
-        var owner = migrator.sql("INSERT INTO owner (email) VALUES ('alice@example.com') RETURNING id")
-                .query(UUID.class).single();
-        migrator.sql("INSERT INTO nuki_connection (owner_id, access_token_encrypted, status) VALUES (?, ?, 'OK')")
-                .params(owner, crypto.encryptAccessToken(owner, "alices-token")).update();
-        var lock = migrator.sql("""
-                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone)
-                        VALUES (?, 17, 'Casa', 'Europe/Madrid') RETURNING id
-                        """)
-                .param(owner).query(UUID.class).single();
-        linkId = migrator.sql("""
-                        INSERT INTO access_link (owner_id, lock_id, label, valid_from, valid_until)
-                        VALUES (?, ?, 'Ana', now() - interval '1 hour', now() + interval '1 day') RETURNING id
-                        """)
-                .params(owner, lock).query(UUID.class).single();
+        var owner = data.owner("alice@example.com");
+        data.apiToken(owner, crypto.encryptAccessToken(owner, "alices-token"));
+        linkId = data.link(data.lock(owner, 17, "Casa"), "Ana");
         nukiOpens();
         page.navigate(url("/o/" + signer.sign(linkId, 1)));
         slider = page.locator("input[type=range]");

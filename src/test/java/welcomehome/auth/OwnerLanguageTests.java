@@ -22,6 +22,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.admin.InvitationService;
 
@@ -49,10 +50,12 @@ class OwnerLanguageTests {
     PostgreSQLContainer postgres;
 
     JdbcClient migrator;
+    TestData data;
 
     @BeforeEach
     void deleteOwners() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         for (var table : new String[] {"user_credentials", "user_entities", "invitation", "owner"}) {
             migrator.sql("DELETE FROM " + table).update();
         }
@@ -131,7 +134,7 @@ class OwnerLanguageTests {
     }
 
     private void insertOwner(String language) {
-        migrator.sql("INSERT INTO owner (email, is_admin, language) VALUES (?, true, ?)").params(ALICE, language).update();
+        data.owner(ALICE, true, language);
     }
 
     private String language(String email) {

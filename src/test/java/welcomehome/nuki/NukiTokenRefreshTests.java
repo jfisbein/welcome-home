@@ -34,6 +34,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.crypto.CryptoService;
 import welcomehome.nuki.LockProviderException.Reason;
@@ -67,15 +68,16 @@ class NukiTokenRefreshTests {
     PostgreSQLContainer postgres;
 
     JdbcClient migrator;
+    TestData data;
     UUID aliceId;
 
     @BeforeEach
     void insertAlice() {
         nuki.resetAll();
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         migrator.sql("DELETE FROM owner").update();
-        aliceId = migrator.sql("INSERT INTO owner (email) VALUES ('alice@example.com') RETURNING id")
-                .query(UUID.class).single();
+        aliceId = data.owner("alice@example.com");
     }
 
     @Test
@@ -247,8 +249,7 @@ class NukiTokenRefreshTests {
 
     @Test
     void pastedApiTokenIsNeverRefreshed() {
-        migrator.sql("INSERT INTO nuki_connection (owner_id, access_token_encrypted, status) VALUES (?, ?, 'OK')")
-                .params(aliceId, crypto.encryptAccessToken(aliceId, "api-token")).update();
+        data.apiToken(aliceId, crypto.encryptAccessToken(aliceId, "api-token"));
         nukiListsCasaFor("api-token");
 
         assertThat(locks.listLocks(aliceId)).isEqualTo(CASA);
@@ -271,14 +272,8 @@ class NukiTokenRefreshTests {
     }
 
     private void insertAuthorization(String accessToken, String refreshToken, String expiresIn) {
-        migrator.sql("""
-                        INSERT INTO nuki_connection (owner_id, credential, access_token_encrypted,
-                                                     refresh_token_encrypted, access_token_expires_at, status)
-                        VALUES (?, 'OAUTH2', ?, ?, now() + ?::interval, 'OK')
-                        """)
-                .params(aliceId, crypto.encryptAccessToken(aliceId, accessToken),
-                        crypto.encryptRefreshToken(aliceId, refreshToken), expiresIn)
-                .update();
+        data.authorization(aliceId, crypto.encryptAccessToken(aliceId, accessToken),
+                crypto.encryptRefreshToken(aliceId, refreshToken), expiresIn, "OK");
     }
 
     private void nukiRefreshes(String refreshToken, String accessToken, String newRefreshToken) {

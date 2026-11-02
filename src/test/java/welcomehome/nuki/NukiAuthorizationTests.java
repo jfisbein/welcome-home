@@ -42,6 +42,7 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.crypto.CryptoService;
 
@@ -73,6 +74,7 @@ class NukiAuthorizationTests {
     PostgreSQLContainer postgres;
 
     JdbcClient migrator;
+    TestData data;
     UUID aliceId;
     MockHttpSession session;
 
@@ -80,6 +82,7 @@ class NukiAuthorizationTests {
     void insertAliceAndBob() {
         nuki.resetAll();
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         migrator.sql("DELETE FROM owner").update();
         aliceId = insertOwner(ALICE);
         insertOwner(BOB);
@@ -275,8 +278,7 @@ class NukiAuthorizationTests {
 
     @Test
     void authorizingReplacesAPastedTokenAndKeepsTheConnectionsLocks() {
-        migrator.sql("INSERT INTO nuki_connection (owner_id, access_token_encrypted, status) VALUES (?, ?, 'OK')")
-                .params(aliceId, crypto.encryptAccessToken(aliceId, "pasted-token")).update();
+        data.apiToken(aliceId, crypto.encryptAccessToken(aliceId, "pasted-token"));
         var connectionId = migrator.sql("SELECT id FROM nuki_connection").query(UUID.class).single();
         assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)))
                 .bodyText().contains(">Usar tu cuenta de Nuki</a>");
@@ -359,8 +361,7 @@ class NukiAuthorizationTests {
 
     @Test
     void disconnectingAPastedTokenAsksNukiNothing() {
-        migrator.sql("INSERT INTO nuki_connection (owner_id, access_token_encrypted, status) VALUES (?, ?, 'OK')")
-                .params(aliceId, crypto.encryptAccessToken(aliceId, "pasted")).update();
+        data.apiToken(aliceId, crypto.encryptAccessToken(aliceId, "pasted"));
 
         assertThat(mvc.delete().uri("/settings/nuki").with(owner(ALICE)).with(csrf())).hasStatus(HttpStatus.FOUND);
 
@@ -452,14 +453,8 @@ class NukiAuthorizationTests {
     }
 
     private void insertAuthorization(UUID ownerId, String status) {
-        migrator.sql("""
-                        INSERT INTO nuki_connection (owner_id, credential, access_token_encrypted,
-                                                     refresh_token_encrypted, access_token_expires_at, status)
-                        VALUES (?, 'OAUTH2', ?, ?, now() + interval '1 hour', ?)
-                        """)
-                .params(ownerId, crypto.encryptAccessToken(ownerId, "access-1"),
-                        crypto.encryptRefreshToken(ownerId, "refresh-1"), status)
-                .update();
+        data.authorization(ownerId, crypto.encryptAccessToken(ownerId, "access-1"),
+                crypto.encryptRefreshToken(ownerId, "refresh-1"), "1 hour", status);
     }
 
     private Stored stored(UUID ownerId) {
@@ -479,7 +474,7 @@ class NukiAuthorizationTests {
     }
 
     private UUID insertOwner(String email) {
-        return migrator.sql("INSERT INTO owner (email) VALUES (?) RETURNING id").param(email).query(UUID.class).single();
+        return data.owner(email);
     }
 
     private static RequestPostProcessor owner(String email) {

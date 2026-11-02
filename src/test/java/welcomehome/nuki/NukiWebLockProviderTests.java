@@ -24,6 +24,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.db.OwnerTransactions;
 import welcomehome.nuki.LockProviderException.Reason;
@@ -56,6 +57,7 @@ class NukiWebLockProviderTests {
     PostgreSQLContainer postgres;
 
     JdbcClient migrator;
+    TestData data;
     UUID alice;
     UUID bob;
 
@@ -63,6 +65,7 @@ class NukiWebLockProviderTests {
     void insertAliceAndBob() {
         nuki.resetAll();
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         migrator.sql("DELETE FROM owner").update();
         alice = insertOwner("alice@example.com");
         bob = insertOwner("bob@example.com");
@@ -187,6 +190,6 @@ class NukiWebLockProviderTests {
     }
 
     private UUID insertOwner(String email) {
-        return migrator.sql("INSERT INTO owner (email) VALUES (?) RETURNING id").param(email).query(UUID.class).single();
+        return data.owner(email);
     }
 }

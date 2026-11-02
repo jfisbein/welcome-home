@@ -18,6 +18,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.crypto.CryptoService;
 import welcomehome.nuki.NukiStandInConfiguration;
@@ -45,11 +46,13 @@ class LockSyncJobTests {
     PostgreSQLContainer postgres;
 
     JdbcClient migrator;
+    TestData data;
 
     @BeforeEach
     void emptyDatabase() {
         nuki.resetAll();
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         migrator.sql("DELETE FROM owner").update();
     }
 
@@ -92,8 +95,7 @@ class LockSyncJobTests {
 
     @Test
     void anOwnerWithoutAConnectionIsLeftAlone() {
-        var bob = migrator.sql("INSERT INTO owner (email) VALUES ('bob@example.com') RETURNING id")
-                .query(UUID.class).single();
+        var bob = data.owner("bob@example.com");
         insertLock(bob, 19, "Portal");
 
         job.syncAll();
@@ -103,10 +105,8 @@ class LockSyncJobTests {
     }
 
     private UUID connectedOwner(String name) {
-        var ownerId = migrator.sql("INSERT INTO owner (email) VALUES (?) RETURNING id")
-                .param(name + "@example.com").query(UUID.class).single();
-        migrator.sql("INSERT INTO nuki_connection (owner_id, access_token_encrypted, status) VALUES (?, ?, 'OK')")
-                .params(ownerId, crypto.encryptAccessToken(ownerId, "token-" + name)).update();
+        var ownerId = data.owner(name + "@example.com");
+        data.apiToken(ownerId, crypto.encryptAccessToken(ownerId, "token-" + name));
         return ownerId;
     }
 
@@ -116,8 +116,7 @@ class LockSyncJobTests {
     }
 
     private void insertLock(UUID ownerId, long nukiSmartlockId, String name) {
-        migrator.sql("INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone) VALUES (?, ?, ?, 'Europe/Madrid')")
-                .params(ownerId, nukiSmartlockId, name).update();
+        data.lock(ownerId, nukiSmartlockId, name);
     }
 
     private List<String> locks(UUID ownerId) {

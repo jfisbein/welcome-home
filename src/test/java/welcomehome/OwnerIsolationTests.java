@@ -59,6 +59,7 @@ class OwnerIsolationTests {
     PostgreSQLContainer postgres;
 
     JdbcClient migrator;
+    TestData data;
     UUID alicesLock;
     UUID bobsLock;
     UUID bobsLink;
@@ -66,26 +67,17 @@ class OwnerIsolationTests {
     @BeforeEach
     void insertAliceAndBob() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         migrator.sql("DELETE FROM owner").update();
         migrator.sql("DELETE FROM user_credentials").update();
         migrator.sql("DELETE FROM user_entities").update();
         alicesLock = insertLock(insertOwner(ALICE), 17, "Casa de Alice");
         bobsLock = insertLock(insertOwner(BOB), 18, "Casa de Bob");
-        bobsLink = migrator.sql("""
-                        INSERT INTO access_link (owner_id, lock_id, label, valid_from, valid_until)
-                        SELECT owner_id, id, 'Invitado de Bob', now(), now() + interval '1 day' FROM lock WHERE id = ?
-                        RETURNING id
-                        """)
-                .param(bobsLock).query(UUID.class).single();
+        bobsLink = data.link(bobsLock, "Invitado de Bob", "now()", TestData.IN_A_DAY);
         // Two passkeys, so that Bob may delete one of them.
-        migrator.sql("INSERT INTO user_entities (id, name, display_name) VALUES ('Ym9i', ?, ?)").params(BOB, BOB).update();
+        data.passkeyUser("Ym9i", BOB);
         for (var credentialId : new String[] {BOBS_PASSKEY, "Ym9icy1vdGhlci1wYXNza2V5"}) {
-            migrator.sql("""
-                            INSERT INTO user_credentials (credential_id, user_entity_user_id, public_key, backup_eligible,
-                                                          backup_state, label, created)
-                            VALUES (?, 'Ym9i', '\\x01', false, false, 'Móvil de Bob', now())
-                            """)
-                    .param(credentialId).update();
+            data.passkey(credentialId, "Ym9i", "Móvil de Bob");
         }
     }
 
@@ -167,17 +159,11 @@ class OwnerIsolationTests {
     }
 
     private UUID insertOwner(String email) {
-        return migrator.sql("INSERT INTO owner (email) VALUES (?) RETURNING id").param(email).query(UUID.class).single();
+        return data.owner(email);
     }
 
     private UUID insertLock(UUID ownerId, long nukiSmartlockId, String name) {
-        return migrator.sql("""
-                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone)
-                        VALUES (?, ?, ?, 'Europe/Madrid') RETURNING id
-                        """)
-                .params(ownerId, nukiSmartlockId, name)
-                .query(UUID.class)
-                .single();
+        return data.lock(ownerId, nukiSmartlockId, name);
     }
 
     private static RequestPostProcessor owner(String email) {

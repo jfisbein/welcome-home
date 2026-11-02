@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.admin.InvitationService;
 
@@ -30,10 +31,12 @@ class OwnerPagesTests extends BrowserTest {
     PostgreSQLContainer postgres;
 
     JdbcClient migrator;
+    TestData data;
 
     @BeforeEach
     void emptyDatabaseAndAnAuthenticator() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         for (var table : List.of("invitation", "user_credentials", "user_entities", "owner")) {
             migrator.sql("DELETE FROM " + table).update();
         }
@@ -158,11 +161,7 @@ class OwnerPagesTests extends BrowserTest {
 
     private void openTheLocksLinks() {
         var owner = migrator.sql("SELECT id FROM owner WHERE email = ?").param(ALICE).query(UUID.class).single();
-        var lock = migrator.sql("""
-                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone)
-                        VALUES (?, 17, 'Casa', 'Europe/Madrid') RETURNING id
-                        """)
-                .param(owner).query(UUID.class).single();
+        var lock = data.lock(owner, 17, "Casa");
         page.navigate(url("/locks/" + lock + "/links"));
     }
 

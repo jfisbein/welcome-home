@@ -2,6 +2,7 @@ package welcomehome.links;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.DayOfWeek;
 import java.util.List;
 import java.util.UUID;
 
@@ -11,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 
 @IntegrationTest
@@ -23,12 +25,14 @@ class LinkPurgeJobTests {
     PostgreSQLContainer postgres;
 
     JdbcClient migrator;
+    TestData data;
     UUID alice;
     UUID casa;
 
     @BeforeEach
     void insertAliceWithALock() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         migrator.sql("DELETE FROM owner").update();
         alice = insertOwner("alice@example.com");
         casa = insertLock(alice);
@@ -36,9 +40,9 @@ class LinkPurgeJobTests {
 
     @Test
     void aLinkGoesAYearAfterItExpiredAndNotBefore() {
-        insertLink(alice, casa, "Hace dos años", "now() - interval '2 years'", "NULL");
-        insertLink(alice, casa, "Hace un mes", "now() - interval '1 month'", "NULL");
-        insertLink(alice, casa, "Activo", "now() + interval '1 day'", "NULL");
+        insertLink(casa, "Hace dos años", "now() - interval '2 years'", "NULL");
+        insertLink(casa, "Hace un mes", "now() - interval '1 month'", "NULL");
+        insertLink(casa, "Activo", "now() + interval '1 day'", "NULL");
 
         job.purgeAll();
 
@@ -47,8 +51,8 @@ class LinkPurgeJobTests {
 
     @Test
     void aLinkCancelledLongAgoGoesThoughItsDatesHadNotEnded() {
-        insertLink(alice, casa, "Anulado hace dos años", "now() + interval '1 year'", "now() - interval '2 years'");
-        insertLink(alice, casa, "Anulado ayer", "now() + interval '1 year'", "now() - interval '1 day'");
+        insertLink(casa, "Anulado hace dos años", "now() + interval '1 year'", "now() - interval '2 years'");
+        insertLink(casa, "Anulado ayer", "now() + interval '1 year'", "now() - interval '1 day'");
 
         job.purgeAll();
 
@@ -57,10 +61,10 @@ class LinkPurgeJobTests {
 
     @Test
     void aLinkWithARecentAttemptStaysUntilThatAttemptIsOldToo() {
-        var triedLately = insertLink(alice, casa, "Lo probaron ayer", "now() - interval '2 years'", "NULL");
-        var triedLongAgo = insertLink(alice, casa, "Lo probaron hace tiempo", "now() - interval '2 years'", "NULL");
-        insertEvent(alice, casa, triedLately, "now() - interval '1 day'");
-        insertEvent(alice, casa, triedLongAgo, "now() - interval '2 years'");
+        var triedLately = insertLink(casa, "Lo probaron ayer", "now() - interval '2 years'", "NULL");
+        var triedLongAgo = insertLink(casa, "Lo probaron hace tiempo", "now() - interval '2 years'", "NULL");
+        insertEvent(triedLately, "now() - interval '1 day'");
+        insertEvent(triedLongAgo, "now() - interval '2 years'");
 
         job.purgeAll();
 
@@ -70,12 +74,8 @@ class LinkPurgeJobTests {
 
     @Test
     void itsScheduleGoesWithIt() {
-        var link = insertLink(alice, casa, "Con horario", "now() - interval '2 years'", "NULL");
-        migrator.sql("""
-                        INSERT INTO access_link_schedule (owner_id, link_id, day_of_week, opens_at, closes_at)
-                        VALUES (?, ?, 1, '09:00', '17:00')
-                        """)
-                .params(alice, link).update();
+        var link = insertLink(casa, "Con horario", "now() - interval '2 years'", "NULL");
+        data.schedule(link, DayOfWeek.MONDAY, "09:00", "17:00");
 
         job.purgeAll();
 
@@ -85,8 +85,8 @@ class LinkPurgeJobTests {
     @Test
     void everyOwnersLinksGo() {
         var bob = insertOwner("bob@example.com");
-        insertLink(bob, insertLock(bob), "De Bob", "now() - interval '2 years'", "NULL");
-        insertLink(alice, casa, "De Alice", "now() - interval '2 years'", "NULL");
+        insertLink(insertLock(bob), "De Bob", "now() - interval '2 years'", "NULL");
+        insertLink(casa, "De Alice", "now() - interval '2 years'", "NULL");
 
         job.purgeAll();
 
@@ -98,27 +98,19 @@ class LinkPurgeJobTests {
     }
 
     private UUID insertOwner(String email) {
-        return migrator.sql("INSERT INTO owner (email) VALUES (?) RETURNING id").param(email).query(UUID.class).single();
+        return data.owner(email);
     }
 
     private UUID insertLock(UUID owner) {
-        return migrator.sql("""
-                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone)
-                        VALUES (?, 17, 'Casa', 'Europe/Madrid') RETURNING id
-                        """)
-                .param(owner).query(UUID.class).single();
+        return data.lock(owner, 17, "Casa");
     }
 
-    private UUID insertLink(UUID owner, UUID lock, String label, String validUntil, String revokedAt) {
-        return migrator.sql("INSERT INTO access_link (owner_id, lock_id, label, valid_from, valid_until, revoked_at) "
-                        + "VALUES (?, ?, ?, now() - interval '3 years', " + validUntil + ", " + revokedAt
-                        + ") RETURNING id")
-                .params(owner, lock, label).query(UUID.class).single();
+    private UUID insertLink(UUID lock, String label, String validUntil, String revokedAt) {
+        return data.link(lock, label, "now() - interval '3 years'", validUntil,
+                "NULL".equals(revokedAt) ? null : revokedAt);
     }
 
-    private void insertEvent(UUID owner, UUID lock, UUID link, String occurredAt) {
-        migrator.sql("INSERT INTO access_event (owner_id, link_id, lock_id, result, reason, occurred_at) "
-                        + "VALUES (?, ?, ?, 'DENIED', 'expired', " + occurredAt + ")")
-                .params(owner, link, lock).update();
+    private void insertEvent(UUID link, String occurredAt) {
+        data.attempt(link, occurredAt, "DENIED", "expired", null);
     }
 }

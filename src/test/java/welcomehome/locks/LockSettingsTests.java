@@ -18,6 +18,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.nuki.NukiStandInConfiguration;
 
@@ -37,12 +38,14 @@ class LockSettingsTests {
     PostgreSQLContainer postgres;
 
     JdbcClient migrator;
+    TestData data;
     UUID alicesLock;
     UUID bobsLock;
 
     @BeforeEach
     void insertALockForAliceAndBob() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         migrator.sql("DELETE FROM owner").update();
         alicesLock = insertLock(ALICE, "Casa");
         bobsLock = insertLock(BOB, "Apartamento de Bob");
@@ -176,14 +179,8 @@ class LockSettingsTests {
     }
 
     private UUID insertLock(UUID ownerId, long nukiSmartlockId, String name, String deviceType) {
-        return migrator.sql("""
-                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone, device_type)
-                        VALUES (?, ?, ?, 'Europe/Berlin', ?)
-                        RETURNING id
-                        """)
-                .params(ownerId, nukiSmartlockId, name, deviceType)
-                .query(UUID.class)
-                .single();
+        return "OPENER".equals(deviceType) ? data.opener(ownerId, nukiSmartlockId, name, "Europe/Berlin")
+                : data.lock(ownerId, nukiSmartlockId, name, "Europe/Berlin");
     }
 
     private String settings(UUID lockId) {
@@ -192,16 +189,7 @@ class LockSettingsTests {
     }
 
     private UUID insertLock(String email, String name) {
-        var ownerId = migrator.sql("INSERT INTO owner (email) VALUES (?) RETURNING id")
-                .param(email).query(UUID.class).single();
-        return migrator.sql("""
-                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone)
-                        VALUES (?, 17, ?, 'Europe/Berlin')
-                        RETURNING id
-                        """)
-                .params(ownerId, name)
-                .query(UUID.class)
-                .single();
+        return data.lock(data.owner(email), 17, name, "Europe/Berlin");
     }
 
     private static RequestPostProcessor owner(String email) {

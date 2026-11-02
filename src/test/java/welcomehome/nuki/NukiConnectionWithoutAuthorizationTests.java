@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.crypto.CryptoService;
 
@@ -39,14 +40,15 @@ class NukiConnectionWithoutAuthorizationTests {
     PostgreSQLContainer postgres;
 
     JdbcClient migrator;
+    TestData data;
     UUID aliceId;
 
     @BeforeEach
     void insertAlice() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         migrator.sql("DELETE FROM owner").update();
-        aliceId = migrator.sql("INSERT INTO owner (email) VALUES (?) RETURNING id").param(ALICE)
-                .query(UUID.class).single();
+        aliceId = data.owner(ALICE);
     }
 
     @Test
@@ -74,8 +76,7 @@ class NukiConnectionWithoutAuthorizationTests {
                         "Ver protocolos de cierre y obtener notificaciones de protocolo", "name=\"apiToken\"")
                 .doesNotContain("/settings/nuki/oauth", "Usar un API token en su lugar", "Te llevamos a Nuki");
 
-        migrator.sql("INSERT INTO nuki_connection (owner_id, access_token_encrypted, status) VALUES (?, ?, 'OK')")
-                .params(aliceId, crypto.encryptAccessToken(aliceId, "alices-token")).update();
+        data.apiToken(aliceId, crypto.encryptAccessToken(aliceId, "alices-token"));
 
         assertThat(mvc.get().uri("/settings/nuki").with(owner()))
                 .bodyText().contains("Conectado con un API token.", "Cómo conseguir el API token", "Cambiar API token")

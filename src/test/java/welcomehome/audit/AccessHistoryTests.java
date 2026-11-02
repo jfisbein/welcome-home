@@ -21,6 +21,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.nuki.NukiStandInConfiguration;
 
@@ -40,6 +41,7 @@ class AccessHistoryTests {
     PostgreSQLContainer postgres;
 
     JdbcClient migrator;
+    TestData data;
     UUID casa;
     UUID garaje;
     UUID ana;
@@ -51,6 +53,7 @@ class AccessHistoryTests {
     @BeforeEach
     void insertLocksAndLinks() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         migrator.sql("DELETE FROM owner").update();
         var alice = insertOwner(ALICE);
         casa = insertLock(alice, 17, "Casa", "Europe/Madrid");
@@ -92,11 +95,7 @@ class AccessHistoryTests {
      */
     @Test
     void attemptsAtTheBuildingEntranceShowWithTheLinkAndTheOpener() {
-        var portal = migrator.sql("""
-                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone, device_type)
-                        SELECT owner_id, 20, 'Portal del 5', time_zone, 'OPENER' FROM lock WHERE id = ? RETURNING id
-                        """)
-                .param(casa).query(UUID.class).single();
+        var portal = data.entrance(casa, 20, "Portal del 5");
         insertEvent(ana, "2030-07-01T10:00:00Z", "OK", "opened", "198.51.100.1");
         insertEvent(ana, "2030-07-01T09:58:00Z", "OK", "opened", "198.51.100.2");
         migrator.sql("UPDATE access_event SET entrance_lock_id = ? WHERE ip = '198.51.100.2'").param(portal).update();
@@ -240,36 +239,19 @@ class AccessHistoryTests {
     }
 
     private void insertEvent(UUID linkId, String occurredAt, String result, String reason, String ip) {
-        migrator.sql("""
-                        INSERT INTO access_event (owner_id, link_id, lock_id, occurred_at, result, reason, ip)
-                        SELECT owner_id, id, lock_id, CAST(? AS timestamptz), ?, ?, CAST(? AS inet)
-                        FROM access_link WHERE id = ?
-                        """)
-                .params(occurredAt, result, reason, ip, linkId)
-                .update();
+        data.attempt(linkId, "timestamptz '" + occurredAt + "'", result, reason, ip);
     }
 
     private UUID insertOwner(String email) {
-        return migrator.sql("INSERT INTO owner (email) VALUES (?) RETURNING id").param(email).query(UUID.class).single();
+        return data.owner(email);
     }
 
     private UUID insertLock(UUID ownerId, long nukiSmartlockId, String name, String timeZone) {
-        return migrator.sql("""
-                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone) VALUES (?, ?, ?, ?) RETURNING id
-                        """)
-                .params(ownerId, nukiSmartlockId, name, timeZone)
-                .query(UUID.class)
-                .single();
+        return data.lock(ownerId, nukiSmartlockId, name, timeZone);
     }
 
     private UUID insertLink(UUID lockId, String label) {
-        return migrator.sql("""
-                        INSERT INTO access_link (owner_id, lock_id, label, valid_from, valid_until)
-                        SELECT owner_id, id, ?, now(), now() + interval '1 day' FROM lock WHERE id = ? RETURNING id
-                        """)
-                .params(label, lockId)
-                .query(UUID.class)
-                .single();
+        return data.link(lockId, label, "now()", TestData.IN_A_DAY);
     }
 
     private static RequestPostProcessor owner(String email) {

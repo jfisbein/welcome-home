@@ -22,6 +22,7 @@ import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.event.RecordApplicationEvents;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 
 /** Same configuration as NukiConnectionTests, so both share one application context. */
@@ -49,11 +50,13 @@ class ConnectionCheckJobTests {
     PostgreSQLContainer postgres;
 
     JdbcClient migrator;
+    TestData data;
 
     @BeforeEach
     void emptyDatabase() {
         nuki.resetAll();
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         migrator.sql("DELETE FROM owner").update();
     }
 
@@ -65,7 +68,7 @@ class ConnectionCheckJobTests {
         var alreadyDisconnected = connectedOwner("disconnected", okJson("[]"));
         migrator.sql("UPDATE nuki_connection SET status = 'DISCONNECTED' WHERE owner_id = ?")
                 .param(alreadyDisconnected).update();
-        migrator.sql("INSERT INTO owner (email) VALUES ('never-connected@example.com')").update();
+        data.owner("never-connected@example.com");
         migrator.sql("UPDATE nuki_connection SET last_checked_at = '" + LONG_AGO + "'").update();
         nuki.resetRequests();
 
@@ -130,10 +133,7 @@ class ConnectionCheckJobTests {
 
     /** An owner connected with the token "token-{name}", for which Nuki then answers with {@code response}. */
     private UUID connectedOwner(String name, ResponseDefinitionBuilder response) {
-        var ownerId = migrator.sql("INSERT INTO owner (email) VALUES (?) RETURNING id")
-                .param(name + "@example.com")
-                .query(UUID.class)
-                .single();
+        var ownerId = data.owner(name + "@example.com");
         var token = "token-" + name;
         nuki.stubFor(get("/smartlock").withHeader("Authorization", equalTo("Bearer " + token))
                 .inScenario(name).whenScenarioStateIs("Started").willReturn(okJson("[]")).willSetStateTo("connected"));

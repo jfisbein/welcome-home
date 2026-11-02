@@ -36,6 +36,7 @@ class HomePageTests {
     PostgreSQLContainer postgres;
 
     JdbcClient migrator;
+    TestData data;
     UUID casa;
     UUID garaje;
     UUID ana;
@@ -45,6 +46,7 @@ class HomePageTests {
     @BeforeEach
     void insertLocksAndLinks() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         migrator.sql("DELETE FROM owner").update();
         var alice = insertOwner(ALICE);
         casa = insertLock(alice, 17, "Casa", "Europe/Madrid");
@@ -164,36 +166,19 @@ class HomePageTests {
     }
 
     private void insertEvent(UUID linkId, String occurredAt, String result, String reason) {
-        migrator.sql("""
-                        INSERT INTO access_event (owner_id, link_id, lock_id, occurred_at, result, reason, ip)
-                        SELECT owner_id, id, lock_id, CAST(? AS timestamptz), ?, ?, inet '198.51.100.1'
-                        FROM access_link WHERE id = ?
-                        """)
-                .params(occurredAt, result, reason, linkId)
-                .update();
+        data.attempt(linkId, "timestamptz '" + occurredAt + "'", result, reason, "198.51.100.1");
     }
 
     private UUID insertOwner(String email) {
-        return migrator.sql("INSERT INTO owner (email) VALUES (?) RETURNING id").param(email).query(UUID.class).single();
+        return data.owner(email);
     }
 
     private UUID insertLock(UUID ownerId, long nukiSmartlockId, String name, String timeZone) {
-        return migrator.sql("""
-                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone) VALUES (?, ?, ?, ?) RETURNING id
-                        """)
-                .params(ownerId, nukiSmartlockId, name, timeZone)
-                .query(UUID.class)
-                .single();
+        return data.lock(ownerId, nukiSmartlockId, name, timeZone);
     }
 
     private UUID insertLink(UUID lockId, String label) {
-        return migrator.sql("""
-                        INSERT INTO access_link (owner_id, lock_id, label, valid_from, valid_until)
-                        SELECT owner_id, id, ?, now(), now() + interval '1 day' FROM lock WHERE id = ? RETURNING id
-                        """)
-                .params(label, lockId)
-                .query(UUID.class)
-                .single();
+        return data.link(lockId, label, "now()", TestData.IN_A_DAY);
     }
 
     private static RequestPostProcessor owner(String email) {

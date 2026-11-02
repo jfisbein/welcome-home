@@ -27,6 +27,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.admin.InvitationService;
 import welcomehome.notifications.MailStandInConfiguration;
@@ -61,11 +62,13 @@ class EmailVerificationTests {
     PostgreSQLContainer postgres;
 
     JdbcClient migrator;
+    TestData data;
     UUID aliceId;
 
     @BeforeEach
     void aliceRegisters() throws Exception {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         for (var table : new String[] {"user_credentials", "user_entities", "invitation", "owner"}) {
             migrator.sql("DELETE FROM " + table).update();
         }
@@ -154,8 +157,7 @@ class EmailVerificationTests {
 
     @Test
     void ownersRegisteredBeforeVerificationExistedAreVerified() {
-        var bob = migrator.sql("INSERT INTO owner (email) VALUES ('bob@example.com') RETURNING id")
-                .query(UUID.class).single();
+        var bob = data.owner("bob@example.com");
 
         assertThat(emailVerification.isVerified(bob)).isTrue();
     }

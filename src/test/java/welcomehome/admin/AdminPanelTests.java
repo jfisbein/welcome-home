@@ -19,6 +19,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.db.OwnerTransactions;
 
@@ -47,37 +48,20 @@ class AdminPanelTests {
     PostgreSQLContainer postgres;
 
     JdbcClient migrator;
+    TestData data;
     UUID adminId;
     UUID bobId;
 
     @BeforeEach
     void insertAnAdminAndAnOwnerWithALockAndALink() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         for (var table : new String[] {"invitation", "user_credentials", "user_entities", "owner"}) {
             migrator.sql("DELETE FROM " + table).update();
         }
-        adminId = migrator.sql("INSERT INTO owner (email, is_admin) VALUES (?, true) RETURNING id")
-                .param(ADMIN_EMAIL)
-                .query(UUID.class)
-                .single();
-        bobId = migrator.sql("INSERT INTO owner (email) VALUES (?) RETURNING id")
-                .param(OWNER_EMAIL)
-                .query(UUID.class)
-                .single();
-        var lockId = migrator.sql("""
-                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone)
-                        VALUES (?, 1, ?, 'Europe/Madrid')
-                        RETURNING id
-                        """)
-                .params(bobId, BOBS_LOCK)
-                .query(UUID.class)
-                .single();
-        migrator.sql("""
-                        INSERT INTO access_link (owner_id, lock_id, label, valid_from, valid_until)
-                        VALUES (?, ?, ?, now(), now() + interval '1 day')
-                        """)
-                .params(bobId, lockId, BOBS_LINK)
-                .update();
+        adminId = data.admin(ADMIN_EMAIL);
+        bobId = data.owner(OWNER_EMAIL);
+        data.link(data.lock(bobId, 1, BOBS_LOCK), BOBS_LINK, "now()", TestData.IN_A_DAY);
     }
 
     @Test
@@ -207,8 +191,7 @@ class AdminPanelTests {
 
     @Test
     void adminDeletesAnOwnerWithEverythingOfTheirs() {
-        migrator.sql("INSERT INTO nuki_connection (owner_id, access_token_encrypted, status) VALUES (?, '\\x00', 'OK')")
-                .param(bobId).update();
+        data.apiToken(bobId, new byte[] {0});
         migrator.sql("""
                         INSERT INTO access_event (owner_id, link_id, lock_id, result)
                         SELECT owner_id, id, lock_id, 'OK' FROM access_link
@@ -330,14 +313,8 @@ class AdminPanelTests {
     }
 
     private void insertPasskey(String userId, String email, String credentialId) {
-        migrator.sql("INSERT INTO user_entities (id, name, display_name) VALUES (?, ?, ?)")
-                .params(userId, email, email).update();
-        migrator.sql("""
-                        INSERT INTO user_credentials (credential_id, user_entity_user_id, public_key, backup_eligible,
-                                                      backup_state, label)
-                        VALUES (?, ?, '\\x01', false, false, 'Passkey')
-                        """)
-                .params(credentialId, userId).update();
+        data.passkeyUser(userId, email);
+        data.passkey(credentialId, userId, "Passkey");
     }
 
     private MvcTestResult createInvitation(String note, boolean grantsAdmin) {
