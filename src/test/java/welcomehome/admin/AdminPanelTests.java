@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpStatus;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
@@ -290,6 +291,19 @@ class AdminPanelTests {
         assertThat(mvc.delete().uri("/admin/invitations/" + invitation.id()).with(admin()))
                 .as("without the CSRF token").hasStatus(HttpStatus.FORBIDDEN);
         assertThat(invitations.findRedeemable(tokenOf(invitation))).isPresent();
+    }
+
+    @Test
+    void anOwnerDeletedWhileSignedInLosesTheirSessionAndWithItTheirRole() {
+        var session = new MockHttpSession();
+        assertThat(mvc.get().uri("/admin/owners").with(user(OWNER_EMAIL).roles("OWNER", "ADMIN")).session(session))
+                .hasStatusOk();
+        assertThat(session.isInvalid()).isFalse();
+
+        assertThat(mvc.delete().uri("/admin/owners").with(admin()).with(csrf()).param("email", OWNER_EMAIL))
+                .hasStatus(HttpStatus.FOUND);
+
+        assertThat(session.isInvalid()).isTrue();
     }
 
     @Test

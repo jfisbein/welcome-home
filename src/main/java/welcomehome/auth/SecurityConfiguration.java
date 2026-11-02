@@ -11,8 +11,11 @@ import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.authentication.session.ChangeSessionIdAuthenticationStrategy;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
 import org.springframework.security.web.webauthn.api.PublicKeyCredentialRpEntity;
+import org.springframework.security.web.webauthn.authentication.WebAuthnAuthenticationFilter;
 import org.springframework.security.web.webauthn.management.JdbcPublicKeyCredentialUserEntityRepository;
 import org.springframework.security.web.webauthn.management.JdbcUserCredentialRepository;
 import org.springframework.security.web.webauthn.management.PublicKeyCredentialUserEntityRepository;
@@ -52,7 +55,7 @@ class SecurityConfiguration {
     /** Only with the web server: the one-off commands run without it, and without HttpSecurity. */
     @Bean
     @ConditionalOnWebApplication
-    SecurityFilterChain securityFilterChain(HttpSecurity http) {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, OwnerSessions sessions) {
         http
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers("/login", "/invite/**", "/email/verify/**", "/o/**", "/api/open",
@@ -66,6 +69,7 @@ class SecurityConfiguration {
                         .anyRequest().authenticated())
                 .csrf(csrf -> csrf.ignoringRequestMatchers("/api/open", "/nuki/webhook"))
                 .webAuthn(webAuthn -> webAuthn.disableDefaultRegistrationPage(true))
+                .addFilterAfter(new OwnerSessionTrackingFilter(sessions), SecurityContextHolderFilter.class)
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login")))
                 .logout(logout -> logout.logoutSuccessUrl("/login?logout"))
@@ -75,7 +79,14 @@ class SecurityConfiguration {
                         .httpStrictTransportSecurity(hsts -> hsts
                                 .maxAgeInSeconds(HSTS_MAX_AGE.toSeconds())
                                 .includeSubDomains(true)));
-        return http.build();
+        var chain = http.build();
+        // WebAuthnConfigurer leaves its filter without a session strategy, so a sign-in would keep the session id
+        // from before it, which someone who planted that id in the browser would then share.
+        chain.getFilters().stream()
+                .filter(WebAuthnAuthenticationFilter.class::isInstance)
+                .map(WebAuthnAuthenticationFilter.class::cast)
+                .forEach(filter -> filter.setSessionAuthenticationStrategy(new ChangeSessionIdAuthenticationStrategy()));
+        return chain;
     }
 
     @Bean

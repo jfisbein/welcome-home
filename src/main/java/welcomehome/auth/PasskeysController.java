@@ -1,5 +1,6 @@
 package welcomehome.auth;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -24,9 +25,11 @@ class PasskeysController {
     static final int MAX_LABEL_LENGTH = 60;
 
     private final PasskeyDao passkeys;
+    private final OwnerSessions sessions;
 
-    PasskeysController(PasskeyDao passkeys) {
+    PasskeysController(PasskeyDao passkeys, OwnerSessions sessions) {
         this.passkeys = passkeys;
+        this.sessions = sessions;
     }
 
     @GetMapping
@@ -53,7 +56,8 @@ class PasskeysController {
     }
 
     @DeleteMapping("/{credentialId}")
-    String delete(CurrentOwner owner, @PathVariable String credentialId, RedirectAttributes redirect) {
+    String delete(CurrentOwner owner, @PathVariable String credentialId, HttpServletRequest request,
+                  RedirectAttributes redirect) {
         var passkey = passkeys.findAll(owner.id()).stream()
                 .filter(candidate -> candidate.credentialId().equals(credentialId))
                 .findFirst()
@@ -61,6 +65,9 @@ class PasskeysController {
         if (!passkeys.deleteUnlessLast(owner.id(), credentialId)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "The last passkey cannot be deleted");
         }
+        // A lost device may be why: it must not stay signed in. The one asking is still who they say they are.
+        var session = request.getSession(false);
+        sessions.endOthers(owner.email(), session == null ? null : session.getId());
         redirect.addFlashAttribute("deleted", passkey.label());
         return "redirect:/settings/passkeys";
     }
