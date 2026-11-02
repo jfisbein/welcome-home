@@ -61,6 +61,10 @@ welcomehome:
     check-cron: "0 0 8 * * *"
     # Every hour, trying the connections disconnected in the last 7 days, in case Nuki accepts them again.
     recheck-cron: "0 17 * * * *"
+  links:
+    # How long a link is kept after it ended: its label usually holds a guest's name.
+    retention: P365D
+    purge-cron: "0 32 3 * * *"
   locks:
     # Daily sync of every owner's locks with their Nuki account, in the server's time zone.
     sync-cron: "0 15 8 * * *"

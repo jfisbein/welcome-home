@@ -34,7 +34,7 @@ Non-functional:
 - Secrets at rest: Nuki tokens are encrypted (AEAD, bound to their owner and kind); links store no token at all (HMAC).
 - Never two unlatches for one press: one action per lock at a time, and the unlatch is never retried once Nuki may have run it.
 - Single instance: rate limits, the per-lock mutex and scheduled jobs live in memory in one process.
-- GDPR: guests' IP addresses expire; a deleted owner's data is gone from backups after their 30-day retention.
+- GDPR: guests' IP addresses expire, and so does a link a year after it ended, with the guest's name in its label; a deleted owner's data is gone from backups after their 30-day retention.
 - Upgrades within a major version are pulling the new image: no backup, no change on the server, and rolling back is pinning the previous release.
 
 Out of scope so far: geofencing, push notifications, use limits, exceptions to a link's schedule (holidays), Ring to Open, native apps.
@@ -86,7 +86,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 
 | Table | Owner | Also used in SQL by |
 |-------|-------|---------------------|
-| `owner` | `auth` (registration inserts it) | `admin`: lists owners and deletes one; `audit`, `locks`, `nuki`: owner ids for their daily jobs; `notifications`: the owner's email |
+| `owner` | `auth` (registration inserts it) | `admin`: lists owners and deletes one; `audit`, `links`, `locks`, `nuki`: owner ids for their daily jobs; `notifications`: the owner's email |
 | `user_entities`, `user_credentials` | `auth` (Spring Security's passkey store) | none (deleting an owner cascades to them) |
 | `invitation` | `admin` | none (`auth` goes through `InvitationService`) |
 | `nuki_connection` | `nuki` | none |
@@ -98,7 +98,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 
 **Roles in Postgres**: `migrator` owns the schema and runs Liquibase; the app connects as `app_user`, with no ownership and no `BYPASSRLS`; the off-site backup tool reads as `backup_reader`, with `BYPASSRLS` and `pg_read_all_data` and no other grant. No `FORCE ROW LEVEL SECURITY`, so that `resolve_link` (owned by `migrator`) sees the link. Roles come from `deploy/db-init/01-create-roles.sh`, used by development, tests and production alike.
 
-**Jobs** (`@Scheduled`, server time zone): Nuki connection check (08:00), trying disconnected connections again (hourly), locks' sync (08:15), access event purge (03:30), purge of invitations expired more than 30 days ago (03:35); in production a separate `backup` container dumps the database at 04:00.
+**Jobs** (`@Scheduled`, server time zone): Nuki connection check (08:00), trying disconnected connections again (hourly), locks' sync (08:15), access event purge (03:30), purge of links that ended over a year ago (03:32), purge of invitations expired more than 30 days ago (03:35); in production a separate `backup` container dumps the database at 04:00.
 
 **Commands**: `--bootstrap-admin` and `--recover-owner=<email>` start the app without the web server (`WelcomeHomeApplication.runsACommand`), print a link and exit. Anything web-only must stay optional without a web server (see `CommandLineTests`).
 
