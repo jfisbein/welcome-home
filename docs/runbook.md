@@ -136,13 +136,13 @@ Since Postgres 18 the image keeps its data in `/var/lib/postgresql/<major>/docke
 
 ## Rotate the AEAD keyset
 
-The AEAD keyset encrypts the owners' Nuki API tokens. Rotating it adds a new primary key: tokens stored from then on use it, and the earlier keys stay in the keyset to decrypt the tokens already stored.
+The AEAD keyset encrypts the owners' Nuki tokens: pasted API tokens, and OAuth2 access and refresh tokens. Rotating it adds a new primary key: tokens stored from then on use it, and the earlier keys stay in the keyset to decrypt the tokens already stored.
 
 1. Copy `aead-keyset.json` from Vaultwarden to a development machine and run `./gradlew rotateAeadKeyset --args=<path to aead-keyset.json>`. It prints the new primary key's id.
 2. Store the rotated file in Vaultwarden, replacing the old one.
 3. On the server, replace `secrets/aead-keyset.json` with it (`chmod 444`) and restart `app`: `docker compose restart app`. Delete the copy on the development machine.
 
-Each owner's token stays encrypted with the key it was stored with until the owner pastes it again. To see how many tokens each key encrypts (the id is in the ciphertext, after a version byte):
+Tokens stay encrypted with the key they were stored with until they are stored again. OAuth2 tokens are, on the first refresh after the rotation, within a day at most as the daily check refreshes them; a pasted API token only when its owner pastes it again. A disconnected connection is not refreshed. To see how many connections each key encrypts (the id is in the ciphertext, after a version byte):
 
 ```sh
 docker compose exec db psql -U postgres -d welcome_home -c "
@@ -150,15 +150,20 @@ docker compose exec db psql -U postgres -d welcome_home -c "
   FROM nuki_connection GROUP BY 1"
 ```
 
-A key that no token uses can be removed from the keyset (`jq 'del(.key[] | select(.keyId == <id>))'`), then stored and deployed as above. Removing a key that tokens still use disconnects those owners: they have to paste their token again.
+A key that no token uses can be removed from the keyset (`jq 'del(.key[] | select(.keyId == <id>))'`), then stored and deployed as above. Removing a key that tokens still use leaves those owners without a working connection: they have to connect Nuki again.
 
-**If the AEAD keyset leaked**, together with a dump the owners' tokens are exposed. Rotate the keyset, ask every owner to revoke their API token in Nuki Web and paste a new one, and once the old key encrypts no token, remove it.
+**If the AEAD keyset leaked**, together with a dump the owners' tokens are exposed. Rotate the keyset, then ask every owner to replace theirs:
+
+- Connected with an API token: delete it in Nuki Web, and paste a new one.
+- Connected with OAuth2: at `/settings/nuki`, "Desconectar Nuki", which asks Nuki to revoke the authorization (check the log for "Asked Nuki to revoke"), and then "Conectar con Nuki". Using a stolen refresh token also takes the client secret: if that may have leaked too, replace it in Nuki Web and in `secrets/nuki-oauth-client-secret`.
+
+Once the old key encrypts no token, remove it.
 
 **If the MAC keyset leaked**, anyone who knows a link's id can forge its URL. Replace it with a new one (`./gradlew generateKeysets` into an empty folder, keeping only `mac-keyset.json`), store it in Vaultwarden and on the server, and restart `app`: every access link changes, and owners have to share their links again.
 
 ## An owner leaves
 
-An admin deletes them in `/admin/owners` ("Dar de baja"): their account, passkeys, Nuki connection, locks, links and history go at once. Their data stays in the dumps, locally and in B2, until the dumps expire after 30 days. Remind them to delete their API token in Nuki Web.
+An admin deletes them in `/admin/owners` ("Dar de baja"): their account, passkeys, Nuki connection, locks, links and history go at once. Their data stays in the dumps, locally and in B2, until the dumps expire after 30 days. An OAuth2 authorization is revoked at Nuki as they go (the log says "Asked Nuki to revoke", or "Could not revoke"); an API token is theirs to delete in Nuki Web, so remind them.
 
 ## A leaked access link
 
@@ -177,7 +182,7 @@ The link's **Historial** shows whether, when and from which IP address it was us
 | `app` does not turn healthy | `docker compose logs app`: a missing or unreadable keyset or secret, or the database, is named in the error. |
 | `backup` restarting, "/backups is not writable by uid 999" | `backups/` did not exist before the first start, so Docker created it for root: `chown 999:999 backups && chmod 700 backups`, then `docker compose restart backup`. |
 | `backup` unhealthy | No dump in the last 25 hours: `docker compose logs backup`, and check that the disk has room. |
-| Guests see "Esta puerta no está disponible ahora mismo" | The lock is inactive, or the owner's Nuki connection is disconnected: the owner's home page says which, and pasting a new API token fixes the latter. |
+| Guests see "Esta puerta no está disponible ahora mismo" | The lock is inactive, or the owner's Nuki connection is disconnected: the owner's home page says which. Connecting Nuki again at `/settings/nuki` fixes the latter, and a connection that Nuki accepts again comes back by itself within the hour, for 7 days. |
 | Sliding to open fails for every guest | Cloudflare's Bot Fight Mode or a WAF rule may be challenging `POST /api/open`: check Security → Events in Cloudflare. Otherwise `docker compose logs app` shows what Nuki answered. |
 | Openings take seconds to confirm for owners connected with OAuth2 | Nuki's webhooks are not arriving: see "Nuki's webhook URL" above. `docker compose logs app` shows "Nuki reported request ..." for each one that does. |
 | An owner lost their passkey | An admin creates a passkey recovery link for them in `/admin/owners` ("Nueva passkey") and sends it; the owner keeps their other passkeys, and then deletes the lost device's one in Configuración → Passkeys. If the one who lost it is the only admin: `docker compose run --rm app --recover-owner=<email>` on the server. A passkey kept in a synced password manager (such as Vaultwarden) survives a lost device. |
