@@ -5,14 +5,16 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 /**
- * An owner's passkeys, in Spring Security's WebAuthn tables. They have no owner_id and no Row-Level Security:
- * every query joins user_entities by the owner's email, so an owner only ever reaches their own.
+ * An owner's passkeys, in Spring Security's WebAuthn tables. They have no Row-Level Security, as Spring Security
+ * reads them to learn who is signing in: every query joins user_entities by owner_id, so an owner only ever
+ * reaches their own.
  */
 @Repository
 class PasskeyDao {
@@ -23,27 +25,27 @@ class PasskeyDao {
         this.jdbc = jdbc;
     }
 
-    List<Passkey> findAll(String email) {
+    List<Passkey> findAll(UUID ownerId) {
         return jdbc.sql("""
                         SELECT c.credential_id, c.label, c.created, c.last_used
                         FROM user_credentials c JOIN user_entities u ON u.id = c.user_entity_user_id
-                        WHERE u.name = :email
+                        WHERE u.owner_id = :ownerId
                         ORDER BY c.created, c.credential_id
                         """)
-                .param("email", email)
+                .param("ownerId", ownerId)
                 .query(PasskeyDao::passkey)
                 .list();
     }
 
     /** @return whether the owner has that passkey */
-    boolean rename(String email, String credentialId, String label) {
+    boolean rename(UUID ownerId, String credentialId, String label) {
         return jdbc.sql("""
                         UPDATE user_credentials c SET label = :label
                         FROM user_entities u
-                        WHERE u.id = c.user_entity_user_id AND u.name = :email AND c.credential_id = :credentialId
+                        WHERE u.id = c.user_entity_user_id AND u.owner_id = :ownerId AND c.credential_id = :credentialId
                         """)
                 .param("label", label)
-                .param("email", email)
+                .param("ownerId", ownerId)
                 .param("credentialId", credentialId)
                 .update() == 1;
     }
@@ -54,14 +56,14 @@ class PasskeyDao {
      *
      * @return whether the passkey was deleted
      */
-    boolean deleteUnlessLast(String email, String credentialId) {
+    boolean deleteUnlessLast(UUID ownerId, String credentialId) {
         return jdbc.sql("""
                         DELETE FROM user_credentials c
                         USING user_entities u
-                        WHERE u.id = c.user_entity_user_id AND u.name = :email AND c.credential_id = :credentialId
+                        WHERE u.id = c.user_entity_user_id AND u.owner_id = :ownerId AND c.credential_id = :credentialId
                           AND (SELECT count(*) FROM user_credentials o WHERE o.user_entity_user_id = u.id) > 1
                         """)
-                .param("email", email)
+                .param("ownerId", ownerId)
                 .param("credentialId", credentialId)
                 .update() == 1;
     }

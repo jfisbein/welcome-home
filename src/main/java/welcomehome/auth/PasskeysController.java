@@ -31,7 +31,7 @@ class PasskeysController {
 
     @GetMapping
     String list(CurrentOwner owner, Model model) {
-        var all = passkeys.findAll(owner.email());
+        var all = passkeys.findAll(owner.id());
         model.addAttribute("passkeys", all);
         model.addAttribute("canDelete", all.size() > 1);
         model.addAttribute("maxLabelLength", MAX_LABEL_LENGTH);
@@ -45,7 +45,7 @@ class PasskeysController {
         if (stripped.isEmpty() || stripped.length() > MAX_LABEL_LENGTH) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid passkey name");
         }
-        if (!passkeys.rename(owner.email(), credentialId, stripped)) {
+        if (!passkeys.rename(owner.id(), credentialId, stripped)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
         redirect.addFlashAttribute("renamed", stripped);
@@ -54,11 +54,11 @@ class PasskeysController {
 
     @DeleteMapping("/{credentialId}")
     String delete(CurrentOwner owner, @PathVariable String credentialId, RedirectAttributes redirect) {
-        var passkey = passkeys.findAll(owner.email()).stream()
+        var passkey = passkeys.findAll(owner.id()).stream()
                 .filter(candidate -> candidate.credentialId().equals(credentialId))
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        if (!passkeys.deleteUnlessLast(owner.email(), credentialId)) {
+        if (!passkeys.deleteUnlessLast(owner.id(), credentialId)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "The last passkey cannot be deleted");
         }
         redirect.addFlashAttribute("deleted", passkey.label());
