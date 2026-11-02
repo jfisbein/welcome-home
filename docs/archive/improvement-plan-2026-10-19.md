@@ -1,5 +1,7 @@
 # Improvement plan, 2026-10-19
 
+> **Archived.** A record of where the project stood at v1.4.0, kept for its reasoning. What it proposes was done since, or decided otherwise: do not take it as a list of work to do. [AGENTS.md](../../AGENTS.md) says how things are now.
+
 Built from the code review in [review-2026-10-19.md](review-2026-10-19.md). Every conclusion in that review was checked against the code at `0b09dc5` (v1.4.0) and, for the Nuki-related ones, against Nuki's Swagger definition. The first section records what held, what had to be corrected and what was dropped; the plan uses only what held, plus one addition that is not in the review: making the app multilingual (phase 4).
 
 ## What the check found

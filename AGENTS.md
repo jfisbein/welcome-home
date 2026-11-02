@@ -198,6 +198,7 @@ Release: a pull request named `Version X.Y.Z` from branch `release-X.Y.Z` that b
 | `deploy/` | production stack: `compose.yaml`, `db-init/`, `backup/`, `restore.sh` |
 | `compose.yaml` | development Postgres |
 | `docs/runbook.md` | production operations |
+| `docs/archive/` | earlier reviews and plans, for their reasoning only |
 | `docs/features.md` | each feature in detail, its properties |
 | `docs/user-guide.md` | for owners: how to use it, what to do when a guest cannot get in |
 | `docs/security.md`, `docs/deployment.md` | roles, keysets and web security; the image, the stack and backups |
