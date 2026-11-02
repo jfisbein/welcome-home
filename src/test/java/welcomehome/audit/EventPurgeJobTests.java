@@ -28,7 +28,7 @@ class EventPurgeJobTests {
     EventPurgeJob job;
 
     @Autowired
-    JdbcClient jdbc;
+    AccessEventDao accessEvents;
 
     @Autowired
     OwnerTransactions ownerTransactions;
@@ -66,7 +66,7 @@ class EventPurgeJobTests {
         insertEvent(link, "31 days", "198.51.100.1");
         insertEvent(link, "29 days", "198.51.100.2");
 
-        new EventPurgeJob(jdbc, ownerTransactions, new AuditProperties(Duration.ofDays(30))).purgeAll();
+        new EventPurgeJob(accessEvents, ownerTransactions, new AuditProperties(Duration.ofDays(30))).purgeAll();
 
         assertThat(remainingIps(link)).containsExactly("198.51.100.2");
     }

@@ -1,9 +1,6 @@
 package welcomehome.audit;
 
-import java.time.OffsetDateTime;
-
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import welcomehome.db.OwnerTransactions;
 
@@ -17,12 +14,12 @@ public class AccessEvents {
     /** Longer user agents are cut: they are for the owner to recognise a device, not to fingerprint it. */
     private static final int MAX_USER_AGENT_LENGTH = 500;
 
-    private final JdbcClient jdbc;
+    private final AccessEventDao accessEvents;
     private final OwnerTransactions ownerTransactions;
     private final ApplicationEventPublisher events;
 
-    AccessEvents(JdbcClient jdbc, OwnerTransactions ownerTransactions, ApplicationEventPublisher events) {
-        this.jdbc = jdbc;
+    AccessEvents(AccessEventDao accessEvents, OwnerTransactions ownerTransactions, ApplicationEventPublisher events) {
+        this.accessEvents = accessEvents;
         this.ownerTransactions = ownerTransactions;
         this.events = events;
     }
@@ -39,24 +36,7 @@ public class AccessEvents {
         }
         var trimmedUserAgent = userAgent;
         ownerTransactions.run(event.ownerId(), () -> {
-            var occurredAt = jdbc.sql("""
-                            INSERT INTO access_event (owner_id, link_id, lock_id, entrance_lock_id, result, reason,
-                                                      ip, country, user_agent)
-                            VALUES (:ownerId, :linkId, :lockId, :entranceLockId, :result, :reason, CAST(:ip AS inet),
-                                    :country, :userAgent)
-                            RETURNING occurred_at
-                            """)
-                    .param("ownerId", event.ownerId())
-                    .param("linkId", event.linkId())
-                    .param("lockId", event.lockId())
-                    .param("entranceLockId", event.entranceLockId())
-                    .param("result", event.outcome().result().name())
-                    .param("reason", event.outcome().code())
-                    .param("ip", event.ip())
-                    .param("country", event.country())
-                    .param("userAgent", trimmedUserAgent)
-                    .query(OffsetDateTime.class)
-                    .single();
+            var occurredAt = accessEvents.insert(event, trimmedUserAgent);
             events.publishEvent(new AccessAttempted(event.ownerId(), event.linkId(), event.lockId(),
                     event.entranceLockId(), event.outcome(), occurredAt.toInstant()));
         });

@@ -10,7 +10,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import welcomehome.config.Languages;
 import welcomehome.config.WelcomeHomeProperties;
@@ -35,12 +34,12 @@ public class EmailVerification {
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
-    private final JdbcClient jdbc;
+    private final EmailVerificationDao emailVerifications;
     private final WelcomeHomeProperties app;
     private final ApplicationEventPublisher events;
 
-    EmailVerification(JdbcClient jdbc, WelcomeHomeProperties app, ApplicationEventPublisher events) {
-        this.jdbc = jdbc;
+    EmailVerification(EmailVerificationDao emailVerifications, WelcomeHomeProperties app, ApplicationEventPublisher events) {
+        this.emailVerifications = emailVerifications;
         this.app = app;
         this.events = events;
     }
@@ -52,28 +51,13 @@ public class EmailVerification {
      * @return whether they opened the link sent to their email, or registered before verification existed
      */
     public boolean isVerified(UUID ownerId) {
-        return jdbc.sql("SELECT email_verified_at IS NOT NULL FROM owner WHERE id = :id")
-                .param("id", ownerId)
-                .query(Boolean.class)
-                .optional()
-                .orElse(false);
+        return emailVerifications.isVerified(ownerId);
     }
 
     /** Sends a new owner, or one who asks again, a link to verify their email, replacing any earlier one. */
     void start(UUID ownerId) {
         var token = newToken();
-        var owner = jdbc.sql("""
-                        UPDATE owner
-                        SET email_verification_hash = :hash,
-                            email_verification_expires_at = now() + make_interval(secs => :validitySeconds)
-                        WHERE id = :id AND email_verified_at IS NULL
-                        RETURNING email, language
-                        """)
-                .param("hash", hash(token))
-                .param("validitySeconds", VALIDITY.toSeconds())
-                .param("id", ownerId)
-                .query((rs, row) -> new Recipient(rs.getString("email"), rs.getString("language")))
-                .optional();
+        var owner = emailVerifications.saveLink(ownerId, hash(token), VALIDITY);
         owner.ifPresent(to -> events.publishEvent(new EmailVerificationRequested(to.email(),
                 app.link("/email/verify/" + token), Languages.of(to.language()).orElse(Languages.DEFAULT))));
     }
@@ -84,15 +68,7 @@ public class EmailVerification {
      * @return whether a link was sent
      */
     boolean resend(UUID ownerId) {
-        var recent = jdbc.sql("""
-                        SELECT coalesce(email_verification_expires_at > now() + make_interval(secs => :recentSeconds),
-                                        false)
-                        FROM owner WHERE id = :id AND email_verified_at IS NULL
-                        """)
-                .param("recentSeconds", VALIDITY.minus(RESEND_AFTER).toSeconds())
-                .param("id", ownerId)
-                .query(Boolean.class)
-                .optional();
+        var recent = emailVerifications.linkLastsLongerThan(ownerId, VALIDITY.minus(RESEND_AFTER));
         if (recent.isEmpty() || Boolean.TRUE.equals(recent.get())) {
             return false;
         }
@@ -105,13 +81,7 @@ public class EmailVerification {
         if (!isPlausible(token)) {
             return Optional.empty();
         }
-        return jdbc.sql("""
-                        SELECT email FROM owner
-                        WHERE email_verification_hash = :hash AND email_verification_expires_at > now()
-                        """)
-                .param("hash", hash(token))
-                .query(String.class)
-                .optional();
+        return emailVerifications.findPendingEmail(hash(token));
     }
 
     /**
@@ -123,16 +93,7 @@ public class EmailVerification {
         if (!isPlausible(token)) {
             return Optional.empty();
         }
-        return jdbc.sql("""
-                        UPDATE owner
-                        SET email_verified_at = now(), email_verification_hash = NULL,
-                            email_verification_expires_at = NULL
-                        WHERE email_verification_hash = :hash AND email_verification_expires_at > now()
-                        RETURNING email
-                        """)
-                .param("hash", hash(token))
-                .query(String.class)
-                .optional();
+        return emailVerifications.markVerified(hash(token));
     }
 
     private static boolean isPlausible(String token) {
@@ -151,8 +112,5 @@ public class EmailVerification {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 is not available", e);
         }
-    }
-
-    private record Recipient(String email, String language) {
     }
 }
