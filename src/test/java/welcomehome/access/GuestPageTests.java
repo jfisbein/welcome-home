@@ -160,6 +160,15 @@ class GuestPageTests {
     }
 
     @Test
+    void aFinishedLinkNoLongerSaysItOpensTheDoor() {
+        var expired = insertLink("now() - interval '2 days'", "now() - interval '1 day'", false);
+        var revoked = insertLink("now() - interval '1 day'", "now() + interval '1 day'", true);
+
+        assertThat(body(guestPage(signer.sign(expired, 1)))).contains(EXPIRED).doesNotContain("Este enlace abre la puerta");
+        assertThat(body(guestPage(signer.sign(revoked, 1)))).contains(REVOKED).doesNotContain("Este enlace abre la puerta");
+    }
+
+    @Test
     void expiredOrRevokedLinksOfferNoButton() {
         var expired = insertLink("now() - interval '2 days'", "now() - interval '1 day'", false);
         var revoked = insertLink("now() - interval '1 day'", "now() + interval '1 day'", true);

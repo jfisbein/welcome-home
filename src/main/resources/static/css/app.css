@@ -64,6 +64,13 @@ table.links td.validity small {
     display: block;
 }
 
+/* In the table, a link's dates stay on one line rather than breaking inside one of them: its buttons wrap instead. */
+@media (min-width: 1024px) {
+    table.links td.validity span {
+        white-space: nowrap;
+    }
+}
+
 /* The link form's schedule: a row per day, its hours beside it, or below it on a phone, where they would not fit in
    every language. The hours of a day that is not ticked count for nothing, so they look it. */
 .schedule-day {
@@ -104,9 +111,31 @@ table.links td.validity small {
     }
 }
 
+/* Pico sets a summary in lines as tall as its text, which only looks right on one line, as in German on a phone it
+   does not fit. Its chevron stays centered on the first line. */
+details summary {
+    line-height: var(--pico-line-height);
+}
+
+details summary::after {
+    height: calc(1rem * var(--pico-line-height));
+}
+
+/* On one column, as on a phone, a field's own margin already separates it from the next one. */
+@media (max-width: 767px) {
+    .grid {
+        row-gap: 0;
+    }
+}
+
 /* The page's place in the menu and in configuration's sections. */
 nav [aria-current="page"] {
     font-weight: bold;
+}
+
+/* Pico's bottom margin for a form's submit button would lift the sign-out button above the menu's links. */
+nav.menu button {
+    margin: 0;
 }
 
 /* The menu goes on to further lines on narrow screens, such as a phone's, instead of overflowing. */
@@ -116,8 +145,17 @@ nav.menu ul {
 }
 
 @media (max-width: 575px) {
+    nav.menu {
+        margin-bottom: var(--pico-spacing);
+    }
+
     nav.menu ul {
         margin-right: 0;
+    }
+
+    /* On a line of their own, the menu's links start where the page's text does, as its name above them does. */
+    nav.menu ul:last-of-type {
+        margin-left: calc(var(--pico-nav-element-spacing-horizontal) * -1);
     }
 
     nav.menu li {
