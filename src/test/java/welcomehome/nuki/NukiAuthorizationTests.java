@@ -240,6 +240,14 @@ class NukiAuthorizationTests {
     }
 
     @Test
+    void ownerIsNotToldThatTheyFailedWhenNukiRefusesTheClient() {
+        nuki.stubFor(post("/oauth/token").willReturn(status(401)));
+
+        assertFailed(callback(ALICE, "code=the-code&state=" + state(authorize(ALICE))), "unavailable");
+        assertNoConnection();
+    }
+
+    @Test
     void nothingIsStoredWhileNukiDoesNotAnswer() {
         nuki.stubFor(post("/oauth/token").willReturn(status(503)));
 

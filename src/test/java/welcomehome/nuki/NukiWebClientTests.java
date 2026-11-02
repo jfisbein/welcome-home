@@ -433,9 +433,22 @@ class NukiWebClientTests {
         assertFailsWith(Reason.ACCESS_DENIED, () -> client.exchangeCode("used-code", "the-verifier", CALLBACK));
         assertFailsWith(Reason.ACCESS_DENIED, () -> client.refresh("revoked"));
 
+        nuki.verify(2, postRequestedFor(urlPathEqualTo("/oauth/token")));
+    }
+
+    @Test
+    void refusalOfTheClientIsNotTheOwnersAndIsNotRetried() {
         nuki.stubFor(post("/oauth/token").willReturn(status(401)));
+        assertFailsWith(Reason.NUKI_ERROR, () -> client.refresh("fine"));
+        assertFailsWith(Reason.NUKI_ERROR, () -> client.exchangeCode("fine", "the-verifier", CALLBACK));
+        nuki.verify(2, postRequestedFor(urlPathEqualTo("/oauth/token")));
+
+        nuki.stubFor(post("/oauth/token").willReturn(status(400).withHeader("Content-Type", "application/json")
+                .withBody("{\"error\": \"invalid_client\"}")));
+        assertFailsWith(Reason.NUKI_ERROR, () -> client.refresh("fine"));
+
+        nuki.stubFor(post("/oauth/token").willReturn(status(400).withBody("not json")));
         assertFailsWith(Reason.ACCESS_DENIED, () -> client.refresh("revoked"));
-        nuki.verify(3, postRequestedFor(urlPathEqualTo("/oauth/token")));
     }
 
     @Test

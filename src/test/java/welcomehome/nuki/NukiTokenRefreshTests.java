@@ -24,6 +24,8 @@ import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
@@ -151,6 +153,31 @@ class NukiTokenRefreshTests {
         nuki.resetRequests();
         assertFailsWith(Reason.NOT_CONNECTED, () -> locks.listLocks(aliceId));
         nuki.verify(0, anyRequestedFor(anyUrl()));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"401, invalid_client", "400, invalid_client", "400, unauthorized_client"})
+    void refreshThatNukiRefusesBecauseOfTheClientKeepsTheConnection(int status, String error, CapturedOutput output) {
+        insertAuthorization("access-1", "refresh-1", "-1 minute");
+        nuki.stubFor(post("/oauth/token").willReturn(status(status).withHeader("Content-Type", "application/json")
+                .withBody("{\"error\": \"" + error + "\"}")));
+
+        assertFailsWith(Reason.NUKI_ERROR, () -> locks.listLocks(aliceId));
+
+        assertThat(connectionStatus()).isEqualTo("OK");
+        assertThat(crypto.decryptRefreshToken(aliceId, column("refresh_token_encrypted"))).isEqualTo("refresh-1");
+        assertThat(output.getAll()).contains("Nuki refused welcome-home's OAuth2 client: " + status)
+                .doesNotContain("refresh-1");
+    }
+
+    @Test
+    void dailyCheckDoesNotDisconnectAnOwnerBecauseOfTheClient() {
+        insertAuthorization("access-1", "refresh-1", "-1 minute");
+        nuki.stubFor(post("/oauth/token").willReturn(status(401)));
+
+        job.checkAll();
+
+        assertThat(connectionStatus()).isEqualTo("OK");
     }
 
     @Test
