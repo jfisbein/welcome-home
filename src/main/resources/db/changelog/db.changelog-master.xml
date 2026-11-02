@@ -31,5 +31,6 @@
     <include file="changes/020-lock-device-type-and-entrance.xml" relativeToChangelogFile="true"/>
     <include file="changes/021-access-link-schedule.xml" relativeToChangelogFile="true"/>
     <include file="changes/022-passkeys-owner.xml" relativeToChangelogFile="true"/>
+    <include file="changes/023-link-purge-grant.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

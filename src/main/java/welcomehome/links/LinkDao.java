@@ -48,6 +48,30 @@ class LinkDao {
                 .single();
     }
 
+    /**
+     * Deletes the owner's links that ended before the cutoff, by expiring or being cancelled, and have no attempt since.
+     *
+     * @return how many were deleted
+     */
+    int deleteEndedBefore(UUID ownerId, Instant cutoff) {
+        return jdbc.sql("""
+                        DELETE FROM access_link l
+                        WHERE l.owner_id = :ownerId AND least(l.valid_until, l.revoked_at) < :cutoff
+                          AND NOT EXISTS (SELECT 1 FROM access_event e
+                                          WHERE e.owner_id = l.owner_id AND e.link_id = l.id AND e.occurred_at >= :cutoff)
+                        """)
+                .param("ownerId", ownerId)
+                .param("cutoff", OffsetDateTime.ofInstant(cutoff, ZoneOffset.UTC))
+                .update();
+    }
+
+    /** From owner, which has no Row-Level Security: without an owner context access_link shows no rows. */
+    List<UUID> allOwnerIds() {
+        return jdbc.sql("SELECT id FROM owner ORDER BY created_at")
+                .query((rs, row) -> rs.getObject("id", UUID.class))
+                .list();
+    }
+
     List<StoredLink> findByLock(UUID ownerId, UUID lockId) {
         return jdbc.sql("""
                         SELECT id, label, token_version, valid_from, valid_until, revoked_at
