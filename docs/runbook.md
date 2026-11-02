@@ -1,6 +1,6 @@
 # Runbook
 
-How to run welcome-home in production. It runs as a Dockge stack on a server of your own, from the files in `deploy/` (see "Production" in the [README](../README.md) for what each service does). Commands run as root in the stack's folder.
+How to run welcome-home in production. It runs as a Dockge stack on a server of your own, from the files in `deploy/` (see [deployment](deployment.md) for what each service does). Commands run as root in the stack's folder.
 
 | What               | Where                                                                  |
 |--------------------|------------------------------------------------------------------------|

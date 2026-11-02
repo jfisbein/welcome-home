@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Context for whoever maintains welcome-home next, person or agent. The [README](README.md) describes each feature in detail and [docs/runbook.md](docs/runbook.md) covers production operations; this file is the map: what the app is for, how it is built and why, how it is tested, and where it could go next.
+Context for whoever maintains welcome-home next, person or agent. [docs/features.md](docs/features.md) describes each feature in detail, [docs/user-guide.md](docs/user-guide.md) is for owners, [docs/security.md](docs/security.md) and [docs/deployment.md](docs/deployment.md) cover data and the stack, and [docs/runbook.md](docs/runbook.md) production operations; this file is the map: what the app is for, how it is built and why, how it is tested, and where it could go next.
 
 ## What it is
 
@@ -74,7 +74,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 | `welcomehome` (root package, not a module) | What spans modules: the home page (`HomeController`), `/settings` and the former addresses of its sections (`SettingsController`), the error pages (`ErrorPages`) |
 | `notifications` | Emails to owners (opened, failed, denied, Nuki disconnected) by their preferences, and always about their account (recovery link created, passkey added), sent after commit (`OwnerNotifier`) |
 
-**Guest flow** (`access.OpenDoor`): rate limit per IP → the link exists, its MAC is valid and it is not revoked (`resolve_link`, a `SECURITY DEFINER` function, is the only way to read a link without an owner context) → rate limit per link → within its dates → within its schedule, read in the owner's context now that the MAC is verified → lock active → owner's Nuki connection OK → in the owner's context, unlatch under the lock's mutex (a second guest waits and gets the same result) → wait for whichever tells first, within 15 s: Nuki's webhook reporting the outcome, for an owner connected with OAuth2, who unlatches through Nuki's Advanced API; or the lock's log showing an unlatch with trigger 0 or 4 (not by hand, button or accessory) → record the event. A slide at the building entrance (`"door": "entrance"`) goes the same way with the lock's Opener in place of the lock: Opener active, Nuki's action 3 (the electric strike), under the Opener's mutex, recorded with the link's lock and the Opener.
+**Guest flow** (`access.OpenDoor`): the order of its checks, and how an opening is confirmed, are in [docs/features.md](docs/features.md#guest-page), with a diagram. What must not change: a GET never acts on the lock, the MAC is checked before anything is read in the owner's context, and one action runs per lock at a time.
 
 **`LockProvider`** (`findConnection`, `listLocks`, `getSnapshot`, `listSnapshots`, `unlatch`, `getRecentLog`, all by owner id) isolates Nuki: tokens are decrypted inside `nuki` and never leave it. Another way to reach a lock (Nuki Bridge, MQTT) is another implementation or a change inside `nuki`, without touching the rest.
 
@@ -142,7 +142,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 
 ## Conventions
 
-- **Language**: code, comments, javadoc, docs and commit messages in English. Table, column and enum names in English. UI texts only in `i18n/messages*.properties` (Spanish the default bundle; English, French, German and Italian the others): never in Java, templates or JavaScript, which `TemplateTextTests` checks. A message with markup goes through `th:utext`, with every value escaped by `#strings.escapeXml`; an apostrophe in a message is written `''`. A new language: the README's "Adding a language".
+- **Language**: code, comments, javadoc, docs and commit messages in English. Table, column and enum names in English. UI texts only in `i18n/messages*.properties` (Spanish the default bundle; English, French, German and Italian the others): never in Java, templates or JavaScript, which `TemplateTextTests` checks. A message with markup goes through `th:utext`, with every value escaped by `#strings.escapeXml`; an apostrophe in a message is written `''`. A new language: "Adding a language" in `docs/features.md`.
 - **Javadoc** on every public class and method (`-Xdoclint:all -Werror` fails `check`). Comment the why, sparingly.
 - **Nullness**: everything is non-null unless `@Nullable` (JSpecify); every package has `@NullMarked`; NullAway fails the build. Spring 7's `JdbcClient.query(X.class).list()` returns `List<@Nullable X>`: use `new SimplePropertyRowMapper<>(X.class)` or a lambda for lists.
 - **Compatibility**: within a major version every release is backward compatible, as production pulls `:vN` without reading release notes and rolls back by pinning the previous release. So: the previous release runs against the new schema; no new required property, secret or environment variable (a new one has a default); nothing to change in `deploy/`; every URL already sent keeps working (guest links, invitations, recovery and verification links, history URLs). Migrations only expand the schema: new tables, nullable columns or columns with a default, indexes, grants; never drop, rename or retype, never add NOT NULL or UNIQUE to what exists, never revoke, every changeset in a transaction. `MigrationCompatibilityTests` checks the changesets from `COMPATIBLE_FROM` on. Anything else waits for the next major, which moves `COMPATIBLE_FROM` past its breaking changesets and production to `:vN+1`.
@@ -198,7 +198,9 @@ Release: a pull request named `Version X.Y.Z` from branch `release-X.Y.Z` that b
 | `deploy/` | production stack: `compose.yaml`, `db-init/`, `backup/`, `restore.sh` |
 | `compose.yaml` | development Postgres |
 | `docs/runbook.md` | production operations |
-| `README.md` | each feature in detail, configuration properties |
+| `docs/features.md` | each feature in detail, its properties |
+| `docs/user-guide.md` | for owners: how to use it, what to do when a guest cannot get in |
+| `docs/security.md`, `docs/deployment.md` | roles, keysets and web security; the image, the stack and backups |
 
 ## Next steps and ideas
 
