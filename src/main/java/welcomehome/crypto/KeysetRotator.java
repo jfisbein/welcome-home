@@ -13,7 +13,7 @@ import com.google.crypto.tink.RegistryConfiguration;
 import com.google.crypto.tink.aead.PredefinedAeadParameters;
 
 /**
- * Rotates the AEAD keyset: adds a new AES-256-GCM key and makes it the primary one. Nuki API tokens stored from
+ * Rotates the AEAD keyset: adds a new AES-256-GCM key and makes it the primary one. Nuki tokens stored from
  * then on are encrypted with it, while the earlier keys stay in the keyset to decrypt the tokens stored before.
  * Run it with {@code ./gradlew rotateAeadKeyset --args=<keyset file>}.
  */

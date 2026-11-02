@@ -34,8 +34,9 @@ import welcomehome.nuki.NukiConnectionDao.StoredConnection;
 @Service
 public class NukiConnections {
 
-    /** Far longer than any real token: longer input is rejected without calling Nuki. */
     private static final Logger log = LoggerFactory.getLogger(NukiConnections.class);
+
+    /** Far longer than any real token: longer input is rejected without calling Nuki. */
     private static final int MAX_TOKEN_LENGTH = 1000;
 
     /** An access token this close to expiring is refreshed first, so that it does not expire during a call. */

@@ -1,5 +1,5 @@
 /**
- * Keyset loading, encryption of Nuki API tokens and signing of access links.
+ * Keyset loading, encryption of Nuki tokens and signing of access links.
  */
 @NullMarked
 package welcomehome.crypto;
