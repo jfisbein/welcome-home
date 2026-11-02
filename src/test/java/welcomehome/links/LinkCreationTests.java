@@ -21,6 +21,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.crypto.LinkTokenSigner;
 import welcomehome.nuki.NukiStandInConfiguration;
@@ -47,6 +48,7 @@ class LinkCreationTests {
     PostgreSQLContainer postgres;
 
     JdbcClient migrator;
+    TestData data;
     UUID madridLock;
     UUID newYorkLock;
     UUID bobsLock;
@@ -54,6 +56,7 @@ class LinkCreationTests {
     @BeforeEach
     void insertLocks() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         migrator.sql("DELETE FROM owner").update();
         var alice = insertOwner(ALICE);
         madridLock = insertLock(alice, 17, "Casa", "Europe/Madrid");
@@ -184,16 +187,11 @@ class LinkCreationTests {
     }
 
     private UUID insertOwner(String email) {
-        return migrator.sql("INSERT INTO owner (email) VALUES (?) RETURNING id").param(email).query(UUID.class).single();
+        return data.owner(email);
     }
 
     private UUID insertLock(UUID ownerId, long nukiSmartlockId, String name, String timeZone) {
-        return migrator.sql("""
-                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone) VALUES (?, ?, ?, ?) RETURNING id
-                        """)
-                .params(ownerId, nukiSmartlockId, name, timeZone)
-                .query(UUID.class)
-                .single();
+        return data.lock(ownerId, nukiSmartlockId, name, timeZone);
     }
 
     private static RequestPostProcessor owner(String email) {

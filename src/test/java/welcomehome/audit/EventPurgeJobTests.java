@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.db.OwnerTransactions;
 import welcomehome.nuki.NukiStandInConfiguration;
@@ -37,10 +38,12 @@ class EventPurgeJobTests {
     PostgreSQLContainer postgres;
 
     JdbcClient migrator;
+    TestData data;
 
     @BeforeEach
     void emptyDatabase() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         migrator.sql("DELETE FROM owner").update();
     }
 
@@ -88,28 +91,11 @@ class EventPurgeJobTests {
     }
 
     private void insertEvent(UUID linkId, String age, String ip) {
-        migrator.sql("""
-                        INSERT INTO access_event (owner_id, link_id, lock_id, occurred_at, result, reason, ip)
-                        SELECT owner_id, id, lock_id, now() - CAST(? AS interval), 'OK', 'opened', CAST(? AS inet)
-                        FROM access_link WHERE id = ?
-                        """)
-                .params(age, ip, linkId)
-                .update();
+        data.attempt(linkId, "now() - interval '" + age + "'", "OK", "opened", ip);
     }
 
     /** An owner with a lock and a link to it. */
     private UUID insertLink(String email) {
-        var ownerId = migrator.sql("INSERT INTO owner (email) VALUES (?) RETURNING id").param(email)
-                .query(UUID.class).single();
-        var lockId = migrator.sql("""
-                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone)
-                        VALUES (?, 17, 'Casa', 'Europe/Madrid') RETURNING id
-                        """)
-                .param(ownerId).query(UUID.class).single();
-        return migrator.sql("""
-                        INSERT INTO access_link (owner_id, lock_id, label, valid_from, valid_until)
-                        VALUES (?, ?, 'Ana', now(), now() + interval '1 day') RETURNING id
-                        """)
-                .params(ownerId, lockId).query(UUID.class).single();
+        return data.link(data.lock(data.owner(email), 17, "Casa"), "Ana", "now()", TestData.IN_A_DAY);
     }
 }

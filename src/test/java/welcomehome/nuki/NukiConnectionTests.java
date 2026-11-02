@@ -29,6 +29,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.crypto.CryptoService;
 
@@ -57,12 +58,14 @@ class NukiConnectionTests {
     PostgreSQLContainer postgres;
 
     JdbcClient migrator;
+    TestData data;
     UUID aliceId;
 
     @BeforeEach
     void insertAliceAndBob() {
         nuki.resetAll();
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         migrator.sql("DELETE FROM owner").update();
         aliceId = insertOwner(ALICE);
         insertOwner("bob@example.com");
@@ -257,12 +260,7 @@ class NukiConnectionTests {
         nukiAccepts(TOKEN);
         connect(ALICE, TOKEN);
         var lockId = migrator.sql("SELECT id FROM lock WHERE nuki_smartlock_id = 17").query(UUID.class).single();
-        migrator.sql("""
-                        INSERT INTO access_link (owner_id, lock_id, label, valid_from, valid_until)
-                        VALUES (?, ?, 'Invitado', now(), now() + interval '1 day')
-                        """)
-                .params(aliceId, lockId)
-                .update();
+        data.link(lockId, "Invitado", "now()", TestData.IN_A_DAY);
         var linkBefore = link();
 
         var result = mvc.delete().uri("/settings/nuki").with(owner(ALICE)).with(csrf()).exchange();
@@ -349,7 +347,7 @@ class NukiConnectionTests {
     }
 
     private UUID insertOwner(String email) {
-        return migrator.sql("INSERT INTO owner (email) VALUES (?) RETURNING id").param(email).query(UUID.class).single();
+        return data.owner(email);
     }
 
     private static RequestPostProcessor owner(String email) {

@@ -19,6 +19,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.crypto.LinkTokenSigner;
 import welcomehome.nuki.NukiStandInConfiguration;
@@ -45,6 +46,7 @@ class LinkRegenerationTests {
     PostgreSQLContainer postgres;
 
     JdbcClient migrator;
+    TestData data;
     UUID lockId;
     UUID linkId;
     UUID bobsLinkId;
@@ -52,6 +54,7 @@ class LinkRegenerationTests {
     @BeforeEach
     void insertAnActiveLinkForAliceAndBob() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         migrator.sql("DELETE FROM owner").update();
         lockId = insertLock(ALICE);
         linkId = insertActiveLink(lockId, "Ana");
@@ -142,22 +145,11 @@ class LinkRegenerationTests {
     }
 
     private UUID insertLock(String email) {
-        var ownerId = migrator.sql("INSERT INTO owner (email) VALUES (?) RETURNING id").param(email)
-                .query(UUID.class).single();
-        return migrator.sql("""
-                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone)
-                        VALUES (?, 17, 'Casa', 'Europe/Madrid') RETURNING id
-                        """)
-                .param(ownerId).query(UUID.class).single();
+        return data.lock(data.owner(email), 17, "Casa");
     }
 
     private UUID insertActiveLink(UUID lock, String label) {
-        return migrator.sql("""
-                        INSERT INTO access_link (owner_id, lock_id, label, valid_from, valid_until)
-                        SELECT owner_id, id, ?, now() - interval '1 hour', now() + interval '1 day' FROM lock WHERE id = ?
-                        RETURNING id
-                        """)
-                .params(label, lock).query(UUID.class).single();
+        return data.link(lock, label);
     }
 
     private static RequestPostProcessor owner(String email) {

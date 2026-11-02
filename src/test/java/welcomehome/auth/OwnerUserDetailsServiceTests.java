@@ -10,6 +10,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 
 @IntegrationTest
@@ -24,9 +25,10 @@ class OwnerUserDetailsServiceTests {
     @BeforeEach
     void insertOwners() {
         var migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        var data = new TestData(migrator);
         migrator.sql("DELETE FROM owner").update();
-        migrator.sql("INSERT INTO owner (email, is_admin) VALUES ('owner@example.com', false), ('admin@example.com', true)")
-                .update();
+        data.owner("owner@example.com");
+        data.admin("admin@example.com");
     }
 
     @Test

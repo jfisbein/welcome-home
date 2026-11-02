@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.crypto.LinkTokenSigner;
 import welcomehome.nuki.NukiStandInConfiguration;
@@ -38,15 +39,16 @@ class LinkListTests {
     PostgreSQLContainer postgres;
 
     JdbcClient migrator;
+    TestData data;
     UUID ownerId;
     UUID lockId;
 
     @BeforeEach
     void insertALock() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         migrator.sql("DELETE FROM owner").update();
-        ownerId = migrator.sql("INSERT INTO owner (email) VALUES (?) RETURNING id").param(ALICE)
-                .query(UUID.class).single();
+        ownerId = data.owner(ALICE);
         lockId = insertLock(17, "Casa");
     }
 
@@ -134,22 +136,11 @@ class LinkListTests {
     }
 
     private UUID insertLink(UUID lock, String label, String validFrom, String validUntil, boolean revoked) {
-        return migrator.sql("INSERT INTO access_link (owner_id, lock_id, label, valid_from, valid_until, revoked_at) "
-                        + "VALUES (?, ?, ?, " + validFrom + ", " + validUntil + ", " + (revoked ? "now()" : "NULL")
-                        + ") RETURNING id")
-                .params(ownerId, lock, label)
-                .query(UUID.class)
-                .single();
+        return data.link(lock, label, validFrom, validUntil, revoked ? "now()" : null);
     }
 
     private UUID insertLock(long nukiSmartlockId, String name) {
-        return migrator.sql("""
-                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone)
-                        VALUES (?, ?, ?, 'Europe/Madrid') RETURNING id
-                        """)
-                .params(ownerId, nukiSmartlockId, name)
-                .query(UUID.class)
-                .single();
+        return data.lock(ownerId, nukiSmartlockId, name);
     }
 
     private static RequestPostProcessor owner() {

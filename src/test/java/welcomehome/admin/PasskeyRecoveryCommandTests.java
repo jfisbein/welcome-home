@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 
 @IntegrationTest
@@ -32,11 +33,10 @@ class PasskeyRecoveryCommandTests {
     @BeforeEach
     void insertAnAdmin() {
         var migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        var data = new TestData(migrator);
         migrator.sql("DELETE FROM invitation").update();
         migrator.sql("DELETE FROM owner").update();
-        adminId = migrator.sql("INSERT INTO owner (email, is_admin) VALUES ('admin@example.com', true) RETURNING id")
-                .query(UUID.class)
-                .single();
+        adminId = data.admin("admin@example.com");
     }
 
     @Test

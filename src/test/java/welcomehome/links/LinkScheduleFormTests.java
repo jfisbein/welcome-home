@@ -22,6 +22,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.nuki.NukiStandInConfiguration;
 
@@ -47,11 +48,13 @@ class LinkScheduleFormTests {
     LinkSchedules schedules;
 
     JdbcClient migrator;
+    TestData data;
     UUID lockId;
 
     @BeforeEach
     void insertALock() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         migrator.sql("DELETE FROM owner").update();
         lockId = insertLock(ALICE);
         insertLock(BOB);
@@ -259,13 +262,7 @@ class LinkScheduleFormTests {
     }
 
     private UUID insertLock(String email) {
-        var ownerId = migrator.sql("INSERT INTO owner (email) VALUES (?) RETURNING id").param(email)
-                .query(UUID.class).single();
-        return migrator.sql("""
-                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone)
-                        VALUES (?, 17, 'Casa', 'Europe/Madrid') RETURNING id
-                        """)
-                .param(ownerId).query(UUID.class).single();
+        return data.lock(data.owner(email), 17, "Casa");
     }
 
     private static RequestPostProcessor owner(String email) {

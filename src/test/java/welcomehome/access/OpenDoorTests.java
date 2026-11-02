@@ -48,6 +48,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.crypto.CryptoService;
 import welcomehome.crypto.LinkTokenSigner;
@@ -79,6 +80,7 @@ class OpenDoorTests {
     CryptoService crypto;
 
     JdbcClient migrator;
+    TestData data;
     UUID lockId;
     /** Rate limits live in memory for the whole context: each test comes from its own IP address. */
     String ip;
@@ -87,14 +89,10 @@ class OpenDoorTests {
     void connectAliceWithALock() {
         nuki.resetAll();
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         migrator.sql("DELETE FROM owner").update();
-        var aliceId = migrator.sql("INSERT INTO owner (email) VALUES (?) RETURNING id").param(ALICE)
-                .query(UUID.class).single();
-        lockId = migrator.sql("""
-                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone)
-                        VALUES (?, 17, 'Casa', 'Europe/Madrid') RETURNING id
-                        """)
-                .param(aliceId).query(UUID.class).single();
+        var aliceId = data.owner(ALICE);
+        lockId = data.lock(aliceId, 17, "Casa");
         nuki.stubFor(get("/smartlock").willReturn(okJson("[]")));
         NukiStandInConfiguration.logIsReadable(nuki);
         assertThat(mvc.put().uri("/settings/nuki").with(user(ALICE).roles("OWNER")).with(csrf())
@@ -415,12 +413,7 @@ class OpenDoorTests {
         var portal = insertOpenerAsEntrance();
         nuki.stubFor(post("/smartlock/19/action").willReturn(status(204)));
         nuki.stubFor(get(urlPathEqualTo("/smartlock/19/log")).willReturn(okJson(log(Instant.now(), 3, 0))));
-        var link = migrator.sql("""
-                        INSERT INTO access_link (owner_id, lock_id, label, valid_from, valid_until)
-                        SELECT owner_id, id, 'Ana', now() - interval '1 hour', now() + interval '1 day' FROM lock
-                        WHERE id = ? RETURNING id
-                        """)
-                .param(portal).query(UUID.class).single();
+        var link = data.link(portal, "Ana");
 
         assertThat(open(signer.sign(link, 1))).hasStatusOk().bodyJson().extractingPath("$.result").isEqualTo("opened");
 
@@ -717,27 +710,15 @@ class OpenDoorTests {
 
     /** Alice's Opener "Portal", Nuki id 19, at the entrance of her lock's building. */
     private UUID insertOpenerAsEntrance() {
-        var portal = migrator.sql("""
-                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone, device_type)
-                        SELECT owner_id, 19, 'Portal', time_zone, 'OPENER' FROM lock WHERE id = ? RETURNING id
-                        """)
-                .param(lockId).query(UUID.class).single();
-        migrator.sql("UPDATE lock SET entrance_lock_id = ? WHERE id = ?").params(portal, lockId).update();
-        return portal;
+        return data.entrance(lockId, 19, "Portal");
     }
 
     private void insertSchedule(UUID link, DayOfWeek day, String opens, String closes) {
-        migrator.sql("""
-                        INSERT INTO access_link_schedule (owner_id, link_id, day_of_week, opens_at, closes_at)
-                        SELECT owner_id, id, ?, ?::time, ?::time FROM access_link WHERE id = ?
-                        """)
-                .params(day.getValue(), opens, closes, link).update();
+        data.schedule(link, day, opens, closes);
     }
 
     private UUID insertLink(String validFrom, String validUntil) {
-        return migrator.sql("INSERT INTO access_link (owner_id, lock_id, label, valid_from, valid_until) "
-                        + "SELECT owner_id, id, 'Ana', " + validFrom + ", " + validUntil + " FROM lock WHERE id = ? RETURNING id")
-                .param(lockId).query(UUID.class).single();
+        return data.link(lockId, "Ana", validFrom, validUntil);
     }
 
     private static int rand() {

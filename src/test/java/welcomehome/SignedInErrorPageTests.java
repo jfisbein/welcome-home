@@ -38,8 +38,9 @@ class SignedInErrorPageTests {
     @BeforeEach
     void insertAlice() {
         var migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        var data = new TestData(migrator);
         migrator.sql("DELETE FROM owner").update();
-        migrator.sql("INSERT INTO owner (email, language) VALUES (?, 'en')").param(ALICE).update();
+        data.owner(ALICE, false, "en");
     }
 
     @Test

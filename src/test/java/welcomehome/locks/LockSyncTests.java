@@ -26,6 +26,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.locks.LockSync.SyncResult;
 import welcomehome.nuki.NukiStandInConfiguration;
@@ -57,12 +58,14 @@ class LockSyncTests {
     PostgreSQLContainer postgres;
 
     JdbcClient migrator;
+    TestData data;
     UUID aliceId;
 
     @BeforeEach
     void insertAliceAndBob() {
         nuki.resetAll();
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         migrator.sql("DELETE FROM owner").update();
         aliceId = insertOwner(ALICE);
         insertOwner(BOB);
@@ -92,8 +95,7 @@ class LockSyncTests {
 
     @Test
     void connectingAnAccountThatListsNothingLeavesTheLocksAsTheyAre() {
-        migrator.sql("INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone) VALUES (?, 18, 'Garaje', 'UTC')")
-                .param(aliceId).update();
+        data.lock(aliceId, 18, "Garaje", "UTC");
 
         connectNuki(ALICE, "[]");
 
@@ -248,7 +250,7 @@ class LockSyncTests {
     }
 
     private UUID insertOwner(String email) {
-        return migrator.sql("INSERT INTO owner (email) VALUES (?) RETURNING id").param(email).query(UUID.class).single();
+        return data.owner(email);
     }
 
     private static RequestPostProcessor owner(String email) {

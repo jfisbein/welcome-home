@@ -13,6 +13,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 
 /** What ties passkeys to their owner in the database, as Spring Security writes them knowing only an email. */
@@ -26,12 +27,14 @@ class PasskeyOwnerTests {
     PostgreSQLContainer postgres;
 
     JdbcClient migrator;
+    TestData data;
     UUID alice;
     UUID bob;
 
     @BeforeEach
     void insertAliceAndBob() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         for (var table : List.of("user_credentials", "user_entities", "owner")) {
             migrator.sql("DELETE FROM " + table).update();
         }
@@ -92,21 +95,15 @@ class PasskeyOwnerTests {
     }
 
     private UUID insertOwner(String email) {
-        return migrator.sql("INSERT INTO owner (email) VALUES (?) RETURNING id").param(email).query(UUID.class).single();
+        return data.owner(email);
     }
 
     private void insertUser(String id, String email) {
-        migrator.sql("INSERT INTO user_entities (id, name, display_name) VALUES (?, ?, ?)")
-                .params(id, email, email).update();
+        data.passkeyUser(id, email);
     }
 
     private void insertPasskey(String credentialId, String userId) {
-        migrator.sql("""
-                        INSERT INTO user_credentials (credential_id, user_entity_user_id, public_key, backup_eligible,
-                                                      backup_state, label)
-                        VALUES (?, ?, '\\x01', false, false, 'Passkey')
-                        """)
-                .params(credentialId, userId).update();
+        data.passkey(credentialId, userId, "Passkey");
     }
 
     private UUID ownerOf(String userId) {

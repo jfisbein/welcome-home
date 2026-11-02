@@ -18,6 +18,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 
 /**
@@ -39,10 +40,11 @@ class ThemeTests {
     @BeforeEach
     void insertAlice() {
         var migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        var data = new TestData(migrator);
         for (var table : new String[] {"user_credentials", "user_entities", "invitation", "owner"}) {
             migrator.sql("DELETE FROM " + table).update();
         }
-        migrator.sql("INSERT INTO owner (email) VALUES (?)").param(ALICE).update();
+        data.owner(ALICE);
     }
 
     @Test

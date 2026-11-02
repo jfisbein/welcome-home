@@ -31,6 +31,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.audit.AccessEvent;
 import welcomehome.audit.AccessEvents;
@@ -82,6 +83,7 @@ class NotificationTests {
     PostgreSQLContainer postgres;
 
     JdbcClient migrator;
+    TestData data;
     UUID aliceId;
     UUID lockId;
     UUID linkId;
@@ -89,13 +91,10 @@ class NotificationTests {
     @BeforeEach
     void insertAlicesLockAndLink() throws Exception {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
+        data = new TestData(migrator);
         migrator.sql("DELETE FROM owner").update();
-        aliceId = migrator.sql("INSERT INTO owner (email) VALUES (?) RETURNING id").param(ALICE).query(UUID.class).single();
-        lockId = migrator.sql("""
-                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone)
-                        VALUES (?, 17, 'Casa', 'America/New_York') RETURNING id
-                        """)
-                .param(aliceId).query(UUID.class).single();
+        aliceId = data.owner(ALICE);
+        lockId = data.lock(aliceId, 17, "Casa", "America/New_York");
         linkId = insertLink("Ana");
         nuki.resetAll();
         mail.purgeEmailFromAllMailboxes();
@@ -117,11 +116,7 @@ class NotificationTests {
     /** The Opener is the door that opened; the history is still the link's, under its lock. */
     @Test
     void anOpeningOfTheBuildingEntranceNamesTheOpener() throws Exception {
-        var openerId = migrator.sql("""
-                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone, device_type)
-                        VALUES (?, 19, 'Portal', 'Europe/Madrid', 'OPENER') RETURNING id
-                        """)
-                .param(aliceId).query(UUID.class).single();
+        var openerId = data.opener(aliceId, 19, "Portal");
 
         accessEvents.record(new AccessEvent(aliceId, linkId, lockId, openerId, AccessOutcome.OPENED, "203.0.113.7",
                 "ES", "curl"));
@@ -213,8 +208,7 @@ class NotificationTests {
 
     @Test
     void nukiRejectingTheTokenIsToldOnce() throws Exception {
-        migrator.sql("INSERT INTO nuki_connection (owner_id, access_token_encrypted, status) VALUES (?, ?, 'OK')")
-                .params(aliceId, crypto.encryptAccessToken(aliceId, "rejected-token")).update();
+        data.apiToken(aliceId, crypto.encryptAccessToken(aliceId, "rejected-token"));
         nuki.stubFor(get("/smartlock").willReturn(status(401)));
 
         assertThatThrownBy(() -> lockProvider.listLocks(aliceId)).isInstanceOf(LockProviderException.class);
@@ -230,14 +224,8 @@ class NotificationTests {
 
     @Test
     void nukiRefusingToRefreshTheAuthorizationIsToldOnce() throws Exception {
-        migrator.sql("""
-                        INSERT INTO nuki_connection (owner_id, credential, access_token_encrypted,
-                                                     refresh_token_encrypted, access_token_expires_at, status)
-                        VALUES (?, 'OAUTH2', ?, ?, now() - interval '1 minute', 'OK')
-                        """)
-                .params(aliceId, crypto.encryptAccessToken(aliceId, "expired-token"),
-                        crypto.encryptRefreshToken(aliceId, "revoked-token"))
-                .update();
+        data.authorization(aliceId, crypto.encryptAccessToken(aliceId, "expired-token"),
+                crypto.encryptRefreshToken(aliceId, "revoked-token"), "-1 minute", "OK");
         nuki.stubFor(post("/oauth/token").willReturn(status(400)));
 
         assertThatThrownBy(() -> lockProvider.listLocks(aliceId)).isInstanceOf(LockProviderException.class);
@@ -250,8 +238,7 @@ class NotificationTests {
 
     @Test
     void twoCallsRejectedAtOnceSendOneEmail() throws Exception {
-        migrator.sql("INSERT INTO nuki_connection (owner_id, access_token_encrypted, status) VALUES (?, ?, 'OK')")
-                .params(aliceId, crypto.encryptAccessToken(aliceId, "rejected-token")).update();
+        data.apiToken(aliceId, crypto.encryptAccessToken(aliceId, "rejected-token"));
         // Slow enough for both calls to find the connection OK before either is rejected.
         nuki.stubFor(get("/smartlock").willReturn(status(401).withFixedDelay(500)));
 
@@ -315,11 +302,7 @@ class NotificationTests {
     }
 
     private UUID insertLink(String label) {
-        return migrator.sql("""
-                        INSERT INTO access_link (owner_id, lock_id, label, valid_from, valid_until)
-                        VALUES (?, ?, ?, now() - interval '1 day', now() + interval '1 day') RETURNING id
-                        """)
-                .params(aliceId, lockId, label).query(UUID.class).single();
+        return data.link(lockId, label, "now() - interval '1 day'", TestData.IN_A_DAY);
     }
 
     private MimeMessage theOnlyEmail() {
