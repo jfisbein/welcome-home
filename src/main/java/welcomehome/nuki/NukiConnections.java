@@ -100,6 +100,7 @@ public class NukiConnections {
         var encrypted = crypto.encryptAccessToken(ownerId, token);
         ownerTransactions.run(ownerId, () -> connections.save(ownerId, NukiCredential.API_TOKEN, encrypted, null,
                 null));
+        events.publishEvent(new NukiConnected(ownerId, locks));
         return locks;
     }
 
@@ -127,6 +128,7 @@ public class NukiConnections {
         var expiresAt = expiresAt(tokens);
         ownerTransactions.run(ownerId, () -> connections.save(ownerId, NukiCredential.OAUTH2, accessTokenEncrypted,
                 refreshTokenEncrypted, expiresAt));
+        events.publishEvent(new NukiConnected(ownerId, locks));
         return locks;
     }
 

@@ -130,7 +130,7 @@ class NukiConnectionTests {
     @Test
     void pageNamesTheLocksJustFound() {
         assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)).flashAttr("connectedLocks", List.of("Casa")))
-                .bodyText().contains("Cerraduras encontradas", "Casa", "<details id=\"nuki-web\">");
+                .bodyText().contains("Tus cerraduras ya están aquí", "Casa", "href=\"/locks\"", "<details id=\"nuki-web\">");
     }
 
     @Test
@@ -256,13 +256,7 @@ class NukiConnectionTests {
     void disconnectingDeletesTheTokenButKeepsLocksAndLinks() {
         nukiAccepts(TOKEN);
         connect(ALICE, TOKEN);
-        var lockId = migrator.sql("""
-                        INSERT INTO lock (owner_id, connection_id, nuki_smartlock_id, name, time_zone)
-                        SELECT owner_id, id, 17, 'Casa', 'Europe/Madrid' FROM nuki_connection
-                        RETURNING id
-                        """)
-                .query(UUID.class)
-                .single();
+        var lockId = migrator.sql("SELECT id FROM lock WHERE nuki_smartlock_id = 17").query(UUID.class).single();
         migrator.sql("""
                         INSERT INTO access_link (owner_id, lock_id, label, valid_from, valid_until)
                         VALUES (?, ?, 'Invitado', now(), now() + interval '1 day')

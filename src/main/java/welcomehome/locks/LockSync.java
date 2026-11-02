@@ -1,16 +1,20 @@
 package welcomehome.locks;
 
 import java.time.ZoneId;
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import welcomehome.db.OwnerTransactions;
 import welcomehome.nuki.ConnectionStatus;
 import welcomehome.nuki.LockProvider;
 import welcomehome.nuki.LockProviderException;
 import welcomehome.nuki.LockProviderException.Reason;
+import welcomehome.nuki.NukiConnected;
 import welcomehome.nuki.NukiConnections;
+import welcomehome.nuki.NukiDevice;
 
 /**
  * Brings an owner's locks, smart locks and Openers, in line with their Nuki account. New locks are imported with
@@ -57,6 +61,18 @@ class LockSync {
                 .orElseThrow(() -> new LockProviderException(Reason.NOT_CONNECTED));
         // Outside the transaction: no database connection is held while waiting for Nuki.
         var devices = lockProvider.listLocks(ownerId);
+        return apply(ownerId, connection.id(), devices, keepLocksIfNoneListed);
+    }
+
+    /** Imports what Nuki has just listed: an owner who connects it should not have to ask for that. */
+    @EventListener
+    void on(NukiConnected connected) {
+        nukiConnections.find(connected.ownerId()).ifPresent(connection ->
+                apply(connected.ownerId(), connection.id(), connected.devices(), true));
+    }
+
+    private SyncResult apply(UUID ownerId, UUID connectionId, List<NukiDevice> devices,
+                             boolean keepLocksIfNoneListed) {
         if (devices.isEmpty() && keepLocksIfNoneListed) {
             return new SyncResult(0, 0);
         }
@@ -71,7 +87,7 @@ class LockSync {
                     added++;
                 }
                 var timeZone = device.timeZone() != null ? device.timeZone() : serverTimeZone;
-                locks.upsert(ownerId, connection.id(), device.smartlockId(), device.type(), device.name(),
+                locks.upsert(ownerId, connectionId, device.smartlockId(), device.type(), device.name(),
                         timeZone);
             }
             int deactivated = 0;

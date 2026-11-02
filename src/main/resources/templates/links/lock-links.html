@@ -48,6 +48,17 @@
         <p th:text="#{links.revoked(${revokedLabel})}">Enlace de Ana anulado: ya no abre la puerta.</p>
     </article>
 
+    <p th:unless="${lock.active}" role="alert" th:text="#{links.inactive-lock}">
+        Esta cerradura ya no está en tu cuenta de Nuki: no se pueden crear enlaces para ella.
+    </p>
+
+    <!-- Before the list, which keeps growing: creating a link is what this page is for, and an error shows at once. -->
+    <form id="new" th:if="${lock.active}" th:action="@{/locks/{id}/links(id=${lock.id})}" method="post">
+        <h2 th:text="#{links.new}">Nuevo enlace</h2>
+        <th:block th:replace="~{links/fields :: fields(${lock.timeZone})}"></th:block>
+        <button type="submit" th:text="#{links.create}">Crear enlace</button>
+    </form>
+
     <section>
         <h2 th:text="#{links.heading}">Enlaces</h2>
         <p th:if="${links.isEmpty()}" th:text="#{links.empty}">Esta cerradura todavía no tiene enlaces.</p>
@@ -108,15 +119,6 @@
             «Cambiar enlace» crea una dirección nueva. «Anular» hace que deje de abrir la puerta.</small></p>
     </section>
 
-    <p th:unless="${lock.active}" role="alert" th:text="#{links.inactive-lock}">
-        Esta cerradura ya no está en tu cuenta de Nuki: no se pueden crear enlaces para ella.
-    </p>
-
-    <form th:if="${lock.active}" th:action="@{/locks/{id}/links(id=${lock.id})}" method="post">
-        <h2 th:text="#{links.new}">Nuevo enlace</h2>
-        <th:block th:replace="~{links/fields :: fields(${lock.timeZone})}"></th:block>
-        <button type="submit" th:text="#{links.create}">Crear enlace</button>
-    </form>
     <p><a th:href="@{/locks/{id}(id=${lock.id})}" th:text="#{links.back(${lock.name})}">Volver a Casa</a></p>
 </main>
 <script th:src="@{/js/copy.js}"></script>

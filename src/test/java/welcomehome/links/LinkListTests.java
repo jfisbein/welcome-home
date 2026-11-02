@@ -105,6 +105,13 @@ class LinkListTests {
     }
 
     @Test
+    void theFormToCreateALinkComesBeforeTheList() {
+        insertLink(lockId, "Ana", "now()", "now() + interval '1 day'", false);
+
+        assertThat(page()).containsSubsequence("<form id=\"new\"", "Crear enlace", "<table class=\"links\"", "Ana");
+    }
+
+    @Test
     void validityIsShownInTheLocksTimeZone() {
         migrator.sql("UPDATE lock SET time_zone = 'America/New_York' WHERE id = ?").param(lockId).update();
         insertLink(lockId, "Ana", "'2030-11-01T19:00:00Z'", "'2030-11-03T16:00:00Z'", false);
