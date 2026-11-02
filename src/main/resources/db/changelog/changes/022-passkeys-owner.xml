@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Spring Security's passkey tables knew their owner only by the email in user_entities.name, with no foreign
+        keys. Its repositories keep writing them without owner_id, and so does the previous release, so a trigger
+        fills it in. It stays nullable until the next major version.
+        No Row-Level Security on user_entities, though it now has owner_id: Spring Security reads it to learn who is
+        signing in, before there is an owner context.
+    -->
+    <changeSet id="022-passkeys-owner" author="welcome-home">
+        <comment>Ties passkeys to their owner with foreign keys, so that they follow the owner's row.</comment>
+
+        <addColumn tableName="user_entities">
+            <column name="owner_id" type="uuid"/>
+        </addColumn>
+        <update tableName="user_entities">
+            <column name="owner_id" valueComputed="(SELECT o.id FROM owner o WHERE o.email = name)"/>
+        </update>
+        <addForeignKeyConstraint constraintName="user_entities_owner_id_fkey"
+                                 baseTableName="user_entities" baseColumnNames="owner_id"
+                                 referencedTableName="owner" referencedColumnNames="id" onDelete="CASCADE"/>
+        <createIndex indexName="user_entities_owner_id_idx" tableName="user_entities">
+            <column name="owner_id"/>
+        </createIndex>
+
+        <!-- A passkey of no user cannot sign in, and would stop the foreign key below. -->
+        <delete tableName="user_credentials">
+            <where>user_entity_user_id NOT IN (SELECT id FROM user_entities)</where>
+        </delete>
+        <addForeignKeyConstraint constraintName="user_credentials_user_entity_fkey"
+                                 baseTableName="user_credentials" baseColumnNames="user_entity_user_id"
+                                 referencedTableName="user_entities" referencedColumnNames="id" onDelete="CASCADE"/>
+        <createIndex indexName="user_credentials_user_entity_idx" tableName="user_credentials">
+            <column name="user_entity_user_id"/>
+        </createIndex>
+
+        <sql splitStatements="false">
+            CREATE FUNCTION set_passkey_owner() RETURNS trigger
+                LANGUAGE plpgsql
+            AS $$
+            BEGIN
+                NEW.owner_id := (SELECT id FROM owner WHERE email = NEW.name);
+                RETURN NEW;
+            END;
+            $$;
+        </sql>
+        <sql>
+            CREATE TRIGGER user_entities_set_owner BEFORE INSERT OR UPDATE OF name ON user_entities
+                FOR EACH ROW EXECUTE FUNCTION set_passkey_owner();
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

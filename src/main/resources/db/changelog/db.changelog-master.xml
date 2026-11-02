@@ -30,5 +30,6 @@
     <include file="changes/019-nuki-connection-oauth2.xml" relativeToChangelogFile="true"/>
     <include file="changes/020-lock-device-type-and-entrance.xml" relativeToChangelogFile="true"/>
     <include file="changes/021-access-link-schedule.xml" relativeToChangelogFile="true"/>
+    <include file="changes/022-passkeys-owner.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

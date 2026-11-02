@@ -61,7 +61,9 @@ class MigrationTests {
                 .extracting(TableSecurity::name)
                 .contains("nuki_connection", "lock", "access_link", "access_event");
         assertThat(tables)
-                .as("tables with owner_id but without RLS enabled or an owner_id policy")
+                .as("tables with owner_id but without RLS enabled or an owner_id policy, but for user_entities, "
+                        + "which Spring Security reads to learn who is signing in")
+                .filteredOn(table -> !table.name().equals("user_entities"))
                 .filteredOn(table -> !table.rowSecurity() || !table.ownerPolicy())
                 .isEmpty();
     }
