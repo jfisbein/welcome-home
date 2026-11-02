@@ -65,6 +65,14 @@ class HomePageTests {
     }
 
     @Test
+    void eachActiveLockOffersToCreateALinkAtOnce() {
+        migrator.sql("UPDATE lock SET active = false WHERE id = ?").param(garaje).update();
+
+        assertThat(home()).contains("href=\"/locks/" + casa + "/links#new\"", "Crear enlace")
+                .doesNotContain("href=\"/locks/" + garaje + "/links#new\"");
+    }
+
+    @Test
     void ownerWithoutLocksIsToldWhereToImportThem() {
         migrator.sql("DELETE FROM lock").update();
 

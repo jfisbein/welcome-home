@@ -69,17 +69,35 @@ class LockSyncTests {
     }
 
     @Test
-    void firstSyncImportsTheLocksWithTheirNukiNamesAndTimeZones() {
+    void connectingNukiImportsTheLocksWithTheirNukiNamesAndTimeZones() {
         connectNuki(ALICE, CASA_AND_GARAJE);
 
         var result = sync(ALICE);
 
         assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/locks");
-        assertThat(result.getMvcResult().getFlashMap().get("synced")).isEqualTo(new SyncResult(2, 0));
+        assertThat(result.getMvcResult().getFlashMap().get("synced")).as("already there").isEqualTo(new SyncResult(0, 0));
         assertThat(locks()).as("Garaje reports no time zone, so it gets the server's").containsExactly(
                 "17|Casa|Europe/London|true|connected",
                 "18|Garaje|" + ZoneId.systemDefault().getId() + "|true|connected");
         assertThat(mvc.get().uri("/locks").with(owner(ALICE))).bodyText().contains("Casa", "Garaje");
+    }
+
+    @Test
+    void syncImportsLocksAddedSinceConnecting() {
+        connectNuki(ALICE, ONLY_CASA);
+        nukiLists(CASA_AND_GARAJE);
+
+        assertThat(sync(ALICE).getMvcResult().getFlashMap().get("synced")).isEqualTo(new SyncResult(1, 0));
+    }
+
+    @Test
+    void connectingAnAccountThatListsNothingLeavesTheLocksAsTheyAre() {
+        migrator.sql("INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone) VALUES (?, 18, 'Garaje', 'UTC')")
+                .param(aliceId).update();
+
+        connectNuki(ALICE, "[]");
+
+        assertThat(migrator.sql("SELECT active FROM lock").query(Boolean.class).single()).isTrue();
     }
 
     @Test

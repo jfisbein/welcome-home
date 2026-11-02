@@ -9,12 +9,9 @@
 
     <article th:if="${connectedLocks}">
         <p th:if="${!connectedLocks.isEmpty()}"
-           th:utext="#{nuki.connected-locks(${#strings.escapeXml(#strings.listJoin(connectedLocks, ', '))})}">
-            Nuki conectado. Cerraduras encontradas: <strong>Casa</strong>.
+           th:utext="#{nuki.connected-locks(${#strings.escapeXml(#strings.listJoin(connectedLocks, ', '))}, @{/locks})}">
+            Nuki conectado. Tus cerraduras ya están aquí: <strong>Casa</strong>.
         </p>
-        <form th:if="${!connectedLocks.isEmpty()}" th:action="@{/locks/sync}" method="post">
-            <button type="submit" th:text="#{nuki.import}">Importar cerraduras</button>
-        </form>
         <p th:if="${connectedLocks.isEmpty()}" th:text="#{nuki.connected-no-locks}">Nuki conectado.</p>
     </article>
 

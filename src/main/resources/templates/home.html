@@ -44,6 +44,10 @@
                     <th:block th:replace="~{fragments/lock-warnings :: warnings(${lockWarnings.of(lock.id)})}"></th:block>
                 </td>
                 <td>
+                    <p th:if="${lock.active}">
+                        <a th:href="@{/locks/{id}/links(id=${lock.id})} + '#new'" role="button"
+                           th:text="#{links.create}">Crear enlace</a>
+                    </p>
                     <a th:href="@{/locks/{id}/links(id=${lock.id})}" th:text="#{locks.links}">Enlaces</a> ·
                     <a th:href="@{/locks/{id}/history(id=${lock.id})}" th:text="#{common.history}">Historial</a>
                 </td>
