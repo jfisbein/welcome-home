@@ -44,11 +44,11 @@ class NukiAuthorizationController {
     private static final int RANDOM_BYTES = 32;
 
     private final NukiConnections connections;
-    private final NukiWebClient nuki;
+    private final NukiOAuthClient nuki;
     private final NukiProperties properties;
     private final WelcomeHomeProperties app;
 
-    NukiAuthorizationController(NukiConnections connections, NukiWebClient nuki, NukiProperties properties,
+    NukiAuthorizationController(NukiConnections connections, NukiOAuthClient nuki, NukiProperties properties,
                                 WelcomeHomeProperties app) {
         this.connections = connections;
         this.nuki = nuki;
@@ -75,7 +75,7 @@ class NukiAuthorizationController {
         }
         if ("invalid_scope".equals(error) && expected.withWebhooks()) {
             log.info("Nuki's OAuth2 client may not ask for {}: authorizing without it, so the lock's log alone "
-                    + "confirms openings", NukiWebClient.WEBHOOKS);
+                    + "confirms openings", NukiOAuthClient.WEBHOOKS);
             return toNuki(owner, session, false);
         }
         if (error != null || code == null) {

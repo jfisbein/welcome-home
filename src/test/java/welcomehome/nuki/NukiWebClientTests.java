@@ -1,6 +1,5 @@
 package welcomehome.nuki;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.containing;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
@@ -17,10 +16,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.net.ServerSocket;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Base64;
 
 import com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
@@ -42,10 +39,6 @@ class NukiWebClientTests {
     static final long LOCK_ID = 17;
     static final int MAX_ATTEMPTS = 3;
     static final Duration READ_TIMEOUT = Duration.ofMillis(500);
-    static final String CLIENT_ID = "client-id";
-    static final String CLIENT_SECRET = "client-secret";
-    static final URI CALLBACK = URI.create("https://welcome.example/nuki/callback");
-    static final String SCOPE = "smartlock.readOnly smartlock.action smartlock.log offline_access";
 
     @RegisterExtension
     static WireMockExtension nuki = WireMockExtension.newInstance().options(wireMockConfig().dynamicPort()).build();
@@ -122,7 +115,7 @@ class NukiWebClientTests {
             "0, UNKNOWN", "1, LOCKED", "2, MOVING", "3, UNLOCKED", "4, MOVING", "5, UNLATCHED",
             "6, UNLOCKED", "7, MOVING", "254, MOTOR_BLOCKED", "255, UNKNOWN"})
     void translatesNukiStates(int nukiState, LockStatus status) {
-        assertThat(NukiWebClient.status(nukiState)).isEqualTo(status);
+        assertThat(NukiCodes.status(nukiState)).isEqualTo(status);
     }
 
     @ParameterizedTest
@@ -130,7 +123,7 @@ class NukiWebClientTests {
             "0, SYSTEM", "1, MANUAL", "2, BUTTON", "3, AUTOMATIC", "4, WEB", "5, APP", "6, AUTO_LOCK", "7, ACCESSORY",
             "255, OTHER"})
     void translatesNukiTriggers(int nukiTrigger, LockTrigger trigger) {
-        assertThat(NukiWebClient.trigger(nukiTrigger)).isEqualTo(trigger);
+        assertThat(NukiCodes.trigger(nukiTrigger)).isEqualTo(trigger);
     }
 
     @Test
@@ -370,174 +363,10 @@ class NukiWebClientTests {
         nuki.verify(1, getRequestedFor(urlPathEqualTo("/smartlock")));
     }
 
-    @Test
-    void sendsTheOwnerToAuthorizeWhatWelcomeHomeUsesWithThePkceChallenge() {
-        // The verifier and its S256 challenge from RFC 7636, appendix B.
-        assertThat(client.authorizationUri(CALLBACK, "the-state", "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk", true))
-                .hasToString(nuki.baseUrl()
-                        + "/oauth/authorize?response_type=code&client_id=client-id"
-                        + "&redirect_uri=https%3A%2F%2Fwelcome.example%2Fnuki%2Fcallback"
-                        + "&scope=smartlock.readOnly%20smartlock.action%20smartlock.log%20offline_access"
-                        + "%20webhook.central"
-                        + "&state=the-state&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
-                        + "&code_challenge_method=S256");
-    }
-
-    @Test
-    void asksForWebhooksOnlyWhenTold() {
-        assertThat(client.authorizationUri(CALLBACK, "the-state", "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk", false))
-                .hasToString(nuki.baseUrl()
-                        + "/oauth/authorize?response_type=code&client_id=client-id"
-                        + "&redirect_uri=https%3A%2F%2Fwelcome.example%2Fnuki%2Fcallback"
-                        + "&scope=smartlock.readOnly%20smartlock.action%20smartlock.log%20offline_access"
-                        + "&state=the-state&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
-                        + "&code_challenge_method=S256");
-    }
-
-    @Test
-    void exchangesTheCodeWithTheVerifierAndTheClientsCredentialsInBothPlaces() {
-        nuki.stubFor(post("/oauth/token").willReturn(okJson(tokens("access-1", "refresh-1"))));
-
-        assertThat(client.exchangeCode("the-code", "the-verifier", CALLBACK))
-                .isEqualTo(new NukiTokens("access-1", "refresh-1", Duration.ofSeconds(3599), SCOPE));
-        nuki.verify(postRequestedFor(urlPathEqualTo("/oauth/token"))
-                .withHeader("Authorization", equalTo("Basic " + Base64.getEncoder()
-                        .encodeToString((CLIENT_ID + ":" + CLIENT_SECRET).getBytes(StandardCharsets.UTF_8))))
-                .withHeader("Content-Type", containing("application/x-www-form-urlencoded"))
-                .withFormParam("grant_type", equalTo("authorization_code"))
-                .withFormParam("code", equalTo("the-code"))
-                .withFormParam("code_verifier", equalTo("the-verifier"))
-                .withFormParam("redirect_uri", equalTo(CALLBACK.toString()))
-                .withFormParam("client_id", equalTo(CLIENT_ID))
-                .withFormParam("client_secret", equalTo(CLIENT_SECRET)));
-    }
-
-    @Test
-    void refreshesWithTheRefreshToken() {
-        nuki.stubFor(post("/oauth/token").willReturn(okJson(tokens("access-2", "refresh-2"))));
-
-        assertThat(client.refresh("refresh-1"))
-                .isEqualTo(new NukiTokens("access-2", "refresh-2", Duration.ofSeconds(3599), SCOPE));
-        nuki.verify(postRequestedFor(urlPathEqualTo("/oauth/token"))
-                .withFormParam("grant_type", equalTo("refresh_token"))
-                .withFormParam("refresh_token", equalTo("refresh-1"))
-                .withFormParam("client_id", equalTo(CLIENT_ID))
-                .withFormParam("client_secret", equalTo(CLIENT_SECRET)));
-    }
-
-    @Test
-    void refusedCodeOrRefreshTokenIsAccessDenied() {
-        nuki.stubFor(post("/oauth/token").willReturn(status(400).withHeader("Content-Type", "application/json")
-                .withBody("{\"error\": \"invalid_grant\"}")));
-
-        assertFailsWith(Reason.ACCESS_DENIED, () -> client.exchangeCode("used-code", "the-verifier", CALLBACK));
-        assertFailsWith(Reason.ACCESS_DENIED, () -> client.refresh("revoked"));
-
-        nuki.verify(2, postRequestedFor(urlPathEqualTo("/oauth/token")));
-    }
-
-    @Test
-    void refusalOfTheClientIsNotTheOwnersAndIsNotRetried() {
-        nuki.stubFor(post("/oauth/token").willReturn(status(401)));
-        assertFailsWith(Reason.NUKI_ERROR, () -> client.refresh("fine"));
-        assertFailsWith(Reason.NUKI_ERROR, () -> client.exchangeCode("fine", "the-verifier", CALLBACK));
-        nuki.verify(2, postRequestedFor(urlPathEqualTo("/oauth/token")));
-
-        nuki.stubFor(post("/oauth/token").willReturn(status(400).withHeader("Content-Type", "application/json")
-                .withBody("{\"error\": \"invalid_client\"}")));
-        assertFailsWith(Reason.NUKI_ERROR, () -> client.refresh("fine"));
-
-        nuki.stubFor(post("/oauth/token").willReturn(status(400).withBody("not json")));
-        assertFailsWith(Reason.ACCESS_DENIED, () -> client.refresh("revoked"));
-    }
-
-    @Test
-    void revokingAskedOfAClientlessInstallAsksNothing() {
-        var clientless = new NukiWebClient(new NukiProperties(URI.create(nuki.baseUrl()), Duration.ofSeconds(1), READ_TIMEOUT,
-                MAX_ATTEMPTS, Duration.ofMillis(10), Duration.ofMillis(50), new NukiProperties.OAuth("", ""),
-                URI.create(nuki.baseUrl()).resolve("/oauth2/revoke")));
-
-        clientless.revoke("refresh-1");
-
-        nuki.verify(0, postRequestedFor(urlPathEqualTo("/oauth2/revoke")));
-    }
-
-    @Test
-    void revokingIsNotSentAgainAndTellsIfNukiDoesNotConfirmIt() {
-        nuki.stubFor(post("/oauth2/revoke").willReturn(status(503)));
-
-        assertFailsWith(Reason.NO_ANSWER, () -> client.revoke("refresh-1"));
-
-        nuki.verify(1, postRequestedFor(urlPathEqualTo("/oauth2/revoke")));
-    }
-
-    @Test
-    void tokenRequestThatNukiMayHaveAnsweredIsNotSentAgain() {
-        nuki.stubFor(post("/oauth/token").willReturn(status(503)));
-        assertFailsWith(Reason.NO_ANSWER, () -> client.refresh("refresh-1"));
-        nuki.verify(1, postRequestedFor(urlPathEqualTo("/oauth/token")));
-
-        nuki.resetAll();
-        nuki.stubFor(post("/oauth/token").willReturn(slow(okJson(tokens("access-2", "refresh-2")))));
-        assertFailsWith(Reason.NO_ANSWER, () -> client.refresh("refresh-1"));
-        nuki.verify(1, postRequestedFor(urlPathEqualTo("/oauth/token")));
-
-        nuki.resetAll();
-        nuki.stubFor(post("/oauth/token").willReturn(status(429)));
-        assertFailsWith(Reason.NUKI_ERROR, () -> client.refresh("refresh-1"));
-        nuki.verify(MAX_ATTEMPTS, postRequestedFor(urlPathEqualTo("/oauth/token")));
-    }
-
-    @Test
-    void answerWithoutABearerAccessTokenIsANukiError() {
-        nuki.stubFor(post("/oauth/token").willReturn(okJson("""
-                {"access_token": "access-1", "token_type": "mac", "expires_in": 3599}
-                """)));
-        assertFailsWith(Reason.NUKI_ERROR, () -> client.refresh("refresh-1"));
-
-        nuki.stubFor(post("/oauth/token").willReturn(okJson("""
-                {"token_type": "bearer", "expires_in": 3599}
-                """)));
-        assertFailsWith(Reason.NUKI_ERROR, () -> client.refresh("refresh-1"));
-    }
-
-    @Test
-    void minimalAnswerLastsAnHourAndGrantsWhatWasAskedFor() {
-        nuki.stubFor(post("/oauth/token").willReturn(okJson("""
-                {"access_token": "access-1", "token_type": "Bearer"}
-                """)));
-
-        var tokens = client.refresh("refresh-1");
-
-        assertThat(tokens).isEqualTo(new NukiTokens("access-1", null, Duration.ofHours(1), null));
-        assertThat(tokens.grantsAll(NukiWebClient.SCOPES)).isTrue();
-    }
-
-    @Test
-    void tokensTellWhetherEverythingAskedForWasGranted() {
-        assertThat(new NukiTokens("a", "r", Duration.ZERO, " " + SCOPE + " ").grantsAll(NukiWebClient.SCOPES))
-                .isTrue();
-        assertThat(new NukiTokens("a", "r", Duration.ZERO, "smartlock.readOnly smartlock.log offline_access")
-                .grantsAll(NukiWebClient.SCOPES)).isFalse();
-    }
-
-    @Test
-    void tokensAreNeverPrinted() {
-        assertThat(new NukiTokens("access-secret", "refresh-secret", Duration.ZERO, SCOPE).toString())
-                .doesNotContain("access-secret", "refresh-secret");
-    }
-
-    private static String tokens(String accessToken, String refreshToken) {
-        return """
-                {"access_token": "%s", "token_type": "bearer", "expires_in": 3599, "refresh_token": "%s",
-                 "scope": "%s"}
-                """.formatted(accessToken, refreshToken, SCOPE);
-    }
-
     private static NukiWebClient clientFor(URI baseUrl) {
-        return new NukiWebClient(new NukiProperties(baseUrl, Duration.ofSeconds(1), READ_TIMEOUT, MAX_ATTEMPTS,
-                Duration.ofMillis(10), Duration.ofMillis(50), new NukiProperties.OAuth(CLIENT_ID, CLIENT_SECRET),
-                baseUrl.resolve("/oauth2/revoke")));
+        return new NukiWebClient(new NukiRequests(new NukiProperties(baseUrl, Duration.ofSeconds(1), READ_TIMEOUT,
+                MAX_ATTEMPTS, Duration.ofMillis(10), Duration.ofMillis(50), new NukiProperties.OAuth("", ""),
+                baseUrl.resolve("/oauth2/revoke"))));
     }
 
     private static ResponseDefinitionBuilder slow(ResponseDefinitionBuilder response) {

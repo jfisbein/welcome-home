@@ -48,6 +48,7 @@ public class NukiConnections {
     static final Duration RECHECK_FOR = Duration.ofDays(7);
 
     private final NukiWebClient nuki;
+    private final NukiOAuthClient oauth;
     private final NukiConnectionDao connections;
     private final CryptoService crypto;
     private final OwnerTransactions ownerTransactions;
@@ -59,9 +60,10 @@ public class NukiConnections {
      */
     private final ConcurrentMap<UUID, ReentrantLock> refreshes = new ConcurrentHashMap<>();
 
-    NukiConnections(NukiWebClient nuki, NukiConnectionDao connections, CryptoService crypto,
+    NukiConnections(NukiWebClient nuki, NukiOAuthClient oauth, NukiConnectionDao connections, CryptoService crypto,
                     OwnerTransactions ownerTransactions, ApplicationEventPublisher events) {
         this.nuki = nuki;
+        this.oauth = oauth;
         this.connections = connections;
         this.crypto = crypto;
         this.ownerTransactions = ownerTransactions;
@@ -113,10 +115,10 @@ public class NukiConnections {
      *                               welcome-home asked for, or {@link Reason#NUKI_ERROR} if Nuki does not answer
      */
     List<SmartLock> connectAuthorized(UUID ownerId, String code, String codeVerifier, URI redirectUri) {
-        var tokens = notActing(() -> nuki.exchangeCode(code, codeVerifier, redirectUri));
+        var tokens = notActing(() -> oauth.exchangeCode(code, codeVerifier, redirectUri));
         log.info("Nuki granted owner {} the scopes {}", ownerId, tokens.scopeForLog());
         var refreshToken = tokens.refreshToken();
-        if (refreshToken == null || !tokens.grantsAll(NukiWebClient.SCOPES)) {
+        if (refreshToken == null || !tokens.grantsAll(NukiOAuthClient.SCOPES)) {
             throw new LockProviderException(Reason.MISSING_PERMISSION);
         }
         var locks = checkAccess(tokens.accessToken());
@@ -166,7 +168,7 @@ public class NukiConnections {
             return;
         }
         try {
-            nuki.revoke(crypto.decryptRefreshToken(ownerId, refreshTokenEncrypted));
+            oauth.revoke(crypto.decryptRefreshToken(ownerId, refreshTokenEncrypted));
             log.info("Asked Nuki to revoke the authorization of owner {}", ownerId);
         } catch (DecryptionFailedException | LockProviderException e) {
             log.warn("Could not revoke the Nuki authorization of owner {}: {}", ownerId, e.getMessage());
@@ -243,7 +245,7 @@ public class NukiConnections {
             var refreshToken = decrypted(() -> crypto.decryptRefreshToken(ownerId, refreshTokenEncrypted));
             NukiTokens tokens;
             try {
-                tokens = notActing(() -> nuki.refresh(refreshToken));
+                tokens = notActing(() -> oauth.refresh(refreshToken));
             } catch (LockProviderException e) {
                 if (e.reason() == Reason.ACCESS_DENIED) {
                     disconnect(ownerId, stored.accessTokenEncrypted());
@@ -347,7 +349,7 @@ public class NukiConnections {
                 return false;
             }
             var stored = disconnected.get();
-            return stored.credential() == NukiCredential.OAUTH2 && expiresSoon(stored)
+            return (stored.credential() == NukiCredential.OAUTH2 && expiresSoon(stored))
                     ? reconnectByRefreshing(ownerId, stored)
                     : reconnectIfAccepted(ownerId, stored);
         } catch (LockProviderException e) {
@@ -371,7 +373,7 @@ public class NukiConnections {
             return false;
         }
         var refreshToken = decrypted(() -> crypto.decryptRefreshToken(ownerId, refreshTokenEncrypted));
-        var tokens = notActing(() -> nuki.refresh(refreshToken));
+        var tokens = notActing(() -> oauth.refresh(refreshToken));
         var newRefreshToken = tokens.refreshToken() == null ? refreshToken : tokens.refreshToken();
         var accessTokenEncrypted = crypto.encryptAccessToken(ownerId, tokens.accessToken());
         var newRefreshTokenEncrypted = crypto.encryptRefreshToken(ownerId, newRefreshToken);
