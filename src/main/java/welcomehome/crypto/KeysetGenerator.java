@@ -11,10 +11,10 @@ import com.google.crypto.tink.aead.PredefinedAeadParameters;
 import com.google.crypto.tink.mac.PredefinedMacParameters;
 
 /**
- * Generates the two keysets the application needs: AES-256-GCM for Nuki API tokens and HMAC-SHA256 with a
+ * Generates the two keysets the application needs: AES-256-GCM for Nuki tokens and HMAC-SHA256 with a
  * 128-bit tag for access links. Run it with {@code ./gradlew generateKeysets}.
  * <p>
- * Existing files are never overwritten: losing a keyset means pasting every Nuki API token again and
+ * Existing files are never overwritten: losing a keyset means connecting every owner's Nuki again and
  * regenerating every access link.
  */
 public final class KeysetGenerator {

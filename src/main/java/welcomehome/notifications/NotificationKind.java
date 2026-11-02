@@ -12,9 +12,9 @@ enum NotificationKind {
      * or the door is unavailable.
      */
     FAILED,
-    /** A guest's link was refused: not valid yet, expired, revoked, or too many attempts. */
+    /** A guest's link was refused: not valid yet, expired, revoked, outside its schedule, or too many attempts. */
     DENIED,
-    /** Nuki rejected the owner's API token. */
+    /** Nuki rejected the owner's connection, or accepts it again. */
     DISCONNECTED;
 
     /**

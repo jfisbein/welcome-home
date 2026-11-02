@@ -37,11 +37,29 @@ class LockSync {
      * @throws LockProviderException if the owner has no working Nuki connection or Nuki cannot list the locks
      */
     SyncResult sync(UUID ownerId) {
+        return sync(ownerId, false);
+    }
+
+    /**
+     * Syncs as {@link #sync} does, but without the owner watching: a list with no locks at all changes nothing, as
+     * an owner who has locks is more likely to meet a mistake of Nuki's than to have removed them all, and marking
+     * them inactive would stop every link. The owner can still ask for it with {@link #sync}.
+     *
+     * @throws LockProviderException as {@link #sync} does
+     */
+    SyncResult syncDaily(UUID ownerId) {
+        return sync(ownerId, true);
+    }
+
+    private SyncResult sync(UUID ownerId, boolean keepLocksIfNoneListed) {
         var connection = nukiConnections.find(ownerId)
                 .filter(found -> found.status() == ConnectionStatus.OK)
                 .orElseThrow(() -> new LockProviderException(Reason.NOT_CONNECTED));
         // Outside the transaction: no database connection is held while waiting for Nuki.
         var smartLocks = lockProvider.listLocks(ownerId);
+        if (smartLocks.isEmpty() && keepLocksIfNoneListed) {
+            return new SyncResult(0, 0);
+        }
         var serverTimeZone = ZoneId.systemDefault().getId();
         return ownerTransactions.execute(ownerId, () -> {
             var known = locks.findAll(ownerId).stream()

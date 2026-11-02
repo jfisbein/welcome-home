@@ -39,7 +39,7 @@ class NukiWebLockProvider implements LockProvider {
 
     @Override
     public LockState getState(UUID ownerId, long smartlockId) {
-        return connections.callNuki(ownerId, apiToken -> nuki.getState(apiToken, smartlockId));
+        return connections.callNuki(ownerId, accessToken -> nuki.getState(accessToken, smartlockId));
     }
 
     @Override
@@ -58,6 +58,6 @@ class NukiWebLockProvider implements LockProvider {
 
     @Override
     public List<LockLogEntry> getRecentLog(UUID ownerId, long smartlockId) {
-        return connections.callNuki(ownerId, apiToken -> nuki.getRecentLog(apiToken, smartlockId));
+        return connections.callNuki(ownerId, accessToken -> nuki.getRecentLog(accessToken, smartlockId));
     }
 }

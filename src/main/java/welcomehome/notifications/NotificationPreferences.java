@@ -6,7 +6,7 @@ package welcomehome.notifications;
  * @param opened       when a guest opens the door
  * @param failed       when a guest with a valid link cannot get in
  * @param denied       when a guest's link is refused
- * @param disconnected when Nuki rejects the owner's API token
+ * @param disconnected when Nuki rejects the owner's connection, and when it accepts it again
  */
 record NotificationPreferences(boolean opened, boolean failed, boolean denied, boolean disconnected) {
 

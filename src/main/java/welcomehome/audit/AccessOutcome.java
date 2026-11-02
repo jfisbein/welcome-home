@@ -38,7 +38,7 @@ public enum AccessOutcome {
     LOCK_FAILED("lock-failed", AccessResult.ERROR),
     /** The lock is in night mode and refused to open. */
     NIGHT_MODE("night-mode", AccessResult.ERROR),
-    /** Nuki refused the unlatch: the owner's API token lacks the permission to operate the lock. */
+    /** Nuki refused the unlatch: the owner's Nuki token lacks the permission to operate the lock. */
     MISSING_PERMISSION("missing-permission", AccessResult.ERROR);
 
     private final String code;
