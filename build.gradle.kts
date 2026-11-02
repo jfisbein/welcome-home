@@ -54,6 +54,8 @@ dependencies {
     testImplementation("com.icegreen:greenmail:2.1.14")
     // Parses the templates for TemplateTextTests, which finds text that is not in the bundles.
     testImplementation("org.jsoup:jsoup:1.23.2")
+    // Runs the app's JavaScript in a real browser (src/test/java/welcomehome/browser), which it downloads when first used.
+    testImplementation("com.microsoft.playwright:playwright:1.63.0")
     testImplementation("org.springframework.boot:spring-boot-starter-jdbc-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.springframework.modulith:spring-modulith-starter-test")
@@ -113,6 +115,14 @@ tasks.register<JavaExec>("generateKeysets") {
     classpath = sourceSets.main.get().runtimeClasspath
     mainClass = "welcomehome.crypto.KeysetGenerator"
     args("secrets")
+}
+
+tasks.register<JavaExec>("installBrowser") {
+    group = "verification"
+    description = "Installs the browser that the tests use, with the system packages it needs, for CI."
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass = "com.microsoft.playwright.CLI"
+    args("install", "--with-deps", "chromium")
 }
 
 tasks.register<JavaExec>("rotateAeadKeyset") {
