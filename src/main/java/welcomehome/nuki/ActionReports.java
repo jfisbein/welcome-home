@@ -24,7 +24,7 @@ class ActionReports {
     /** Far longer than a guest waits for the confirmation. */
     static final Duration KEPT_FOR = Duration.ofMinutes(2);
 
-    private final Cache<String, CompletableFuture<LockActionState>> outcomes = Caffeine.newBuilder()
+    private final Cache<String, CompletableFuture<ActionResult>> outcomes = Caffeine.newBuilder()
             .expireAfterWrite(KEPT_FOR)
             .maximumSize(10_000)
             .build();
@@ -57,11 +57,11 @@ class ActionReports {
      * @param requestId the request's id
      * @param state     how the action ended
      */
-    void report(String requestId, LockActionState state) {
+    void report(String requestId, ActionResult state) {
         outcome(requestId).complete(state);
     }
 
-    private CompletableFuture<LockActionState> outcome(String requestId) {
+    private CompletableFuture<ActionResult> outcome(String requestId) {
         return outcomes.get(requestId, _ -> new CompletableFuture<>());
     }
 }

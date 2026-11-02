@@ -56,22 +56,22 @@ class LockSync {
                 .filter(found -> found.status() == ConnectionStatus.OK)
                 .orElseThrow(() -> new LockProviderException(Reason.NOT_CONNECTED));
         // Outside the transaction: no database connection is held while waiting for Nuki.
-        var smartLocks = lockProvider.listLocks(ownerId);
-        if (smartLocks.isEmpty() && keepLocksIfNoneListed) {
+        var devices = lockProvider.listLocks(ownerId);
+        if (devices.isEmpty() && keepLocksIfNoneListed) {
             return new SyncResult(0, 0);
         }
         var serverTimeZone = ZoneId.systemDefault().getId();
         return ownerTransactions.execute(ownerId, () -> {
             var known = locks.findAll(ownerId).stream()
                     .collect(Collectors.toMap(OwnerLock::nukiSmartlockId, lock -> lock));
-            var inNuki = smartLocks.stream().map(smartLock -> smartLock.smartlockId()).collect(Collectors.toSet());
+            var inNuki = devices.stream().map(device -> device.smartlockId()).collect(Collectors.toSet());
             int added = 0;
-            for (var smartLock : smartLocks) {
-                if (!known.containsKey(smartLock.smartlockId())) {
+            for (var device : devices) {
+                if (!known.containsKey(device.smartlockId())) {
                     added++;
                 }
-                var timeZone = smartLock.timeZone() != null ? smartLock.timeZone() : serverTimeZone;
-                locks.upsert(ownerId, connection.id(), smartLock.smartlockId(), smartLock.type(), smartLock.name(),
+                var timeZone = device.timeZone() != null ? device.timeZone() : serverTimeZone;
+                locks.upsert(ownerId, connection.id(), device.smartlockId(), device.type(), device.name(),
                         timeZone);
             }
             int deactivated = 0;

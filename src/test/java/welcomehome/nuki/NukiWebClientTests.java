@@ -62,9 +62,9 @@ class NukiWebClientTests {
                 """)));
 
         assertThat(client.listLocks(TOKEN)).containsExactly(
-                new SmartLock(17, DeviceType.SMART_LOCK, "Casa", "Europe/Berlin"),
-                new SmartLock(18, DeviceType.SMART_LOCK, "Garaje", null),
-                new SmartLock(19, DeviceType.OPENER, "Portal", null));
+                new NukiDevice(17, DeviceType.SMART_LOCK, "Casa", "Europe/Berlin"),
+                new NukiDevice(18, DeviceType.SMART_LOCK, "Garaje", null),
+                new NukiDevice(19, DeviceType.OPENER, "Portal", null));
     }
 
     @Test
@@ -78,13 +78,13 @@ class NukiWebClientTests {
                 }
                 """)));
 
-        assertThat(client.getState(TOKEN, LOCK_ID)).isEqualTo(new LockState(LockStatus.LOCKED, true, false, 52, true));
+        assertThat(client.getSnapshot(TOKEN, LOCK_ID)).isEqualTo(new LockSnapshot(LockPosition.LOCKED, true, false, 52, true));
     }
 
     /** An Opener's states mean something else than a lock's: its 1 is online, not locked. */
     @ParameterizedTest
     @CsvSource({"1, READY", "3, RING_TO_OPEN", "5, OPENING", "7, OPENING", "0, UNKNOWN", "253, UNKNOWN"})
-    void readsTheStateOfAnOpener(int nukiState, LockStatus status) {
+    void readsTheStateOfAnOpener(int nukiState, LockPosition status) {
         nuki.stubFor(get("/smartlock/19").willReturn(okJson("""
                 {
                   "smartlockId": 19, "type": 2, "name": "Portal", "serverState": 0,
@@ -93,7 +93,7 @@ class NukiWebClientTests {
                 }
                 """.formatted(nukiState))));
 
-        assertThat(client.getState(TOKEN, 19)).isEqualTo(new LockState(status, true, false, null, false));
+        assertThat(client.getSnapshot(TOKEN, 19)).isEqualTo(new LockSnapshot(status, true, false, null, false));
     }
 
     @Test
@@ -106,16 +106,16 @@ class NukiWebClientTests {
                 }
                 """)));
 
-        assertThat(client.getState(TOKEN, LOCK_ID))
-                .isEqualTo(new LockState(LockStatus.UNLOCKED, false, true, null, false));
+        assertThat(client.getSnapshot(TOKEN, LOCK_ID))
+                .isEqualTo(new LockSnapshot(LockPosition.UNLOCKED, false, true, null, false));
     }
 
     @ParameterizedTest
     @CsvSource({
             "0, UNKNOWN", "1, LOCKED", "2, MOVING", "3, UNLOCKED", "4, MOVING", "5, UNLATCHED",
             "6, UNLOCKED", "7, MOVING", "254, MOTOR_BLOCKED", "255, UNKNOWN"})
-    void translatesNukiStates(int nukiState, LockStatus status) {
-        assertThat(NukiCodes.status(nukiState)).isEqualTo(status);
+    void translatesNukiStates(int nukiState, LockPosition status) {
+        assertThat(NukiCodes.position(nukiState)).isEqualTo(status);
     }
 
     @ParameterizedTest
@@ -230,17 +230,17 @@ class NukiWebClientTests {
                 """)));
 
         assertThat(client.getRecentLog(TOKEN, LOCK_ID)).containsExactly(
-                new LockLogEntry(Instant.parse("2026-10-17T11:03:45Z"), LockAction.DOOR_OPENED, LockTrigger.SYSTEM, LockActionState.SUCCEEDED,
+                new LockLogEntry(Instant.parse("2026-10-17T11:03:45Z"), LoggedAction.DOOR_OPENED, LockTrigger.SYSTEM, ActionResult.SUCCEEDED,
                         "240/0/0"),
-                new LockLogEntry(Instant.parse("2026-10-17T11:03:30Z"), LockAction.UNLATCH, LockTrigger.WEB, LockActionState.SUCCEEDED,
+                new LockLogEntry(Instant.parse("2026-10-17T11:03:30Z"), LoggedAction.UNLATCH, LockTrigger.WEB, ActionResult.SUCCEEDED,
                         "3/4/0"),
-                new LockLogEntry(Instant.parse("2026-10-17T09:00:00Z"), LockAction.UNLOCK, LockTrigger.APP, LockActionState.MOTOR_BLOCKED,
+                new LockLogEntry(Instant.parse("2026-10-17T09:00:00Z"), LoggedAction.UNLOCK, LockTrigger.APP, ActionResult.MOTOR_BLOCKED,
                         "1/5/1"),
-                new LockLogEntry(Instant.parse("2026-10-17T08:30:00Z"), LockAction.UNLATCH, LockTrigger.WEB, LockActionState.REJECTED_NIGHT_MODE,
+                new LockLogEntry(Instant.parse("2026-10-17T08:30:00Z"), LoggedAction.UNLATCH, LockTrigger.WEB, ActionResult.REJECTED_NIGHT_MODE,
                         "3/4/10"),
-                new LockLogEntry(Instant.parse("2026-10-17T08:15:00Z"), LockAction.UNLATCH, LockTrigger.WEB, LockActionState.FAILED,
+                new LockLogEntry(Instant.parse("2026-10-17T08:15:00Z"), LoggedAction.UNLATCH, LockTrigger.WEB, ActionResult.FAILED,
                         "3/4/4"),
-                new LockLogEntry(Instant.parse("2026-10-17T08:00:00Z"), LockAction.OTHER, LockTrigger.BUTTON, LockActionState.SUCCEEDED,
+                new LockLogEntry(Instant.parse("2026-10-17T08:00:00Z"), LoggedAction.OTHER, LockTrigger.BUTTON, ActionResult.SUCCEEDED,
                         "4/2/0"));
     }
 
@@ -270,7 +270,7 @@ class NukiWebClientTests {
     void unknownLockIsNotFound() {
         nuki.stubFor(get("/smartlock/17").willReturn(status(404)));
 
-        assertFailsWith(Reason.LOCK_NOT_FOUND, () -> client.getState(TOKEN, LOCK_ID));
+        assertFailsWith(Reason.LOCK_NOT_FOUND, () -> client.getSnapshot(TOKEN, LOCK_ID));
     }
 
     @Test
@@ -295,7 +295,7 @@ class NukiWebClientTests {
     void readsAreRetriedOnServerErrorsUntilTheyGiveUp() {
         nuki.stubFor(get("/smartlock/17").willReturn(status(503)));
 
-        assertFailsWith(Reason.NUKI_ERROR, () -> client.getState(TOKEN, LOCK_ID));
+        assertFailsWith(Reason.NUKI_ERROR, () -> client.getSnapshot(TOKEN, LOCK_ID));
         nuki.verify(MAX_ATTEMPTS, getRequestedFor(urlPathEqualTo("/smartlock/17")));
     }
 
@@ -307,7 +307,7 @@ class NukiWebClientTests {
                 {"smartlockId": 17, "type": 5, "name": "Casa", "serverState": 0, "state": {"state": 1}}
                 """)));
 
-        assertThat(client.getState(TOKEN, LOCK_ID).status()).isEqualTo(LockStatus.LOCKED);
+        assertThat(client.getSnapshot(TOKEN, LOCK_ID).position()).isEqualTo(LockPosition.LOCKED);
         nuki.verify(2, getRequestedFor(urlPathEqualTo("/smartlock/17")));
     }
 
@@ -315,7 +315,7 @@ class NukiWebClientTests {
     void readThatKeepsTimingOutIsAnErrorNotANoAnswer() {
         nuki.stubFor(get("/smartlock/17").willReturn(slow(okJson("{}"))));
 
-        assertFailsWith(Reason.NUKI_ERROR, () -> client.getState(TOKEN, LOCK_ID));
+        assertFailsWith(Reason.NUKI_ERROR, () -> client.getSnapshot(TOKEN, LOCK_ID));
         nuki.verify(MAX_ATTEMPTS, getRequestedFor(urlPathEqualTo("/smartlock/17")));
     }
 
@@ -359,7 +359,7 @@ class NukiWebClientTests {
         nuki.stubFor(get("/smartlock/17").willReturn(okJson("not json")));
 
         assertFailsWith(Reason.NUKI_ERROR, () -> client.listLocks(TOKEN));
-        assertFailsWith(Reason.NUKI_ERROR, () -> client.getState(TOKEN, LOCK_ID));
+        assertFailsWith(Reason.NUKI_ERROR, () -> client.getSnapshot(TOKEN, LOCK_ID));
         nuki.verify(1, getRequestedFor(urlPathEqualTo("/smartlock")));
     }
 

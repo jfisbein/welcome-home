@@ -14,9 +14,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import welcomehome.audit.AccessOutcome;
 
-class LockActionsTests {
+class LockMutexTests {
 
-    final LockActions lockActions = new LockActions();
+    final LockMutex lockActions = new LockMutex();
 
     @Test
     void guestsWhoArriveDuringAnActionWaitForItAndShareItsResult() throws Exception {

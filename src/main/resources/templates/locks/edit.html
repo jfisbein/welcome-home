@@ -25,10 +25,10 @@
         <p th:if="${stateError == 'unavailable'}" role="alert" th:text="#{lock.state-error.unavailable}">
             Nuki no responde ahora mismo.</p>
 
-        <th:block th:if="${state}">
+        <th:block th:if="${snapshot}">
             <dl>
                 <dt th:text="${lock.opener} ? #{lock.status.entrance} : #{lock.status}">Cerradura</dt>
-                <dd th:switch="${state.status.name()}">
+                <dd th:switch="${snapshot.position.name()}">
                     <span th:case="'LOCKED'" th:text="#{lock.status.locked}">Bloqueada</span>
                     <span th:case="'UNLOCKED'" th:text="#{lock.status.unlocked}">Desbloqueada</span>
                     <span th:case="'UNLATCHED'" th:text="#{lock.status.unlatched}">Abierta</span>
@@ -40,24 +40,24 @@
                     <span th:case="*" th:text="#{lock.status.unknown}">Estado desconocido</span>
                 </dd>
                 <dt th:text="#{lock.connection}">Conexión</dt>
-                <dd th:text="${state.online} ? #{lock.online} : #{lock.offline}">En línea</dd>
+                <dd th:text="${snapshot.online} ? #{lock.online} : #{lock.offline}">En línea</dd>
                 <dt th:text="#{lock.battery}">Batería</dt>
-                <dd th:if="${state.batteryCritical}" th:utext="#{lock.battery.critical}">Batería crítica.</dd>
-                <dd th:if="${!state.batteryCritical and state.batteryCharge != null}"
-                    th:text="#{lock.battery.charge(${state.batteryCharge})}">80 %</dd>
-                <dd th:if="${!state.batteryCritical and state.batteryCharge == null}" th:text="#{lock.battery.ok}">
+                <dd th:if="${snapshot.batteryCritical}" th:utext="#{lock.battery.critical}">Batería crítica.</dd>
+                <dd th:if="${!snapshot.batteryCritical and snapshot.batteryCharge != null}"
+                    th:text="#{lock.battery.charge(${snapshot.batteryCharge})}">80 %</dd>
+                <dd th:if="${!snapshot.batteryCritical and snapshot.batteryCharge == null}" th:text="#{lock.battery.ok}">
                     Correcta</dd>
                 <th:block th:unless="${lock.opener}">
                     <dt th:text="#{lock.auto-lock}">Auto Lock</dt>
-                    <dd th:if="${state.autoLockEnabled}" th:text="#{lock.auto-lock.on}">Activado</dd>
-                    <dd th:if="${!state.autoLockEnabled and lock.relockingHandledElsewhere}"
+                    <dd th:if="${snapshot.autoLockEnabled}" th:text="#{lock.auto-lock.on}">Activado</dd>
+                    <dd th:if="${!snapshot.autoLockEnabled and lock.relockingHandledElsewhere}"
                         th:text="#{lock.auto-lock.off-elsewhere}">Desactivado: el bloqueo lo gestionas de otra forma.</dd>
-                    <dd th:if="${!state.autoLockEnabled and !lock.relockingHandledElsewhere}"
+                    <dd th:if="${!snapshot.autoLockEnabled and !lock.relockingHandledElsewhere}"
                         th:text="#{lock.auto-lock.off}">Desactivado</dd>
                 </th:block>
             </dl>
 
-            <article th:if="${!lock.opener and !state.autoLockEnabled and !lock.relockingHandledElsewhere}" role="alert">
+            <article th:if="${!lock.opener and !snapshot.autoLockEnabled and !lock.relockingHandledElsewhere}" role="alert">
                 <p th:utext="#{lock.auto-lock.warning}"><strong>Auto Lock está desactivado.</strong></p>
                 <p th:text="#{lock.auto-lock.advice}">Actívalo en la app de Nuki.</p>
             </article>

@@ -74,7 +74,7 @@ class NukiWebLockProviderTests {
         connectWith(bob, BOBS_TOKEN);
         nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));
 
-        assertThat(locks.listLocks(bob)).containsExactly(new SmartLock(17, DeviceType.SMART_LOCK, "Casa", null));
+        assertThat(locks.listLocks(bob)).containsExactly(new NukiDevice(17, DeviceType.SMART_LOCK, "Casa", null));
         locks.unlatch(alice, 17);
 
         nuki.verify(1, postRequestedFor(urlPathEqualTo("/smartlock/17/action"))
@@ -120,11 +120,11 @@ class NukiWebLockProviderTests {
         nuki.stubFor(get("/smartlock/17").willReturn(status(401)));
         nuki.stubFor(get("/smartlock").willReturn(okJson("[]")));
 
-        assertFailsWith(Reason.ACCESS_DENIED, () -> locks.getState(alice, 17));
+        assertFailsWith(Reason.ACCESS_DENIED, () -> locks.getSnapshot(alice, 17));
         assertThat(connectionStatus(alice)).isEqualTo("OK");
 
         nuki.stubFor(get("/smartlock").willReturn(status(503)));
-        assertFailsWith(Reason.ACCESS_DENIED, () -> locks.getState(alice, 17));
+        assertFailsWith(Reason.ACCESS_DENIED, () -> locks.getSnapshot(alice, 17));
         assertThat(connectionStatus(alice)).as("no answer says nothing about the token").isEqualTo("OK");
     }
 
@@ -134,7 +134,7 @@ class NukiWebLockProviderTests {
         nuki.stubFor(get("/smartlock/17").willReturn(status(401)));
         nuki.stubFor(get("/smartlock").willReturn(status(401)));
 
-        assertFailsWith(Reason.ACCESS_DENIED, () -> locks.getState(alice, 17));
+        assertFailsWith(Reason.ACCESS_DENIED, () -> locks.getSnapshot(alice, 17));
 
         assertThat(connectionStatus(alice)).isEqualTo("DISCONNECTED");
         nuki.resetRequests();
@@ -149,7 +149,7 @@ class NukiWebLockProviderTests {
         nuki.stubFor(get("/smartlock/17").willReturn(status(503)));
 
         assertFailsWith(Reason.MISSING_PERMISSION, () -> locks.getRecentLog(alice, 17));
-        assertFailsWith(Reason.NUKI_ERROR, () -> locks.getState(alice, 17));
+        assertFailsWith(Reason.NUKI_ERROR, () -> locks.getSnapshot(alice, 17));
 
         assertThat(connectionStatus(alice)).isEqualTo("OK");
     }

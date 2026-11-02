@@ -21,7 +21,7 @@ public interface LockProvider {
      * @return the smart locks and Openers of the owner's Nuki account
      * @throws LockProviderException if the locks cannot be listed
      */
-    List<SmartLock> listLocks(UUID ownerId);
+    List<NukiDevice> listLocks(UUID ownerId);
 
     /**
      * Gets a lock's current state.
@@ -31,7 +31,7 @@ public interface LockProvider {
      * @return the lock's state as last reported to Nuki
      * @throws LockProviderException if the state cannot be read
      */
-    LockState getState(UUID ownerId, long smartlockId);
+    LockSnapshot getSnapshot(UUID ownerId, long smartlockId);
 
     /**
      * Gets the current state of all the owner's locks at once.
@@ -40,7 +40,7 @@ public interface LockProvider {
      * @return each lock's state as last reported to Nuki, by the lock's Nuki id
      * @throws LockProviderException if the states cannot be read
      */
-    Map<Long, LockState> listStates(UUID ownerId);
+    Map<Long, LockSnapshot> listSnapshots(UUID ownerId);
 
     /**
      * Asks the lock to unlatch, that is, to unlock and pull the latch so that the door opens with a push; an

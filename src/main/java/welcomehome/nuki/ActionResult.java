@@ -3,7 +3,7 @@ package welcomehome.nuki;
 /**
  * How an action in a lock's log ended.
  */
-public enum LockActionState {
+public enum ActionResult {
 
     /** The action completed. */
     SUCCEEDED,

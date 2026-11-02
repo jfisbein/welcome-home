@@ -3,7 +3,7 @@ package welcomehome.nuki;
 /**
  * The position of a lock, or what an Opener is doing.
  */
-public enum LockStatus {
+public enum LockPosition {
 
     /** Locked. */
     LOCKED,
