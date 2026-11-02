@@ -55,7 +55,7 @@ dependencies {
     // Parses the templates for TemplateTextTests, which finds text that is not in the bundles.
     testImplementation("org.jsoup:jsoup:1.23.2")
     // Runs the app's JavaScript in a real browser (src/test/java/welcomehome/browser), which it downloads when first used.
-    testImplementation("com.microsoft.playwright:playwright:1.63.0")
+    testImplementation("com.microsoft.playwright:playwright:1.64.0")
     testImplementation("org.springframework.boot:spring-boot-starter-jdbc-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.springframework.modulith:spring-modulith-starter-test")
