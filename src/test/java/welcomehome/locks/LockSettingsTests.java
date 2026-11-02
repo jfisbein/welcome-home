@@ -53,7 +53,7 @@ class LockSettingsTests {
         assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE)))
                 .hasStatusOk()
                 .bodyText().contains("Casa", "Europe/Berlin", "Guardar");
-        assertThat(mvc.get().uri("/locks").with(owner(ALICE))).bodyText().contains("Editar");
+        assertThat(mvc.get().uri("/locks").with(owner(ALICE))).bodyText().contains("Estado y ajustes");
     }
 
     @Test

@@ -300,3 +300,9 @@ nav.sections li a[aria-current="page"] {
     cursor: not-allowed;
     opacity: 0.6;
 }
+
+/* What is wrong with a lock, under its name or state in the lists of locks. */
+.lock-warning {
+    display: block;
+    color: var(--pico-del-color);
+}

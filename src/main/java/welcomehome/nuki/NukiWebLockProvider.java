@@ -1,6 +1,7 @@
 package welcomehome.nuki;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.stereotype.Component;
@@ -29,6 +30,11 @@ class NukiWebLockProvider implements LockProvider {
     @Override
     public List<SmartLock> listLocks(UUID ownerId) {
         return connections.callNuki(ownerId, nuki::listLocks);
+    }
+
+    @Override
+    public Map<Long, LockState> listStates(UUID ownerId) {
+        return connections.callNuki(ownerId, nuki::listStates);
     }
 
     @Override

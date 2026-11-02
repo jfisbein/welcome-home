@@ -33,6 +33,7 @@
     <section>
         <h2 th:text="#{home.locks}">Tus cerraduras</h2>
         <p th:if="${locks.isEmpty()}" th:utext="#{home.locks.empty(@{/locks})}">Todavía no tienes cerraduras.</p>
+        <p th:if="${lockWarnings.unknown}"><small th:text="#{locks.warnings.unknown}">Nuki no responde ahora mismo.</small></p>
         <table th:unless="${locks.isEmpty()}">
             <tbody>
             <tr th:each="lock : ${locks}">
@@ -40,6 +41,7 @@
                     <strong th:text="${lock.name}">Casa</strong>
                     <small th:unless="${lock.active}"><br><span th:text="#{locks.inactive}">Ya no está en tu cuenta de
                         Nuki</span></small>
+                    <th:block th:replace="~{fragments/lock-warnings :: warnings(${lockWarnings.of(lock.id)})}"></th:block>
                 </td>
                 <td>
                     <a th:href="@{/locks/{id}/links(id=${lock.id})}" th:text="#{locks.links}">Enlaces</a> ·

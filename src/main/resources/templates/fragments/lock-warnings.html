@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="es" th:lang="${#locale.language}" th:attr="data-theme=${theme}" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- What is wrong with a lock, as locks.LockWarning says it, alike on the home page and in the list of locks. -->
+<th:block th:fragment="warnings(warnings)">
+    <small class="lock-warning" role="alert" th:each="warning : ${warnings}" th:switch="${warning.name()}">
+        <span th:case="'OFFLINE'" th:text="#{lock.offline}">Sin conexión con Nuki</span>
+        <span th:case="'BATTERY_CRITICAL'" th:utext="#{lock.battery.critical}">Batería crítica</span>
+        <span th:case="'MOTOR_BLOCKED'" th:text="#{lock.status.motor-blocked}">Motor bloqueado</span>
+        <span th:case="'AUTO_LOCK_OFF'" th:text="#{locks.warning.auto-lock-off}">Auto Lock desactivado</span>
+    </small>
+</th:block>
+</body>
+</html>

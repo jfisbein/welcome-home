@@ -20,7 +20,7 @@ import welcomehome.nuki.LockProvider;
 import welcomehome.nuki.LockProviderException;
 
 /**
- * The owner's locks: their list, their sync with Nuki, and each lock's page with its live state and its
+ * The owner's locks: their list with what is wrong with them, their sync with Nuki, and each lock's page with its live state and its
  * settings. Another owner's lock is not found, nor offered or accepted as an entrance.
  */
 @Controller
@@ -33,17 +33,22 @@ class LocksController {
     private final LockSync lockSync;
     private final LockSettings lockSettings;
     private final LockProvider lockProvider;
+    private final LockChecks lockChecks;
 
-    LocksController(Locks locks, LockSync lockSync, LockSettings lockSettings, LockProvider lockProvider) {
+    LocksController(Locks locks, LockSync lockSync, LockSettings lockSettings, LockProvider lockProvider,
+                    LockChecks lockChecks) {
         this.locks = locks;
         this.lockSync = lockSync;
         this.lockSettings = lockSettings;
         this.lockProvider = lockProvider;
+        this.lockChecks = lockChecks;
     }
 
     @GetMapping
     String locks(CurrentOwner owner, Model model) {
-        model.addAttribute("locks", locks.findAll(owner.id()));
+        var ownerLocks = locks.findAll(owner.id());
+        model.addAttribute("locks", ownerLocks);
+        model.addAttribute("lockWarnings", lockChecks.warnings(owner.id(), ownerLocks));
         return "locks/locks";
     }
 
