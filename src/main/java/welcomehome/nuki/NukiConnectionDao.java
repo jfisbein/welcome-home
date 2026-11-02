@@ -2,6 +2,7 @@ package welcomehome.nuki;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -35,6 +36,24 @@ class NukiConnectionDao {
                         WHERE owner_id = :ownerId
                         """)
                 .param("ownerId", ownerId)
+                .query(NukiConnectionDao::storedConnection)
+                .optional();
+    }
+
+    /**
+     * Finds the owner's connection if it was disconnected no longer ago than the given time. It is also when it was
+     * last checked, as a failed check changes nothing.
+     */
+    Optional<StoredConnection> findDisconnectedWithin(UUID ownerId, Duration time) {
+        return jdbc.sql("""
+                        SELECT id, credential, access_token_encrypted, refresh_token_encrypted,
+                               access_token_expires_at, status, last_checked_at::timestamp AS last_checked_at
+                        FROM nuki_connection
+                        WHERE owner_id = :ownerId AND status = 'DISCONNECTED'
+                          AND last_checked_at > now() - make_interval(secs => :seconds)
+                        """)
+                .param("ownerId", ownerId)
+                .param("seconds", time.toSeconds())
                 .query(NukiConnectionDao::storedConnection)
                 .optional();
     }
@@ -105,6 +124,46 @@ class NukiConnectionDao {
                         """)
                 .param("ownerId", ownerId)
                 .param("rejected", rejectedAccessTokenEncrypted)
+                .update() == 1;
+    }
+
+    /**
+     * Connects a disconnected connection again if it still holds the access token that Nuki has just accepted.
+     *
+     * @return whether the connection went from disconnected to OK
+     */
+    boolean markReconnected(UUID ownerId, byte[] acceptedAccessTokenEncrypted) {
+        return jdbc.sql("""
+                        UPDATE nuki_connection SET status = 'OK', last_checked_at = now()
+                        WHERE owner_id = :ownerId AND access_token_encrypted = :accepted AND status = 'DISCONNECTED'
+                        """)
+                .param("ownerId", ownerId)
+                .param("accepted", acceptedAccessTokenEncrypted)
+                .update() == 1;
+    }
+
+    /**
+     * Stores the tokens that a refresh of a disconnected connection returned, and connects it again, if it still
+     * holds the access token it had.
+     *
+     * @return whether the connection went from disconnected to OK
+     */
+    boolean saveReconnected(UUID ownerId, byte[] previousAccessTokenEncrypted, byte[] accessTokenEncrypted,
+                            byte[] refreshTokenEncrypted, Instant accessTokenExpiresAt) {
+        return jdbc.sql("""
+                        UPDATE nuki_connection
+                        SET access_token_encrypted = :accessTokenEncrypted,
+                            refresh_token_encrypted = :refreshTokenEncrypted,
+                            access_token_expires_at = :accessTokenExpiresAt,
+                            status = 'OK', last_checked_at = now()
+                        WHERE owner_id = :ownerId AND credential = 'OAUTH2'
+                          AND access_token_encrypted = :previous AND status = 'DISCONNECTED'
+                        """)
+                .param("ownerId", ownerId)
+                .param("previous", previousAccessTokenEncrypted)
+                .param("accessTokenEncrypted", accessTokenEncrypted)
+                .param("refreshTokenEncrypted", refreshTokenEncrypted)
+                .param("accessTokenExpiresAt", timestamp(accessTokenExpiresAt))
                 .update() == 1;
     }
 

@@ -17,7 +17,9 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
+import welcomehome.admin.OwnerDeleting;
 import welcomehome.crypto.CryptoService;
 import welcomehome.crypto.DecryptionFailedException;
 import welcomehome.db.OwnerTransactions;
@@ -27,8 +29,9 @@ import welcomehome.nuki.NukiConnectionDao.StoredConnection;
 /**
  * Owners' Nuki connections: an API token the owner pasted, or the tokens of an OAuth2 authorization. They are
  * stored only after Nuki accepts them, encrypted for their owner, and decrypted only to call Nuki. An OAuth2
- * access token is refreshed before it expires. When Nuki rejects a stored token, the connection becomes
- * {@link ConnectionStatus#DISCONNECTED} until the owner connects Nuki again.
+ * access token is refreshed before it expires. When Nuki rejects a stored token, and again when asked once more,
+ * the connection becomes {@link ConnectionStatus#DISCONNECTED}. It stays so until the owner connects Nuki again, or
+ * until Nuki accepts the stored credentials again, which is tried for {@link #RECHECK_FOR}.
  */
 @Service
 public class NukiConnections {
@@ -39,6 +42,9 @@ public class NukiConnections {
 
     /** An access token this close to expiring is refreshed first, so that it does not expire during a call. */
     static final Duration REFRESH_MARGIN = Duration.ofMinutes(5);
+
+    /** A rejection that lasts this long is taken to be final: the owner revoked the access, or must connect again. */
+    static final Duration RECHECK_FOR = Duration.ofDays(7);
 
     private final NukiWebClient nuki;
     private final NukiConnectionDao connections;
@@ -130,19 +136,46 @@ public class NukiConnections {
     }
 
     /**
-     * Deletes the owner's connection and its tokens. Locks and links stay as they are, but cannot open the door
-     * until the owner connects Nuki again.
+     * Deletes the owner's connection and its tokens, and asks Nuki to revoke an OAuth2 authorization, which would
+     * otherwise stay valid. A failure at Nuki is only logged: the tokens here are gone anyway. Locks and links stay
+     * as they are, but cannot open the door until the owner connects Nuki again.
      *
      * @return how the deleted connection was made, or empty if the owner had none
      */
     Optional<NukiCredential> remove(UUID ownerId) {
-        return ownerTransactions.execute(ownerId, () -> connections.delete(ownerId));
+        var removed = ownerTransactions.execute(ownerId, () -> {
+            var stored = connections.find(ownerId);
+            connections.delete(ownerId);
+            return stored;
+        });
+        // Outside the transaction: no database connection is held while waiting for Nuki.
+        removed.ifPresent(stored -> revoke(ownerId, stored));
+        return removed.map(StoredConnection::credential);
+    }
+
+    /** Revoking takes the owner's tokens, which deleting the owner removes. */
+    @EventListener
+    void on(OwnerDeleting deleting) {
+        remove(deleting.ownerId());
+    }
+
+    private void revoke(UUID ownerId, StoredConnection stored) {
+        var refreshTokenEncrypted = stored.refreshTokenEncrypted();
+        if (stored.credential() != NukiCredential.OAUTH2 || refreshTokenEncrypted == null) {
+            return;
+        }
+        try {
+            nuki.revoke(crypto.decryptRefreshToken(ownerId, refreshTokenEncrypted));
+            log.info("Asked Nuki to revoke the authorization of owner {}", ownerId);
+        } catch (DecryptionFailedException | LockProviderException e) {
+            log.warn("Could not revoke the Nuki authorization of owner {}: {}", ownerId, e.getMessage());
+        }
     }
 
     /**
      * Calls Nuki with the owner's stored access token, refreshing it first if it is about to expire. If Nuki
-     * rejects the token or the refresh, the connection is disconnected, unless the owner has connected Nuki
-     * again in the meantime.
+     * refuses the refresh, or rejects the token and again when asked once more, the connection is disconnected,
+     * unless the owner has connected Nuki again in the meantime.
      *
      * @throws LockProviderException with {@link Reason#NOT_CONNECTED} if the owner has no working connection,
      *                               or whatever the call or the refresh throws; a refresh that fails throws
@@ -166,10 +199,23 @@ public class NukiConnections {
         try {
             return call.apply(stored.credential(), accessToken);
         } catch (LockProviderException e) {
-            if (e.reason() == Reason.ACCESS_DENIED) {
+            if (e.reason() == Reason.ACCESS_DENIED && stillRejected(accessToken)) {
                 disconnect(ownerId, accessTokenEncrypted);
             }
             throw e;
+        }
+    }
+
+    /**
+     * Asks Nuki once more, with a read, as a rejection may be Nuki's passing mistake and disconnecting stops the
+     * owner's links. Only a second rejection tells: not answering says nothing about the token.
+     */
+    private boolean stillRejected(String accessToken) {
+        try {
+            nuki.listLocks(accessToken);
+            return false;
+        } catch (LockProviderException e) {
+            return e.reason() == Reason.ACCESS_DENIED;
         }
     }
 
@@ -276,12 +322,68 @@ public class NukiConnections {
         } catch (LockProviderException e) {
             return switch (e.reason()) {
                 case NOT_CONNECTED -> Optional.empty();
-                case ACCESS_DENIED -> Optional.of(ConnectionStatus.DISCONNECTED);
+                case ACCESS_DENIED -> find(ownerId).map(NukiConnection::status);
                 default -> throw e;
             };
         }
         ownerTransactions.run(ownerId, () -> connections.markChecked(ownerId));
         return Optional.of(ConnectionStatus.OK);
+    }
+
+    /**
+     * Tries the credentials of a connection disconnected less than {@link #RECHECK_FOR} ago and, if Nuki accepts them,
+     * connects it again. An OAuth2 access token that has expired meanwhile is refreshed, which is what tells then.
+     *
+     * @return whether the connection is connected again
+     */
+    boolean recheck(UUID ownerId) {
+        var lock = refreshes.computeIfAbsent(ownerId, _ -> new ReentrantLock());
+        lock.lock();
+        try {
+            var disconnected = ownerTransactions.execute(ownerId,
+                    () -> connections.findDisconnectedWithin(ownerId, RECHECK_FOR));
+            if (disconnected.isEmpty()) {
+                return false;
+            }
+            var stored = disconnected.get();
+            return stored.credential() == NukiCredential.OAUTH2 && expiresSoon(stored)
+                    ? reconnectByRefreshing(ownerId, stored)
+                    : reconnectIfAccepted(ownerId, stored);
+        } catch (LockProviderException e) {
+            // Rejected still, or Nuki says nothing: the next run tries again.
+            return false;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private boolean reconnectIfAccepted(UUID ownerId, StoredConnection stored) {
+        var accessToken = decrypted(() -> crypto.decryptAccessToken(ownerId, stored.accessTokenEncrypted()));
+        nuki.listLocks(accessToken);
+        return ownerTransactions.execute(ownerId, () -> published(ownerId,
+                connections.markReconnected(ownerId, stored.accessTokenEncrypted())));
+    }
+
+    private boolean reconnectByRefreshing(UUID ownerId, StoredConnection stored) {
+        var refreshTokenEncrypted = stored.refreshTokenEncrypted();
+        if (refreshTokenEncrypted == null) {
+            return false;
+        }
+        var refreshToken = decrypted(() -> crypto.decryptRefreshToken(ownerId, refreshTokenEncrypted));
+        var tokens = notActing(() -> nuki.refresh(refreshToken));
+        var newRefreshToken = tokens.refreshToken() == null ? refreshToken : tokens.refreshToken();
+        var accessTokenEncrypted = crypto.encryptAccessToken(ownerId, tokens.accessToken());
+        var newRefreshTokenEncrypted = crypto.encryptRefreshToken(ownerId, newRefreshToken);
+        var expiresAt = expiresAt(tokens);
+        return ownerTransactions.execute(ownerId, () -> published(ownerId, connections.saveReconnected(ownerId,
+                stored.accessTokenEncrypted(), accessTokenEncrypted, newRefreshTokenEncrypted, expiresAt)));
+    }
+
+    private boolean published(UUID ownerId, boolean reconnected) {
+        if (reconnected) {
+            events.publishEvent(new NukiReconnected(ownerId));
+        }
+        return reconnected;
     }
 
     List<UUID> ownersToCheck() {

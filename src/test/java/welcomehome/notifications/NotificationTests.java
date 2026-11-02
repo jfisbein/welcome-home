@@ -21,6 +21,7 @@ import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -35,8 +36,10 @@ import welcomehome.audit.AccessEvent;
 import welcomehome.audit.AccessEvents;
 import welcomehome.audit.AccessOutcome;
 import welcomehome.crypto.CryptoService;
+import welcomehome.db.OwnerTransactions;
 import welcomehome.nuki.LockProvider;
 import welcomehome.nuki.LockProviderException;
+import welcomehome.nuki.NukiReconnected;
 import welcomehome.nuki.NukiStandInConfiguration;
 
 /** Alice's lock "Casa", in New York, and her guest Ana's link: what Alice hears about by email. */
@@ -45,6 +48,12 @@ import welcomehome.nuki.NukiStandInConfiguration;
 @Import({NukiStandInConfiguration.class, MailStandInConfiguration.class})
 @TestPropertySource(properties = "spring.mail.host=127.0.0.1")
 class NotificationTests {
+
+    @Autowired
+    ApplicationEventPublisher events;
+
+    @Autowired
+    OwnerTransactions ownerTransactions;
 
     static final String ALICE = "alice@example.com";
 
@@ -196,6 +205,13 @@ class NotificationTests {
     }
 
     @Test
+    void nukiAcceptingTheTokenAgainIsToldToo() throws Exception {
+        ownerTransactions.run(aliceId, () -> events.publishEvent(new NukiReconnected(aliceId)));
+
+        assertThat(theOnlyEmail().getSubject()).isEqualTo("Nuki vuelve a aceptar la conexión");
+    }
+
+    @Test
     void nukiRejectingTheTokenIsToldOnce() throws Exception {
         migrator.sql("INSERT INTO nuki_connection (owner_id, access_token_encrypted, status) VALUES (?, ?, 'OK')")
                 .params(aliceId, crypto.encryptAccessToken(aliceId, "rejected-token")).update();
@@ -247,7 +263,7 @@ class NotificationTests {
             }
         }
 
-        assertThat(nuki.getAllServeEvents()).as("both calls reached Nuki").hasSize(2);
+        assertThat(nuki.getAllServeEvents()).as("both calls reached Nuki, and asked once more").hasSize(4);
         assertThat(theOnlyEmail().getSubject()).isEqualTo("Nuki ha rechazado la conexión");
     }
 

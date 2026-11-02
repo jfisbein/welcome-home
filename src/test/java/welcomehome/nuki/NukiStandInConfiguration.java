@@ -42,6 +42,7 @@ public class NukiStandInConfiguration {
     DynamicPropertyRegistrar nukiProperties(WireMockServer nukiStandIn) {
         return registry -> {
             registry.add("welcomehome.nuki.base-url", nukiStandIn::baseUrl);
+            registry.add("welcomehome.nuki.revocation-url", () -> nukiStandIn.baseUrl() + "/oauth2/revoke");
             registry.add("welcomehome.nuki.initial-backoff", () -> "PT0.01S");
             // Files end with a newline, which the client id and secret do not.
             registry.add("welcomehome.nuki.oauth.client-id", () -> CLIENT_ID + "\n");

@@ -13,6 +13,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -75,6 +76,9 @@ class NukiWebClient {
      * webhooks, which need it. A client whose Advanced API has no webhooks may not ask for it.
      */
     static final String WEBHOOKS = "webhook.central";
+
+    /** The token endpoint's errors that are about welcome-home's client, not about the owner's code or tokens. */
+    private static final Set<String> CLIENT_ERRORS = Set.of("invalid_client", "unauthorized_client");
 
     private final RestClient rest;
     private final NukiProperties properties;
@@ -279,6 +283,30 @@ class NukiWebClient {
         return requestTokens(form);
     }
 
+    /**
+     * Revokes an authorization at Nuki with its refresh token, which also ends its access tokens (RFC 7009, section
+     * 2.1). Without a client there is nothing to revoke with, nor any authorization of welcome-home's to revoke.
+     *
+     * @throws LockProviderException if Nuki does not confirm it
+     */
+    void revoke(String refreshToken) {
+        var oauth = properties.oauth();
+        if (!oauth.enabled()) {
+            return;
+        }
+        var form = new LinkedMultiValueMap<String, String>();
+        form.add("token", refreshToken);
+        form.add("token_type_hint", "refresh_token");
+        form.add("client_id", oauth.clientId());
+        form.add("client_secret", oauth.clientSecret());
+        call(false, () -> rest.post().uri(properties.revocationUrl())
+                .headers(headers -> headers.setBasicAuth(oauth.clientId(), oauth.clientSecret()))
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body(form)
+                .retrieve()
+                .toBodilessEntity());
+    }
+
     /** With the client's credentials both as HTTP Basic and in the form, as Nuki was seen to accept them. */
     private NukiTokens requestTokens(MultiValueMap<String, String> form) {
         var oauth = properties.oauth();
@@ -293,10 +321,17 @@ class NukiWebClient {
                     .retrieve()
                     .body(NukiTokenResponse.class));
         } catch (LockProviderException e) {
-            // invalid_grant, and every other refusal of the request: there are no tokens to be had with it.
-            if (e.getCause() instanceof RestClientResponseException refused
-                    && refused.getStatusCode().isSameCodeAs(HttpStatus.BAD_REQUEST)) {
-                throw new LockProviderException(Reason.ACCESS_DENIED, refused);
+            if (e.getCause() instanceof RestClientResponseException refused) {
+                // About welcome-home itself, such as a wrong client secret: no owner's tokens are at fault.
+                if (refusesTheClient(refused)) {
+                    log.error("Nuki refused welcome-home's OAuth2 client: {}{}", refused.getStatusCode().value(),
+                            reason(refused));
+                    throw new LockProviderException(Reason.NUKI_ERROR, refused);
+                }
+                // invalid_grant, and every other refusal of the request: there are no tokens to be had with it.
+                if (refused.getStatusCode().isSameCodeAs(HttpStatus.BAD_REQUEST)) {
+                    throw new LockProviderException(Reason.ACCESS_DENIED, refused);
+                }
             }
             throw e;
         }
@@ -308,6 +343,19 @@ class NukiWebClient {
         var expiresIn = response.expiresIn() == null ? NukiTokens.DEFAULT_LIFETIME
                 : Duration.ofSeconds(response.expiresIn());
         return new NukiTokens(accessToken, response.refreshToken(), expiresIn, response.scope());
+    }
+
+    /** RFC 6749, section 5.2: a 401 is always about the client; these two errors may also come as a 400. */
+    private static boolean refusesTheClient(RestClientResponseException refused) {
+        if (refused.getStatusCode().isSameCodeAs(HttpStatus.UNAUTHORIZED)) {
+            return true;
+        }
+        try {
+            var error = JSON.readTree(refused.getResponseBodyAsString(StandardCharsets.UTF_8)).path("error");
+            return error.isString() && CLIENT_ERRORS.contains(error.stringValue());
+        } catch (JacksonException ignored) {
+            return false;
+        }
     }
 
     List<LockLogEntry> getRecentLog(String apiToken, long smartlockId) {

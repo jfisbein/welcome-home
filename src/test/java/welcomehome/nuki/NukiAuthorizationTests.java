@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.UUID;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.BasicCredentials;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -240,6 +241,14 @@ class NukiAuthorizationTests {
     }
 
     @Test
+    void ownerIsNotToldThatTheyFailedWhenNukiRefusesTheClient() {
+        nuki.stubFor(post("/oauth/token").willReturn(status(401)));
+
+        assertFailed(callback(ALICE, "code=the-code&state=" + state(authorize(ALICE))), "unavailable");
+        assertNoConnection();
+    }
+
+    @Test
     void nothingIsStoredWhileNukiDoesNotAnswer() {
         nuki.stubFor(post("/oauth/token").willReturn(status(503)));
 
@@ -316,14 +325,61 @@ class NukiAuthorizationTests {
     }
 
     @Test
-    void disconnectingDeletesTheTokens() {
+    void disconnectingDeletesTheTokensAndRevokesTheAuthorizationAtNuki(CapturedOutput output) {
         insertAuthorization(aliceId, "OK");
+        nuki.stubFor(post("/oauth2/revoke").willReturn(status(200)));
 
         var result = mvc.delete().uri("/settings/nuki").with(owner(ALICE)).with(csrf()).exchange();
 
         assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/settings/nuki");
         assertThat(result.getMvcResult().getFlashMap().get("disconnected")).isEqualTo("OAUTH2");
         assertNoConnection();
+        nuki.verify(1, postRequestedFor(urlPathEqualTo("/oauth2/revoke"))
+                .withBasicAuth(new BasicCredentials(NukiStandInConfiguration.CLIENT_ID,
+                        NukiStandInConfiguration.CLIENT_SECRET))
+                .withFormParam("token", equalTo("refresh-1"))
+                .withFormParam("token_type_hint", equalTo("refresh_token")));
+        assertThat(output.getAll()).contains("Asked Nuki to revoke the authorization of owner " + aliceId)
+                .doesNotContain("refresh-1");
+    }
+
+    @Test
+    void disconnectingDeletesTheTokensEvenIfNukiDoesNotRevokeThem(CapturedOutput output) {
+        insertAuthorization(aliceId, "OK");
+        nuki.stubFor(post("/oauth2/revoke").willReturn(status(503)));
+
+        var result = mvc.delete().uri("/settings/nuki").with(owner(ALICE)).with(csrf()).exchange();
+
+        assertThat(result).hasStatus(HttpStatus.FOUND);
+        assertNoConnection();
+        nuki.verify(1, postRequestedFor(urlPathEqualTo("/oauth2/revoke")));
+        assertThat(output.getAll()).contains("Could not revoke the Nuki authorization of owner " + aliceId)
+                .doesNotContain("refresh-1");
+    }
+
+    @Test
+    void disconnectingAPastedTokenAsksNukiNothing() {
+        migrator.sql("INSERT INTO nuki_connection (owner_id, access_token_encrypted, status) VALUES (?, ?, 'OK')")
+                .params(aliceId, crypto.encryptAccessToken(aliceId, "pasted")).update();
+
+        assertThat(mvc.delete().uri("/settings/nuki").with(owner(ALICE)).with(csrf())).hasStatus(HttpStatus.FOUND);
+
+        assertNoConnection();
+        nuki.verify(0, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
+    void deletingAnOwnerRevokesTheirAuthorizationAtNuki() {
+        insertAuthorization(aliceId, "OK");
+        nuki.stubFor(post("/oauth2/revoke").willReturn(status(200)));
+
+        assertThat(mvc.delete().uri("/admin/owners").with(user(BOB).roles("OWNER", "ADMIN")).with(csrf())
+                .param("email", ALICE)).hasStatus(HttpStatus.FOUND);
+
+        nuki.verify(1, postRequestedFor(urlPathEqualTo("/oauth2/revoke"))
+                .withFormParam("token", equalTo("refresh-1")));
+        assertThat(migrator.sql("SELECT count(*) FROM owner WHERE email = ?").param(ALICE).query(Long.class).single())
+                .isZero();
     }
 
     private String authorize(String email) {

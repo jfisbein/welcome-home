@@ -113,9 +113,9 @@ Pasting an API token generated in Nuki Web (Menu → API) is the alternative, fo
 
 Either way, welcome-home sees only the devices activated for Nuki Web, one by one, in the Nuki app. For an owner who has just installed theirs, the page has a folded guide, "¿Acabas de instalar tu Nuki?": put the device online (Nuki's remote access: the Smart Lock's built-in Wi-Fi, Thread or a Nuki Bridge, depending on the model; a Bridge for an Opener), activate Nuki Web in the app's device settings, under "Características y configuración", for each device, and connect with that same account, or sync the locks if already connected. Its steps link to Nuki's help center in the owner's language. It unfolds when connecting found no locks, and the locks page, when it has none, links to it (`/settings/nuki#nuki-web`).
 
-When Nuki answers 401 to a stored token, the connection becomes `DISCONNECTED`: links stop opening and the owner's home page asks them to connect again. A job checks every connection daily (`welcomehome.nuki.check-cron`, 08:00 server time by default), so that the owner learns about a revoked token before a guest does. A 403 (a permission missing) or an unanswered call does not disconnect. An unlatch refused with a 403 is recorded as `missing-permission`, so the history and the owner's email say that the token may not open, while the guest only reads that the door is not available.
+When Nuki answers 401 to a stored token, and again when asked once more with a read, the connection becomes `DISCONNECTED`: links stop opening and the owner's home page asks them to connect again. A job checks every connection daily (`welcomehome.nuki.check-cron`, 08:00 server time by default), so that the owner learns about a revoked token before a guest does. Another tries the connections disconnected in the last 7 days every hour (`welcomehome.nuki.recheck-cron`): if Nuki accepts them again, they are connected again and the owner is told. A 403 (a permission missing) or an unanswered call does not disconnect. An unlatch refused with a 403 is recorded as `missing-permission`, so the history and the owner's email say that the token may not open, while the guest only reads that the door is not available.
 
-Disconnecting (`DELETE /settings/nuki`, the "Desconectar Nuki" button) deletes the tokens. Locks and links stay as they are, without any change of state, but cannot open the door until the owner connects again: guests see "not available".
+Disconnecting (`DELETE /settings/nuki`, the "Desconectar Nuki" button) deletes the tokens and, for OAuth2, asks Nuki to revoke them; if Nuki does not confirm it, that is only logged. Deleting an owner does the same. A pasted API token cannot be revoked this way: the page tells the owner to delete it in Nuki Web. Locks and links stay as they are, without any change of state, but cannot open the door until the owner connects again: guests see "not available".
 
 Calls time out and are retried with exponential backoff: on rate limiting (429, honoring `Retry-After`), and for reads also on server errors and timeouts. The unlatch action is retried only when Nuki cannot have run it (429, or no connection made), so a door never opens twice; after a timeout or a server error Nuki may have run it, so the opening goes on to read the lock's log instead. The defaults, under `welcomehome.nuki.*`:
 
@@ -128,6 +128,7 @@ Calls time out and are retried with exponential backoff: on rate limiting (429, 
 | `initial-backoff` | `PT0.5S`, doubling    |
 | `max-backoff`     | `PT5S`                |
 | `oauth.client-id`, `oauth.client-secret` | none: OAuth2 off |
+| `revocation-url`  | `https://oauth.nuki.io/oauth2/revoke` |
 
 ## Locks
 

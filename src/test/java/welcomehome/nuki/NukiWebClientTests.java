@@ -433,9 +433,42 @@ class NukiWebClientTests {
         assertFailsWith(Reason.ACCESS_DENIED, () -> client.exchangeCode("used-code", "the-verifier", CALLBACK));
         assertFailsWith(Reason.ACCESS_DENIED, () -> client.refresh("revoked"));
 
+        nuki.verify(2, postRequestedFor(urlPathEqualTo("/oauth/token")));
+    }
+
+    @Test
+    void refusalOfTheClientIsNotTheOwnersAndIsNotRetried() {
         nuki.stubFor(post("/oauth/token").willReturn(status(401)));
+        assertFailsWith(Reason.NUKI_ERROR, () -> client.refresh("fine"));
+        assertFailsWith(Reason.NUKI_ERROR, () -> client.exchangeCode("fine", "the-verifier", CALLBACK));
+        nuki.verify(2, postRequestedFor(urlPathEqualTo("/oauth/token")));
+
+        nuki.stubFor(post("/oauth/token").willReturn(status(400).withHeader("Content-Type", "application/json")
+                .withBody("{\"error\": \"invalid_client\"}")));
+        assertFailsWith(Reason.NUKI_ERROR, () -> client.refresh("fine"));
+
+        nuki.stubFor(post("/oauth/token").willReturn(status(400).withBody("not json")));
         assertFailsWith(Reason.ACCESS_DENIED, () -> client.refresh("revoked"));
-        nuki.verify(3, postRequestedFor(urlPathEqualTo("/oauth/token")));
+    }
+
+    @Test
+    void revokingAskedOfAClientlessInstallAsksNothing() {
+        var clientless = new NukiWebClient(new NukiProperties(URI.create(nuki.baseUrl()), Duration.ofSeconds(1), READ_TIMEOUT,
+                MAX_ATTEMPTS, Duration.ofMillis(10), Duration.ofMillis(50), new NukiProperties.OAuth("", ""),
+                URI.create(nuki.baseUrl()).resolve("/oauth2/revoke")));
+
+        clientless.revoke("refresh-1");
+
+        nuki.verify(0, postRequestedFor(urlPathEqualTo("/oauth2/revoke")));
+    }
+
+    @Test
+    void revokingIsNotSentAgainAndTellsIfNukiDoesNotConfirmIt() {
+        nuki.stubFor(post("/oauth2/revoke").willReturn(status(503)));
+
+        assertFailsWith(Reason.NO_ANSWER, () -> client.revoke("refresh-1"));
+
+        nuki.verify(1, postRequestedFor(urlPathEqualTo("/oauth2/revoke")));
     }
 
     @Test
@@ -503,7 +536,8 @@ class NukiWebClientTests {
 
     private static NukiWebClient clientFor(URI baseUrl) {
         return new NukiWebClient(new NukiProperties(baseUrl, Duration.ofSeconds(1), READ_TIMEOUT, MAX_ATTEMPTS,
-                Duration.ofMillis(10), Duration.ofMillis(50), new NukiProperties.OAuth(CLIENT_ID, CLIENT_SECRET)));
+                Duration.ofMillis(10), Duration.ofMillis(50), new NukiProperties.OAuth(CLIENT_ID, CLIENT_SECRET),
+                baseUrl.resolve("/oauth2/revoke")));
     }
 
     private static ResponseDefinitionBuilder slow(ResponseDefinitionBuilder response) {

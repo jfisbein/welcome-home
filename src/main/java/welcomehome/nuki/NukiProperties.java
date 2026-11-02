@@ -17,6 +17,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param initialBackoff the wait before the second attempt; it doubles for each further attempt
  * @param maxBackoff     the longest wait between attempts, also for Nuki's Retry-After
  * @param oauth          welcome-home's OAuth2 client at Nuki
+ * @param revocationUrl  where Nuki revokes OAuth2 tokens, which is not under {@code baseUrl}
  */
 @ConfigurationProperties("welcomehome.nuki")
 record NukiProperties(
@@ -26,7 +27,8 @@ record NukiProperties(
         @DefaultValue("3") int maxAttempts,
         @DefaultValue("PT0.5S") Duration initialBackoff,
         @DefaultValue("PT5S") Duration maxBackoff,
-        @DefaultValue OAuth oauth) {
+        @DefaultValue OAuth oauth,
+        @DefaultValue("https://oauth.nuki.io/oauth2/revoke") URI revocationUrl) {
 
     /**
      * welcome-home's OAuth2 client, which Nuki grants with its Advanced API (Nuki Web, API). Without it,
