@@ -333,12 +333,6 @@ class AdminPanelTests {
                 .exchange();
     }
 
-    /** The token in a created link, the last part of its URL. */
-    private static String tokenOf(CreatedInvitation created) {
-        var path = created.url().getPath();
-        return path.substring(path.lastIndexOf('/') + 1);
-    }
-
     private static RequestPostProcessor admin() {
         return user(ADMIN_EMAIL).roles("OWNER", "ADMIN");
     }
