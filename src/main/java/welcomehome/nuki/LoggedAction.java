@@ -3,7 +3,7 @@ package welcomehome.nuki;
 /**
  * What a lock log entry records.
  */
-public enum LockAction {
+public enum LoggedAction {
 
     /** The lock was unlocked. */
     UNLOCK,

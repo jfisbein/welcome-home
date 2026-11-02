@@ -25,5 +25,5 @@ public interface PendingAction {
      * @param timeout how long to wait at most
      * @return how the action ended, as soon as it is reported, or empty if it is not within the timeout
      */
-    Optional<LockActionState> awaitOutcome(Duration timeout);
+    Optional<ActionResult> awaitOutcome(Duration timeout);
 }

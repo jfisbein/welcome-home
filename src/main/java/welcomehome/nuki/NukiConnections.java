@@ -91,7 +91,7 @@ public class NukiConnections {
      *                               their log, or
      *                               {@link Reason#NUKI_ERROR} if Nuki does not answer
      */
-    List<SmartLock> connect(UUID ownerId, String apiToken) {
+    List<NukiDevice> connect(UUID ownerId, String apiToken) {
         var token = apiToken.strip();
         if (token.isEmpty() || token.length() > MAX_TOKEN_LENGTH || token.chars().anyMatch(Character::isWhitespace)) {
             throw new LockProviderException(Reason.ACCESS_DENIED);
@@ -114,7 +114,7 @@ public class NukiConnections {
      *                               {@link Reason#MISSING_PERMISSION} if the owner did not grant everything
      *                               welcome-home asked for, or {@link Reason#NUKI_ERROR} if Nuki does not answer
      */
-    List<SmartLock> connectAuthorized(UUID ownerId, String code, String codeVerifier, URI redirectUri) {
+    List<NukiDevice> connectAuthorized(UUID ownerId, String code, String codeVerifier, URI redirectUri) {
         var tokens = notActing(() -> oauth.exchangeCode(code, codeVerifier, redirectUri));
         log.info("Nuki granted owner {} the scopes {}", ownerId, tokens.scopeForLog());
         var refreshToken = tokens.refreshToken();
@@ -131,7 +131,7 @@ public class NukiConnections {
     }
 
     /** Outside a transaction: no database connection is held while waiting for Nuki. */
-    private List<SmartLock> checkAccess(String accessToken) {
+    private List<NukiDevice> checkAccess(String accessToken) {
         var locks = nuki.listLocks(accessToken);
         // Openings are confirmed from the lock's log: without reading it, no opening would ever be confirmed.
         nuki.checkLogAccess(accessToken);

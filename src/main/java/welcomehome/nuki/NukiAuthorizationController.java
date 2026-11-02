@@ -85,7 +85,7 @@ class NukiAuthorizationController {
         try {
             var locks = connections.connectAuthorized(owner.id(), code, expected.codeVerifier(),
                     app.link(CALLBACK_PATH));
-            redirect.addFlashAttribute("connectedLocks", locks.stream().map(SmartLock::name).toList());
+            redirect.addFlashAttribute("connectedLocks", locks.stream().map(NukiDevice::name).toList());
             return "redirect:/settings/nuki";
         } catch (LockProviderException e) {
             return backToTheConnection(redirect, switch (e.reason()) {

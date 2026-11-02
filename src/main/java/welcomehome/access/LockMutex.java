@@ -19,7 +19,7 @@ import welcomehome.audit.AccessOutcome;
  * a single instance.
  */
 @Component
-class LockActions {
+class LockMutex {
 
     /** Far longer than an action takes with Nuki's timeouts: only a stuck action makes anyone wait this long. */
     static final Duration MAX_WAIT = Duration.ofMinutes(1);

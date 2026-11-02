@@ -41,12 +41,12 @@ class OpenDoor {
     private final GuestLinks guestLinks;
     private final Locks locks;
     private final LockProvider lockProvider;
-    private final LockActions lockActions;
+    private final LockMutex lockActions;
     private final UnlatchConfirmation confirmation;
     private final AccessEvents accessEvents;
 
     OpenDoor(RateLimiter rateLimiter, GuestLinks guestLinks, Locks locks, LockProvider lockProvider,
-             LockActions lockActions, UnlatchConfirmation confirmation, AccessEvents accessEvents) {
+             LockMutex lockActions, UnlatchConfirmation confirmation, AccessEvents accessEvents) {
         this.rateLimiter = rateLimiter;
         this.guestLinks = guestLinks;
         this.locks = locks;

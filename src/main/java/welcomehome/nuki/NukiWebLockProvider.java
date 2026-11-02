@@ -28,18 +28,18 @@ class NukiWebLockProvider implements LockProvider {
     }
 
     @Override
-    public List<SmartLock> listLocks(UUID ownerId) {
+    public List<NukiDevice> listLocks(UUID ownerId) {
         return connections.callNuki(ownerId, nuki::listLocks);
     }
 
     @Override
-    public Map<Long, LockState> listStates(UUID ownerId) {
-        return connections.callNuki(ownerId, nuki::listStates);
+    public Map<Long, LockSnapshot> listSnapshots(UUID ownerId) {
+        return connections.callNuki(ownerId, nuki::listSnapshots);
     }
 
     @Override
-    public LockState getState(UUID ownerId, long smartlockId) {
-        return connections.callNuki(ownerId, accessToken -> nuki.getState(accessToken, smartlockId));
+    public LockSnapshot getSnapshot(UUID ownerId, long smartlockId) {
+        return connections.callNuki(ownerId, accessToken -> nuki.getSnapshot(accessToken, smartlockId));
     }
 
     @Override

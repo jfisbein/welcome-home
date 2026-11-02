@@ -114,7 +114,8 @@ class LocksController {
         model.addAttribute("entrances", LockSettings.entrances(lock, locks.findAll(owner.id())));
         if (lock.active()) {
             try {
-                model.addAttribute("state", lockProvider.getState(owner.id(), lock.nukiSmartlockId()));
+                model.addAttribute("snapshot",
+                        lockProvider.getSnapshot(owner.id(), lock.nukiSmartlockId()));
             } catch (LockProviderException e) {
                 model.addAttribute("stateError", switch (e.reason()) {
                     case NOT_CONNECTED -> "not-connected";

@@ -61,7 +61,7 @@ class NukiWebhookTests {
 
         assertThat(send(report(requestId, true, null))).hasStatus(HttpStatus.NO_CONTENT);
 
-        assertThat(waiting.awaitOutcome(Duration.ZERO)).contains(LockActionState.SUCCEEDED);
+        assertThat(waiting.awaitOutcome(Duration.ZERO)).contains(ActionResult.SUCCEEDED);
         assertThat(other.awaitOutcome(Duration.ZERO)).isEmpty();
     }
 
@@ -71,7 +71,7 @@ class NukiWebhookTests {
 
         assertThat(send(report(requestId, true, null))).hasStatus(HttpStatus.NO_CONTENT);
 
-        assertThat(reports.pending(requestId).awaitOutcome(Duration.ZERO)).contains(LockActionState.SUCCEEDED);
+        assertThat(reports.pending(requestId).awaitOutcome(Duration.ZERO)).contains(ActionResult.SUCCEEDED);
     }
 
     /** Nuki's error codes come as hexadecimal text in its examples: night mode is 0x4F, a blocked motor 0x42. */
@@ -86,7 +86,7 @@ class NukiWebhookTests {
             "45"     | FAILED
             "nope"   | FAILED
             """)
-    void aFailureIsToldByItsErrorCode(String errorCode, LockActionState state) {
+    void aFailureIsToldByItsErrorCode(String errorCode, ActionResult state) {
         var atTheTop = requestId();
         var inTheDetails = requestId();
 
@@ -106,7 +106,7 @@ class NukiWebhookTests {
 
         send(report(requestId, false, null));
 
-        assertThat(reports.pending(requestId).awaitOutcome(Duration.ZERO)).contains(LockActionState.FAILED);
+        assertThat(reports.pending(requestId).awaitOutcome(Duration.ZERO)).contains(ActionResult.FAILED);
     }
 
     @Test
@@ -154,7 +154,7 @@ class NukiWebhookTests {
     void waitingForAReportThatDoesNotComeWaitsTheTimeout() {
         var waited = System.nanoTime();
 
-        Optional<LockActionState> outcome = reports.pending(requestId()).awaitOutcome(Duration.ofMillis(200));
+        Optional<ActionResult> outcome = reports.pending(requestId()).awaitOutcome(Duration.ofMillis(200));
 
         assertThat(outcome).isEmpty();
         assertThat(Duration.ofNanos(System.nanoTime() - waited)).isGreaterThanOrEqualTo(Duration.ofMillis(200));

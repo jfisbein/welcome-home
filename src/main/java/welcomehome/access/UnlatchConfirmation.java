@@ -11,8 +11,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import welcomehome.audit.AccessOutcome;
-import welcomehome.nuki.LockAction;
-import welcomehome.nuki.LockActionState;
+import welcomehome.nuki.LoggedAction;
+import welcomehome.nuki.ActionResult;
 import welcomehome.nuki.LockLogEntry;
 import welcomehome.nuki.LockProvider;
 import welcomehome.nuki.LockProviderException;
@@ -72,10 +72,10 @@ class UnlatchConfirmation {
                         .filter(entry -> !entry.occurredAt().isBefore(requestedAt.minus(CLOCK_SKEW)))
                         .toList();
                 var logged = since.stream()
-                        .filter(entry -> entry.action() == LockAction.UNLATCH && NUKI_WEB_API.contains(entry.trigger()))
+                        .filter(entry -> entry.action() == LoggedAction.UNLATCH && NUKI_WEB_API.contains(entry.trigger()))
                         .findFirst();
                 if (logged.isPresent()) {
-                    return result(logged.get().state());
+                    return result(logged.get().result());
                 }
             } catch (LockProviderException e) {
                 // Nuki failing may pass, so keep trying until the deadline; without the permission to read the
@@ -92,7 +92,7 @@ class UnlatchConfirmation {
         }
     }
 
-    private static AccessOutcome result(LockActionState state) {
+    private static AccessOutcome result(ActionResult state) {
         return switch (state) {
             case SUCCEEDED -> AccessOutcome.OPENED;
             case REJECTED_NIGHT_MODE -> AccessOutcome.NIGHT_MODE;

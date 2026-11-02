@@ -41,22 +41,22 @@ class NukiWebClient {
         this.requests = requests;
     }
 
-    List<SmartLock> listLocks(String accessToken) {
+    List<NukiDevice> listLocks(String accessToken) {
         return devices(accessToken).stream()
-                .map(smartlock -> new SmartLock(smartlock.smartlockId(), NukiCodes.deviceType(smartlock.type()),
+                .map(smartlock -> new NukiDevice(smartlock.smartlockId(), NukiCodes.deviceType(smartlock.type()),
                         smartlock.name(),
                         smartlock.config() == null ? null : NukiTimeZones.byId(smartlock.config().timezoneId())))
                 .toList();
     }
 
-    LockState getState(String accessToken, long smartlockId) {
+    LockSnapshot getSnapshot(String accessToken, long smartlockId) {
         return lockState(requests.call(true, () -> requests.rest().get().uri("/smartlock/{id}", smartlockId)
                 .headers(headers -> headers.setBearerAuth(accessToken))
                 .retrieve()
                 .body(NukiSmartlock.class)));
     }
 
-    Map<Long, LockState> listStates(String accessToken) {
+    Map<Long, LockSnapshot> listSnapshots(String accessToken) {
         return devices(accessToken).stream()
                 .collect(Collectors.toMap(NukiSmartlock::smartlockId, NukiWebClient::lockState));
     }
@@ -71,13 +71,13 @@ class NukiWebClient {
         return smartlocks.stream().filter(smartlock -> smartlock.type() != BOX).toList();
     }
 
-    private static LockState lockState(NukiSmartlock smartlock) {
+    private static LockSnapshot lockState(NukiSmartlock smartlock) {
         var state = smartlock.state();
         var advancedConfig = smartlock.advancedConfig();
         var opener = NukiCodes.deviceType(smartlock.type()) == DeviceType.OPENER;
-        return new LockState(
-                state == null ? LockStatus.UNKNOWN
-                        : opener ? NukiCodes.openerStatus(state.state()) : NukiCodes.status(state.state()),
+        return new LockSnapshot(
+                state == null ? LockPosition.UNKNOWN
+                        : opener ? NukiCodes.openerPosition(state.state()) : NukiCodes.position(state.state()),
                 smartlock.serverState() == SERVER_STATE_OK,
                 state != null && Boolean.TRUE.equals(state.batteryCritical()),
                 state == null ? null : state.batteryCharge(),
@@ -155,7 +155,7 @@ class NukiWebClient {
                 }));
         return entries.stream()
                 .map(entry -> new LockLogEntry(entry.date(), NukiCodes.action(entry.action()),
-                        NukiCodes.trigger(entry.trigger()), NukiCodes.actionState(entry.state()),
+                        NukiCodes.trigger(entry.trigger()), NukiCodes.actionResult(entry.state()),
                         entry.action() + "/" + entry.trigger() + "/" + entry.state()))
                 .toList();
     }

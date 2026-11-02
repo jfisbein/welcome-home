@@ -107,18 +107,18 @@ class NukiWebhookController {
         return errorCode.isMissingNode() ? webhook.path("detail").path(0).path("errorCode") : errorCode;
     }
 
-    static LockActionState outcome(boolean success, JsonNode errorCode) {
+    static ActionResult outcome(boolean success, JsonNode errorCode) {
         if (success) {
-            return LockActionState.SUCCEEDED;
+            return ActionResult.SUCCEEDED;
         }
         var code = errorCode.isIntegralNumber() ? Integer.valueOf(errorCode.intValue()) : hex(errorCode.asString(""));
         if (code == null) {
-            return LockActionState.FAILED;
+            return ActionResult.FAILED;
         }
         return switch (code) {
-            case MOTOR_BLOCKED -> LockActionState.MOTOR_BLOCKED;
-            case REJECTED_NIGHT_MODE -> LockActionState.REJECTED_NIGHT_MODE;
-            default -> LockActionState.FAILED;
+            case MOTOR_BLOCKED -> ActionResult.MOTOR_BLOCKED;
+            case REJECTED_NIGHT_MODE -> ActionResult.REJECTED_NIGHT_MODE;
+            default -> ActionResult.FAILED;
         };
     }
 

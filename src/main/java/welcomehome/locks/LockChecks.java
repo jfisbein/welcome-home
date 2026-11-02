@@ -19,8 +19,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import welcomehome.nuki.LockProvider;
 import welcomehome.nuki.LockProviderException;
-import welcomehome.nuki.LockState;
-import welcomehome.nuki.LockStatus;
+import welcomehome.nuki.LockSnapshot;
+import welcomehome.nuki.LockPosition;
 
 /**
  * Tells what is wrong with an owner's locks, for the pages that list them. Those pages wait for Nuki only for a
@@ -55,9 +55,9 @@ public class LockChecks {
         if (active.isEmpty()) {
             return NONE;
         }
-        Map<Long, LockState> states;
+        Map<Long, LockSnapshot> states;
         try {
-            states = CompletableFuture.supplyAsync(() -> lockProvider.listStates(ownerId), executor)
+            states = CompletableFuture.supplyAsync(() -> lockProvider.listSnapshots(ownerId), executor)
                     .get(PATIENCE.toMillis(), TimeUnit.MILLISECONDS);
         } catch (TimeoutException e) {
             return UNKNOWN;
@@ -80,7 +80,7 @@ public class LockChecks {
         return new LockWarnings(byLock, false);
     }
 
-    private static List<LockWarning> warningsOf(OwnerLock lock, LockState state) {
+    private static List<LockWarning> warningsOf(OwnerLock lock, LockSnapshot state) {
         var warnings = new ArrayList<LockWarning>();
         if (!state.online()) {
             warnings.add(LockWarning.OFFLINE);
@@ -88,7 +88,7 @@ public class LockChecks {
         if (state.batteryCritical()) {
             warnings.add(LockWarning.BATTERY_CRITICAL);
         }
-        if (state.status() == LockStatus.MOTOR_BLOCKED) {
+        if (state.position() == LockPosition.MOTOR_BLOCKED) {
             warnings.add(LockWarning.MOTOR_BLOCKED);
         }
         if (!lock.opener() && !state.autoLockEnabled() && !lock.relockingHandledElsewhere()) {

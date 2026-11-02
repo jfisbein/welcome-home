@@ -43,7 +43,7 @@ class NukiConnectionController {
                    HttpServletResponse response, RedirectAttributes redirect) {
         try {
             var locks = connections.connect(owner.id(), apiToken);
-            redirect.addFlashAttribute("connectedLocks", locks.stream().map(SmartLock::name).toList());
+            redirect.addFlashAttribute("connectedLocks", locks.stream().map(NukiDevice::name).toList());
             return "redirect:/settings/nuki";
         } catch (LockProviderException e) {
             var error = switch (e.reason()) {

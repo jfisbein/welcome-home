@@ -11,24 +11,24 @@ final class NukiCodes {
     private NukiCodes() {
     }
 
-    static LockStatus status(int nukiState) {
+    static LockPosition position(int nukiState) {
         return switch (nukiState) {
-            case 1 -> LockStatus.LOCKED;
-            case 3, 6 -> LockStatus.UNLOCKED;
-            case 5 -> LockStatus.UNLATCHED;
-            case 2, 4, 7 -> LockStatus.MOVING;
-            case 254 -> LockStatus.MOTOR_BLOCKED;
-            default -> LockStatus.UNKNOWN;
+            case 1 -> LockPosition.LOCKED;
+            case 3, 6 -> LockPosition.UNLOCKED;
+            case 5 -> LockPosition.UNLATCHED;
+            case 2, 4, 7 -> LockPosition.MOVING;
+            case 254 -> LockPosition.MOTOR_BLOCKED;
+            default -> LockPosition.UNKNOWN;
         };
     }
 
     /** An Opener's states are its own: it locks nothing, and opens the entrance only for a few seconds. */
-    static LockStatus openerStatus(int nukiState) {
+    static LockPosition openerPosition(int nukiState) {
         return switch (nukiState) {
-            case 1 -> LockStatus.READY;
-            case 3 -> LockStatus.RING_TO_OPEN;
-            case 5, 7 -> LockStatus.OPENING;
-            default -> LockStatus.UNKNOWN;
+            case 1 -> LockPosition.READY;
+            case 3 -> LockPosition.RING_TO_OPEN;
+            case 5, 7 -> LockPosition.OPENING;
+            default -> LockPosition.UNKNOWN;
         };
     }
 
@@ -37,12 +37,12 @@ final class NukiCodes {
         return nukiType == OPENER ? DeviceType.OPENER : DeviceType.SMART_LOCK;
     }
 
-    static LockActionState actionState(int nukiState) {
+    static ActionResult actionResult(int nukiState) {
         return switch (nukiState) {
-            case 0 -> LockActionState.SUCCEEDED;
-            case 1 -> LockActionState.MOTOR_BLOCKED;
-            case 10 -> LockActionState.REJECTED_NIGHT_MODE;
-            default -> LockActionState.FAILED;
+            case 0 -> ActionResult.SUCCEEDED;
+            case 1 -> ActionResult.MOTOR_BLOCKED;
+            case 10 -> ActionResult.REJECTED_NIGHT_MODE;
+            default -> ActionResult.FAILED;
         };
     }
 
@@ -60,14 +60,14 @@ final class NukiCodes {
         };
     }
 
-    static LockAction action(int nukiAction) {
+    static LoggedAction action(int nukiAction) {
         return switch (nukiAction) {
-            case 1 -> LockAction.UNLOCK;
-            case 2 -> LockAction.LOCK;
-            case 3 -> LockAction.UNLATCH;
-            case 240 -> LockAction.DOOR_OPENED;
-            case 241 -> LockAction.DOOR_CLOSED;
-            default -> LockAction.OTHER;
+            case 1 -> LoggedAction.UNLOCK;
+            case 2 -> LoggedAction.LOCK;
+            case 3 -> LoggedAction.UNLATCH;
+            case 240 -> LoggedAction.DOOR_OPENED;
+            case 241 -> LoggedAction.DOOR_CLOSED;
+            default -> LoggedAction.OTHER;
         };
     }
 }
