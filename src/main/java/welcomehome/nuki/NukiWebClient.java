@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -96,23 +97,35 @@ class NukiWebClient {
     }
 
     List<SmartLock> listLocks(String apiToken) {
-        List<NukiSmartlock> smartlocks = call(true, () -> rest.get().uri("/smartlock")
-                .headers(headers -> headers.setBearerAuth(apiToken))
-                .retrieve()
-                .body(new ParameterizedTypeReference<>() {
-                }));
-        return smartlocks.stream()
-                .filter(smartlock -> smartlock.type() != BOX)
+        return devices(apiToken).stream()
                 .map(smartlock -> new SmartLock(smartlock.smartlockId(), deviceType(smartlock.type()), smartlock.name(),
                         smartlock.config() == null ? null : NukiTimeZones.byId(smartlock.config().timezoneId())))
                 .toList();
     }
 
     LockState getState(String apiToken, long smartlockId) {
-        var smartlock = call(true, () -> rest.get().uri("/smartlock/{id}", smartlockId)
+        return lockState(call(true, () -> rest.get().uri("/smartlock/{id}", smartlockId)
                 .headers(headers -> headers.setBearerAuth(apiToken))
                 .retrieve()
-                .body(NukiSmartlock.class));
+                .body(NukiSmartlock.class)));
+    }
+
+    Map<Long, LockState> listStates(String apiToken) {
+        return devices(apiToken).stream()
+                .collect(Collectors.toMap(NukiSmartlock::smartlockId, NukiWebClient::lockState));
+    }
+
+    /** The account's smart locks and Openers, with all that Nuki says of each in one request. */
+    private List<NukiSmartlock> devices(String apiToken) {
+        List<NukiSmartlock> smartlocks = call(true, () -> rest.get().uri("/smartlock")
+                .headers(headers -> headers.setBearerAuth(apiToken))
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {
+                }));
+        return smartlocks.stream().filter(smartlock -> smartlock.type() != BOX).toList();
+    }
+
+    private static LockState lockState(NukiSmartlock smartlock) {
         var state = smartlock.state();
         var advancedConfig = smartlock.advancedConfig();
         var opener = deviceType(smartlock.type()) == DeviceType.OPENER;

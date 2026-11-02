@@ -1,6 +1,7 @@
 package welcomehome.nuki;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -31,6 +32,15 @@ public interface LockProvider {
      * @throws LockProviderException if the state cannot be read
      */
     LockState getState(UUID ownerId, long smartlockId);
+
+    /**
+     * Gets the current state of all the owner's locks at once.
+     *
+     * @param ownerId the owner whose Nuki connection to use
+     * @return each lock's state as last reported to Nuki, by the lock's Nuki id
+     * @throws LockProviderException if the states cannot be read
+     */
+    Map<Long, LockState> listStates(UUID ownerId);
 
     /**
      * Asks the lock to unlatch, that is, to unlock and pull the latch so that the door opens with a push; an
