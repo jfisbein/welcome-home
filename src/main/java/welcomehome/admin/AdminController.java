@@ -10,6 +10,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -62,7 +63,20 @@ class AdminController {
     }
 
     @GetMapping("/invitations")
-    String invitationForm() {
+    String invitationForm(Model model) {
+        return invitationsView(model);
+    }
+
+    /** A link sent to the wrong person, or that leaked, stops working at once. Any admin may cancel any link. */
+    @DeleteMapping("/invitations/{id}")
+    String cancelInvitation(@PathVariable UUID id, RedirectAttributes redirect) {
+        var recipient = invitations.cancel(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        redirect.addFlashAttribute("cancelledFor", recipient);
+        return "redirect:/admin/invitations";
+    }
+
+    private String invitationsView(Model model) {
+        model.addAttribute("pending", invitations.findPending());
         return "admin/invitations";
     }
 
@@ -80,7 +94,7 @@ class AdminController {
             response.setStatus(HttpStatus.BAD_REQUEST.value());
             model.addAttribute("noteError", true);
             model.addAttribute("note", note);
-            return "admin/invitations";
+            return invitationsView(model);
         }
         redirect.addFlashAttribute("invitation", invitations.createInvitation(adminId(admin), strippedNote, grantsAdmin));
         redirect.addFlashAttribute("invitedNote", strippedNote);

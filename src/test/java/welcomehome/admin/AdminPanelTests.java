@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -238,6 +239,58 @@ class AdminPanelTests {
                 .query(String.class).list())
                 .as("his recovery link is gone; an invitation he created stays, by nobody")
                 .containsExactly("Invitada por Bob nobody");
+    }
+
+    @Test
+    void adminSeesTheLinksThatCouldStillBeUsedAndWhomTheyAreFor() {
+        invitations.createInvitation(adminId, "Ana, piso de la playa", false);
+        invitations.createInvitation(adminId, "Carlos, otro admin", true);
+        invitations.createPasskeyRecovery(adminId, bobId);
+        invitations.redeem(tokenOf(invitations.createInvitation(adminId, "Ya usada", false)));
+        migrator.sql("""
+                        INSERT INTO invitation (token_hash, note, created_by, expires_at)
+                        VALUES ('\\x02', 'Ya caducada', ?, now() - interval '1 minute')
+                        """).param(adminId).update();
+
+        assertThat(mvc.get().uri("/admin/invitations").with(admin())).hasStatusOk().bodyText()
+                .contains("Ana, piso de la playa", "Carlos, otro admin", "Invitación de admin", OWNER_EMAIL,
+                        "Nueva passkey", "Anular")
+                .doesNotContain("Ya usada", "Ya caducada");
+    }
+
+    @Test
+    void aCancelledLinkOpensNothingAtOnce() {
+        var invitation = invitations.createInvitation(adminId, "Ana", false);
+        var recovery = invitations.createPasskeyRecovery(adminId, bobId);
+        for (var created : List.of(invitation, recovery)) {
+            assertThat(mvc.delete().uri("/admin/invitations/" + created.id()).with(admin()).with(csrf()))
+                    .hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/admin/invitations");
+            assertThat(invitations.findRedeemable(tokenOf(created))).isEmpty();
+        }
+        assertThat(mvc.get().uri("/admin/invitations").with(admin()).flashAttr("cancelledFor", "Ana")).bodyText()
+                .contains("Enlace para Ana anulado", "No hay invitaciones");
+    }
+
+    @Test
+    void aLinkAlreadyUsedOrUnknownCannotBeCancelled() {
+        var used = invitations.createInvitation(adminId, "Ana", false);
+        invitations.redeem(tokenOf(used));
+
+        assertThat(mvc.delete().uri("/admin/invitations/" + used.id()).with(admin()).with(csrf()))
+                .hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(mvc.delete().uri("/admin/invitations/" + UUID.randomUUID()).with(admin()).with(csrf()))
+                .hasStatus(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void onlyAnAdminCancelsALink() {
+        var invitation = invitations.createInvitation(adminId, "Ana", false);
+
+        assertThat(mvc.delete().uri("/admin/invitations/" + invitation.id())
+                .with(user(OWNER_EMAIL).roles("OWNER")).with(csrf())).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(mvc.delete().uri("/admin/invitations/" + invitation.id()).with(admin()))
+                .as("without the CSRF token").hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(invitations.findRedeemable(tokenOf(invitation))).isPresent();
     }
 
     @Test
