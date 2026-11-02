@@ -17,7 +17,9 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
+import welcomehome.admin.OwnerDeleting;
 import welcomehome.crypto.CryptoService;
 import welcomehome.crypto.DecryptionFailedException;
 import welcomehome.db.OwnerTransactions;
@@ -134,13 +136,40 @@ public class NukiConnections {
     }
 
     /**
-     * Deletes the owner's connection and its tokens. Locks and links stay as they are, but cannot open the door
-     * until the owner connects Nuki again.
+     * Deletes the owner's connection and its tokens, and asks Nuki to revoke an OAuth2 authorization, which would
+     * otherwise stay valid. A failure at Nuki is only logged: the tokens here are gone anyway. Locks and links stay
+     * as they are, but cannot open the door until the owner connects Nuki again.
      *
      * @return how the deleted connection was made, or empty if the owner had none
      */
     Optional<NukiCredential> remove(UUID ownerId) {
-        return ownerTransactions.execute(ownerId, () -> connections.delete(ownerId));
+        var removed = ownerTransactions.execute(ownerId, () -> {
+            var stored = connections.find(ownerId);
+            connections.delete(ownerId);
+            return stored;
+        });
+        // Outside the transaction: no database connection is held while waiting for Nuki.
+        removed.ifPresent(stored -> revoke(ownerId, stored));
+        return removed.map(StoredConnection::credential);
+    }
+
+    /** Revoking takes the owner's tokens, which deleting the owner removes. */
+    @EventListener
+    void on(OwnerDeleting deleting) {
+        remove(deleting.ownerId());
+    }
+
+    private void revoke(UUID ownerId, StoredConnection stored) {
+        var refreshTokenEncrypted = stored.refreshTokenEncrypted();
+        if (stored.credential() != NukiCredential.OAUTH2 || refreshTokenEncrypted == null) {
+            return;
+        }
+        try {
+            nuki.revoke(crypto.decryptRefreshToken(ownerId, refreshTokenEncrypted));
+            log.info("Asked Nuki to revoke the authorization of owner {}", ownerId);
+        } catch (DecryptionFailedException | LockProviderException e) {
+            log.warn("Could not revoke the Nuki authorization of owner {}: {}", ownerId, e.getMessage());
+        }
     }
 
     /**
