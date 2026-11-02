@@ -21,6 +21,10 @@ hs_err_pid*
 *.iws
 *.ipr
 out/
+bin/
+
+### OpenIdea ###
+.openidea/
 
 ### VS Code ###
 .vscode/
