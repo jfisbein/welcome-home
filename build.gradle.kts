@@ -51,7 +51,7 @@ dependencies {
     // Nuki Web API stand-in; the standalone jar shades its Jetty, so it does not clash with Spring's.
     testImplementation("org.wiremock:wiremock-standalone:3.13.2")
     // SMTP server stand-in for the owners' notifications.
-    testImplementation("com.icegreen:greenmail:2.1.14")
+    testImplementation("com.icegreen:greenmail:2.1.15")
     // Parses the templates for TemplateTextTests, which finds text that is not in the bundles.
     testImplementation("org.jsoup:jsoup:1.23.2")
     // Runs the app's JavaScript in a real browser (src/test/java/welcomehome/browser), which it downloads when first used.
