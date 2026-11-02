@@ -95,6 +95,37 @@ class LinkScheduleFormTests {
     }
 
     @Test
+    void aWholeDayIsTickedWhateverItsHoursSay() {
+        assertThat(create("label", "Ana", "validFrom", FROM, "validUntil", UNTIL,
+                "day-MONDAY", "on", "allday-MONDAY", "on", "opens-MONDAY", "nonsense", "closes-MONDAY", "09:00",
+                "day-TUESDAY", "on", "allday-TUESDAY", "on", "opens-TUESDAY", "09:00", "closes-TUESDAY", "17:00"))
+                .hasStatus(HttpStatus.FOUND);
+
+        assertThat(rows()).containsExactly("1|00:00:00|00:00:00", "2|00:00:00|00:00:00");
+        assertThat(mvc.get().uri("/links/" + linkId()).with(owner(ALICE))).hasStatusOk().bodyText()
+                .contains(allDayTicked("MONDAY", "Lunes"), allDayTicked("TUESDAY", "Martes"))
+                .doesNotContain(allDayTicked("WEDNESDAY", "Miércoles"));
+    }
+
+    @Test
+    void tickingOnlyTheWholeDayTicksTheDayRatherThanLeavingTheLinkOpenAtAnyTime() {
+        assertThat(create("label", "Ana", "validFrom", FROM, "validUntil", UNTIL, "allday-MONDAY", "on"))
+                .hasStatus(HttpStatus.FOUND);
+
+        assertThat(rows()).containsExactly("1|00:00:00|00:00:00");
+    }
+
+    @Test
+    void midnightToMidnightTypedByHandIsTheWholeDayToo() {
+        assertThat(create("label", "Ana", "validFrom", FROM, "validUntil", UNTIL,
+                "day-MONDAY", "on", "opens-MONDAY", "00:00", "closes-MONDAY", "00:00")).hasStatus(HttpStatus.FOUND);
+
+        assertThat(rows()).containsExactly("1|00:00:00|00:00:00");
+        assertThat(mvc.get().uri("/links/" + linkId()).with(owner(ALICE))).hasStatusOk().bodyText()
+                .contains(allDayTicked("MONDAY", "Lunes"));
+    }
+
+    @Test
     void editPageShowsTheScheduleAndSavingReplacesIt() {
         create("label", "Ana", "validFrom", FROM, "validUntil", UNTIL,
                 "day-MONDAY", "on", "opens-MONDAY", "08:30", "closes-MONDAY", "12:00");
@@ -184,6 +215,10 @@ class LinkScheduleFormTests {
         assertThat(schedules.describe(schedule, Locale.ITALIAN)).containsExactly("Da lunedì a mercoledì: 09:00–17:00",
                 "Venerdì: 09:00–17:00", "Sabato: 10:00–14:00", "Domenica: tutto il giorno");
         assertThat(schedules.describe(LinkSchedule.ANY_TIME, Locale.ENGLISH)).isEmpty();
+    }
+
+    private static String allDayTicked(String day, String name) {
+        return "name=\"allday-" + day + "\" aria-label=\"" + name + ": todo el día\" checked=\"checked\"";
     }
 
     private static DayHours hours(DayOfWeek day, String opens, String closes) {

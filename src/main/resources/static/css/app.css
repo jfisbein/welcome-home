@@ -72,10 +72,11 @@ table.links td.validity small {
 }
 
 /* The link form's schedule: a row per day, its hours beside it, or below it on a phone, where they would not fit in
-   every language. The hours of a day that is not ticked count for nothing, so they look it. */
+   every language. A day not ticked offers neither its hours nor its whole day, which schedule.js also turns off for
+   keyboards, and a whole day has no hours to show. */
 .schedule-day {
     display: grid;
-    grid-template-columns: minmax(8rem, 1fr) 1fr 1fr;
+    grid-template-columns: minmax(8rem, 1fr) auto 1fr 1fr;
     gap: 0.25rem 0.5rem;
     align-items: center;
     margin-bottom: 0.5rem;
@@ -97,8 +98,25 @@ table.links td.validity small {
     color: var(--pico-del-color);
 }
 
-.schedule-day:has(input[type="checkbox"]:not(:checked)) input[type="time"] {
+.schedule-day:has(input[name^="day-"]:not(:checked)) input[type="time"],
+.schedule-day:has(input[name^="day-"]:not(:checked)) .schedule-all-day {
     opacity: 0.5;
+    pointer-events: none;
+}
+
+.schedule-day:has(input[name^="day-"]:not(:checked)) .schedule-all-day input:disabled {
+    opacity: 1;
+}
+
+.schedule-day:has(input[name^="allday-"]:checked) input[type="time"] {
+    display: none;
+}
+
+/* A row keeps its height without inputs, so that ticking the whole day does not move the rows below it. */
+@media (min-width: 576px) {
+    .schedule-day {
+        min-height: calc(1rem * var(--pico-line-height) + var(--pico-form-element-spacing-vertical) * 2 + var(--pico-border-width) * 2);
+    }
 }
 
 @media (max-width: 575px) {
@@ -106,18 +124,25 @@ table.links td.validity small {
         grid-template-columns: 1fr 1fr;
     }
 
-    .schedule-day label {
-        grid-column: 1 / -1;
+    /* Longer than half the row in some languages, it takes the room the day's name leaves. */
+    .schedule-all-day {
+        justify-self: end;
+        white-space: nowrap;
     }
 }
 
 /* Pico sets a summary in lines as tall as its text, which only looks right on one line, as in German on a phone it
-   does not fit. Its chevron stays centered on the first line. */
+   does not fit. And it floats its chevron, which a text as wide as the line pushes on to the next one: side by side,
+   it stays centered on the first line. */
 details summary {
+    display: flex;
+    justify-content: space-between;
     line-height: var(--pico-line-height);
 }
 
 details summary::after {
+    flex: none;
+    float: none;
     height: calc(1rem * var(--pico-line-height));
 }
 

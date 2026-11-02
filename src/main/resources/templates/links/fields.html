@@ -28,7 +28,8 @@
             <small th:if="${validUntilError == 'past'}" th:text="#{link-form.until.error.past}">El fin ya ha pasado.</small>
         </label>
     </div>
-    <!-- A row per day, no JavaScript needed; schedule.js only offers to copy one day's hours to the rest. -->
+    <!-- A row per day, no JavaScript needed: CSS hides the hours of a whole day. schedule.js keeps a row's two ticks
+         in step and offers to copy one day's hours to the rest. -->
     <details class="schedule" th:open="${scheduleOpen or scheduleNeverOpens}">
         <summary th:text="#{link-form.schedule}">Limitar a ciertos días y horas</summary>
         <p><small th:text="#{link-form.schedule.hint}">Si no marcas ningún día, abre a cualquier hora.</small></p>
@@ -37,6 +38,11 @@
             <label>
                 <input type="checkbox" th:name="|day-${code}|" th:checked="${day.selected()}">
                 [[${dayName}]]
+            </label>
+            <label class="schedule-all-day">
+                <input type="checkbox" th:name="|allday-${code}|" th:checked="${day.allDay()}"
+                       th:aria-label="#{link-form.schedule.all-day-of(${dayName})}">
+                [[#{link-form.schedule.all-day}]]
             </label>
             <input type="time" th:name="|opens-${code}|" th:value="${day.opens()}"
                    th:aria-label="#{link-form.schedule.opens(${dayName})}"
