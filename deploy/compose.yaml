@@ -111,11 +111,11 @@ services:
       BACKUP_RETENTION_DAYS: "30"
       PGHOST: db
       PGDATABASE: welcome_home
-      # The superuser, as Row-Level Security would hide every row from any other role.
-      PGUSER: postgres
-      PGPASSWORD_FILE: /run/secrets/postgres_password
+      # Reads every row, as it has BYPASSRLS, and can write nothing: the superuser could also run programs.
+      PGUSER: backup_reader
+      PGPASSWORD_FILE: /run/secrets/backup_reader_password
     secrets:
-      - postgres_password
+      - backup_reader_password
     volumes:
       - ./backup:/backup:ro
       - ./backups:/backups
