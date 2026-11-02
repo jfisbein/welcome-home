@@ -120,7 +120,7 @@ A dump taken before `backup_reader` existed brings the database back without its
 
 **On a new server:** follow "First start" with the keysets from Vaultwarden (new passwords and a new tunnel token are fine), but do not deploy the whole stack yet: start only `db` (`docker compose up -d db`), so that it creates the roles, then run `restore.sh`, then deploy the rest. `backup_reader` must be among those roles, as the dumps carry its `CONNECT` grant and `pg_restore --create` stops without it; with a new password, change it in Databasus too. Without the keysets the dump still restores, but every owner has to paste their Nuki API token again and every access link has to be regenerated.
 
-Rehearse a restore now and then, on a copy of the stack under another project name (`COMPOSE_PROJECT_NAME=welcome-home-test`) on any Docker host, so that the procedure is known to work before it is needed.
+CI tries `backup.sh` and `restore.sh` on every change, on a copy of the stack with test data (`.github/scripts/test_backup_restore.sh`). That says that the scripts work, not that your dumps do, so still rehearse a restore of a real dump now and then, on a copy of the stack under another project name (`COMPOSE_PROJECT_NAME=welcome-home-test`) on any Docker host.
 
 ## Upgrade Postgres to a new major version
 
