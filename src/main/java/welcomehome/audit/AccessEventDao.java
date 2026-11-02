@@ -12,7 +12,6 @@ import org.springframework.jdbc.core.SimplePropertyRowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import welcomehome.audit.AccessHistory.Cursor;
-import welcomehome.audit.AccessHistory.HistoryEvent;
 
 /**
  * access_event has Row-Level Security: call it inside {@code OwnerTransactions} for the same owner. Every
@@ -20,6 +19,16 @@ import welcomehome.audit.AccessHistory.HistoryEvent;
  */
 @Repository
 class AccessEventDao {
+
+    /** What every page's attempts are read from: each with the names of its link, its lock and its entrance. */
+    private static final String ATTEMPTS = """
+            SELECT e.id, e.occurred_at, k.time_zone, e.lock_id, k.name AS lock_name, e.link_id, l.label AS link_label,
+                   d.name AS entrance_name, e.result, e.reason, host(e.ip) AS ip, e.country
+            FROM access_event e
+            JOIN access_link l ON l.owner_id = e.owner_id AND l.id = e.link_id
+            JOIN lock k ON k.owner_id = e.owner_id AND k.id = e.lock_id
+            LEFT JOIN lock d ON d.owner_id = e.owner_id AND d.id = e.entrance_lock_id
+            """;
 
     private final JdbcClient jdbc;
 
@@ -56,15 +65,9 @@ class AccessEventDao {
      * @param before only events before this one, or the latest if null
      * @param limit  how many events at most
      */
-    List<HistoryEvent> findByLock(UUID ownerId, UUID lockId, @Nullable UUID linkId, @Nullable Cursor before,
-                                  int limit) {
-        return jdbc.sql("""
-                        SELECT e.id, e.occurred_at, e.lock_id, k.name AS lock_name, e.link_id, l.label AS link_label,
-                               d.name AS entrance_name, e.result, e.reason, host(e.ip) AS ip, e.country
-                        FROM access_event e
-                        JOIN access_link l ON l.owner_id = e.owner_id AND l.id = e.link_id
-                        JOIN lock k ON k.owner_id = e.owner_id AND k.id = e.lock_id
-                        LEFT JOIN lock d ON d.owner_id = e.owner_id AND d.id = e.entrance_lock_id
+    List<StoredAttempt> findByLock(UUID ownerId, UUID lockId, @Nullable UUID linkId, @Nullable Cursor before,
+                                   int limit) {
+        return jdbc.sql(ATTEMPTS + """
                         WHERE e.owner_id = :ownerId AND (e.lock_id = :lockId OR e.entrance_lock_id = :lockId)
                           AND (CAST(:linkId AS uuid) IS NULL OR e.link_id = :linkId)
                           AND (CAST(:before AS timestamptz) IS NULL OR e.occurred_at < :before
@@ -78,7 +81,7 @@ class AccessEventDao {
                 .param("before", before == null ? null : OffsetDateTime.ofInstant(before.occurredAt(), ZoneOffset.UTC))
                 .param("beforeId", before == null ? null : before.id())
                 .param("limit", limit)
-                .query(new SimplePropertyRowMapper<>(HistoryEvent.class))
+                .query(new SimplePropertyRowMapper<>(StoredAttempt.class))
                 .list();
     }
 
@@ -95,22 +98,15 @@ class AccessEventDao {
     }
 
     /** The owner's latest events across all their locks, newest first. */
-    List<RecentEvent> findLatest(UUID ownerId, int limit) {
-        return jdbc.sql("""
-                        SELECT e.occurred_at, k.time_zone, e.lock_id, k.name AS lock_name, e.link_id,
-                               l.label AS link_label, d.name AS entrance_name, e.result, e.reason,
-                               host(e.ip) AS ip, e.country
-                        FROM access_event e
-                        JOIN lock k ON k.owner_id = e.owner_id AND k.id = e.lock_id
-                        JOIN access_link l ON l.owner_id = e.owner_id AND l.id = e.link_id
-                        LEFT JOIN lock d ON d.owner_id = e.owner_id AND d.id = e.entrance_lock_id
+    List<StoredAttempt> findLatest(UUID ownerId, int limit) {
+        return jdbc.sql(ATTEMPTS + """
                         WHERE e.owner_id = :ownerId
                         ORDER BY e.occurred_at DESC, e.id DESC
                         LIMIT :limit
                         """)
                 .param("ownerId", ownerId)
                 .param("limit", limit)
-                .query(new SimplePropertyRowMapper<>(RecentEvent.class))
+                .query(new SimplePropertyRowMapper<>(StoredAttempt.class))
                 .list();
     }
 
@@ -127,16 +123,5 @@ class AccessEventDao {
         return jdbc.sql("SELECT id FROM owner")
                 .query((rs, row) -> rs.getObject("id", UUID.class))
                 .list();
-    }
-
-    /**
-     * A guest's attempt, with what the owner's pages show of its lock and link.
-     *
-     * @param timeZone     the lock's time zone
-     * @param entranceName the name of the Opener at the lock's building entrance, if the guest opened that
-     */
-    record RecentEvent(OffsetDateTime occurredAt, String timeZone, UUID lockId, String lockName, UUID linkId,
-                       String linkLabel, @Nullable String entranceName, AccessResult result, @Nullable String reason,
-                       @Nullable String ip, @Nullable String country) {
     }
 }

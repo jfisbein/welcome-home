@@ -34,9 +34,7 @@ public class RecentAttempts {
      */
     public List<AttemptRow> latest(UUID ownerId, int limit, Locale locale) {
         return ownerTransactions.execute(ownerId, () -> accessEvents.findLatest(ownerId, limit)).stream()
-                .map(event -> rows.row(event.occurredAt(), ZoneId.of(event.timeZone()), event.lockId(),
-                        event.lockName(), event.linkId(), event.linkLabel(), event.entranceName(), event.result(),
-                        event.reason(), event.ip(), event.country(), locale))
+                .map(attempt -> rows.row(attempt, ZoneId.of(attempt.timeZone()), locale))
                 .toList();
     }
 }
