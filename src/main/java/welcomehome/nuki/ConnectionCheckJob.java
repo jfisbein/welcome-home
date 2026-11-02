@@ -7,7 +7,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Checks every owner's Nuki connection once a day, each owner in their own transactions, so that a revoked
- * API token shows up on the owner's panel before a guest finds the door closed.
+ * API token shows up on the owner's panel before a guest finds the door closed. Every hour it also tries the
+ * connections disconnected lately, so that one that Nuki rejected by mistake does not wait for its owner.
  */
 @Component
 class ConnectionCheckJob {
@@ -30,6 +31,19 @@ class ConnectionCheckJob {
             } catch (RuntimeException e) {
                 // One owner's failure must not stop the others' checks; the next run tries again.
                 log.warn("Could not check the Nuki connection of owner {}: {}", ownerId, e.getMessage());
+            }
+        }
+    }
+
+    @Scheduled(cron = "${welcomehome.nuki.recheck-cron}")
+    void recheckDisconnected() {
+        for (var ownerId : connections.ownersToCheck()) {
+            try {
+                if (connections.recheck(ownerId)) {
+                    log.info("Nuki accepts the connection of owner {} again: connected", ownerId);
+                }
+            } catch (RuntimeException e) {
+                log.warn("Could not try the Nuki connection of owner {} again: {}", ownerId, e.getMessage());
             }
         }
     }

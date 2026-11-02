@@ -29,6 +29,7 @@ import welcomehome.config.Languages;
 import welcomehome.config.WelcomeHomeProperties;
 import welcomehome.db.OwnerTransactions;
 import welcomehome.nuki.NukiDisconnected;
+import welcomehome.nuki.NukiReconnected;
 
 /**
  * Emails an owner about their locks, as their preferences say: guests' attempts by outcome, and a Nuki
@@ -91,6 +92,17 @@ class OwnerNotifier {
         findRecipient(disconnected.ownerId()).ifPresent(to -> send(to.email(),
                 message(to, "notification.disconnected.subject"),
                 message(to, "notification.disconnected.body", app.link("/settings/nuki")) + footer(to)));
+    }
+
+    @Async
+    @TransactionalEventListener
+    void on(NukiReconnected reconnected) {
+        if (!mailer.isConfigured() || !wants(reconnected.ownerId(), NotificationKind.DISCONNECTED)) {
+            return;
+        }
+        findRecipient(reconnected.ownerId()).ifPresent(to -> send(to.email(),
+                message(to, "notification.reconnected.subject"),
+                message(to, "notification.reconnected.body") + footer(to)));
     }
 
     /**

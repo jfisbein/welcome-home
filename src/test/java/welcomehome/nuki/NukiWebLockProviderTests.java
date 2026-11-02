@@ -115,9 +115,24 @@ class NukiWebLockProviderTests {
     }
 
     @Test
+    void aRejectionThatAReadDoesNotConfirmDisconnectsNobody() {
+        connectWith(alice, ALICES_TOKEN);
+        nuki.stubFor(get("/smartlock/17").willReturn(status(401)));
+        nuki.stubFor(get("/smartlock").willReturn(okJson("[]")));
+
+        assertFailsWith(Reason.ACCESS_DENIED, () -> locks.getState(alice, 17));
+        assertThat(connectionStatus(alice)).isEqualTo("OK");
+
+        nuki.stubFor(get("/smartlock").willReturn(status(503)));
+        assertFailsWith(Reason.ACCESS_DENIED, () -> locks.getState(alice, 17));
+        assertThat(connectionStatus(alice)).as("no answer says nothing about the token").isEqualTo("OK");
+    }
+
+    @Test
     void tokenThatNukiRejectsDisconnectsTheOwner() {
         connectWith(alice, ALICES_TOKEN);
         nuki.stubFor(get("/smartlock/17").willReturn(status(401)));
+        nuki.stubFor(get("/smartlock").willReturn(status(401)));
 
         assertFailsWith(Reason.ACCESS_DENIED, () -> locks.getState(alice, 17));
 

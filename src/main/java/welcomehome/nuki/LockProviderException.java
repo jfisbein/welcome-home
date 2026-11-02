@@ -13,7 +13,7 @@ public class LockProviderException extends RuntimeException {
     public enum Reason {
         /** The owner has no Nuki connection, or it is disconnected. */
         NOT_CONNECTED,
-        /** Nuki rejected the owner's credentials (401): they were revoked. The connection is now disconnected. */
+        /** Nuki rejected the owner's credentials (401). If it did again when asked once more, they are disconnected. */
         ACCESS_DENIED,
         /** Nuki accepted the credentials but they lack the permission for this call (403). */
         MISSING_PERMISSION,
