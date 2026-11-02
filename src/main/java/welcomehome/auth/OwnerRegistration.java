@@ -127,7 +127,8 @@ class OwnerRegistration {
 
     private PublicKeyCredentialCreationOptions creationOptions(PublicKeyCredentialUserEntity user,
                                                                List<PublicKeyCredentialDescriptor> excluded) {
-        // The same choices as Spring Security's own registration: discoverable passkeys, no attestation.
+        // The same choices as Spring Security's own registration, as SecurityConfiguration sets it: discoverable
+        // passkeys that verify their user, no attestation.
         return PublicKeyCredentialCreationOptions.builder()
                 .rp(relyingParty)
                 .user(user)
@@ -136,7 +137,7 @@ class OwnerRegistration {
                 .pubKeyCredParams(PublicKeyCredentialParameters.EdDSA, PublicKeyCredentialParameters.ES256,
                         PublicKeyCredentialParameters.RS256)
                 .authenticatorSelection(AuthenticatorSelectionCriteria.builder()
-                        .userVerification(UserVerificationRequirement.PREFERRED)
+                        .userVerification(UserVerificationRequirement.REQUIRED)
                         .residentKey(ResidentKeyRequirement.REQUIRED)
                         .build())
                 .attestation(AttestationConveyancePreference.NONE)

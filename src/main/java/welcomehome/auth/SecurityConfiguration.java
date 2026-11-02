@@ -14,7 +14,10 @@ import org.springframework.security.web.authentication.LoginUrlAuthenticationEnt
 import org.springframework.security.web.authentication.session.ChangeSessionIdAuthenticationStrategy;
 import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
+import org.springframework.security.web.webauthn.api.AuthenticatorSelectionCriteria;
 import org.springframework.security.web.webauthn.api.PublicKeyCredentialRpEntity;
+import org.springframework.security.web.webauthn.api.ResidentKeyRequirement;
+import org.springframework.security.web.webauthn.api.UserVerificationRequirement;
 import org.springframework.security.web.webauthn.authentication.WebAuthnAuthenticationFilter;
 import org.springframework.security.web.webauthn.management.JdbcPublicKeyCredentialUserEntityRepository;
 import org.springframework.security.web.webauthn.management.JdbcUserCredentialRepository;
@@ -102,7 +105,18 @@ class SecurityConfiguration {
                                                           UserCredentialRepository userCredentials,
                                                           PublicKeyCredentialRpEntity relyingParty,
                                                           WelcomeHomeProperties app) {
-        return new Webauthn4JRelyingPartyOperations(userEntities, userCredentials, relyingParty, Set.of(app.origin()));
+        var operations = new Webauthn4JRelyingPartyOperations(userEntities, userCredentials, relyingParty,
+                Set.of(app.origin()));
+        // A passkey is the only factor, so it must verify its user (PIN, fingerprint or face): a security key that
+        // anyone holding it can touch is not enough for an account that opens doors. Asked for, and checked when
+        // the answer comes back.
+        operations.setCustomizeCreationOptions(options -> options.authenticatorSelection(
+                AuthenticatorSelectionCriteria.builder()
+                        .userVerification(UserVerificationRequirement.REQUIRED)
+                        .residentKey(ResidentKeyRequirement.REQUIRED)
+                        .build()));
+        operations.setCustomizeRequestOptions(options -> options.userVerification(UserVerificationRequirement.REQUIRED));
+        return operations;
     }
 
     @Bean
