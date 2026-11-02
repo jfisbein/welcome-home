@@ -26,9 +26,13 @@ How to run welcome-home in production. It runs as a Dockge stack on a server of 
    printf '%s' '<tunnel token>' > secrets/tunnel_token
    printf '%s' '<SMTP2GO user>' > secrets/smtp_username
    printf '%s' '<SMTP2GO password>' > secrets/smtp_password
+   printf '%s' '<client id>' > secrets/nuki-oauth-client-id
+   printf '%s' '<client secret>' > secrets/nuki-oauth-client-secret
    chmod 444 secrets/*
    install -d -o 999 -g 999 -m 700 backups
    ```
+
+   The client id and secret are on Nuki Web's API page, under Advanced API, which Nuki has to grant first. Both files must exist, as `compose.yaml` asks for them: leave them empty if you have no client, and owners connect Nuki by pasting an API token instead.
 
 5. **Start.** Deploy the stack. `db`, `app` and `backup` turn healthy within a minute or two, and `cloudflared` starts once `app` is. `https://welcome-home.example.com/actuator/health` answers `{"status":"UP"}` from outside.
 6. **First admin.** `docker compose run --rm app --bootstrap-admin` prints an invitation link, valid for 72 hours. Open it on your phone or computer, enter your email and create the passkey. Further owners are invited from `/admin/owners`.
