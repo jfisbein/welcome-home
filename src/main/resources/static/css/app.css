@@ -301,7 +301,7 @@ nav.sections li a[aria-current="page"] {
     opacity: 0.6;
 }
 
-/* What is wrong with a lock, under its name or state in the lists of locks. */
+/* What is wrong with a lock, one line per warning, on the pages that list locks. */
 .lock-warning {
     display: block;
     color: var(--pico-del-color);

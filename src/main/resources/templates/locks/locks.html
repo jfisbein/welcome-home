@@ -30,6 +30,11 @@
     <p th:if="${locks.isEmpty()}" th:utext="#{locks.empty(@{/settings/nuki#nuki-web})}">
         Todavía no tienes cerraduras.</p>
     <p th:if="${lockWarnings.unknown}"><small th:text="#{locks.warnings.unknown}">Nuki no responde ahora mismo.</small></p>
+    <!-- Above the table, which scrolls sideways on a narrow screen and would cut them. -->
+    <article th:each="lock : ${locks}" th:unless="${lockWarnings.of(lock.id).isEmpty()}">
+        <strong th:text="${lock.name}">Casa</strong>
+        <th:block th:replace="~{fragments/lock-warnings :: warnings(${lockWarnings.of(lock.id)})}"></th:block>
+    </article>
     <div class="overflow-auto" th:if="${!locks.isEmpty()}">
         <table>
             <thead>
@@ -47,10 +52,7 @@
                     <br th:if="${lock.opener}"><small th:if="${lock.opener}" th:text="#{locks.opener}">Nuki Opener</small>
                 </td>
                 <td th:text="${lock.timeZone}">Europe/Madrid</td>
-                <td>
-                    <span th:text="${lock.active} ? #{locks.active} : #{locks.inactive}">Activa</span>
-                    <th:block th:replace="~{fragments/lock-warnings :: warnings(${lockWarnings.of(lock.id)})}"></th:block>
-                </td>
+                <td th:text="${lock.active} ? #{locks.active} : #{locks.inactive}">Activa</td>
                 <td>
                     <a th:href="@{/locks/{id}/links(id=${lock.id})}" th:text="#{locks.links}">Enlaces</a> ·
                     <a th:href="@{/locks/{id}/history(id=${lock.id})}" th:text="#{common.history}">Historial</a> ·
