@@ -1,10 +1,13 @@
 package welcomehome.access;
 
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import welcomehome.crypto.LinkTokenSigner;
+import welcomehome.links.LinkSchedule;
+import welcomehome.links.LinkSchedules;
 import welcomehome.links.LinkStatus;
 import welcomehome.locks.Locks;
 import welcomehome.locks.OwnerLock;
@@ -22,12 +25,15 @@ class GuestLinks {
     private final ResolvedLinkDao resolvedLinks;
     private final NukiConnections nukiConnections;
     private final Locks locks;
+    private final LinkSchedules schedules;
 
-    GuestLinks(LinkTokenSigner signer, ResolvedLinkDao resolvedLinks, NukiConnections nukiConnections, Locks locks) {
+    GuestLinks(LinkTokenSigner signer, ResolvedLinkDao resolvedLinks, NukiConnections nukiConnections, Locks locks,
+               LinkSchedules schedules) {
         this.signer = signer;
         this.resolvedLinks = resolvedLinks;
         this.nukiConnections = nukiConnections;
         this.locks = locks;
+        this.schedules = schedules;
     }
 
     /**
@@ -42,6 +48,20 @@ class GuestLinks {
                 .map(link -> new GuestLink(link, LinkStatus.of(link.validFrom().toInstant(),
                         link.validUntil().toInstant(), link.revokedAt() == null ? null : link.revokedAt().toInstant(),
                         now)));
+    }
+
+    /**
+     * The days and hours at which a link opens, read in the owner's context: only for a link whose token was verified.
+     *
+     * @return its schedule, which allows any time if it has no hours
+     */
+    LinkSchedule schedule(ResolvedLink link) {
+        return schedules.of(link.ownerId(), link.linkId());
+    }
+
+    /** Tells whether a link's schedule lets it open at an instant: only for a link whose token was verified. */
+    boolean withinSchedule(ResolvedLink link, Instant now) {
+        return schedule(link).allows(now, ZoneId.of(link.lockTimeZone()));
     }
 
     /**

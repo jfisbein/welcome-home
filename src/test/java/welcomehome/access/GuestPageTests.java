@@ -4,6 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.nio.charset.StandardCharsets;
+import java.time.DayOfWeek;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
@@ -31,6 +35,8 @@ class GuestPageTests {
     static final String EXPIRED = "Este enlace ha caducado.";
     static final String REVOKED = "Este enlace se ha revocado.";
     static final String UNAVAILABLE = "Esta puerta no está disponible ahora mismo.";
+    static final String OUTSIDE_SCHEDULE_NOTICE = "<p role=\"alert\">A esta hora este enlace no abre la puerta.";
+    static final ZoneId NEW_YORK = ZoneId.of("America/New_York");
 
     @Autowired
     MockMvcTester mvc;
@@ -90,6 +96,67 @@ class GuestPageTests {
         assertThat(body(guestPage(signer.sign(link, 1))))
                 .contains(NOT_YET_VALID, "a partir del 01/11/2040 15:00")
                 .doesNotContain(OPEN_BUTTON);
+    }
+
+    @Test
+    void pendingLinkSaysWhenItsScheduleFirstLetsItOpen() {
+        // 1 November 2040 is a Thursday.
+        var link = insertLink("'2040-11-01T19:00:00Z'", "'2040-11-10T16:00:00Z'", false);
+        insertSchedule(link, DayOfWeek.FRIDAY, "09:00", "17:00");
+
+        assertThat(body(guestPage(signer.sign(link, 1))))
+                .contains(NOT_YET_VALID, "a partir del 02/11/2040 09:00", "<li>Viernes: 09:00–17:00</li>")
+                .doesNotContain(OPEN_BUTTON);
+    }
+
+    @Test
+    void withinItsScheduleALinkOffersToOpenAndShowsTheSchedule() {
+        var link = insertLink("now() - interval '1 day'", "now() + interval '30 days'", false);
+        var today = ZonedDateTime.now(NEW_YORK).getDayOfWeek();
+        insertSchedule(link, today, "00:00", "00:00");
+
+        assertThat(body(guestPage(signer.sign(link, 1))))
+                .contains(OPEN_BUTTON, "Solo en este horario:", ": todo el día</li>")
+                .doesNotContain(OUTSIDE_SCHEDULE_NOTICE);
+    }
+
+    @Test
+    void outsideItsScheduleALinkOffersNothingAndSaysWhenItOpens() {
+        insertOpenerAsEntrance();
+        var link = insertLink("now() - interval '1 day'", "now() + interval '30 days'", false);
+        var tomorrow = ZonedDateTime.now(NEW_YORK).plusDays(1);
+        insertSchedule(link, tomorrow.getDayOfWeek(), "00:00", "00:00");
+
+        assertThat(body(guestPage(signer.sign(link, 1))))
+                .contains(OUTSIDE_SCHEDULE_NOTICE + " Podrás abrir a partir del "
+                        + DateTimeFormatter.ofPattern("dd/MM/yyyy").format(tomorrow) + " 00:00")
+                .doesNotContain(OPEN_BUTTON, "id=\"open-entrance\"", "/js/open.js");
+    }
+
+    @Test
+    void outsideItsScheduleWithNoHoursLeftALinkSaysItWillNotOpenAgain() {
+        var link = insertLink("now() - interval '1 day'", "now() + interval '1 hour'", false);
+        insertSchedule(link, ZonedDateTime.now(NEW_YORK).plusDays(3).getDayOfWeek(), "00:00", "00:00");
+
+        assertThat(body(guestPage(signer.sign(link, 1))))
+                .contains("Este enlace ya no volverá a abrir la puerta antes de caducar.")
+                .doesNotContain(OPEN_BUTTON);
+    }
+
+    @Test
+    void aLinkWithoutAScheduleSaysNothingOfIt() {
+        var link = insertLink("now() - interval '1 day'", "now() + interval '1 day'", false);
+
+        assertThat(body(guestPage(signer.sign(link, 1)))).contains(OPEN_BUTTON).doesNotContain("Solo en este horario");
+    }
+
+    @Test
+    void aFinishedLinkSaysNothingOfItsSchedule() {
+        var expired = insertLink("now() - interval '2 days'", "now() - interval '1 day'", false);
+        insertSchedule(expired, DayOfWeek.MONDAY, "09:00", "17:00");
+
+        assertThat(body(guestPage(signer.sign(expired, 1)))).contains(EXPIRED)
+                .doesNotContain("Solo en este horario", OUTSIDE_SCHEDULE_NOTICE);
     }
 
     @Test
@@ -234,6 +301,14 @@ class GuestPageTests {
 
     private static String body(MvcTestResult result) {
         return new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8);
+    }
+
+    private void insertSchedule(UUID link, DayOfWeek day, String opens, String closes) {
+        migrator.sql("""
+                        INSERT INTO access_link_schedule (owner_id, link_id, day_of_week, opens_at, closes_at)
+                        SELECT owner_id, id, ?, ?::time, ?::time FROM access_link WHERE id = ?
+                        """)
+                .params(day.getValue(), opens, closes, link).update();
     }
 
     private UUID insertLink(String validFrom, String validUntil, boolean revoked) {

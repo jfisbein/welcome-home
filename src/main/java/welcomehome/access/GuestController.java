@@ -18,6 +18,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import welcomehome.audit.AccessOutcome;
+import welcomehome.links.LinkSchedules;
 import welcomehome.links.LinkStatus;
 import welcomehome.locks.OwnerLock;
 
@@ -34,10 +35,12 @@ class GuestController {
     private static final List<String> OUTCOMES = Arrays.stream(AccessOutcome.values()).map(AccessOutcome::code).toList();
 
     private final GuestLinks guestLinks;
+    private final LinkSchedules schedules;
     private final MessageSource messages;
 
-    GuestController(GuestLinks guestLinks, MessageSource messages) {
+    GuestController(GuestLinks guestLinks, LinkSchedules schedules, MessageSource messages) {
         this.guestLinks = guestLinks;
+        this.schedules = schedules;
         this.messages = messages;
     }
 
@@ -46,7 +49,8 @@ class GuestController {
         response.setHeader("X-Robots-Tag", "noindex, nofollow");
         model.addAttribute("noindex", true);
         model.addAttribute("sessionless", true);
-        var found = guestLinks.find(token, Instant.now());
+        var now = Instant.now();
+        var found = guestLinks.find(token, now);
         if (found.isEmpty()) {
             response.setStatus(HttpStatus.NOT_FOUND.value());
             return "access/invalid";
@@ -59,7 +63,17 @@ class GuestController {
         model.addAttribute("validFrom", link.validFrom().atZoneSameInstant(zone));
         model.addAttribute("validUntil", link.validUntil().atZoneSameInstant(zone));
         model.addAttribute("status", guestLink.status());
-        var doors = guestLink.status() == LinkStatus.ACTIVE ? doors(link, locale) : List.<GuestDoor>of();
+        var withinSchedule = true;
+        if (guestLink.status().isUsable()) {
+            var schedule = guestLinks.schedule(link);
+            var pending = guestLink.status() == LinkStatus.PENDING;
+            withinSchedule = pending || schedule.allows(now, zone);
+            model.addAttribute("schedule", schedules.describe(schedule, locale));
+            model.addAttribute("opensAt", schedule.firstOpening(pending ? link.validFrom().toInstant() : now,
+                    link.validUntil().toInstant(), zone).orElse(null));
+        }
+        model.addAttribute("closed", !withinSchedule);
+        var doors = guestLink.status() == LinkStatus.ACTIVE && withinSchedule ? doors(link, locale) : List.<GuestDoor>of();
         model.addAttribute("doors", doors);
         model.addAttribute("canOpen", doors.stream().anyMatch(GuestDoor::available));
         return "access/guest";

@@ -59,6 +59,49 @@
     }
 }
 
+/* A link's schedule among its dates, a line per run of days. */
+table.links td.validity small {
+    display: block;
+}
+
+/* The link form's schedule: a row per day, its hours beside it, or below it on a phone, where they would not fit in
+   every language. The hours of a day that is not ticked count for nothing, so they look it. */
+.schedule-day {
+    display: grid;
+    grid-template-columns: minmax(8rem, 1fr) 1fr 1fr;
+    gap: 0.25rem 0.5rem;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.schedule-day label,
+.schedule-day input[type="time"] {
+    margin: 0;
+}
+
+.schedule-day small {
+    grid-column: 1 / -1;
+}
+
+.schedule-day small,
+.schedule [role="alert"] small {
+    color: var(--pico-del-color);
+}
+
+.schedule-day:has(input[type="checkbox"]:not(:checked)) input[type="time"] {
+    opacity: 0.5;
+}
+
+@media (max-width: 575px) {
+    .schedule-day {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .schedule-day label {
+        grid-column: 1 / -1;
+    }
+}
+
 /* The page's place in the menu and in configuration's sections. */
 nav [aria-current="page"] {
     font-weight: bold;

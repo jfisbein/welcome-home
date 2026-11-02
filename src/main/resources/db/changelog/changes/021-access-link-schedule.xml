@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Times are local to the lock, unlike a link's dates, so that 09:00 stays 09:00 when the clocks change.
+        A link without rows opens at any time within its dates. The app keeps one row per day; opens_at in the key
+        leaves room for several without changing the table. resolve_link does not return these rows: they are read
+        in the owner's context once the token's MAC is verified.
+        The foreign key includes owner_id, as foreign key checks skip Row-Level Security.
+    -->
+    <changeSet id="021-access-link-schedule" author="welcome-home">
+        <comment>
+            The days and hours at which a link opens, within its dates. day_of_week is ISO: 1 is Monday, 7 Sunday. A
+            closing time not after the opening time is on the next day, so 00:00 to 00:00 is the whole day.
+        </comment>
+
+        <createTable tableName="access_link_schedule">
+            <column name="owner_id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="link_id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="day_of_week" type="smallint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="opens_at" type="time">
+                <constraints nullable="false"/>
+            </column>
+            <column name="closes_at" type="time">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey constraintName="access_link_schedule_pkey" tableName="access_link_schedule"
+                       columnNames="owner_id, link_id, day_of_week, opens_at"/>
+
+        <addForeignKeyConstraint constraintName="access_link_schedule_link_fkey"
+                                 baseTableName="access_link_schedule" baseColumnNames="owner_id, link_id"
+                                 referencedTableName="access_link" referencedColumnNames="owner_id, id"
+                                 onDelete="CASCADE"/>
+
+        <sql>
+            ALTER TABLE access_link_schedule ADD CONSTRAINT access_link_schedule_day_check
+                CHECK (day_of_week BETWEEN 1 AND 7);
+            ALTER TABLE access_link_schedule ADD CONSTRAINT access_link_schedule_hours_check
+                CHECK (closes_at &lt;&gt; opens_at OR opens_at = '00:00');
+
+            ALTER TABLE access_link_schedule ENABLE ROW LEVEL SECURITY;
+            CREATE POLICY owner_isolation ON access_link_schedule
+                USING (owner_id = current_owner_id())
+                WITH CHECK (owner_id = current_owner_id());
+
+            GRANT SELECT, INSERT, DELETE ON access_link_schedule TO app_user;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

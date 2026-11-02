@@ -2,6 +2,7 @@ package welcomehome.links;
 
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -29,15 +30,18 @@ import welcomehome.links.LinkDao.EditableLink;
 class LinkController {
 
     private final AccessLinks accessLinks;
+    private final LinkSchedules schedules;
 
-    LinkController(AccessLinks accessLinks) {
+    LinkController(AccessLinks accessLinks, LinkSchedules schedules) {
         this.accessLinks = accessLinks;
+        this.schedules = schedules;
     }
 
     @GetMapping
     String edit(CurrentOwner owner, @PathVariable UUID linkId, Model model) {
         var link = findEditable(owner, linkId);
-        LinkForm.of(link.label(), link.validFrom().toInstant(), link.validUntil().toInstant(), ZoneId.of(link.timeZone()))
+        LinkForm.of(link.label(), link.validFrom().toInstant(), link.validUntil().toInstant(),
+                        schedules.of(owner.id(), linkId), ZoneId.of(link.timeZone()))
                 .addTo(model, null);
         model.addAttribute("link", link);
         return "links/edit";
@@ -46,9 +50,10 @@ class LinkController {
     @PatchMapping
     String update(CurrentOwner owner, @PathVariable UUID linkId, @RequestParam(defaultValue = "") String label,
                   @RequestParam(defaultValue = "") String validFrom, @RequestParam(defaultValue = "") String validUntil,
-                  Model model, HttpServletResponse response, RedirectAttributes redirect) {
+                  @RequestParam Map<String, String> params, Model model, HttpServletResponse response,
+                  RedirectAttributes redirect) {
         var link = findEditable(owner, linkId);
-        var form = new LinkForm(label, validFrom, validUntil);
+        var form = new LinkForm(label, validFrom, validUntil, ScheduleForm.of(params));
         var validation = form.validate(ZoneId.of(link.timeZone()), Instant.now());
         if (!validation.isValid()) {
             response.setStatus(HttpStatus.BAD_REQUEST.value());
@@ -57,7 +62,8 @@ class LinkController {
             return "links/edit";
         }
         if (!accessLinks.update(owner.id(), linkId, validation.label(),
-                Objects.requireNonNull(validation.validFrom()), Objects.requireNonNull(validation.validUntil()))) {
+                Objects.requireNonNull(validation.validFrom()), Objects.requireNonNull(validation.validUntil()),
+                validation.schedule())) {
             throw notFound();
         }
         redirect.addFlashAttribute("updatedLabel", validation.label());

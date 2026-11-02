@@ -2,6 +2,8 @@ package welcomehome.links;
 
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -31,49 +33,53 @@ class LockLinksController {
 
     private final Locks locks;
     private final AccessLinks accessLinks;
+    private final LinkSchedules schedules;
 
-    LockLinksController(Locks locks, AccessLinks accessLinks) {
+    LockLinksController(Locks locks, AccessLinks accessLinks, LinkSchedules schedules) {
         this.locks = locks;
         this.accessLinks = accessLinks;
+        this.schedules = schedules;
     }
 
     @GetMapping
-    String links(CurrentOwner owner, @PathVariable UUID lockId, Model model) {
+    String links(CurrentOwner owner, @PathVariable UUID lockId, Locale locale, Model model) {
         var lock = findLock(owner, lockId);
         LinkForm.startingNow(ZoneId.of(lock.timeZone())).addTo(model, null);
-        return view(owner, lock, model);
+        return view(owner, lock, locale, model);
     }
 
     @PostMapping
     String create(CurrentOwner owner, @PathVariable UUID lockId, @RequestParam(defaultValue = "") String label,
                   @RequestParam(defaultValue = "") String validFrom, @RequestParam(defaultValue = "") String validUntil,
-                  Model model, HttpServletResponse response, RedirectAttributes redirect) {
+                  @RequestParam Map<String, String> params, Locale locale, Model model, HttpServletResponse response,
+                  RedirectAttributes redirect) {
         var lock = findLock(owner, lockId);
         if (!lock.active()) {
             response.setStatus(HttpStatus.CONFLICT.value());
-            return view(owner, lock, model);
+            return view(owner, lock, locale, model);
         }
         var zone = ZoneId.of(lock.timeZone());
-        var form = new LinkForm(label, validFrom, validUntil);
+        var form = new LinkForm(label, validFrom, validUntil, ScheduleForm.of(params));
         var validation = form.validate(zone, Instant.now());
         if (!validation.isValid()) {
             response.setStatus(HttpStatus.BAD_REQUEST.value());
             form.addTo(model, validation);
-            return view(owner, lock, model);
+            return view(owner, lock, locale, model);
         }
         var from = Objects.requireNonNull(validation.validFrom());
         var until = Objects.requireNonNull(validation.validUntil());
-        var url = accessLinks.create(owner.id(), lock.id(), validation.label(), from, until);
+        var url = accessLinks.create(owner.id(), lock.id(), validation.label(), from, until, validation.schedule());
         redirect.addFlashAttribute("createdUrl", url);
         redirect.addFlashAttribute("createdLabel", validation.label());
         redirect.addFlashAttribute("createdFrom", from.atZone(zone));
         redirect.addFlashAttribute("createdUntil", until.atZone(zone));
+        redirect.addFlashAttribute("createdSchedule", schedules.describe(validation.schedule(), locale));
         return "redirect:/locks/" + lock.id() + "/links";
     }
 
-    private String view(CurrentOwner owner, OwnerLock lock, Model model) {
+    private String view(CurrentOwner owner, OwnerLock lock, Locale locale, Model model) {
         model.addAttribute("lock", lock);
-        model.addAttribute("links", accessLinks.list(owner.id(), lock));
+        model.addAttribute("links", accessLinks.list(owner.id(), lock, locale));
         return VIEW;
     }
 

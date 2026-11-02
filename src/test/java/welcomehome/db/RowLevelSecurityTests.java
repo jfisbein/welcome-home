@@ -19,7 +19,8 @@ import welcomehome.TestDatabaseConfiguration;
 @IntegrationTest
 class RowLevelSecurityTests {
 
-    static final List<String> OWNER_TABLES = List.of("nuki_connection", "lock", "access_link", "access_event");
+    static final List<String> OWNER_TABLES = List.of("nuki_connection", "lock", "access_link", "access_link_schedule",
+            "access_event");
 
     @Autowired
     OwnerTransactions ownerTransactions;
@@ -149,6 +150,12 @@ class RowLevelSecurityTests {
                             VALUES (?, ?, ?, 'Guest', now(), now() + interval '1 day')
                             """)
                     .params(rows.linkId(), rows.ownerId(), rows.lockId())
+                    .update();
+            migrator.sql("""
+                            INSERT INTO access_link_schedule (owner_id, link_id, day_of_week, opens_at, closes_at)
+                            VALUES (?, ?, 1, '09:00', '17:00')
+                            """)
+                    .params(rows.ownerId(), rows.linkId())
                     .update();
             migrator.sql("INSERT INTO access_event (owner_id, link_id, lock_id, result) VALUES (?, ?, ?, 'OK')")
                     .params(rows.ownerId(), rows.linkId(), rows.lockId())

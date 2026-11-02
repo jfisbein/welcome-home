@@ -25,7 +25,7 @@ enum NotificationKind {
         return switch (outcome) {
             case OPENED -> OPENED;
             case NOT_CONFIRMED, UNAVAILABLE, NUKI_ERROR, LOCK_FAILED, NIGHT_MODE, MISSING_PERMISSION -> FAILED;
-            case INVALID, TOO_MANY_ATTEMPTS, REVOKED, NOT_YET_VALID, EXPIRED -> DENIED;
+            case INVALID, TOO_MANY_ATTEMPTS, REVOKED, NOT_YET_VALID, EXPIRED, OUTSIDE_SCHEDULE -> DENIED;
         };
     }
 }

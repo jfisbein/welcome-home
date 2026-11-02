@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es" th:lang="${#locale.language}" th:attr="data-theme=${theme}" xmlns:th="http://www.thymeleaf.org">
 <body>
-<!-- The link form's fields, shared by creating and editing a link. Reads label, validFrom, validUntil and their errors. -->
+<!-- The link form's fields, shared by creating and editing a link. Reads label, validFrom, validUntil, scheduleDays and their errors. -->
 <th:block th:fragment="fields(timeZone)">
     <label>
         [[#{link-form.label}]]
@@ -28,6 +28,29 @@
             <small th:if="${validUntilError == 'past'}" th:text="#{link-form.until.error.past}">El fin ya ha pasado.</small>
         </label>
     </div>
+    <!-- A row per day, no JavaScript needed; schedule.js only offers to copy one day's hours to the rest. -->
+    <details class="schedule" th:open="${scheduleOpen or scheduleNeverOpens}">
+        <summary th:text="#{link-form.schedule}">Limitar a ciertos días y horas</summary>
+        <p><small th:text="#{link-form.schedule.hint}">Si no marcas ningún día, abre a cualquier hora.</small></p>
+        <div class="schedule-day" th:each="day : ${scheduleDays}"
+             th:with="dayName=${day.name(#locale)}, code=${day.day().name()}">
+            <label>
+                <input type="checkbox" th:name="|day-${code}|" th:checked="${day.selected()}">
+                [[${dayName}]]
+            </label>
+            <input type="time" th:name="|opens-${code}|" th:value="${day.opens()}"
+                   th:aria-label="#{link-form.schedule.opens(${dayName})}"
+                   th:attr="aria-invalid=${day.invalid()} ? 'true' : null">
+            <input type="time" th:name="|closes-${code}|" th:value="${day.closes()}"
+                   th:aria-label="#{link-form.schedule.closes(${dayName})}"
+                   th:attr="aria-invalid=${day.invalid()} ? 'true' : null">
+            <small th:if="${day.invalid()}" th:text="#{link-form.schedule.error}">Indica las horas.</small>
+        </div>
+        <p th:if="${scheduleNeverOpens}" role="alert"><small th:text="#{link-form.schedule.never-opens}">
+            Con este horario, el enlace no abriría nunca dentro de sus fechas.</small></p>
+        <button type="button" class="outline secondary" hidden data-copy-schedule
+                th:text="#{link-form.schedule.copy}">Usar el primer horario en todos</button>
+    </details>
     <p><small th:text="#{link-form.time-zone(${timeZone})}">Horas en la zona horaria de la cerradura.</small></p>
 </th:block>
 </body>

@@ -15,6 +15,9 @@
         <p th:text="#{links.validity(${#temporals.format(createdFrom, #messages.msg('format.datetime'))}, ${#temporals.format(createdUntil, #messages.msg('format.datetime'))}, ${lock.timeZone})}">
             Abre la puerta del 1/11/2026 15:00 al 3/11/2026 11:00 (Europe/Madrid).
         </p>
+        <ul th:unless="${#lists.isEmpty(createdSchedule)}">
+            <li th:each="line : ${createdSchedule}" th:text="${line}">Lunes a viernes: 09:00–17:00</li>
+        </ul>
         <fieldset role="group">
             <input id="link-url" type="text" readonly th:value="${createdUrl}" th:aria-label="#{links.url}">
             <button type="button" data-copy="link-url" th:data-copied="#{common.copied}"
@@ -61,8 +64,10 @@
                 <tbody>
                 <tr th:each="link : ${links}">
                     <td class="label" th:text="${link.label}">Ana</td>
-                    <td class="validity" th:text="#{links.period(${#temporals.format(link.validFrom, #messages.msg('format.datetime'))}, ${#temporals.format(link.validUntil, #messages.msg('format.datetime'))})}">
-                        1/11/2030 15:00 – 3/11/2030 11:00
+                    <td class="validity">
+                        <span th:text="#{links.period(${#temporals.format(link.validFrom, #messages.msg('format.datetime'))}, ${#temporals.format(link.validUntil, #messages.msg('format.datetime'))})}">
+                            1/11/2030 15:00 – 3/11/2030 11:00</span>
+                        <small th:each="line : ${link.schedule}" th:text="${line}">Lunes a viernes: 09:00–17:00</small>
                     </td>
                     <td class="state" th:switch="${link.status.name()}">
                         <span th:case="'PENDING'" th:text="#{links.status.pending}">Pendiente</span>
@@ -115,5 +120,6 @@
 <script th:src="@{/js/copy.js}"></script>
 <script th:src="@{/js/share.js}"></script>
 <script th:src="@{/js/confirm.js}"></script>
+<script th:src="@{/js/schedule.js}"></script>
 </body>
 </html>

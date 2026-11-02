@@ -8,6 +8,12 @@
         <p th:text="#{guest.validity(${#temporals.format(validFrom, #messages.msg('format.datetime'))}, ${#temporals.format(validUntil, #messages.msg('format.datetime'))}, ${timeZone})}">
             Este enlace abre la puerta del 1/11/2030 15:00 al 3/11/2030 11:00 (hora de Europe/Madrid).
         </p>
+        <th:block th:unless="${#lists.isEmpty(schedule)}">
+            <p th:text="#{guest.schedule}">Solo en este horario:</p>
+            <ul>
+                <li th:each="line : ${schedule}" th:text="${line}">Lunes a viernes: 09:00–17:00</li>
+            </ul>
+        </th:block>
 
         <!-- One slide to open per door, the building entrance first. Slide to open: a touch by mistake, in a
              pocket or while scrolling, does not open the door. A native range, so that keyboards and screen
@@ -40,9 +46,18 @@
         </section>
 
         <p th:if="${status.name() == 'PENDING'}" role="alert"
-           th:text="#{guest.pending(${#temporals.format(validFrom, #messages.msg('format.datetime'))})}">
+           th:text="#{guest.pending(${#temporals.format(opensAt ?: validFrom, #messages.msg('format.datetime'))})}">
             Este enlace todavía no es válido.
         </p>
+        <th:block th:if="${closed}">
+            <p th:if="${opensAt}" role="alert"
+               th:text="#{guest.closed(${#temporals.format(opensAt, #messages.msg('format.datetime'))})}">
+                A esta hora este enlace no abre la puerta.
+            </p>
+            <p th:unless="${opensAt}" role="alert" th:text="#{guest.closed.over}">
+                Este enlace ya no volverá a abrir la puerta.
+            </p>
+        </th:block>
         <p th:if="${status.name() == 'EXPIRED'}" role="alert" th:text="#{guest.expired}">Este enlace ha caducado.</p>
         <p th:if="${status.name() == 'REVOKED'}" role="alert" th:text="#{guest.revoked}">Este enlace se ha revocado.</p>
     </article>

@@ -240,7 +240,7 @@ class OwnerNotifier {
                 case NOT_CONFIRMED -> new EmailKeys("notification.not-confirmed", null);
                 case UNAVAILABLE, NUKI_ERROR, LOCK_FAILED, NIGHT_MODE, MISSING_PERMISSION ->
                         new EmailKeys("notification.failed", reason);
-                case INVALID, TOO_MANY_ATTEMPTS, REVOKED, NOT_YET_VALID, EXPIRED ->
+                case INVALID, TOO_MANY_ATTEMPTS, REVOKED, NOT_YET_VALID, EXPIRED, OUTSIDE_SCHEDULE ->
                         new EmailKeys("notification.denied", reason);
             };
         }

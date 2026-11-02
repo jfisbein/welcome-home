@@ -24,7 +24,7 @@ import welcomehome.nuki.PendingAction;
  *     <li>rate limit per IP address;</li>
  *     <li>the link exists, its MAC is valid and it is not revoked;</li>
  *     <li>rate limit per link;</li>
- *     <li>within the link's dates;</li>
+ *     <li>within the link's dates, and within its schedule if it has one;</li>
  *     <li>the door is available: its lock is active and the owner's Nuki connection is OK; for the building
  *     entrance, the link's lock has one, an Opener, and it is active.</li>
  * </ol>
@@ -88,6 +88,9 @@ class OpenDoor {
         }
         if (guestLink.status() == LinkStatus.EXPIRED) {
             return AccessOutcome.EXPIRED;
+        }
+        if (!guestLinks.withinSchedule(link, Instant.now())) {
+            return AccessOutcome.OUTSIDE_SCHEDULE;
         }
         if (door == Door.ENTRANCE) {
             if (entrance == null || !guestLinks.entranceAvailable(link, entrance)) {

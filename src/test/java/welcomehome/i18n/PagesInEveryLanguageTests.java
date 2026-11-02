@@ -88,6 +88,11 @@ class PagesInEveryLanguageTests {
                         """)
                 .params(aliceId, lockId).query(UUID.class).single();
         migrator.sql("""
+                        INSERT INTO access_link_schedule (owner_id, link_id, day_of_week, opens_at, closes_at)
+                        SELECT ?, ?, day, '00:00', '00:00' FROM generate_series(1, 7) AS day
+                        """)
+                .params(aliceId, linkId).update();
+        migrator.sql("""
                         INSERT INTO access_event (owner_id, link_id, lock_id, result, reason, ip)
                         VALUES (?, ?, ?, 'OK', 'opened', '192.0.2.10')
                         """)

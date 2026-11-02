@@ -11,14 +11,15 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.ui.Model;
 
 /**
- * The link form, shared by creating and editing a link: a label, and a start and an end as local date and
- * time in the lock's time zone, as the browser's datetime-local input sends them.
+ * The link form, shared by creating and editing a link: a label, a start and an end as local date and time in the
+ * lock's time zone, as the browser's datetime-local input sends them, and the days and hours at which it opens.
  *
  * @param label      who the link is for
  * @param validFrom  the start, such as {@code 2030-11-01T15:00}
  * @param validUntil the end
+ * @param schedule   the days and hours
  */
-record LinkForm(String label, String validFrom, String validUntil) {
+record LinkForm(String label, String validFrom, String validUntil, ScheduleForm schedule) {
 
     static final int MAX_LABEL_LENGTH = 100;
     private static final DateTimeFormatter INPUT_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
@@ -26,17 +27,19 @@ record LinkForm(String label, String validFrom, String validUntil) {
     /** A new link's form: from now, for one day. */
     static LinkForm startingNow(ZoneId zone) {
         var now = LocalDateTime.now(zone).truncatedTo(ChronoUnit.MINUTES);
-        return new LinkForm("", INPUT_FORMAT.format(now), INPUT_FORMAT.format(now.plusDays(1)));
+        return new LinkForm("", INPUT_FORMAT.format(now), INPUT_FORMAT.format(now.plusDays(1)), ScheduleForm.empty());
     }
 
     /** An existing link's form. */
-    static LinkForm of(String label, Instant validFrom, Instant validUntil, ZoneId zone) {
-        return new LinkForm(label, INPUT_FORMAT.format(validFrom.atZone(zone)), INPUT_FORMAT.format(validUntil.atZone(zone)));
+    static LinkForm of(String label, Instant validFrom, Instant validUntil, LinkSchedule schedule, ZoneId zone) {
+        return new LinkForm(label, INPUT_FORMAT.format(validFrom.atZone(zone)), INPUT_FORMAT.format(validUntil.atZone(zone)),
+                ScheduleForm.of(schedule));
     }
 
     /**
-     * Checks the form: a label of 1 to {@link #MAX_LABEL_LENGTH} characters, and an end after the start and
-     * after {@code now}. The start may be in the past, for a link valid from now on.
+     * Checks the form: a label of 1 to {@link #MAX_LABEL_LENGTH} characters, an end after the start and after
+     * {@code now}, and a schedule with hours that are fine on each day, under which the link can still open before
+     * its end. The start may be in the past, for a link valid from now on.
      */
     Validation validate(ZoneId zone, Instant now) {
         var strippedLabel = label.strip();
@@ -51,7 +54,11 @@ record LinkForm(String label, String validFrom, String validUntil) {
             untilError = "past";
         }
         var labelError = strippedLabel.isEmpty() || strippedLabel.length() > MAX_LABEL_LENGTH;
-        return new Validation(strippedLabel, from, until, labelError, from == null, untilError);
+        var checkedSchedule = schedule.isValid() ? schedule.schedule() : LinkSchedule.ANY_TIME;
+        var neverOpens = from != null && until != null && untilError == null
+                && checkedSchedule.firstOpening(from.isAfter(now) ? from : now, until, zone).isEmpty();
+        return new Validation(strippedLabel, from, until, checkedSchedule, labelError, from == null, untilError,
+                !schedule.isValid(), neverOpens);
     }
 
     /** Puts the form's values, and the errors if any, where the link-fields template fragment reads them. */
@@ -59,6 +66,9 @@ record LinkForm(String label, String validFrom, String validUntil) {
         model.addAttribute("label", label);
         model.addAttribute("validFrom", validFrom);
         model.addAttribute("validUntil", validUntil);
+        model.addAttribute("scheduleDays", schedule.days());
+        model.addAttribute("scheduleOpen", schedule.anySelected());
+        model.addAttribute("scheduleNeverOpens", validation != null && validation.scheduleNeverOpens());
         if (validation != null) {
             model.addAttribute("labelError", validation.labelError());
             model.addAttribute("validFromError", validation.validFromError());
@@ -84,15 +94,19 @@ record LinkForm(String label, String validFrom, String validUntil) {
      * @param label           the label without surrounding spaces
      * @param validFrom       the start, or null if it is not a date and time
      * @param validUntil      the end, or null if it is not a date and time
+     * @param schedule        the days and hours, or any time if {@code scheduleError}
      * @param labelError      whether the label is blank or too long
      * @param validFromError  whether the start is missing or not a date and time
      * @param validUntilError {@code invalid}, {@code before-start}, {@code past}, or null if the end is fine
+     * @param scheduleError   whether a day's hours are wrong, which its row shows
+     * @param scheduleNeverOpens whether the schedule leaves no time at which the link could still open
      */
-    record Validation(String label, @Nullable Instant validFrom, @Nullable Instant validUntil, boolean labelError,
-                      boolean validFromError, @Nullable String validUntilError) {
+    record Validation(String label, @Nullable Instant validFrom, @Nullable Instant validUntil, LinkSchedule schedule,
+                      boolean labelError, boolean validFromError, @Nullable String validUntilError,
+                      boolean scheduleError, boolean scheduleNeverOpens) {
 
         boolean isValid() {
-            return !labelError && !validFromError && validUntilError == null;
+            return !labelError && !validFromError && validUntilError == null && !scheduleError && !scheduleNeverOpens;
         }
     }
 }

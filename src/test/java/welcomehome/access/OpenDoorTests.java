@@ -16,8 +16,11 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.nio.charset.StandardCharsets;
+import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -58,6 +61,7 @@ class OpenDoorTests {
 
     static final String ALICE = "alice@example.com";
     static final String ALICES_NUKI_TOKEN = "alices-nuki-token";
+    static final ZoneId MADRID = ZoneId.of("Europe/Madrid");
 
     @Autowired
     MockMvcTester mvc;
@@ -305,6 +309,29 @@ class OpenDoorTests {
         assertDenied(pending, HttpStatus.FORBIDDEN, "not-yet-valid");
         assertDenied(expired, HttpStatus.GONE, "expired");
         nuki.verify(0, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
+    void outsideItsScheduleALinkOpensNeitherDoorAndTheAttemptIsRecorded() {
+        insertOpenerAsEntrance();
+        var link = insertLink("now() - interval '1 hour'", "now() + interval '30 days'");
+        insertSchedule(link, ZonedDateTime.now(MADRID).getDayOfWeek().plus(1), "00:00", "00:00");
+
+        assertDenied(link, HttpStatus.FORBIDDEN, "outside-schedule");
+        assertThat(lastEvent()).startsWith("DENIED|outside-schedule|");
+        assertThat(openDoor(signer.sign(link, 1), "entrance")).hasStatus(HttpStatus.FORBIDDEN)
+                .bodyJson().extractingPath("$.result").isEqualTo("outside-schedule");
+        nuki.verify(0, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
+    void withinItsScheduleALinkOpens() {
+        nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));
+        lockLogShowsUnlatch(0);
+        var link = insertLink("now() - interval '1 hour'", "now() + interval '30 days'");
+        insertSchedule(link, ZonedDateTime.now(MADRID).getDayOfWeek(), "00:00", "00:00");
+
+        assertThat(open(signer.sign(link, 1))).hasStatusOk().bodyJson().extractingPath("$.result").isEqualTo("opened");
     }
 
     @Test
@@ -696,6 +723,14 @@ class OpenDoorTests {
                 .param(lockId).query(UUID.class).single();
         migrator.sql("UPDATE lock SET entrance_lock_id = ? WHERE id = ?").params(portal, lockId).update();
         return portal;
+    }
+
+    private void insertSchedule(UUID link, DayOfWeek day, String opens, String closes) {
+        migrator.sql("""
+                        INSERT INTO access_link_schedule (owner_id, link_id, day_of_week, opens_at, closes_at)
+                        SELECT owner_id, id, ?, ?::time, ?::time FROM access_link WHERE id = ?
+                        """)
+                .params(day.getValue(), opens, closes, link).update();
     }
 
     private UUID insertLink(String validFrom, String validUntil) {

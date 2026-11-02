@@ -34,6 +34,6 @@ class AccessOutcomeTests {
     void codesStayAsHistoriesStoreThem() {
         assertThat(AccessOutcome.values()).extracting(AccessOutcome::code).containsExactly(
                 "opened", "not-confirmed", "invalid", "too-many-attempts", "revoked", "not-yet-valid", "expired",
-                "unavailable", "nuki-error", "lock-failed", "night-mode", "missing-permission");
+                "outside-schedule", "unavailable", "nuki-error", "lock-failed", "night-mode", "missing-permission");
     }
 }

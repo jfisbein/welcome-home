@@ -28,6 +28,8 @@ public enum AccessOutcome {
     NOT_YET_VALID("not-yet-valid", AccessResult.DENIED),
     /** After the link's dates. */
     EXPIRED("expired", AccessResult.DENIED),
+    /** Within the link's dates, but at a time its schedule leaves out. */
+    OUTSIDE_SCHEDULE("outside-schedule", AccessResult.DENIED),
     /** The lock is inactive, Nuki is not connected, or Nuki refuses the owner's token: the owner must act. */
     UNAVAILABLE("unavailable", AccessResult.DENIED),
     /** Nuki failed or did not answer, and did not run the unlatch: trying again later may work. */

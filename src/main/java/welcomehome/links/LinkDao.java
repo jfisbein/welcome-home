@@ -1,9 +1,16 @@
 package welcomehome.links;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.DayOfWeek;
 import java.time.Instant;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -13,7 +20,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 /**
- * access_link has Row-Level Security: call it inside {@code OwnerTransactions} for the same owner. It
+ * access_link and access_link_schedule have Row-Level Security: call it inside {@code OwnerTransactions} for the same owner. It
  * stores no token: a link's URL is recomputed from its id and token_version.
  */
 @Repository
@@ -105,6 +112,62 @@ class LinkDao {
                 .param("ownerId", ownerId)
                 .param("linkId", linkId)
                 .update() == 1;
+    }
+
+    /** The composite foreign key on (owner_id, link_id) rejects another owner's link. */
+    void replaceSchedule(UUID ownerId, UUID linkId, LinkSchedule schedule) {
+        jdbc.sql("DELETE FROM access_link_schedule WHERE owner_id = :ownerId AND link_id = :linkId")
+                .param("ownerId", ownerId)
+                .param("linkId", linkId)
+                .update();
+        for (var hours : schedule.days()) {
+            jdbc.sql("""
+                            INSERT INTO access_link_schedule (owner_id, link_id, day_of_week, opens_at, closes_at)
+                            VALUES (:ownerId, :linkId, :day, :opens, :closes)
+                            """)
+                    .param("ownerId", ownerId)
+                    .param("linkId", linkId)
+                    .param("day", hours.day().getValue())
+                    .param("opens", hours.opens())
+                    .param("closes", hours.closes())
+                    .update();
+        }
+    }
+
+    LinkSchedule findSchedule(UUID ownerId, UUID linkId) {
+        return new LinkSchedule(jdbc.sql("""
+                        SELECT day_of_week, opens_at, closes_at FROM access_link_schedule
+                        WHERE owner_id = :ownerId AND link_id = :linkId
+                        """)
+                .param("ownerId", ownerId)
+                .param("linkId", linkId)
+                .query((rs, row) -> hours(rs))
+                .list());
+    }
+
+    /** The schedules of a lock's links that have one. */
+    Map<UUID, LinkSchedule> findSchedulesByLock(UUID ownerId, UUID lockId) {
+        var hoursByLink = new HashMap<UUID, List<DayHours>>();
+        jdbc.sql("""
+                        SELECT s.link_id, s.day_of_week, s.opens_at, s.closes_at
+                        FROM access_link_schedule s
+                        JOIN access_link l ON l.owner_id = s.owner_id AND l.id = s.link_id
+                        WHERE s.owner_id = :ownerId AND l.lock_id = :lockId
+                        """)
+                .param("ownerId", ownerId)
+                .param("lockId", lockId)
+                .query(rs -> {
+                    hoursByLink.computeIfAbsent(rs.getObject("link_id", UUID.class), link -> new ArrayList<>())
+                            .add(hours(rs));
+                });
+        var schedules = new HashMap<UUID, LinkSchedule>();
+        hoursByLink.forEach((link, hours) -> schedules.put(link, new LinkSchedule(hours)));
+        return schedules;
+    }
+
+    private static DayHours hours(ResultSet rs) throws SQLException {
+        return new DayHours(DayOfWeek.of(rs.getInt("day_of_week")), rs.getObject("opens_at", LocalTime.class),
+                rs.getObject("closes_at", LocalTime.class));
     }
 
     record InsertedLink(UUID id, int tokenVersion) {
