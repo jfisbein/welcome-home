@@ -59,6 +59,9 @@ welcomehome:
   nuki:
     # Daily check of every owner's Nuki connection, in the server's time zone.
     check-cron: "0 0 8 * * *"
+  locks:
+    # Daily sync of every owner's locks with their Nuki account, in the server's time zone.
+    sync-cron: "0 15 8 * * *"
   access:
     # Attempts to open a door allowed per period, per guest IP address and per link.
     rate-limit:
