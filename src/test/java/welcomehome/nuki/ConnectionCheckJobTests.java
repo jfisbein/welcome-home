@@ -18,6 +18,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
 import welcomehome.TestDatabaseConfiguration;
@@ -26,9 +28,13 @@ import welcomehome.TestDatabaseConfiguration;
 @IntegrationTest
 @AutoConfigureMockMvc
 @Import(NukiStandInConfiguration.class)
+@RecordApplicationEvents
 class ConnectionCheckJobTests {
 
     static final String LONG_AGO = "2000-01-01 00:00:00+00";
+
+    @Autowired
+    ApplicationEvents events;
 
     @Autowired
     ConnectionCheckJob job;
@@ -74,6 +80,52 @@ class ConnectionCheckJobTests {
         assertThat(connectionStatus(alreadyDisconnected)).isEqualTo("DISCONNECTED");
         nuki.verify(0, getRequestedFor(urlPathEqualTo("/smartlock"))
                 .withHeader("Authorization", equalTo("Bearer token-disconnected")));
+    }
+
+    @Test
+    void aSingleRejectionDoesNotDisconnect() {
+        var owner = connectedOwner("glitch", status(401));
+        nuki.stubFor(get("/smartlock").withHeader("Authorization", equalTo("Bearer token-glitch"))
+                .inScenario("glitch").whenScenarioStateIs("connected").willReturn(status(401))
+                .willSetStateTo("recovered"));
+        nuki.stubFor(get("/smartlock").withHeader("Authorization", equalTo("Bearer token-glitch"))
+                .inScenario("glitch").whenScenarioStateIs("recovered").willReturn(okJson("[]")));
+
+        job.checkAll();
+
+        assertThat(connectionStatus(owner)).isEqualTo("OK");
+    }
+
+    @Test
+    void aDisconnectionThatNukiNoLongerConfirmsEndsOnItsOwn() {
+        var recovered = connectedOwner("recovered", okJson("[]"));
+        var revoked = connectedOwner("revoked", status(401));
+        var nukiDown = connectedOwner("down", status(503));
+        var connected = connectedOwner("connected", okJson("[]"));
+        migrator.sql("UPDATE nuki_connection SET status = 'DISCONNECTED' WHERE owner_id <> ?").param(connected).update();
+        nuki.resetRequests();
+
+        job.recheckDisconnected();
+
+        assertThat(connectionStatus(recovered)).isEqualTo("OK");
+        assertThat(events.stream(NukiReconnected.class)).containsExactly(new NukiReconnected(recovered));
+        assertThat(connectionStatus(revoked)).isEqualTo("DISCONNECTED");
+        assertThat(connectionStatus(nukiDown)).isEqualTo("DISCONNECTED");
+        nuki.verify(0, getRequestedFor(urlPathEqualTo("/smartlock"))
+                .withHeader("Authorization", equalTo("Bearer token-connected")));
+    }
+
+    @Test
+    void aDisconnectionThatLastsADaysWhileIsFinal() {
+        var owner = connectedOwner("gone", okJson("[]"));
+        migrator.sql("UPDATE nuki_connection SET status = 'DISCONNECTED', last_checked_at = now() - interval '8 days'")
+                .update();
+        nuki.resetRequests();
+
+        job.recheckDisconnected();
+
+        assertThat(connectionStatus(owner)).isEqualTo("DISCONNECTED");
+        nuki.verify(0, getRequestedFor(urlPathEqualTo("/smartlock")));
     }
 
     /** An owner connected with the token "token-{name}", for which Nuki then answers with {@code response}. */

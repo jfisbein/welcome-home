@@ -193,6 +193,32 @@ class NukiTokenRefreshTests {
     }
 
     @Test
+    void disconnectedAuthorizationWhoseTokenExpiredReconnectsByRefreshing() {
+        insertAuthorization("access-1", "refresh-1", "-1 minute");
+        migrator.sql("UPDATE nuki_connection SET status = 'DISCONNECTED', last_checked_at = now()").update();
+        nukiRefreshes("refresh-1", "access-2", "refresh-2");
+
+        job.recheckDisconnected();
+
+        assertThat(connectionStatus()).isEqualTo("OK");
+        assertThat(crypto.decryptAccessToken(aliceId, column("access_token_encrypted"))).isEqualTo("access-2");
+        assertThat(crypto.decryptRefreshToken(aliceId, column("refresh_token_encrypted"))).isEqualTo("refresh-2");
+    }
+
+    @Test
+    void disconnectedAuthorizationThatNukiStillRefusesStaysDisconnected() {
+        insertAuthorization("access-1", "refresh-1", "-1 minute");
+        migrator.sql("UPDATE nuki_connection SET status = 'DISCONNECTED', last_checked_at = now()").update();
+        nuki.stubFor(post("/oauth/token").willReturn(status(400).withHeader("Content-Type", "application/json")
+                .withBody("{\"error\": \"invalid_grant\"}")));
+
+        job.recheckDisconnected();
+
+        assertThat(connectionStatus()).isEqualTo("DISCONNECTED");
+        assertThat(crypto.decryptRefreshToken(aliceId, column("refresh_token_encrypted"))).isEqualTo("refresh-1");
+    }
+
+    @Test
     void pastedApiTokenIsNeverRefreshed() {
         migrator.sql("INSERT INTO nuki_connection (owner_id, access_token_encrypted, status) VALUES (?, ?, 'OK')")
                 .params(aliceId, crypto.encryptAccessToken(aliceId, "api-token")).update();

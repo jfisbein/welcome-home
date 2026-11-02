@@ -457,6 +457,7 @@ class OpenDoorTests {
         nuki.verify(0, getRequestedFor(urlPathEqualTo("/smartlock/17/log")));
 
         nuki.stubFor(post("/smartlock/17/action").willReturn(status(401)));
+        nuki.stubFor(get("/smartlock").willReturn(status(401)));
         assertThat(open(signer.sign(link, 1))).hasStatus(HttpStatus.SERVICE_UNAVAILABLE)
                 .bodyJson().extractingPath("$.result").isEqualTo("unavailable");
         assertThat(migrator.sql("SELECT status FROM nuki_connection").query(String.class).single())
