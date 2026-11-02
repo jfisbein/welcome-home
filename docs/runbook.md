@@ -142,7 +142,7 @@ Each owner's token stays encrypted with the key it was stored with until the own
 
 ```sh
 docker compose exec db psql -U postgres -d welcome_home -c "
-  SELECT ('x' || encode(substring(api_token_encrypted FROM 2 FOR 4), 'hex'))::bit(32)::bigint AS key_id, count(*)
+  SELECT ('x' || encode(substring(access_token_encrypted FROM 2 FOR 4), 'hex'))::bit(32)::bigint AS key_id, count(*)
   FROM nuki_connection GROUP BY 1"
 ```
 
