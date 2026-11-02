@@ -79,8 +79,10 @@ table.links td.validity small {
     margin: 0;
 }
 
+/* Pico pulls a small that follows an input up against it, which here would lay it over the row's inputs. */
 .schedule-day small {
     grid-column: 1 / -1;
+    margin: 0;
 }
 
 .schedule-day small,
