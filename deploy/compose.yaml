@@ -1,5 +1,5 @@
 # Production stack for Dockge: copy this directory to the stack's folder and create ./secrets and ./backups
-# first (see "Production" in the README). No port is published: the Cloudflare tunnel is the only way in.
+# first (see docs/deployment.md). No port is published: the Cloudflare tunnel is the only way in.
 name: welcome-home
 
 services:

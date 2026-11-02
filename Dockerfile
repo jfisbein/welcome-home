@@ -8,7 +8,7 @@ WORKDIR /workspace
 COPY build/libs/welcome-home.jar app.jar
 RUN java -Djarmode=tools -jar app.jar extract --layers --launcher --destination extracted
 
-# Run: a JRE only, as an unprivileged user. Configuration comes from environment variables (see the README).
+# Run: a JRE only, as an unprivileged user. Configuration comes from environment variables (see docs/deployment.md).
 FROM eclipse-temurin:25-jre-noble
 RUN groupadd --system --gid 10001 app \
     && useradd --system --uid 10001 --gid app --no-create-home --shell /usr/sbin/nologin app
