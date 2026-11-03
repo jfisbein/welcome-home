@@ -18,7 +18,7 @@ class CommandLineTests {
     @Test
     void theApplicationStartsWithoutTheWebServer() {
         assertThat(context).isNotInstanceOf(WebApplicationContext.class);
-        assertThat(context.getBeanNamesForType(welcomehome.admin.InvitationService.class)).hasSize(1);
+        assertThat(context.getBeanNamesForType(welcomehome.auth.InvitationService.class)).hasSize(1);
     }
 
     @Test

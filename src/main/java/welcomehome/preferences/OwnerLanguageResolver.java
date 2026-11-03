@@ -1,4 +1,4 @@
-package welcomehome.auth;
+package welcomehome.preferences;
 
 import java.util.Locale;
 
@@ -17,10 +17,10 @@ class OwnerLanguageResolver implements LocaleResolver {
 
     private static final String RESOLVED = OwnerLanguageResolver.class.getName() + ".language";
 
-    private final OwnerAccountDao owners;
+    private final OwnerLanguageDao owners;
     private final AcceptHeaderLocaleResolver browser = new AcceptHeaderLocaleResolver();
 
-    OwnerLanguageResolver(OwnerAccountDao owners) {
+    OwnerLanguageResolver(OwnerLanguageDao owners) {
         this.owners = owners;
         browser.setSupportedLocales(Languages.SUPPORTED);
         browser.setDefaultLocale(Languages.DEFAULT);

@@ -21,7 +21,6 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
 import welcomehome.TestDatabaseConfiguration;
-import welcomehome.admin.InvitationService;
 
 /** Alice registered on her phone; she adds her laptop, names, renames and deletes her passkeys. */
 @IntegrationTest

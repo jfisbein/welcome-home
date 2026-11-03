@@ -7,6 +7,8 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
+import welcomehome.auth.CreatedInvitation;
+import welcomehome.auth.InvitationService;
 
 /**
  * The {@code --bootstrap-admin} command: creates the first admin's invitation, prints its link and exits.

@@ -34,16 +34,6 @@ class OwnerDao {
                 .optional();
     }
 
-    /**
-     * Deletes an owner and everything of theirs: the owner row's foreign keys cascade to their passkeys, Nuki
-     * connection, locks, links, history and recovery links.
-     *
-     * @return whether there was such an owner
-     */
-    boolean delete(String email) {
-        return jdbc.sql("DELETE FROM owner WHERE email = :email").param("email", email).update() == 1;
-    }
-
     /** Only what the admin panel shows: never anything from the owners' locks or links. */
     List<OwnerSummary> findAll() {
         return jdbc.sql("SELECT email, created_at::date AS registered_on FROM owner ORDER BY created_at")

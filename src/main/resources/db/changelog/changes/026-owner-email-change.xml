@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        An owner changes their own email: the app may now update that column of owner too. user_entities, where the
+        passkey store keeps the same email as the owner's name, could already be updated.
+    -->
+    <changeSet id="026-owner-email-change" author="welcome-home">
+        <comment>Owners may change their email.</comment>
+        <sql>
+            GRANT UPDATE (email) ON owner TO app_user;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

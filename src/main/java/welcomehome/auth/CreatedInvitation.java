@@ -1,4 +1,4 @@
-package welcomehome.admin;
+package welcomehome.auth;
 
 import java.net.URI;
 import java.time.Instant;

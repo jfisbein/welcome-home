@@ -9,6 +9,12 @@
             Crea una passkey en este dispositivo para entrar como <strong>ana@example.com</strong>.
         </p>
         <form id="registration">
+            <label>
+                [[#{invitation.passkey-name}]]
+                <input type="text" name="label" required th:maxlength="${maxLabelLength}"
+                       th:placeholder="#{passkeys.add.placeholder}">
+                <small th:text="#{invitation.passkey-name.hint}">Para reconocerla entre tus passkeys.</small>
+            </label>
             <button type="submit" th:text="#{invitation.create}">Crear passkey</button>
         </form>
         <p id="registration-error" role="alert" hidden></p>

@@ -22,6 +22,8 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
 import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
+import welcomehome.auth.CreatedInvitation;
+import welcomehome.auth.InvitationService;
 import welcomehome.db.OwnerTransactions;
 
 @IntegrationTest

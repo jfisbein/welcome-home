@@ -30,7 +30,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
-import welcomehome.admin.InvitationService;
 import welcomehome.auth.OwnerRegistration.PendingRegistration;
 import welcomehome.auth.RegistrationException.Reason;
 
@@ -68,6 +67,7 @@ class InvitationController {
             response.setStatus(HttpStatus.NOT_FOUND.value());
             return "invitation-invalid";
         }
+        model.addAttribute("maxLabelLength", PasskeysController.MAX_LABEL_LENGTH);
         if (invitation.get().recoversOwnerId() == null) {
             return "invitation";
         }
@@ -83,7 +83,7 @@ class InvitationController {
     @PostMapping(path = "/options", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     String creationOptions(@PathVariable String token, @RequestBody OptionsRequest request, HttpSession session) {
-        var pending = registration.start(token, request.email());
+        var pending = registration.start(token, request.email(), request.label());
         session.setAttribute(PENDING_REGISTRATION, pending);
         return webAuthnJson.writeValueAsString(pending.options());
     }
@@ -127,7 +127,7 @@ class InvitationController {
         securityContextRepository.saveContext(context, request, response);
     }
 
-    /** {@code email} is empty for a passkey recovery link. */
-    record OptionsRequest(@Nullable String email) {
+    /** {@code email} is empty for a passkey recovery link, and {@code label} from a page that did not ask for one. */
+    record OptionsRequest(@Nullable String email, @Nullable String label) {
     }
 }

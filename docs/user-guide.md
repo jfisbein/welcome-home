@@ -11,7 +11,7 @@ For owners: people who use welcome-home to let guests through their door. It nee
 
 ## Getting in
 
-**Your invitation.** Someone who runs welcome-home sends you a link. It works once, for 72 hours. Open it on the device you want to sign in with, enter your email and press **Crear passkey**.
+**Your invitation.** Someone who runs welcome-home sends you a link. It works once, for 72 hours. Open it on the device you want to sign in with, enter your email and a name for the passkey, such as "iPhone", and press **Crear passkey**.
 
 A passkey replaces a password: your phone or computer unlocks it with your fingerprint, face or PIN. A password manager such as iCloud Keychain or Google Password Manager can hold it too, and then it works on all your devices.
 
@@ -21,7 +21,7 @@ A passkey replaces a password: your phone or computer unlocks it with your finge
 
 **A new phone or computer.** If your password manager does not bring your passkey to it, sign in on it with your phone, by the QR code your browser offers, and add one in **Configuración → Passkeys**.
 
-**If you lost your passkey**, and have no other, ask whoever runs welcome-home for a new passkey link. It also works once, for 72 hours. You keep your other passkeys. Then delete the lost one in **Configuración → Passkeys**, which also signs out your other devices.
+**If you lost your passkey**, and have no other, ask whoever runs welcome-home for a new passkey link. It also works once, for 72 hours, and asks for a name for the new passkey. You keep your other passkeys. Then delete the lost one in **Configuración → Passkeys**, where the names tell them apart, which also signs out your other devices.
 
 ## Connecting Nuki
 
@@ -87,8 +87,12 @@ The home page and **Cerraduras** warn you in red about a lock with no connection
 
 If the door really must open now, you can always use the Nuki app yourself.
 
+## Your account
+
+**Configuración → Cuenta** shows the email we write to. If you change it, we send a link to the new one to confirm it, and tell the old one: until you open the link, you get no emails. Your passkeys still work, though your phone may keep showing the old email next to them.
+
 ## Leaving
 
-Whoever runs welcome-home can delete your account, with your locks, links and history. Copies in backups go within 30 days.
+Press **Darme de baja** in **Configuración → Cuenta** to delete your account, with your locks, links and history: your links stop opening at once. Whoever runs welcome-home can also do it for you, and the only admin cannot leave until there is another. Copies in backups go within 30 days.
 
 To disconnect Nuki yourself, press **Desconectar Nuki** in **Configuración → Nuki**. Your locks and links stay, but do not open until you connect again. If you pasted an API token, also delete it in Nuki Web.

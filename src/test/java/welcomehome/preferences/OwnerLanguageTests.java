@@ -1,4 +1,4 @@
-package welcomehome.auth;
+package welcomehome.preferences;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -24,7 +24,8 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
 import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
-import welcomehome.admin.InvitationService;
+import welcomehome.auth.InvitationService;
+import welcomehome.auth.PasskeyEmulator;
 
 /**
  * An owner's language: taken from the pages they register from, chosen in Configuración → Preferencias, used on
@@ -110,15 +111,13 @@ class OwnerLanguageTests {
     }
 
     @Test
-    void theAppMayChangeAnOwnersLanguageAndNothingElse() {
+    void theAppMayChangeAnOwnersLanguageButNotWhetherTheyAreAnAdmin() {
         insertOwner("es");
 
         jdbc.sql("UPDATE owner SET language = 'en'").update();
-        for (var column : new String[] {"email = 'mallory@example.com'", "is_admin = false"}) {
-            assertThatThrownBy(() -> jdbc.sql("UPDATE owner SET " + column).update()).as(column)
-                    .isInstanceOf(DataAccessException.class)
-                    .rootCause().hasMessageContaining("permission denied for table owner");
-        }
+        assertThatThrownBy(() -> jdbc.sql("UPDATE owner SET is_admin = false").update())
+                .isInstanceOf(DataAccessException.class)
+                .rootCause().hasMessageContaining("permission denied for table owner");
     }
 
     private void register(String email, String acceptLanguage) {

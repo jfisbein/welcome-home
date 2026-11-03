@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
@@ -21,7 +22,6 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
 import welcomehome.TestDatabaseConfiguration;
-import welcomehome.admin.InvitationService;
 
 @IntegrationTest
 @AutoConfigureMockMvc
@@ -54,7 +54,41 @@ class InvitationRegistrationTests {
     void invitationPageAsksForEmailAndPasskey() {
         assertThat(mvc.get().uri(invitationPath(true)))
                 .hasStatusOk()
-                .bodyText().contains("Crear passkey");
+                .bodyText().contains("name=\"email\"", "Nombre de esta passkey", "name=\"label\" required maxlength=\"60\"",
+                        "Crear passkey");
+    }
+
+    @Test
+    void theNewPasskeyHasTheNameTheOwnerGaveIt() {
+        var invitation = invitationPath(false);
+
+        var options = post(invitation + "/options", "{\"email\": \"bob@example.com\", \"label\": \"  iPhone de Bob \"}");
+        assertThat(post(invitation + "/register", passkeys.create(body(options)))).hasStatusOk();
+
+        assertThat(jdbc.sql("SELECT label FROM user_credentials").query(String.class).list())
+                .isEqualTo(List.of("iPhone de Bob"));
+    }
+
+    /** As from a page loaded before the name was asked for. */
+    @Test
+    void withoutANameThePasskeyIsCalledPasskey() {
+        var invitation = invitationPath(false);
+
+        assertThat(post(invitation + "/register", passkeys.create(creationOptions(invitation, "bob@example.com"))))
+                .hasStatusOk();
+
+        assertThat(jdbc.sql("SELECT label FROM user_credentials").query(String.class).list())
+                .isEqualTo(List.of("Passkey"));
+    }
+
+    @Test
+    void aNameLongerThanThePasskeysPageTakesIsRejected() {
+        assertThat(post(invitationPath(false) + "/options",
+                "{\"email\": \"bob@example.com\", \"label\": \"" + "x".repeat(61) + "\"}"))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$.error").isEqualTo("passkey-name");
+        assertThat(mvc.get().uri(invitationPath(false))).bodyText()
+                .contains("data-error=\"passkey-name\">Escribe un nombre para la passkey, de hasta 60 caracteres.<");
     }
 
     @Test

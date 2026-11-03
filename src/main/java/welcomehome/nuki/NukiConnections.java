@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
-import welcomehome.admin.OwnerDeleting;
+import welcomehome.auth.OwnerDeleting;
 import welcomehome.crypto.CryptoService;
 import welcomehome.crypto.DecryptionFailedException;
 import welcomehome.db.OwnerTransactions;

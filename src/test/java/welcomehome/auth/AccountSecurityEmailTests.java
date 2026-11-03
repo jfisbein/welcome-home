@@ -25,7 +25,6 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
 import welcomehome.TestDatabaseConfiguration;
-import welcomehome.admin.InvitationService;
 import welcomehome.notifications.MailStandInConfiguration;
 import welcomehome.nuki.NukiStandInConfiguration;
 

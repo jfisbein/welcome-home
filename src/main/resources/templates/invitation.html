@@ -11,6 +11,12 @@
                 [[#{invitation.email}]]
                 <input type="email" name="email" autocomplete="email" required>
             </label>
+            <label>
+                [[#{invitation.passkey-name}]]
+                <input type="text" name="label" required th:maxlength="${maxLabelLength}"
+                       th:placeholder="#{passkeys.add.placeholder}">
+                <small th:text="#{invitation.passkey-name.hint}">Para reconocerla entre tus passkeys.</small>
+            </label>
             <button type="submit" th:text="#{invitation.create}">Crear passkey</button>
         </form>
         <p id="registration-error" role="alert" hidden></p>
@@ -21,6 +27,7 @@
             <span data-error="email-taken" th:text="#{invitation.error.email-taken}">Ya hay una cuenta.</span>
             <span data-error="expired" th:text="#{invitation.error.expired}">El registro ha caducado.</span>
             <span data-error="passkey" th:text="#{invitation.error.passkey}">No se ha podido crear la passkey.</span>
+            <span data-error="passkey-name" th:text="#{invitation.error.passkey-name}">Revisa el nombre.</span>
         </div>
     </article>
 </main>

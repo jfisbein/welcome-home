@@ -9,7 +9,6 @@ import jakarta.servlet.http.HttpSession;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
-import welcomehome.admin.OwnerDeleting;
 
 /**
  * The signed-in sessions of each owner, so that they can be ended when a passkey or the owner is gone: a lost phone
