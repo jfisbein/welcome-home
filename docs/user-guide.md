@@ -49,9 +49,9 @@ In the lock's **Enlaces**:
 
 | You want to | Press | What happens |
 |---|---|---|
-| Change the dates, hours or name | **Editar** | The address stays the same, so there is nothing to resend |
+| Change the dates, hours or who it is for | **Editar** | The link stays the same, so there is nothing to resend |
 | Stop it for good | **Anular** | It stops opening at once, and this cannot be undone |
-| Replace an address that reached the wrong person | **Cambiar enlace** | The old address stops working at once, and you send the new one. The dates stay the same |
+| Replace a link that reached the wrong person | **Cambiar enlace** | The old link stops working at once, and you send the new one. The dates stay the same |
 
 A link is deleted a year after it ended, with its history.
 
@@ -77,7 +77,7 @@ The home page and **Cerraduras** warn you in red about a lock with no connection
 |---|---|---|
 | "Este enlace todavía no es válido" | Its start has not come | Wait, or change **Desde** with **Editar** |
 | "A esta hora este enlace no abre la puerta" | Outside its hours | Wait, or change the hours with **Editar** |
-| "Este enlace ha caducado" | Its end has passed | **Editar** can extend it, with the same address |
+| "Este enlace ha caducado" | Its end has passed | **Editar** can extend it, and the link stays the same |
 | "Este enlace se ha anulado" | You cancelled it | Create a new link |
 | "Enlace no válido" | Mistyped, replaced by **Cambiar enlace**, or deleted a year after it ended | Send the current link, or create one |
 | "Esta puerta no está disponible" | The lock left your Nuki account, or Nuki is disconnected | Look at your home page, which says which: **Volver a conectar Nuki** if it offers that |
