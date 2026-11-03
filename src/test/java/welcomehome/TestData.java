@@ -92,6 +92,11 @@ public final class TestData {
         return opener;
     }
 
+    /** What the owner tells the lock's guests on its links' page. */
+    public void guestInstructions(UUID lock, String instructions) {
+        db.sql("UPDATE lock SET guest_instructions = ? WHERE id = ?").params(instructions, lock).update();
+    }
+
     /** A link valid from an hour ago to a day from now. */
     public UUID link(UUID lock, String label) {
         return link(lock, label, AN_HOUR_AGO, IN_A_DAY);

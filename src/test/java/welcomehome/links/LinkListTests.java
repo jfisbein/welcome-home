@@ -81,9 +81,9 @@ class LinkListTests {
                 .as("an expired link can be edited, to extend it, but not copied")
                 .doesNotContain("/o/" + expired)
                 .contains("/links/" + expired + "\"")
-                .as("a revoked link is offered for nothing but its history")
-                .doesNotContain("/links/" + revoked, signer.sign(revoked, 1))
-                .contains("/history?link=" + revoked + "\"");
+                .as("a revoked link is offered for nothing but its history and deleting")
+                .doesNotContain("href=\"/links/" + revoked, "/links/" + revoked + "/", signer.sign(revoked, 1))
+                .contains("/history?link=" + revoked + "\"", "action=\"/links/" + revoked + "\"");
     }
 
     @Test
@@ -111,6 +111,47 @@ class LinkListTests {
         insertLink(lockId, "Ana", "now()", "now() + interval '1 day'", false);
 
         assertThat(page()).containsSubsequence("<form id=\"new\"", "Crear enlace", "<table class=\"links\"", "Ana");
+    }
+
+    @Test
+    void linksThatEndedAreFoldedAwayBelowTheOthersWithTheirCount() {
+        insertLink(lockId, "Bea Ruiz", "now() - interval '1 day'", "now() + interval '1 day'", false);
+        insertLink(lockId, "Carlos Gil", "now() - interval '2 days'", "now() - interval '1 day'", false);
+        insertLink(lockId, "Dani Sanz", "now() - interval '1 day'", "now() + interval '1 day'", true);
+
+        assertThat(page()).containsSubsequence("Bea Ruiz", "<details>",
+                "<summary>Caducados y anulados (2)</summary>", "Dani Sanz", "Carlos Gil", "</details>");
+    }
+
+    @Test
+    void withoutLinksThatEndedNothingIsFolded() {
+        insertLink(lockId, "Bea Ruiz", "now() - interval '1 day'", "now() + interval '1 day'", false);
+
+        assertThat(page()).doesNotContain("Caducados y anulados");
+    }
+
+    @Test
+    void withOnlyLinksThatEndedThePageSaysNoneCanOpen() {
+        insertLink(lockId, "Carlos Gil", "now() - interval '2 days'", "now() - interval '1 day'", false);
+
+        assertThat(page()).contains("Ningún enlace de esta cerradura está pendiente ni activo.",
+                        "<summary>Caducados y anulados (1)</summary>")
+                .doesNotContain("Esta cerradura todavía no tiene enlaces");
+    }
+
+    @Test
+    void onlyLinksThatEndedOfferToBeDeletedAfterAskingWhatItDoes() {
+        var active = insertLink(lockId, "Bea", "now() - interval '1 day'", "now() + interval '1 day'", false);
+        var expired = insertLink(lockId, "Carlos", "now() - interval '2 days'", "now() - interval '1 day'", false);
+        var revoked = insertLink(lockId, "Dani", "now() - interval '1 day'", "now() + interval '1 day'", true);
+
+        assertThat(page())
+                .containsPattern("action=\"/links/" + expired + "\"\\s+method=\"post\" data-confirm=\"Se borrarán el enlace "
+                        + "de Carlos y sus intentos del historial. ¿Borrarlo\\?\">.*<input type=\"hidden\" name=\"_method\" "
+                        + "value=\"delete\"")
+                .containsPattern("action=\"/links/" + revoked + "\"\\s+method=\"post\" data-confirm=\"Se borrarán el enlace "
+                        + "de Dani")
+                .doesNotContain("action=\"/links/" + active + "\"");
     }
 
     @Test

@@ -94,7 +94,7 @@ Calls time out and are retried with exponential backoff: on rate limiting (429, 
 
 The home page and `/locks` also say what is wrong with each lock: no connection with Nuki, a critical battery, a blocked motor, or Auto Lock off (unless the owner relocks some other way; never for an Opener). One request to Nuki reads all of an owner's locks, and those pages wait for it for 2 seconds at most: past that, or if Nuki fails, they say that it could not be checked. Without a working connection they ask Nuki nothing.
 
-Each lock's settings page (`GET /locks/{id}`, saved with `PATCH /locks/{id}`) changes its name, which guests see, and its time zone, one of the IANA region zones or UTC. Link dates are entered and shown in the lock's time zone but stored in UTC, so changing the time zone changes how existing links are shown, not when they are valid.
+Each lock's settings page (`GET /locks/{id}`, saved with `PATCH /locks/{id}`) changes its name, which guests see, its instructions for guests, and its time zone, one of the IANA region zones or UTC. The instructions (`lock.guest_instructions`, up to 1000 characters, blank for none) are what the owner wants every guest of the lock to know, such as the address, the floor or where a key is. Link dates are entered and shown in the lock's time zone but stored in UTC, so changing the time zone changes how existing links are shown, not when they are valid.
 
 The same page shows the lock's live state from Nuki: position, connectivity, battery and Auto Lock. Without Auto Lock the door stays unlocked after a guest opens it, so the page warns about it, unless the owner ticks that the door is relocked some other way (for example, with home automation). If Nuki cannot be reached, the page still shows the settings.
 
@@ -114,13 +114,15 @@ A link may be limited to certain days and hours: the form's "Limitar a ciertos d
 - The schedule applies to the link's building entrance too, and is kept when the link is regenerated.
 - A link's state still says only its dates; the list shows its schedule below them, a line per run of days with the same hours.
 
-The same page lists the lock's links with their state, computed and never stored (`LinkStatus`): revoked if revoked, otherwise pending before the start, active from the start (inclusive) to the end (exclusive), and expired after. Pending and active links can be copied, or shared through the device's share sheet where the browser supports it. Narrower than 1024 px, where a link's buttons no longer fit beside its dates, each link shows as a card instead of a table row: its label and state, its dates, then its buttons.
+The same page lists the lock's links with their state, computed and never stored (`LinkStatus`): revoked if revoked, otherwise pending before the start, active from the start (inclusive) to the end (exclusive), and expired after. Pending and active links come first and can be copied, or shared through the device's share sheet where the browser supports it. Expired and revoked ones are folded below them ("Caducados y anulados", with their count), so the list stays short while they wait for the purge; the fold opens after deleting one, so the owner can go on. Narrower than 1024 px, where a link's buttons no longer fit beside its dates, each link shows as a card instead of a table row: its label and state, its dates, then its buttons.
 
 "Anular" (`POST /links/{id}/revoke`) revokes a link at once and for good: from then on it opens nothing, whatever its dates. Revoking again keeps the first revocation time.
 
 "Cambiar enlace" (`POST /links/{id}/regenerate`), for a URL that leaked, asks first, and so does "Anular": the browser shows what will happen before the form is sent (`data-confirm`, `confirm.js`). It increments the link's `token_version`: every earlier URL stops working and the page shows the new one. Dates, label and state stay the same; revoked links are not regenerated.
 
 "Editar" (`GET /links/{id}`, saved with `PATCH /links/{id}`) changes a link's label, dates and schedule, with the same checks as creating one; an expired link can be extended this way. Its URL stays the same. Revoked links cannot be edited.
+
+"Borrar" (`DELETE /links/{id}`, after confirming) deletes an expired or revoked link now, rather than when the purge would, with its schedule and its attempts in the history: its label may hold a guest's name. A link that can still open answers 409, so that deleting never stops a guest: it is revoked first. An email that linked to its history then gets 404, as after the purge.
 
 ## Guest page
 
@@ -154,6 +156,7 @@ flowchart TD
 - **A bad link.** A malformed token, an unknown link and a wrong or outdated MAC all get the same "Enlace no válido" page (404), so that guests cannot tell which links exist.
 - **What it shows.** The lock's name and, unless the link is expired or revoked, its validity in the lock's time zone, which it names in the guest's language ("hora de Europa central", not `Europe/Madrid`), never the owner's label. A slider appears only while the link is active and its door is available: the lock is active and the owner's Nuki connection is OK.
 - **When it cannot open.** The page and `POST /api/open` share that check, which reads only the database, and show the same messages: not yet valid (with when it can first open), expired, revoked, or door unavailable.
+- **Instructions.** The lock's instructions for guests, if any, as plain text with their line breaks, above the sliders. Only a link that can still open shows them, as they may say where the door or a key is.
 - **A schedule.** A link with one shows it, and outside it offers no slider and says when it opens next, or that it will not open again before it expires. A page left open past its hours gets `outside-schedule` from `POST /api/open`.
 
 ### The slider
@@ -222,7 +225,7 @@ The guest's country, for the history, comes from `CF-IPCountry` (`welcomehome.ac
 - **Pages.** They hold 50 attempts; "Anteriores" adds `before=` and `beforeId=` with the date and id of the last one shown, so a page never shifts as new attempts come in, and attempts at the same instant are neither lost nor repeated across pages.
 - **Whose.** Row-Level Security keeps each owner to their own history, and a lock or link of someone else's is a 404.
 
-A link's label usually holds a guest's name, so a link is kept for `welcomehome.links.retention` (`P365D`) after it expired or was cancelled, once no attempt with it is younger than that either: a job deletes it, with its schedule and attempts, every night at 03:32. Its URL then answers as any unknown link does.
+A link's label usually holds a guest's name, so a link is kept for `welcomehome.links.retention` (`P365D`) after it expired or was cancelled, once no attempt with it is younger than that either: a job deletes it, with its schedule and attempts, every night at 03:32. Its owner may delete it sooner with "Borrar". Its URL then answers as any unknown link does.
 
 Attempts hold IP addresses, which are personal data, so they are kept for `welcomehome.audit.retention` (`P365D`) only. A job deletes older ones every night (`welcomehome.audit.purge-cron`, `0 30 3 * * *`, in the server's time zone), each owner in their own transaction under Row-Level Security.
 

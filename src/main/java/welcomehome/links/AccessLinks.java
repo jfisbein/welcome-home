@@ -11,6 +11,7 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import welcomehome.db.OwnerTransactions;
+import welcomehome.links.LinkDao.DeletedLink;
 import welcomehome.links.LinkDao.EditableLink;
 import welcomehome.links.LinkDao.RevokedLink;
 import welcomehome.locks.OwnerLock;
@@ -60,6 +61,21 @@ class AccessLinks {
      */
     Optional<RevokedLink> revoke(UUID ownerId, UUID linkId) {
         return ownerTransactions.execute(ownerId, () -> links.revoke(ownerId, linkId));
+    }
+
+    /**
+     * Deletes a link that no longer opens the door, as it expired or was revoked, with its schedule and its attempts in
+     * the history, ahead of the daily purge. One that can still open is revoked first, so deleting never stops a guest.
+     *
+     * @return the deleted link's lock and label, or empty if the owner has no such link or it can still open
+     */
+    Optional<DeletedLink> deleteEnded(UUID ownerId, UUID linkId) {
+        return ownerTransactions.execute(ownerId, () -> links.deleteEnded(ownerId, linkId));
+    }
+
+    /** @return whether the owner has that link, whatever its state */
+    boolean exists(UUID ownerId, UUID linkId) {
+        return ownerTransactions.execute(ownerId, () -> links.exists(ownerId, linkId));
     }
 
     /** @return the link, or empty if the owner has no such link or it is revoked */

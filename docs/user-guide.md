@@ -53,17 +53,17 @@ In the lock's **Enlaces**:
 | Stop it for good | **Anular** | It stops opening at once, and this cannot be undone |
 | Replace a link that reached the wrong person | **Cambiar enlace** | The old link stops working at once, and you send the new one. The dates stay the same |
 
-A link is deleted a year after it ended, with its history.
+A link that expired or was cancelled moves under **Caducados y anulados**, folded below the others. It is deleted a year after it ended, with its history; **Borrar** deletes it now.
 
 ## What your guest sees
 
-The guest needs no app or account. They open the link and slide **Desliza para abrir** to the end, standing at the door, then push it when they hear the lock. If your lock has a building entrance set up, they see two sliders: the entrance first, then the door.
+The guest needs no app or account. They open the link and slide **Desliza para abrir** to the end, standing at the door, then push it when they hear the lock. If your lock has a building entrance set up, they see two sliders: the entrance first, then the door. Above them they read the lock's instructions, if you wrote any, from the moment you send the link until it ends.
 
 A touch by mistake does nothing: the slider must go all the way across.
 
 ## Checking your locks
 
-The home page and **Cerraduras** warn you in red about a lock with no connection, a critical battery, a blocked motor or Auto Lock off. For more, press **Estado y ajustes** on the lock, where you can also change its name, which guests see, and its time zone.
+The home page and **Cerraduras** warn you in red about a lock with no connection, a critical battery, a blocked motor or Auto Lock off. For more, press **Estado y ajustes** on the lock, where you can also change its name and its time zone, and write **Instrucciones para tus invitados**: the address, the floor or where the key is, which every guest of that lock reads on their link's page.
 
 **Auto Lock off** means that the door stays unlocked after a guest opens it. Turn it on in the Nuki app. If you relock some other way, tick **El bloqueo lo gestiono de otra forma**, and the warning goes.
 

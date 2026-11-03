@@ -51,7 +51,7 @@ class LockDao {
     List<OwnerLock> findAll(UUID ownerId) {
         return jdbc.sql("""
                         SELECT id, nuki_smartlock_id, name, time_zone, active, relocking_handled_elsewhere, device_type,
-                               entrance_lock_id
+                               entrance_lock_id, guest_instructions
                         FROM lock
                         WHERE owner_id = :ownerId
                         ORDER BY active DESC, name
@@ -64,7 +64,7 @@ class LockDao {
     Optional<OwnerLock> find(UUID ownerId, UUID lockId) {
         return jdbc.sql("""
                         SELECT id, nuki_smartlock_id, name, time_zone, active, relocking_handled_elsewhere, device_type,
-                               entrance_lock_id
+                               entrance_lock_id, guest_instructions
                         FROM lock
                         WHERE owner_id = :ownerId AND id = :lockId
                         """)
@@ -76,17 +76,19 @@ class LockDao {
 
     /** @return whether the owner has that lock */
     boolean updateSettings(UUID ownerId, UUID lockId, String name, String timeZone, boolean relockingHandledElsewhere,
-                           @Nullable UUID entranceLockId) {
+                           @Nullable UUID entranceLockId, @Nullable String guestInstructions) {
         return jdbc.sql("""
                         UPDATE lock SET name = :name, time_zone = :timeZone,
                                         relocking_handled_elsewhere = :relockingHandledElsewhere,
-                                        entrance_lock_id = :entranceLockId
+                                        entrance_lock_id = :entranceLockId,
+                                        guest_instructions = :guestInstructions
                         WHERE owner_id = :ownerId AND id = :lockId
                         """)
                 .param("name", name)
                 .param("timeZone", timeZone)
                 .param("relockingHandledElsewhere", relockingHandledElsewhere)
                 .param("entranceLockId", entranceLockId)
+                .param("guestInstructions", guestInstructions)
                 .param("ownerId", ownerId)
                 .param("lockId", lockId)
                 .update() == 1;

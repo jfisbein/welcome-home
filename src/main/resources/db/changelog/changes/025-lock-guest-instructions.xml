@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        What the owner tells the guests of a lock, such as the address, the floor or where a key is: its links'
+        page shows it while they can still open. Null for nothing.
+    -->
+    <changeSet id="025-lock-guest-instructions" author="welcome-home">
+        <comment>Instructions for a lock's guests, shown on its links' page.</comment>
+        <addColumn tableName="lock">
+            <column name="guest_instructions" type="text"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

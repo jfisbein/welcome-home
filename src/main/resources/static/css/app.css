@@ -233,6 +233,12 @@ nav.sections li a[aria-current="page"] {
     color: var(--pico-primary);
 }
 
+/* A lock's instructions for its guests keep the owner's line breaks, and wrap long words such as an address. */
+.guest-instructions {
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+
 /* The guest's slide to open: the page's only action, done standing at the door, often with one hand. A native
    range drawn as a wide track with the text inside and a round thumb with an arrow. */
 .slide-to-open {
