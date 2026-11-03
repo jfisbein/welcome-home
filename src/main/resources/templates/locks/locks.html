@@ -23,7 +23,7 @@
         <p th:if="${syncError == 'not-connected'}" th:utext="#{locks.sync-error.not-connected(@{/settings/nuki})}">
             Para actualizar, primero conecta tu cuenta de Nuki.</p>
         <p th:if="${syncError == 'rejected'}" th:utext="#{locks.sync-error.rejected(@{/settings/nuki})}">
-            Nuki no ha aceptado tu API token.</p>
+            Nuki ha rechazado la conexión.</p>
         <p th:if="${syncError == 'unavailable'}" th:text="#{locks.sync-error.unavailable}">Nuki no responde.</p>
     </article>
 
