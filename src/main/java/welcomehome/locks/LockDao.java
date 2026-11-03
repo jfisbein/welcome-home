@@ -30,6 +30,24 @@ class LockDao {
                 .list();
     }
 
+    /** @return the problems the lock was last emailed about, comma-separated, or {@code null} for none */
+    @Nullable String findNotifiedProblems(UUID ownerId, UUID lockId) {
+        return jdbc.sql("SELECT notified_problems FROM lock WHERE owner_id = :ownerId AND id = :lockId")
+                .param("ownerId", ownerId)
+                .param("lockId", lockId)
+                .query((rs, row) -> rs.getString("notified_problems"))
+                .optional()
+                .orElse(null);
+    }
+
+    void saveNotifiedProblems(UUID ownerId, UUID lockId, @Nullable String problems) {
+        jdbc.sql("UPDATE lock SET notified_problems = :problems WHERE owner_id = :ownerId AND id = :lockId")
+                .param("problems", problems)
+                .param("ownerId", ownerId)
+                .param("lockId", lockId)
+                .update();
+    }
+
     List<OwnerLock> findAll(UUID ownerId) {
         return jdbc.sql("""
                         SELECT id, nuki_smartlock_id, name, time_zone, active, relocking_handled_elsewhere, device_type,

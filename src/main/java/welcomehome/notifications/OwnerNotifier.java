@@ -4,6 +4,7 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -24,6 +25,7 @@ import welcomehome.auth.EmailVerificationRequested;
 import welcomehome.auth.PasskeyAdded;
 import welcomehome.config.WelcomeHomeProperties;
 import welcomehome.db.OwnerTransactions;
+import welcomehome.locks.LockProblemsFound;
 import welcomehome.notifications.RecipientDao.AttemptDetails;
 import welcomehome.notifications.RecipientDao.Recipient;
 import welcomehome.nuki.NukiDisconnected;
@@ -91,6 +93,22 @@ class OwnerNotifier {
         recipients.find(disconnected.ownerId()).ifPresent(to -> send(to.email(),
                 message(to, "notification.disconnected.subject"),
                 message(to, "notification.disconnected.body", app.link("/settings/nuki")) + footer(to)));
+    }
+
+    @Async
+    @TransactionalEventListener
+    void on(LockProblemsFound found) {
+        if (!mailer.isConfigured() || !wants(found.ownerId(), NotificationKind.LOCK_PROBLEMS)) {
+            return;
+        }
+        recipients.find(found.ownerId()).ifPresent(to -> {
+            var problems = found.problems().stream()
+                    .map(problem -> "- " + message(to, "notification.lock-problem." + problem.name()))
+                    .collect(Collectors.joining("\n"));
+            send(to.email(), message(to, "notification.lock-problems.subject", found.lockName()),
+                    message(to, "notification.lock-problems.body", found.lockName(), problems,
+                            app.link("/locks/" + found.lockId())) + footer(to));
+        });
     }
 
     @Async

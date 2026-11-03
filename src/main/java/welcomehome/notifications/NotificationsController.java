@@ -53,8 +53,9 @@ class NotificationsController {
     @PutMapping
     String save(CurrentOwner owner, @RequestParam(defaultValue = "false") boolean opened,
                 @RequestParam(defaultValue = "false") boolean failed, @RequestParam(defaultValue = "false") boolean denied,
-                @RequestParam(defaultValue = "false") boolean disconnected, RedirectAttributes redirect) {
-        var chosen = new NotificationPreferences(opened, failed, denied, disconnected);
+                @RequestParam(defaultValue = "false") boolean disconnected,
+                @RequestParam(defaultValue = "false") boolean lockProblems, RedirectAttributes redirect) {
+        var chosen = new NotificationPreferences(opened, failed, denied, disconnected, lockProblems);
         ownerTransactions.run(owner.id(), () -> preferences.save(owner.id(), chosen));
         redirect.addFlashAttribute("saved", true);
         return "redirect:/settings/notifications";

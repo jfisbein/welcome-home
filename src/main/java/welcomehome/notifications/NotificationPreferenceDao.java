@@ -18,7 +18,7 @@ class NotificationPreferenceDao {
 
     NotificationPreferences find(UUID ownerId) {
         return jdbc.sql("""
-                        SELECT opened, failed, denied, disconnected FROM notification_preference
+                        SELECT opened, failed, denied, disconnected, lock_problems FROM notification_preference
                         WHERE owner_id = :ownerId
                         """)
                 .param("ownerId", ownerId)
@@ -29,16 +29,19 @@ class NotificationPreferenceDao {
 
     void save(UUID ownerId, NotificationPreferences preferences) {
         jdbc.sql("""
-                        INSERT INTO notification_preference (owner_id, opened, failed, denied, disconnected)
-                        VALUES (:ownerId, :opened, :failed, :denied, :disconnected)
+                        INSERT INTO notification_preference (owner_id, opened, failed, denied, disconnected,
+                                                             lock_problems)
+                        VALUES (:ownerId, :opened, :failed, :denied, :disconnected, :lockProblems)
                         ON CONFLICT (owner_id) DO UPDATE SET opened = excluded.opened, failed = excluded.failed,
-                            denied = excluded.denied, disconnected = excluded.disconnected
+                            denied = excluded.denied, disconnected = excluded.disconnected,
+                            lock_problems = excluded.lock_problems
                         """)
                 .param("ownerId", ownerId)
                 .param("opened", preferences.opened())
                 .param("failed", preferences.failed())
                 .param("denied", preferences.denied())
                 .param("disconnected", preferences.disconnected())
+                .param("lockProblems", preferences.lockProblems())
                 .update();
     }
 }

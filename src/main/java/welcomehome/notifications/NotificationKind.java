@@ -15,7 +15,9 @@ enum NotificationKind {
     /** A guest's link was refused: not valid yet, expired, revoked, outside its schedule, or too many attempts. */
     DENIED,
     /** Nuki rejected the owner's connection, or accepts it again. */
-    DISCONNECTED;
+    DISCONNECTED,
+    /** A lock's battery is critical, Nuki cannot reach it, or its motor is blocked. */
+    LOCK_PROBLEMS;
 
     /**
      * The kind of an attempt. An unavailable door is a failure, not a denial: the link was fine, and the owner is

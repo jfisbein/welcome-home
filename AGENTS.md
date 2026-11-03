@@ -25,7 +25,7 @@ Functional:
 - A guest's GET never acts on the lock: only a POST after sliding to open unlatches (link previews in WhatsApp, Telegram or Slack make GETs). The guest learns whether the door opened, failed, or was refused in night mode.
 - Every attempt with a valid link is recorded with IP address and browser; attempts are purged after a retention (365 days).
 - Owners who lose their passkey get a recovery link (admin panel or `--recover-owner`); they keep their other passkeys.
-- Owners get emails about their locks (opened, failed, denied, Nuki disconnected) and choose which ones, once they have verified their address with the link sent when they register.
+- Owners get emails about their locks (opened, failed, denied, Nuki disconnected, a lock's problems) and choose which ones, once they have verified their address with the link sent when they register.
 - Spanish, English, French, German and Italian: a guest's pages in their browser's language, an owner's pages and emails in the language they chose.
 
 Non-functional:
@@ -72,7 +72,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 | `access` | The guest flow: guest page, `POST /api/open` (`OpenDoor`), rate limits, client IP, per-lock mutex (`LockMutex`), unlatch confirmation |
 | `audit`  | Access events, history pages, the home page's latest attempts (`RecentAttempts`), both drawn from `AttemptRow`s (`AttemptRows`: time in the lock's zone, outcome and country in the reader's language), purge job; publishes `AccessAttempted` |
 | `welcomehome` (root package, not a module) | What spans modules: the home page (`HomeController`), `/settings` and the former addresses of its sections (`SettingsController`), the error pages (`ErrorPages`) |
-| `notifications` | Emails to owners (opened, failed, denied, Nuki disconnected) by their preferences, and always about their account (recovery link created, passkey added), sent after commit (`OwnerNotifier`) |
+| `notifications` | Emails to owners (opened, failed, denied, Nuki disconnected, a lock's problems) by their preferences, and always about their account (recovery link created, passkey added), sent after commit (`OwnerNotifier`) |
 
 **Guest flow** (`access.OpenDoor`): the order of its checks, and how an opening is confirmed, are in [docs/features.md](docs/features.md#guest-page), with a diagram. What must not change: a GET never acts on the lock, the MAC is checked before anything is read in the owner's context, and one action runs per lock at a time.
 
@@ -98,7 +98,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 
 **Roles in Postgres**: `migrator` owns the schema and runs Liquibase; the app connects as `app_user`, with no ownership and no `BYPASSRLS`; the `backup` service and the off-site backup tool read as `backup_reader`, with `BYPASSRLS` and `pg_read_all_data` and no other grant. No `FORCE ROW LEVEL SECURITY`, so that `resolve_link` (owned by `migrator`) sees the link. Roles come from `deploy/db-init/01-create-roles.sh`, used by development, tests and production alike.
 
-**Jobs** (`@Scheduled`, server time zone): Nuki connection check (08:00), trying disconnected connections again (hourly), locks' sync (08:15), access event purge (03:30), purge of links that ended over a year ago (03:32), purge of invitations expired more than 30 days ago (03:35); in production a separate `backup` container dumps the database at 04:00.
+**Jobs** (`@Scheduled`, server time zone): Nuki connection check (08:00), trying disconnected connections again (hourly), locks' sync and the check of their problems (08:15), access event purge (03:30), purge of links that ended over a year ago (03:32), purge of invitations expired more than 30 days ago (03:35); in production a separate `backup` container dumps the database at 04:00.
 
 **Commands**: `--bootstrap-admin` and `--recover-owner=<email>` start the app without the web server (`WelcomeHomeApplication.runsACommand`), print a link and exit. Anything web-only must stay optional without a web server (see `CommandLineTests`).
 

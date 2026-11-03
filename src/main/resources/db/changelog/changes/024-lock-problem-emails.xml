@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Emails about a lock's problems: whether the owner wants them, with the others, and which problems each lock
+        was last emailed about, so that one goes out when a problem starts rather than every day it lasts.
+    -->
+    <changeSet id="024-lock-problem-emails" author="welcome-home">
+        <comment>Emails when a lock has a critical battery, no connection or a blocked motor.</comment>
+        <addColumn tableName="notification_preference">
+            <column name="lock_problems" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+        <addColumn tableName="lock">
+            <column name="notified_problems" type="text"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

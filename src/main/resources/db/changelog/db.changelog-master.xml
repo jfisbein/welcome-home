@@ -32,5 +32,6 @@
     <include file="changes/021-access-link-schedule.xml" relativeToChangelogFile="true"/>
     <include file="changes/022-passkeys-owner.xml" relativeToChangelogFile="true"/>
     <include file="changes/023-link-purge-grant.xml" relativeToChangelogFile="true"/>
+    <include file="changes/024-lock-problem-emails.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>
