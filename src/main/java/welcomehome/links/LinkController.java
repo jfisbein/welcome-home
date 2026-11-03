@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,7 +24,7 @@ import welcomehome.links.LinkDao.EditableLink;
 
 /**
  * One link: its edit page and the actions on it. Each action returns to its lock's links page; another
- * owner's link, or a revoked one for editing and regenerating, is not found.
+ * owner's link, or a revoked one for editing and regenerating, is not found. Only a link that ended can be deleted.
  */
 @Controller
 @RequestMapping("/links/{linkId}")
@@ -75,6 +76,18 @@ class LinkController {
         var revoked = accessLinks.revoke(owner.id(), linkId).orElseThrow(LinkController::notFound);
         redirect.addFlashAttribute("revokedLabel", revoked.label());
         return "redirect:/locks/" + revoked.lockId() + "/links";
+    }
+
+    @DeleteMapping
+    String delete(CurrentOwner owner, @PathVariable UUID linkId, RedirectAttributes redirect) {
+        var deleted = accessLinks.deleteEnded(owner.id(), linkId);
+        if (deleted.isEmpty()) {
+            throw accessLinks.exists(owner.id(), linkId)
+                    ? new ResponseStatusException(HttpStatus.CONFLICT, "Only a link that ended can be deleted")
+                    : notFound();
+        }
+        redirect.addFlashAttribute("deletedLabel", deleted.get().label());
+        return "redirect:/locks/" + deleted.get().lockId() + "/links";
     }
 
     @PostMapping("/regenerate")

@@ -53,7 +53,7 @@ In the lock's **Enlaces**:
 | Stop it for good | **Anular** | It stops opening at once, and this cannot be undone |
 | Replace an address that reached the wrong person | **Cambiar enlace** | The old address stops working at once, and you send the new one. The dates stay the same |
 
-A link is deleted a year after it ended, with its history.
+A link that expired or was cancelled moves under **Caducados y anulados**, folded below the others. It is deleted a year after it ended, with its history; **Borrar** deletes it now.
 
 ## What your guest sees
 

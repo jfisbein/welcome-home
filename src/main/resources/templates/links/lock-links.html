@@ -48,6 +48,10 @@
         <p th:text="#{links.revoked(${revokedLabel})}">Enlace de Ana anulado: ya no abre la puerta.</p>
     </article>
 
+    <article th:if="${deletedLabel}">
+        <p th:text="#{links.deleted(${deletedLabel})}">Enlace de Ana borrado, con sus intentos.</p>
+    </article>
+
     <p th:unless="${lock.active}" role="alert" th:text="#{links.inactive-lock}">
         Esta cerradura ya no está en tu cuenta de Nuki: no se pueden crear enlaces para ella.
     </p>
@@ -61,62 +65,21 @@
 
     <section>
         <h2 th:text="#{links.heading}">Enlaces</h2>
-        <p th:if="${links.isEmpty()}" th:text="#{links.empty}">Esta cerradura todavía no tiene enlaces.</p>
-        <div class="overflow-auto" th:unless="${links.isEmpty()}">
-            <table class="links">
-                <thead>
-                <tr>
-                    <th scope="col" th:text="#{links.column.for}">Para</th>
-                    <th scope="col" th:text="#{links.column.validity}">Validez</th>
-                    <th scope="col" th:text="#{links.column.state}">Estado</th>
-                    <th scope="col"></th>
-                </tr>
-                </thead>
-                <tbody>
-                <tr th:each="link : ${links}">
-                    <td class="label" th:text="${link.label}">Ana</td>
-                    <td class="validity">
-                        <span th:text="#{links.period(${#temporals.format(link.validFrom, #messages.msg('format.datetime'))}, ${#temporals.format(link.validUntil, #messages.msg('format.datetime'))})}">
-                            1/11/2030 15:00 – 3/11/2030 11:00</span>
-                        <small th:each="line : ${link.schedule}" th:text="${line}">Lunes a viernes: 09:00–17:00</small>
-                    </td>
-                    <td class="state" th:switch="${link.status.name()}">
-                        <span th:case="'PENDING'" th:text="#{links.status.pending}">Pendiente</span>
-                        <span th:case="'ACTIVE'"><strong th:text="#{links.status.active}">Activo</strong></span>
-                        <span th:case="'EXPIRED'" th:text="#{links.status.expired}">Caducado</span>
-                        <span th:case="'REVOKED'" th:text="#{links.status.revoked}">Anulado</span>
-                    </td>
-                    <td class="buttons">
-                        <div class="actions">
-                            <a th:if="${link.status.name() != 'REVOKED'}" th:href="@{/links/{id}(id=${link.id})}"
-                               role="button" class="outline secondary" th:text="#{common.edit}">Editar</a>
-                            <a th:href="@{/locks/{lockId}/history(lockId=${lock.id},link=${link.id})}"
-                               role="button" class="outline secondary" th:text="#{common.history}">Historial</a>
-                            <th:block th:if="${link.status.usable}">
-                                <button type="button" class="outline" th:data-copy-text="${link.url}"
-                                        th:data-copied="#{common.copied}" th:text="#{common.copy}">Copiar</button>
-                                <button type="button" class="outline secondary" hidden th:data-share-url="${link.url}"
-                                        th:data-share-title="#{links.share-title(${lock.name})}"
-                                        th:text="#{common.share}">Compartir</button>
-                                <form th:action="@{/links/{id}/regenerate(id=${link.id})}" method="post"
-                                      th:data-confirm="#{links.regenerate.confirm(${link.label})}">
-                                    <button type="submit" class="outline secondary" th:title="#{links.regenerate.title}"
-                                            th:text="#{links.regenerate}">Cambiar enlace</button>
-                                </form>
-                                <form th:action="@{/links/{id}/revoke(id=${link.id})}" method="post"
-                                      th:data-confirm="#{links.revoke.confirm(${link.label})}">
-                                    <button type="submit" class="outline contrast"
-                                            th:text="#{links.revoke}">Anular</button>
-                                </form>
-                            </th:block>
-                        </div>
-                    </td>
-                </tr>
-                </tbody>
-            </table>
-        </div>
-        <p th:unless="${links.?[status.usable].isEmpty()}"><small th:text="#{links.actions.hint}">
-            «Cambiar enlace» crea una dirección nueva. «Anular» hace que deje de abrir la puerta.</small></p>
+        <p th:if="${links.isEmpty() and endedLinks.isEmpty()}" th:text="#{links.empty}">
+            Esta cerradura todavía no tiene enlaces.</p>
+        <p th:if="${links.isEmpty() and !endedLinks.isEmpty()}" th:text="#{links.none-usable}">
+            Ningún enlace de esta cerradura está pendiente ni activo.</p>
+        <th:block th:unless="${links.isEmpty()}">
+            <div th:replace="~{links/table :: linkTable(${links})}"></div>
+            <p><small th:text="#{links.actions.hint}">
+                «Cambiar enlace» crea un enlace nuevo. «Anular» hace que deje de abrir la puerta.</small></p>
+        </th:block>
+        <!-- Those that ended, folded away so that the list does not keep growing: open after deleting one. -->
+        <details th:unless="${endedLinks.isEmpty()}" th:open="${deletedLabel != null}">
+            <summary th:text="#{links.ended(${endedLinks.size()})}">Caducados y anulados (2)</summary>
+            <p><small th:text="#{links.ended.hint}">Ya no abren la puerta.</small></p>
+            <div th:replace="~{links/table :: linkTable(${endedLinks})}"></div>
+        </details>
     </section>
 
     <p><a th:href="@{/locks/{id}(id=${lock.id})}" th:text="#{links.back(${lock.name})}">Volver a Casa</a></p>

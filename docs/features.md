@@ -114,13 +114,15 @@ A link may be limited to certain days and hours: the form's "Limitar a ciertos d
 - The schedule applies to the link's building entrance too, and is kept when the link is regenerated.
 - A link's state still says only its dates; the list shows its schedule below them, a line per run of days with the same hours.
 
-The same page lists the lock's links with their state, computed and never stored (`LinkStatus`): revoked if revoked, otherwise pending before the start, active from the start (inclusive) to the end (exclusive), and expired after. Pending and active links can be copied, or shared through the device's share sheet where the browser supports it. Narrower than 1024 px, where a link's buttons no longer fit beside its dates, each link shows as a card instead of a table row: its label and state, its dates, then its buttons.
+The same page lists the lock's links with their state, computed and never stored (`LinkStatus`): revoked if revoked, otherwise pending before the start, active from the start (inclusive) to the end (exclusive), and expired after. Pending and active links come first and can be copied, or shared through the device's share sheet where the browser supports it. Expired and revoked ones are folded below them ("Caducados y anulados", with their count), so the list stays short while they wait for the purge; the fold opens after deleting one, so the owner can go on. Narrower than 1024 px, where a link's buttons no longer fit beside its dates, each link shows as a card instead of a table row: its label and state, its dates, then its buttons.
 
 "Anular" (`POST /links/{id}/revoke`) revokes a link at once and for good: from then on it opens nothing, whatever its dates. Revoking again keeps the first revocation time.
 
 "Cambiar enlace" (`POST /links/{id}/regenerate`), for a URL that leaked, asks first, and so does "Anular": the browser shows what will happen before the form is sent (`data-confirm`, `confirm.js`). It increments the link's `token_version`: every earlier URL stops working and the page shows the new one. Dates, label and state stay the same; revoked links are not regenerated.
 
 "Editar" (`GET /links/{id}`, saved with `PATCH /links/{id}`) changes a link's label, dates and schedule, with the same checks as creating one; an expired link can be extended this way. Its URL stays the same. Revoked links cannot be edited.
+
+"Borrar" (`DELETE /links/{id}`, after confirming) deletes an expired or revoked link now, rather than when the purge would, with its schedule and its attempts in the history: its label may hold a guest's name. A link that can still open answers 409, so that deleting never stops a guest: it is revoked first. An email that linked to its history then gets 404, as after the purge.
 
 ## Guest page
 
@@ -222,7 +224,7 @@ The guest's country, for the history, comes from `CF-IPCountry` (`welcomehome.ac
 - **Pages.** They hold 50 attempts; "Anteriores" adds `before=` and `beforeId=` with the date and id of the last one shown, so a page never shifts as new attempts come in, and attempts at the same instant are neither lost nor repeated across pages.
 - **Whose.** Row-Level Security keeps each owner to their own history, and a lock or link of someone else's is a 404.
 
-A link's label usually holds a guest's name, so a link is kept for `welcomehome.links.retention` (`P365D`) after it expired or was cancelled, once no attempt with it is younger than that either: a job deletes it, with its schedule and attempts, every night at 03:32. Its URL then answers as any unknown link does.
+A link's label usually holds a guest's name, so a link is kept for `welcomehome.links.retention` (`P365D`) after it expired or was cancelled, once no attempt with it is younger than that either: a job deletes it, with its schedule and attempts, every night at 03:32. Its owner may delete it sooner with "Borrar". Its URL then answers as any unknown link does.
 
 Attempts hold IP addresses, which are personal data, so they are kept for `welcomehome.audit.retention` (`P365D`) only. A job deletes older ones every night (`welcomehome.audit.purge-cron`, `0 30 3 * * *`, in the server's time zone), each owner in their own transaction under Row-Level Security.
 

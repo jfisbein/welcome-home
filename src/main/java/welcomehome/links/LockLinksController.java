@@ -77,9 +77,12 @@ class LockLinksController {
         return "redirect:/locks/" + lock.id() + "/links";
     }
 
+    /** The links that can still open come first; those that ended are folded away below them. */
     private String view(CurrentOwner owner, OwnerLock lock, Locale locale, Model model) {
+        var links = accessLinks.list(owner.id(), lock, locale);
         model.addAttribute("lock", lock);
-        model.addAttribute("links", accessLinks.list(owner.id(), lock, locale));
+        model.addAttribute("links", links.stream().filter(link -> link.status().isUsable()).toList());
+        model.addAttribute("endedLinks", links.stream().filter(link -> !link.status().isUsable()).toList());
         return VIEW;
     }
 
