@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 
@@ -235,10 +236,20 @@ class AdminPanelTests {
                         VALUES ('\\x02', 'Ya caducada', ?, now() - interval '1 minute')
                         """).param(adminId).update();
 
-        assertThat(mvc.get().uri("/admin/invitations").with(admin())).hasStatusOk().bodyText()
+        assertThat(pendingSection(mvc.get().uri("/admin/owners").with(admin()).exchange()))
                 .contains("Ana, piso de la playa", "Carlos, otro admin", "Invitación de admin", OWNER_EMAIL,
                         "Nueva passkey", "Anular")
                 .doesNotContain("Ya usada", "Ya caducada");
+    }
+
+    @Test
+    void theInvitationPageOnlyInvitesAndTheOwnerListLeadsToItOnce() {
+        invitations.createInvitation(adminId, "Zoe, ático", false);
+
+        assertThat(mvc.get().uri("/admin/invitations").with(admin())).hasStatusOk().bodyText()
+                .contains("Crear invitación").doesNotContain("Enlaces sin usar", "Zoe, ático");
+        var owners = body(mvc.get().uri("/admin/owners").with(admin()).exchange());
+        assertThat(owners.split("href=\"/admin/invitations", -1)).as("one link to the invitation page").hasSize(2);
     }
 
     @Test
@@ -247,11 +258,11 @@ class AdminPanelTests {
         var recovery = invitations.createPasskeyRecovery(adminId, bobId);
         for (var created : List.of(invitation, recovery)) {
             assertThat(mvc.delete().uri("/admin/invitations/" + created.id()).with(admin()).with(csrf()))
-                    .hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/admin/invitations");
+                    .hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/admin/owners#pending");
             assertThat(invitations.findRedeemable(tokenOf(created))).isEmpty();
         }
-        assertThat(mvc.get().uri("/admin/invitations").with(admin()).flashAttr("cancelledFor", "Ana")).bodyText()
-                .contains("Enlace para Ana anulado", "No hay invitaciones");
+        assertThat(pendingSection(mvc.get().uri("/admin/owners").with(admin()).flashAttr("cancelledFor", "Ana")
+                .exchange())).contains("Enlace para Ana anulado", "No hay invitaciones");
     }
 
     @Test
@@ -322,6 +333,19 @@ class AdminPanelTests {
                 .param("note", note)
                 .param("grantsAdmin", String.valueOf(grantsAdmin))
                 .exchange();
+    }
+
+    private static String body(MvcTestResult result) {
+        assertThat(result).hasStatusOk();
+        return new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8);
+    }
+
+    /** The owner list's section of unused links, from its heading on. */
+    private static String pendingSection(MvcTestResult result) {
+        var page = body(result);
+        var start = page.indexOf("id=\"pending\"");
+        assertThat(start).as("the section of unused links").isNotNegative();
+        return page.substring(start);
     }
 
     private static RequestPostProcessor admin() {

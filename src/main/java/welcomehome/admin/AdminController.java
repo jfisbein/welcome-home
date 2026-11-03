@@ -42,6 +42,7 @@ class AdminController {
     String owners(Principal admin, Model model) {
         model.addAttribute("owners", owners.findAll());
         model.addAttribute("adminEmail", admin.getName());
+        model.addAttribute("pending", invitations.findPending());
         return "admin/owners";
     }
 
@@ -63,21 +64,19 @@ class AdminController {
     }
 
     @GetMapping("/invitations")
-    String invitationForm(Model model) {
-        return invitationsView(model);
+    String invitationForm() {
+        return "admin/invitations";
     }
 
-    /** A link sent to the wrong person, or that leaked, stops working at once. Any admin may cancel any link. */
+    /**
+     * Cancels an invitation or a recovery link: one sent to the wrong person, or that leaked, stops working at once.
+     * Any admin may cancel any link. The owner list shows what is left.
+     */
     @DeleteMapping("/invitations/{id}")
     String cancelInvitation(@PathVariable UUID id, RedirectAttributes redirect) {
         var recipient = invitations.cancel(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         redirect.addFlashAttribute("cancelledFor", recipient);
-        return "redirect:/admin/invitations";
-    }
-
-    private String invitationsView(Model model) {
-        model.addAttribute("pending", invitations.findPending());
-        return "admin/invitations";
+        return "redirect:/admin/owners#pending";
     }
 
     /**
@@ -94,7 +93,7 @@ class AdminController {
             response.setStatus(HttpStatus.BAD_REQUEST.value());
             model.addAttribute("noteError", true);
             model.addAttribute("note", note);
-            return invitationsView(model);
+            return "admin/invitations";
         }
         redirect.addFlashAttribute("invitation", invitations.createInvitation(adminId(admin), strippedNote, grantsAdmin));
         redirect.addFlashAttribute("invitedNote", strippedNote);

@@ -32,7 +32,7 @@ A new owner then gets an email with a link to verify that the address is theirs 
 
 Admins invite further owners from the admin panel (`/admin/owners`, linked from the owner's panel): each invitation has a note on who it is for and may make the new owner an admin too. Its link is shown only once, since only a hash of the token is stored. The panel lists owners' emails and registration dates, never their locks or links: Row-Level Security applies to admins like to any other owner.
 
-`/admin/invitations` also lists the invitations and passkey recovery links that could still be used, whoever created them, without their URLs, which are not stored. "Anular" (`DELETE /admin/invitations/{id}`, after confirming) makes one stop working at once.
+`/admin/owners`, below the owners, also lists the invitations and passkey recovery links that could still be used, whoever created them, without their URLs, which are not stored. "Anular" (`DELETE /admin/invitations/{id}`, after confirming) makes one stop working at once.
 
 "Dar de baja" (`DELETE /admin/owners`, after confirming) deletes an owner with everything of theirs, in one transaction: the owner row's foreign keys cascade to their passkeys, Nuki connection, locks, links, history and recovery links. Invitations they created stay, without a creator. Their open sessions end at once. An admin cannot delete themselves, so an admin is always left. The deleted data stays in the backups until they expire (30 days); the owner's Nuki API token, if they pasted one, should also be deleted in Nuki Web.
 
