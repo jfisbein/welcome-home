@@ -19,7 +19,7 @@ import tools.jackson.databind.json.JsonMapper;
  * same JSON that static/js/webauthn.js posts. The authenticator keeps its passkeys, so a passkey created
  * with {@link #create} can sign in with {@link #get}.
  */
-final class PasskeyEmulator {
+public final class PasskeyEmulator {
 
     private static final Base64.Encoder BASE64_URL = Base64.getUrlEncoder().withoutPadding();
 
@@ -27,7 +27,7 @@ final class PasskeyEmulator {
     private final ObjectConverter webauthn4j = new ObjectConverter();
     private final JsonMapper json = JsonMapper.builder().build();
 
-    PasskeyEmulator(String origin) {
+    public PasskeyEmulator(String origin) {
         this(origin, true);
     }
 
@@ -66,7 +66,7 @@ final class PasskeyEmulator {
     }
 
     /** navigator.credentials.create: returns the body posted to /invite/{token}/register. */
-    String create(String creationOptionsJson) {
+    public String create(String creationOptionsJson) {
         var options = webauthn4j.getJsonConverter().readValue(creationOptionsJson, PublicKeyCredentialCreationOptions.class);
         var credential = browser.create(options);
         var response = credential.getResponse();
@@ -82,7 +82,7 @@ final class PasskeyEmulator {
     }
 
     /** navigator.credentials.get: returns the body posted to /login/webauthn. */
-    String get(String requestOptionsJson) {
+    public String get(String requestOptionsJson) {
         var options = webauthn4j.getJsonConverter().readValue(requestOptionsJson, PublicKeyCredentialRequestOptions.class);
         var credential = browser.get(options);
         var response = credential.getResponse();

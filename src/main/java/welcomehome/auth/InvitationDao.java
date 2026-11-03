@@ -1,8 +1,7 @@
-package welcomehome.admin;
+package welcomehome.auth;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -101,15 +100,6 @@ class InvitationDao {
                 .param("id", id)
                 .query(String.class)
                 .optional();
-    }
-
-    /**
-     * An invitation or a passkey recovery link that could still be used.
-     *
-     * @param recipient the email a recovery link is for, or what the admin noted of whom an invitation is for
-     * @param expiresAt when it expires, in the server's time zone
-     */
-    record PendingLink(UUID id, String recipient, boolean grantsAdmin, boolean recovery, LocalDateTime expiresAt) {
     }
 
     record InsertedInvitation(UUID id, OffsetDateTime expiresAt) {

@@ -1,4 +1,4 @@
-package welcomehome.admin;
+package welcomehome.auth;
 
 import java.util.UUID;
 

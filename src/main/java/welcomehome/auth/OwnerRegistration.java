@@ -31,8 +31,6 @@ import org.springframework.security.web.webauthn.management.UserCredentialReposi
 import org.springframework.security.web.webauthn.management.WebAuthnRelyingPartyOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import welcomehome.admin.InvitationService;
-import welcomehome.admin.RedeemableInvitation;
 import welcomehome.auth.OwnerAccountDao.OwnerAccount;
 import welcomehome.auth.RegistrationException.Reason;
 

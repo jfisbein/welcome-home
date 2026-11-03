@@ -17,7 +17,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
-import welcomehome.admin.InvitationService;
+import welcomehome.auth.InvitationService;
 
 /** webauthn.js and its pages, with Chromium's virtual authenticator, and the scripts of the links page. */
 class OwnerPagesTests extends BrowserTest {

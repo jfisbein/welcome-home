@@ -1,4 +1,4 @@
-package welcomehome.auth;
+package welcomehome.preferences;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -24,7 +24,8 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
 import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
-import welcomehome.admin.InvitationService;
+import welcomehome.auth.InvitationService;
+import welcomehome.auth.PasskeyEmulator;
 
 /**
  * An owner's language: taken from the pages they register from, chosen in Configuración → Preferencias, used on

@@ -1,10 +1,8 @@
 package welcomehome.admin;
 
-import java.security.Principal;
 import java.util.UUID;
 
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -16,6 +14,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import welcomehome.auth.CurrentOwner;
+import welcomehome.auth.InvitationService;
+import welcomehome.auth.OwnerAccounts;
 
 /**
  * The admin panel: the owner list, new invitations, passkey recovery links and deleting owners. Only admins reach it (see the
@@ -30,18 +31,18 @@ class AdminController {
 
     private final OwnerDao owners;
     private final InvitationService invitations;
-    private final ApplicationEventPublisher events;
+    private final OwnerAccounts ownerAccounts;
 
-    AdminController(OwnerDao owners, InvitationService invitations, ApplicationEventPublisher events) {
+    AdminController(OwnerDao owners, InvitationService invitations, OwnerAccounts ownerAccounts) {
         this.owners = owners;
         this.invitations = invitations;
-        this.events = events;
+        this.ownerAccounts = ownerAccounts;
     }
 
     @GetMapping("/owners")
-    String owners(Principal admin, Model model) {
+    String owners(CurrentOwner admin, Model model) {
         model.addAttribute("owners", owners.findAll());
-        model.addAttribute("adminEmail", admin.getName());
+        model.addAttribute("adminEmail", admin.email());
         model.addAttribute("pending", invitations.findPending());
         return "admin/owners";
     }
@@ -51,12 +52,11 @@ class AdminController {
      * cannot delete themselves, so there is always an admin left.
      */
     @DeleteMapping("/owners")
-    String deleteOwner(@RequestParam String email, Principal admin, RedirectAttributes redirect) {
-        if (email.equals(admin.getName())) {
+    String deleteOwner(@RequestParam String email, CurrentOwner admin, RedirectAttributes redirect) {
+        if (email.equals(admin.email())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "An admin cannot delete themselves");
         }
-        owners.findIdByEmail(email).ifPresent(ownerId -> events.publishEvent(new OwnerDeleting(ownerId)));
-        if (!owners.delete(email)) {
+        if (!owners.findIdByEmail(email).map(ownerAccounts::delete).orElse(false)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
         redirect.addFlashAttribute("deletedEmail", email);
@@ -86,7 +86,7 @@ class AdminController {
     @PostMapping("/invitations")
     String createInvitation(@RequestParam(defaultValue = "") String note,
                             @RequestParam(defaultValue = "false") boolean grantsAdmin,
-                            Principal admin, Model model, HttpServletResponse response,
+                            CurrentOwner admin, Model model, HttpServletResponse response,
                             RedirectAttributes redirect) {
         var strippedNote = note.strip();
         if (strippedNote.isEmpty() || strippedNote.length() > MAX_NOTE_LENGTH) {
@@ -95,7 +95,7 @@ class AdminController {
             model.addAttribute("note", note);
             return "admin/invitations";
         }
-        redirect.addFlashAttribute("invitation", invitations.createInvitation(adminId(admin), strippedNote, grantsAdmin));
+        redirect.addFlashAttribute("invitation", invitations.createInvitation(admin.id(), strippedNote, grantsAdmin));
         redirect.addFlashAttribute("invitedNote", strippedNote);
         return "redirect:/admin/invitations";
     }
@@ -105,16 +105,11 @@ class AdminController {
      * an invitation's.
      */
     @PostMapping("/recoveries")
-    String createRecovery(@RequestParam String email, Principal admin, RedirectAttributes redirect) {
+    String createRecovery(@RequestParam String email, CurrentOwner admin, RedirectAttributes redirect) {
         var ownerId = owners.findIdByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        redirect.addFlashAttribute("recovery", invitations.createPasskeyRecovery(adminId(admin), ownerId));
+        redirect.addFlashAttribute("recovery", invitations.createPasskeyRecovery(admin.id(), ownerId));
         redirect.addFlashAttribute("recoveredEmail", email);
         return "redirect:/admin/owners";
-    }
-
-    private UUID adminId(Principal admin) {
-        return owners.findIdByEmail(admin.getName())
-                .orElseThrow(() -> new IllegalStateException("The signed-in admin is not an owner"));
     }
 }

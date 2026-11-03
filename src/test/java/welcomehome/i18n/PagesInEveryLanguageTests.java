@@ -25,7 +25,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
 import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
-import welcomehome.admin.InvitationService;
+import welcomehome.auth.InvitationService;
 import welcomehome.config.Languages;
 import welcomehome.crypto.CryptoService;
 import welcomehome.crypto.LinkTokenSigner;

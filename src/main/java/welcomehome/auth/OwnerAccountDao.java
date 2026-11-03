@@ -6,7 +6,6 @@ import java.util.UUID;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
-import welcomehome.config.Languages;
 
 /**
  * The owner table has no owner_id and no Row-Level Security: authentication reads it by email.
@@ -34,6 +33,16 @@ class OwnerAccountDao {
                 .optional();
     }
 
+    /**
+     * Deletes an owner and everything of theirs: the owner row's foreign keys cascade to their passkeys, Nuki
+     * connection, locks, links, history and recovery links.
+     *
+     * @return whether there was such an owner
+     */
+    boolean delete(UUID id) {
+        return jdbc.sql("DELETE FROM owner WHERE id = :id").param("id", id).update() == 1;
+    }
+
     UUID insert(String email, boolean isAdmin, Locale language) {
         return jdbc.sql("""
                         INSERT INTO owner (email, is_admin, language, email_verified_at)
@@ -45,22 +54,6 @@ class OwnerAccountDao {
                 .param("language", language.toLanguageTag())
                 .query(UUID.class)
                 .single();
-    }
-
-    /** @return the owner's language, or empty if there is no such owner or the app no longer has texts for it */
-    Optional<Locale> findLanguage(String email) {
-        return jdbc.sql("SELECT language FROM owner WHERE email = :email")
-                .param("email", email)
-                .query(String.class)
-                .optional()
-                .flatMap(Languages::of);
-    }
-
-    void setLanguage(UUID ownerId, Locale language) {
-        jdbc.sql("UPDATE owner SET language = :language WHERE id = :id")
-                .param("language", language.toLanguageTag())
-                .param("id", ownerId)
-                .update();
     }
 
     record OwnerAccount(UUID id, String email, boolean isAdmin) {

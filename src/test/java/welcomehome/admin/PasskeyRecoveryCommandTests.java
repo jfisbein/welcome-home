@@ -12,6 +12,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
 import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
+import welcomehome.auth.InvitationService;
 
 @IntegrationTest
 class PasskeyRecoveryCommandTests {

@@ -8,6 +8,8 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
+import welcomehome.auth.CreatedInvitation;
+import welcomehome.auth.InvitationService;
 
 /**
  * The {@code --recover-owner=<email>} command: creates a passkey recovery link for that owner, prints it and

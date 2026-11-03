@@ -30,7 +30,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
-import welcomehome.admin.InvitationService;
 import welcomehome.auth.OwnerRegistration.PendingRegistration;
 import welcomehome.auth.RegistrationException.Reason;
 

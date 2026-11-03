@@ -1,6 +1,7 @@
-package welcomehome.auth;
+package welcomehome.preferences;
 
 import java.time.Duration;
+import java.util.List;
 
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
@@ -8,11 +9,13 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import welcomehome.auth.CurrentOwner;
 import welcomehome.config.Languages;
 
 /**
@@ -25,17 +28,20 @@ class PreferencesController {
     /** How long the theme cookie lasts; each choice starts it again. */
     static final Duration THEME_COOKIE_AGE = Duration.ofDays(365);
 
-    private final OwnerAccountDao owners;
+    private final OwnerLanguageDao owners;
     private final boolean secureCookies;
 
-    PreferencesController(OwnerAccountDao owners,
+    PreferencesController(OwnerLanguageDao owners,
                           @Value("${server.servlet.session.cookie.secure:true}") boolean secureCookies) {
         this.owners = owners;
         this.secureCookies = secureCookies;
     }
 
     @GetMapping("/settings/preferences")
-    String page() {
+    String page(Model model) {
+        model.addAttribute("languages", Languages.SUPPORTED.stream()
+                .map(language -> new LanguageOption(language.toLanguageTag(), Languages.nameOf(language)))
+                .toList());
         return "preferences";
     }
 
@@ -62,5 +68,14 @@ class PreferencesController {
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.build().toString());
         redirect.addFlashAttribute("themeSaved", true);
         return "redirect:/settings/preferences";
+    }
+
+    /**
+     * A language to choose.
+     *
+     * @param tag  its tag, such as {@code en}
+     * @param name its name in itself, such as English
+     */
+    record LanguageOption(String tag, String name) {
     }
 }
