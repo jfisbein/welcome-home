@@ -142,6 +142,43 @@ class LockSettingsTests {
     }
 
     @Test
+    void ownerWritesInstructionsForTheLocksGuests() {
+        assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE))).bodyText()
+                .contains("Instrucciones para tus invitados", "maxlength=\"1000\"></textarea>");
+
+        assertThat(updateInstructions(alicesLock, "  Calle Mayor 1, 3.º B.\r\nLa llave está en el buzón.\r\n "))
+                .hasStatus(HttpStatus.FOUND);
+
+        assertThat(guestInstructions(alicesLock)).isEqualTo("Calle Mayor 1, 3.º B.\nLa llave está en el buzón.");
+        assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE))).bodyText()
+                .contains(">Calle Mayor 1, 3.º B.\nLa llave está en el buzón.</textarea>");
+    }
+
+    @Test
+    void blankInstructionsAreNone() {
+        data.guestInstructions(alicesLock, "Calle Mayor 1");
+
+        assertThat(updateInstructions(alicesLock, " \r\n ")).hasStatus(HttpStatus.FOUND);
+
+        assertThat(guestInstructions(alicesLock)).isEqualTo("none");
+    }
+
+    /** A browser sends each line break as two characters, which count as one, as the owner sees one. */
+    @Test
+    void instructionsLongerThanTheLimitAreRejectedAndKeptInTheForm() {
+        data.guestInstructions(alicesLock, "Calle Mayor 1");
+        var longest = "x".repeat(998) + "\r\ny";
+
+        assertThat(updateInstructions(alicesLock, longest + "z"))
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyText().contains("Las instrucciones pueden tener hasta 1000 caracteres.", "z</textarea>");
+        assertThat(guestInstructions(alicesLock)).isEqualTo("Calle Mayor 1");
+
+        assertThat(updateInstructions(alicesLock, longest)).hasStatus(HttpStatus.FOUND);
+        assertThat(guestInstructions(alicesLock)).isEqualTo("x".repeat(998) + "\ny");
+    }
+
+    @Test
     void htmlFormSendsThePatchAsAPostWithHiddenMethod() {
         assertThat(mvc.post().uri("/locks/" + alicesLock).with(owner(ALICE)).with(csrf())
                 .param("_method", "patch").param("name", "Casa").param("timeZone", "Europe/Madrid"))
@@ -167,6 +204,17 @@ class LockSettingsTests {
         return mvc.patch().uri("/locks/" + lockId).with(owner(ALICE)).with(csrf())
                 .param("name", "Casa").param("timeZone", "Europe/Berlin").param("entranceLockId", entranceLockId)
                 .exchange();
+    }
+
+    private MvcTestResult updateInstructions(UUID lockId, String guestInstructions) {
+        return mvc.patch().uri("/locks/" + lockId).with(owner(ALICE)).with(csrf())
+                .param("name", "Casa").param("timeZone", "Europe/Berlin").param("guestInstructions", guestInstructions)
+                .exchange();
+    }
+
+    private String guestInstructions(UUID lockId) {
+        return migrator.sql("SELECT coalesce(guest_instructions, 'none') FROM lock WHERE id = ?")
+                .param(lockId).query(String.class).single();
     }
 
     private String entrance(UUID lockId) {

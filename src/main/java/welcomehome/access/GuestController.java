@@ -69,6 +69,8 @@ class GuestController {
             var pending = guestLink.status() == LinkStatus.PENDING;
             withinSchedule = pending || schedule.allows(now, zone);
             model.addAttribute("schedule", schedules.describe(schedule, locale));
+            // Only while the link can open: they may say where the door is, or where a key is.
+            model.addAttribute("instructions", guestLinks.lock(link).map(OwnerLock::guestInstructions).orElse(null));
             model.addAttribute("opensAt", schedule.firstOpening(pending ? link.validFrom().toInstant() : now,
                     link.validUntil().toInstant(), zone).orElse(null));
         }

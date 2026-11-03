@@ -252,6 +252,37 @@ class GuestPageTests {
     }
 
     @Test
+    void whileALinkCanOpenThePageShowsTheLocksInstructionsAsTheOwnerWroteThem() {
+        data.guestInstructions(lockId, "Calle Mayor 1, 3.º B.\nLa llave, <b>en el buzón</b>.");
+        var instructions = "<p class=\"guest-instructions\">Calle Mayor 1, 3.º B.\n"
+                + "La llave, &lt;b&gt;en el buzón&lt;/b&gt;.</p>";
+        var active = insertLink(TestData.AN_HOUR_AGO, TestData.IN_A_DAY, false);
+        var pending = insertLink("'2040-11-01T19:00:00Z'", "'2040-11-03T16:00:00Z'", false);
+
+        assertThat(body(guestPage(signer.sign(active, 1)))).as("active").contains(instructions);
+        assertThat(body(guestPage(signer.sign(pending, 1)))).as("pending").contains(instructions);
+    }
+
+    /** They may say where the door is, or where a key is: not for whoever still has a link that ended. */
+    @Test
+    void aLinkThatEndedShowsNoInstructions() {
+        data.guestInstructions(lockId, "Calle Mayor 1, 3.º B.");
+        var expired = insertLink("'2020-07-01T19:00:00Z'", "'2020-07-03T15:00:00Z'", false);
+        var revoked = insertLink(TestData.AN_HOUR_AGO, TestData.IN_A_DAY, true);
+
+        assertThat(body(guestPage(signer.sign(expired, 1)))).as("expired")
+                .contains(EXPIRED).doesNotContain("Calle Mayor", "guest-instructions");
+        assertThat(body(guestPage(signer.sign(revoked, 1)))).as("revoked")
+                .contains(REVOKED).doesNotContain("Calle Mayor", "guest-instructions");
+    }
+
+    @Test
+    void withoutInstructionsThePageShowsNone() {
+        assertThat(body(guestPage(signer.sign(insertLink(TestData.AN_HOUR_AGO, TestData.IN_A_DAY, false), 1))))
+                .contains(OPEN_BUTTON).doesNotContain("guest-instructions");
+    }
+
+    @Test
     void everyInvalidTokenGetsTheSameNotFoundPage() {
         var link = insertLink("now() - interval '1 day'", "now() + interval '1 day'", false);
         var token = signer.sign(link, 1);

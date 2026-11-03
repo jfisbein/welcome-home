@@ -94,7 +94,7 @@ Calls time out and are retried with exponential backoff: on rate limiting (429, 
 
 The home page and `/locks` also say what is wrong with each lock: no connection with Nuki, a critical battery, a blocked motor, or Auto Lock off (unless the owner relocks some other way; never for an Opener). One request to Nuki reads all of an owner's locks, and those pages wait for it for 2 seconds at most: past that, or if Nuki fails, they say that it could not be checked. Without a working connection they ask Nuki nothing.
 
-Each lock's settings page (`GET /locks/{id}`, saved with `PATCH /locks/{id}`) changes its name, which guests see, and its time zone, one of the IANA region zones or UTC. Link dates are entered and shown in the lock's time zone but stored in UTC, so changing the time zone changes how existing links are shown, not when they are valid.
+Each lock's settings page (`GET /locks/{id}`, saved with `PATCH /locks/{id}`) changes its name, which guests see, its instructions for guests, and its time zone, one of the IANA region zones or UTC. The instructions (`lock.guest_instructions`, up to 1000 characters, blank for none) are what the owner wants every guest of the lock to know, such as the address, the floor or where a key is. Link dates are entered and shown in the lock's time zone but stored in UTC, so changing the time zone changes how existing links are shown, not when they are valid.
 
 The same page shows the lock's live state from Nuki: position, connectivity, battery and Auto Lock. Without Auto Lock the door stays unlocked after a guest opens it, so the page warns about it, unless the owner ticks that the door is relocked some other way (for example, with home automation). If Nuki cannot be reached, the page still shows the settings.
 
@@ -152,7 +152,7 @@ flowchart TD
 
 - **What it never does.** A GET never opens the door, nor calls the lock provider to act: messaging apps fetch links to preview them. Opening is a POST once the guest slides to open. The page asks search engines not to index it (`X-Robots-Tag` and `<meta name="robots">`).
 - **A bad link.** A malformed token, an unknown link and a wrong or outdated MAC all get the same "Enlace no válido" page (404), so that guests cannot tell which links exist.
-- **What it shows.** The lock's name and, unless the link is expired or revoked, its validity in the lock's time zone, never the owner's label. A slider appears only while the link is active and its door is available: the lock is active and the owner's Nuki connection is OK.
+- **What it shows.** The lock's name and, unless the link is expired or revoked, its validity in the lock's time zone, and the lock's instructions for guests, as plain text with their line breaks, never the owner's label. Only a link that can still open shows the instructions, as they may say where the door or a key is. A slider appears only while the link is active and its door is available: the lock is active and the owner's Nuki connection is OK.
 - **When it cannot open.** The page and `POST /api/open` share that check, which reads only the database, and show the same messages: not yet valid (with when it can first open), expired, revoked, or door unavailable.
 - **A schedule.** A link with one shows it, and outside it offers no slider and says when it opens next, or that it will not open again before it expires. A page left open past its hours gets `outside-schedule` from `POST /api/open`.
 

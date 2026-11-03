@@ -75,6 +75,16 @@
                 <small th:unless="${nameError}" th:text="#{lock.name.hint}">Es el que verán tus invitados.</small>
             </label>
             <label>
+                [[#{lock.guest-instructions}]]
+                <textarea name="guestInstructions" rows="4" th:maxlength="${maxGuestInstructionsLength}"
+                          th:text="${guestInstructions}"
+                          th:attr="aria-invalid=${guestInstructionsError} ? 'true' : null">Calle Mayor 1, 3.º B.</textarea>
+                <small th:if="${guestInstructionsError}"
+                       th:text="#{lock.guest-instructions.error}">Hasta 1000 caracteres.</small>
+                <small th:unless="${guestInstructionsError}" th:text="#{lock.guest-instructions.hint}">
+                    Las verán en la página de su enlace.</small>
+            </label>
+            <label>
                 [[#{lock.time-zone}]]
                 <select name="timeZone" required th:attr="aria-invalid=${timeZoneError} ? 'true' : null">
                     <option th:each="zone : ${timeZones}" th:value="${zone}" th:text="${zone}"
