@@ -75,6 +75,24 @@ class MessageBundlesTests {
         }
     }
 
+    /**
+     * An owner connected with their Nuki account never saw a token. Only the Nuki page, which offers pasting one, and
+     * the admin's note after deleting an owner, which says what to do if they did, speak of one.
+     */
+    @Test
+    void onlyTheNukiPageSpeaksOfTokens() throws IOException {
+        var token = Pattern.compile("token|jeton", Pattern.CASE_INSENSITIVE);
+
+        for (var language : Languages.SUPPORTED) {
+            var messages = load(language.equals(Languages.DEFAULT) ? "i18n/messages.properties" : bundle(language));
+            var speakingOfTokens = messages.stringPropertyNames().stream()
+                    .filter(key -> token.matcher(messages.getProperty(key)).find())
+                    .filter(key -> !key.startsWith("nuki.") && !key.equals("admin.deleted"))
+                    .toList();
+            assertThat(speakingOfTokens).as(language.toString()).isEmpty();
+        }
+    }
+
     @Test
     void everyKeyATemplateUsesIsInTheDefaultBundle() throws IOException {
         var keys = load("i18n/messages.properties").stringPropertyNames();
