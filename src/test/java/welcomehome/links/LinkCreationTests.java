@@ -122,7 +122,7 @@ class LinkCreationTests {
     void formIsPrefilledInTheLocksTimeZone() {
         assertThat(mvc.get().uri("/locks/" + newYorkLock + "/links").with(owner(ALICE)))
                 .hasStatusOk()
-                .bodyText().contains("Enlaces de Loft", "America/New_York", "Crear enlace");
+                .bodyText().contains("Enlaces de Loft", "hora oriental", "Crear enlace");
     }
 
     @Test

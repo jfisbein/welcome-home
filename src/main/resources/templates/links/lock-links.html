@@ -12,7 +12,7 @@
 
     <article th:if="${createdUrl}">
         <header><strong th:text="#{links.created(${createdLabel})}">Enlace creado para Ana</strong></header>
-        <p th:text="#{links.validity(${#temporals.format(createdFrom, #messages.msg('format.datetime'))}, ${#temporals.format(createdUntil, #messages.msg('format.datetime'))}, ${lock.timeZone})}">
+        <p th:text="#{links.validity(${#temporals.format(createdFrom, #messages.msg('format.datetime'))}, ${#temporals.format(createdUntil, #messages.msg('format.datetime'))}, ${@timeZoneNames.of(lock.timeZone, #locale)})}">
             Abre la puerta del 1/11/2026 15:00 al 3/11/2026 11:00 (Europe/Madrid).
         </p>
         <ul th:unless="${#lists.isEmpty(createdSchedule)}">

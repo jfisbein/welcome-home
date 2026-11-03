@@ -57,7 +57,7 @@
         <button type="button" class="outline secondary" hidden data-copy-schedule
                 th:text="#{link-form.schedule.copy}">Usar el primer horario en todos</button>
     </details>
-    <p><small th:text="#{link-form.time-zone(${timeZone})}">Horas en la zona horaria de la cerradura.</small></p>
+    <p><small th:text="#{link-form.time-zone(${@timeZoneNames.of(timeZone, #locale)})}">Horas en la zona horaria de la cerradura.</small></p>
 </th:block>
 </body>
 </html>

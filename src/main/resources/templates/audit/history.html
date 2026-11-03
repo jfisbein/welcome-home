@@ -9,7 +9,7 @@
         <span th:text="#{history.only-link(${linkLabel})}">Solo el enlace de Ana.</span>
         <a th:href="@{/locks/{id}/history(id=${lock.id})}" th:text="#{history.whole-lock}">Ver toda la cerradura</a>
     </p>
-    <p th:text="#{history.time-zone(${lock.timeZone})}">Hora de Europe/Madrid.</p>
+    <p th:text="#{history.time-zone(${@timeZoneNames.of(lock.timeZone, #locale)})}">Horas en la zona horaria de la cerradura: hora de Europa central.</p>
 
     <p th:if="${events.isEmpty()}" th:text="#{history.empty}">Todavía no hay intentos de abrir.</p>
     <th:block th:unless="${events.isEmpty()}">

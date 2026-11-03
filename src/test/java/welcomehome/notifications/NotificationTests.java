@@ -108,7 +108,7 @@ class NotificationTests {
         assertThat(email.getSubject()).isEqualTo("Casa: Ana ha abierto la puerta");
         assertThat(email.getAllRecipients()).extracting(Object::toString).containsExactly(ALICE);
         assertThat(email.getFrom()).extracting(Object::toString).containsExactly(MailStandInConfiguration.FROM);
-        assertThat(text(email)).contains("Ana ha abierto la puerta de Casa el ", "(hora de America/New_York)",
+        assertThat(text(email)).contains("Ana ha abierto la puerta de Casa el ", "(hora oriental)",
                 IntegrationTest.BASE_URL + "/locks/" + lockId + "/history?link=" + linkId,
                 IntegrationTest.BASE_URL + "/settings/notifications");
     }
@@ -123,7 +123,7 @@ class NotificationTests {
 
         var email = theOnlyEmail();
         assertThat(email.getSubject()).isEqualTo("Portal: Ana ha abierto la puerta");
-        assertThat(text(email)).contains("Ana ha abierto la puerta de Portal el ", "(hora de America/New_York)",
+        assertThat(text(email)).contains("Ana ha abierto la puerta de Portal el ", "(hora oriental)",
                 IntegrationTest.BASE_URL + "/locks/" + lockId + "/history?link=" + linkId);
     }
 
@@ -177,7 +177,7 @@ class NotificationTests {
         var email = theOnlyEmail();
         assertThat(email.getSubject()).isEqualTo("Casa: Ana opened the door");
         assertThat(text(email)).containsPattern("Ana opened the door of Casa on \\d{2}/\\d{2}/\\d{4} at \\d{2}:\\d{2}")
-                .contains("(America/New_York time)", "Choose which notifications you get");
+                .contains("(Eastern Time)", "Choose which notifications you get");
 
         assertThat(mvc.post().uri("/settings/notifications/test").with(owner()).with(csrf())).hasStatus3xxRedirection();
         await().atMost(Duration.ofSeconds(5)).until(() -> mail.getReceivedMessages().length == 2);

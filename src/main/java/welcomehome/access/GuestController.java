@@ -2,7 +2,6 @@ package welcomehome.access;
 
 import java.time.Instant;
 import java.time.ZoneId;
-import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -19,6 +18,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import welcomehome.audit.AccessOutcome;
+import welcomehome.config.TimeZoneNames;
 import welcomehome.links.LinkSchedules;
 import welcomehome.links.LinkStatus;
 import welcomehome.locks.OwnerLock;
@@ -38,11 +38,14 @@ class GuestController {
     private final GuestLinks guestLinks;
     private final LinkSchedules schedules;
     private final MessageSource messages;
+    private final TimeZoneNames timeZoneNames;
 
-    GuestController(GuestLinks guestLinks, LinkSchedules schedules, MessageSource messages) {
+    GuestController(GuestLinks guestLinks, LinkSchedules schedules, MessageSource messages,
+                    TimeZoneNames timeZoneNames) {
         this.guestLinks = guestLinks;
         this.schedules = schedules;
         this.messages = messages;
+        this.timeZoneNames = timeZoneNames;
     }
 
     @GetMapping("/o/{token}")
@@ -60,10 +63,7 @@ class GuestController {
         var link = guestLink.link();
         var zone = ZoneId.of(link.lockTimeZone());
         model.addAttribute("lockName", link.lockName());
-        // Its name in the guest's language, which a guest knows better than its id: "hora de Europa central" for
-        // Europe/Madrid. Also the same for the zones that share its rules, such as Europe/Berlin, which Nuki reports
-        // for a lock in Madrid.
-        model.addAttribute("timeZone", zone.getDisplayName(TextStyle.FULL, locale));
+        model.addAttribute("timeZone", timeZoneNames.of(link.lockTimeZone(), locale));
         model.addAttribute("validFrom", link.validFrom().atZoneSameInstant(zone));
         model.addAttribute("validUntil", link.validUntil().atZoneSameInstant(zone));
         model.addAttribute("status", guestLink.status());

@@ -24,6 +24,7 @@ import welcomehome.auth.InvitationService;
 import welcomehome.auth.OwnerEmailChanged;
 import welcomehome.auth.PasskeyAdded;
 import welcomehome.auth.PasskeyRecoveryCreated;
+import welcomehome.config.TimeZoneNames;
 import welcomehome.config.WelcomeHomeProperties;
 import welcomehome.db.OwnerTransactions;
 import welcomehome.locks.LockProblemsFound;
@@ -52,10 +53,11 @@ class OwnerNotifier {
     private final WelcomeHomeProperties app;
     private final Cache<UUID, Boolean> recentlyDenied;
     private final MessageSource messages;
+    private final TimeZoneNames timeZoneNames;
 
     OwnerNotifier(Mailer mailer, NotificationPreferenceDao preferences, OwnerTransactions ownerTransactions,
                   RecipientDao recipients, WelcomeHomeProperties app, NotificationProperties properties,
-                  MessageSource messages) {
+                  MessageSource messages, TimeZoneNames timeZoneNames) {
         this.mailer = mailer;
         this.preferences = preferences;
         this.ownerTransactions = ownerTransactions;
@@ -63,6 +65,7 @@ class OwnerNotifier {
         this.app = app;
         this.recentlyDenied = Caffeine.newBuilder().expireAfterWrite(properties.deniedQuietPeriod()).build();
         this.messages = messages;
+        this.timeZoneNames = timeZoneNames;
     }
 
     @Async
@@ -190,7 +193,7 @@ class OwnerNotifier {
         var to = details.recipient();
         var when = attempt.occurredAt().atZone(ZoneId.of(details.timeZone()));
         var at = message(to, "notification.when", format(to, "format.date", when), format(to, "format.time", when),
-                details.timeZone());
+                timeZoneNames.of(details.timeZone(), to.language()));
         var reason = keys.reason();
         var why = reason == null ? "" : message(to, reason);
         var history = app.link("/locks/" + attempt.lockId() + "/history?link=" + attempt.linkId());
