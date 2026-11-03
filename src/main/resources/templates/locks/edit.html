@@ -87,8 +87,9 @@
             <label>
                 [[#{lock.time-zone}]]
                 <select name="timeZone" required th:attr="aria-invalid=${timeZoneError} ? 'true' : null">
-                    <option th:each="zone : ${timeZones}" th:value="${zone}" th:text="${zone}"
-                            th:selected="${zone == timeZone}">Europe/Madrid</option>
+                    <option th:each="zone : ${timeZones}" th:value="${zone}"
+                            th:text="#{lock.time-zone.option(${zone}, ${@timeZoneNames.of(zone, #locale)})}"
+                            th:selected="${zone == timeZone}">Europe/Madrid (hora de Europa central)</option>
                 </select>
                 <small th:if="${timeZoneError}" th:text="#{lock.time-zone.error}">Elige una zona horaria.</small>
                 <small th:unless="${timeZoneError}" th:text="#{lock.time-zone.hint}">Las fechas de los enlaces.</small>

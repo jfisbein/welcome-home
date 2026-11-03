@@ -64,7 +64,7 @@ class LinkEditTests {
     void editPageShowsTheLinkInTheLocksTimeZone() {
         assertThat(mvc.get().uri("/links/" + linkId).with(owner(ALICE)))
                 .hasStatusOk()
-                .bodyText().contains("Enlace de Ana", "2030-11-01T15:00", "2030-11-03T11:00", "America/New_York");
+                .bodyText().contains("Enlace de Ana", "2030-11-01T15:00", "2030-11-03T11:00", "hora oriental");
         assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(owner(ALICE)))
                 .bodyText().contains("/links/" + linkId);
     }
