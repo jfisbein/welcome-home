@@ -6,6 +6,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import java.net.URI;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -18,12 +19,14 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import welcomehome.config.Languages;
+import welcomehome.config.TimeZoneNames;
 import welcomehome.nuki.NukiStandInConfiguration;
 
 /**
  * A lock's time zone reads the same on every page: its name in the reader's language, as a guest reads it, never
- * its id. Only the lock's settings show ids, to choose among zones that share a name. Same configuration as the
- * locks tests, so they share one application context.
+ * its id, and Spain's zones by the names people there know. Only the lock's settings show ids, to choose among
+ * zones that share a name. Same configuration as the locks tests, so they share one application context.
  */
 @IntegrationTest
 @AutoConfigureMockMvc
@@ -38,6 +41,9 @@ class TimeZoneNamesTests {
 
     @Autowired
     PostgreSQLContainer postgres;
+
+    @Autowired
+    TimeZoneNames names;
 
     TestData data;
     UUID lockId;
@@ -87,7 +93,21 @@ class TimeZoneNamesTests {
         assertThat(mvc.get().uri("/locks/" + lockId).with(owner())).hasStatusOk().bodyText()
                 .contains(">America/New_York (hora oriental)</option>",
                         ">Europe/Berlin (hora de Europa central)</option>",
-                        ">Europe/Madrid (hora de Europa central)</option>");
+                        ">Europe/Paris (hora de Europa central)</option>",
+                        ">Europe/Madrid (hora de España peninsular)</option>",
+                        ">Atlantic/Canary (hora de Canarias)</option>");
+    }
+
+    @Test
+    void spainsZonesAreNamedAsPeopleThereKnowThem() {
+        assertThat(Languages.SUPPORTED.stream().map(language -> names.of("Europe/Madrid", language)).toList())
+                .isEqualTo(List.of("hora de España peninsular", "mainland Spain time", "heure de l'Espagne péninsulaire",
+                        "spanische Festlandzeit", "ora della Spagna peninsulare"));
+        assertThat(Languages.SUPPORTED.stream().map(language -> names.of("Atlantic/Canary", language)).toList())
+                .isEqualTo(List.of("hora de Canarias", "Canary Islands time", "heure des Canaries", "kanarische Zeit",
+                        "ora delle Canarie"));
+        assertThat(names.of("Europe/Berlin", Languages.DEFAULT)).as("any other zone, Java's name")
+                .isEqualTo("hora de Europa central");
     }
 
     @Test

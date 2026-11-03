@@ -9,8 +9,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
+import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.TimeZone;
 import java.util.UUID;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -73,7 +75,7 @@ class LockSyncTests {
 
     @Test
     void connectingNukiImportsTheLocksWithTheirNukiNamesAndTimeZones() {
-        connectNuki(ALICE, CASA_AND_GARAJE);
+        withServerIn("Europe/Madrid", () -> connectNuki(ALICE, CASA_AND_GARAJE));
 
         var result = sync(ALICE);
 
@@ -81,8 +83,42 @@ class LockSyncTests {
         assertThat(result.getMvcResult().getFlashMap().get("synced")).as("already there").isEqualTo(new SyncResult(0, 0));
         assertThat(locks()).as("Garaje reports no time zone, so it gets the server's").containsExactly(
                 "17|Casa|Europe/London|true|connected",
-                "18|Garaje|" + ZoneId.systemDefault().getId() + "|true|connected");
+                "18|Garaje|Europe/Madrid|true|connected");
         assertThat(mvc.get().uri("/locks").with(owner(ALICE))).bodyText().contains("Casa", "Garaje");
+    }
+
+    @Test
+    void aLockInMadridIsImportedInMadridThoughNukiSaysBerlin() {
+        withServerIn("Europe/Madrid", () -> connectNuki(ALICE, """
+                [{"smartlockId": 17, "type": 4, "name": "Casa", "serverState": 0, "config": {"timezoneId": 37}}]
+                """));
+
+        assertThat(locks()).isEqualTo(List.of("17|Casa|Europe/Madrid|true|connected"));
+    }
+
+    @Test
+    void aNewLockTakesTheServersZoneOnlyWhenNukisKeepsTheSameTime() {
+        assertThat(List.of(imported("Europe/Berlin", "Europe/Madrid"), imported("Europe/London", "Europe/Madrid"),
+                imported("America/New_York", "Europe/Madrid"), imported("Europe/London", "Atlantic/Canary"),
+                imported("Europe/London", "UTC")))
+                .as("UTC has London's offset in November, but not in summer")
+                .isEqualTo(List.of("Europe/Madrid", "Europe/London", "America/New_York", "Atlantic/Canary",
+                        "Europe/London"));
+    }
+
+    private static String imported(String reported, String server) {
+        return LockSync.importedTimeZone(reported, ZoneId.of(server), Instant.parse("2026-11-03T12:00:00Z"));
+    }
+
+    /** Runs as if the server were in this zone, as the zones locks are imported with depend on it. */
+    private static void withServerIn(String zone, Runnable run) {
+        var before = TimeZone.getDefault();
+        TimeZone.setDefault(TimeZone.getTimeZone(zone));
+        try {
+            run.run();
+        } finally {
+            TimeZone.setDefault(before);
+        }
     }
 
     @Test
