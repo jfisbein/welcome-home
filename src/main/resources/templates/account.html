@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es" th:lang="${#locale.language}" th:attr="data-theme=${theme}" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head(#{account-settings.title})}"></head>
+<body>
+<main class="container">
+    <nav th:replace="~{fragments/layout :: menu('settings')}"></nav>
+    <nav th:replace="~{fragments/layout :: settings('account')}"></nav>
+    <h1 th:text="#{account-settings.title}">Cuenta</h1>
+
+    <section>
+        <h2 th:text="#{account-settings.email}">Email</h2>
+        <article th:if="${emailChanged}">
+            <p th:text="#{account-settings.email.changed(${emailChanged})}">Email cambiado a ana@example.com.</p>
+        </article>
+        <p th:unless="${verified}" th:utext="#{home.unverified(${#strings.escapeXml(currentEmail)})}">
+            <strong>Confirma tu email.</strong> Te hemos enviado un enlace.</p>
+        <form th:action="@{/settings/account/email}" th:method="put">
+            <label>
+                [[#{account-settings.email}]]
+                <input type="email" name="email" autocomplete="email" required th:maxlength="${maxEmailLength}"
+                       th:value="${email}" th:attr="aria-invalid=${emailError} ? 'true' : null">
+                <small th:if="${emailError == 'invalid'}" th:text="#{account-settings.email.error.invalid}">
+                    Escribe un email válido.</small>
+                <small th:if="${emailError == 'taken'}" th:text="#{account-settings.email.error.taken}">
+                    Ya hay una cuenta con ese email.</small>
+                <small th:unless="${emailError}" th:text="#{account-settings.email.hint}">
+                    Es donde te enviamos los avisos.</small>
+            </label>
+            <button type="submit" th:text="#{account-settings.email.save}">Cambiar email</button>
+        </form>
+    </section>
+
+    <section>
+        <h2 th:text="#{account-settings.delete.heading}">Darte de baja</h2>
+        <p th:text="#{account-settings.delete.text}">Se borrarán para siempre tu cuenta y todo lo tuyo.</p>
+        <p th:if="${onlyAdmin}" th:text="#{account-settings.delete.only-admin}">Eres el único administrador.</p>
+        <form th:unless="${onlyAdmin}" th:action="@{/settings/account}" th:method="delete"
+              th:data-confirm="#{account-settings.delete.confirm}">
+            <button type="submit" class="outline contrast" th:text="#{account-settings.delete.button}">Darme de baja</button>
+        </form>
+    </section>
+</main>
+<script th:src="@{/js/confirm.js}"></script>
+</body>
+</html>

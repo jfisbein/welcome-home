@@ -111,15 +111,13 @@ class OwnerLanguageTests {
     }
 
     @Test
-    void theAppMayChangeAnOwnersLanguageAndNothingElse() {
+    void theAppMayChangeAnOwnersLanguageButNotWhetherTheyAreAnAdmin() {
         insertOwner("es");
 
         jdbc.sql("UPDATE owner SET language = 'en'").update();
-        for (var column : new String[] {"email = 'mallory@example.com'", "is_admin = false"}) {
-            assertThatThrownBy(() -> jdbc.sql("UPDATE owner SET " + column).update()).as(column)
-                    .isInstanceOf(DataAccessException.class)
-                    .rootCause().hasMessageContaining("permission denied for table owner");
-        }
+        assertThatThrownBy(() -> jdbc.sql("UPDATE owner SET is_admin = false").update())
+                .isInstanceOf(DataAccessException.class)
+                .rootCause().hasMessageContaining("permission denied for table owner");
     }
 
     private void register(String email, String acceptLanguage) {

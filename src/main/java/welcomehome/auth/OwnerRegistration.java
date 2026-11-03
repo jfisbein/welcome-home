@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.regex.Pattern;
 
 import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DuplicateKeyException;
@@ -45,9 +44,6 @@ import welcomehome.auth.RegistrationException.Reason;
 class OwnerRegistration {
 
     private static final String PASSKEY_LABEL = "Passkey";
-    private static final Pattern EMAIL = Pattern.compile("[^@\\s]+@[^@\\s]+\\.[^@\\s]+");
-    /** user_entities.name is varchar(100). */
-    private static final int MAX_EMAIL_LENGTH = 100;
 
     private final InvitationService invitations;
     private final OwnerAccountDao owners;
@@ -184,11 +180,7 @@ class OwnerRegistration {
     }
 
     private static String normalize(@Nullable String email) {
-        var normalized = email == null ? "" : email.strip().toLowerCase(Locale.ROOT);
-        if (normalized.length() > MAX_EMAIL_LENGTH || !EMAIL.matcher(normalized).matches()) {
-            throw new RegistrationException(Reason.INVALID_EMAIL);
-        }
-        return normalized;
+        return Emails.normalize(email).orElseThrow(() -> new RegistrationException(Reason.INVALID_EMAIL));
     }
 
     /**

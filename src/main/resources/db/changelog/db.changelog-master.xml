@@ -33,5 +33,6 @@
     <include file="changes/022-passkeys-owner.xml" relativeToChangelogFile="true"/>
     <include file="changes/023-link-purge-grant.xml" relativeToChangelogFile="true"/>
     <include file="changes/024-lock-problem-emails.xml" relativeToChangelogFile="true"/>
+    <include file="changes/026-owner-email-change.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

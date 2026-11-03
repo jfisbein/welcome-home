@@ -87,8 +87,12 @@ The home page and **Cerraduras** warn you in red about a lock with no connection
 
 If the door really must open now, you can always use the Nuki app yourself.
 
+## Your account
+
+**Configuración → Cuenta** shows the email we write to. If you change it, we send a link to the new one to confirm it, and tell the old one: until you open the link, you get no emails. Your passkeys still work, though your phone may keep showing the old email next to them.
+
 ## Leaving
 
-Whoever runs welcome-home can delete your account, with your locks, links and history. Copies in backups go within 30 days.
+Press **Darme de baja** in **Configuración → Cuenta** to delete your account, with your locks, links and history: your links stop opening at once. Whoever runs welcome-home can also do it for you, and the only admin cannot leave until there is another. Copies in backups go within 30 days.
 
 To disconnect Nuki yourself, press **Desconectar Nuki** in **Configuración → Nuki**. Your locks and links stay, but do not open until you connect again. If you pasted an API token, also delete it in Nuki Web.

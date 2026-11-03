@@ -16,13 +16,14 @@ import org.springframework.mail.MailException;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
-import welcomehome.auth.InvitationService;
-import welcomehome.auth.PasskeyRecoveryCreated;
 import welcomehome.audit.AccessAttempted;
 import welcomehome.audit.AccessOutcome;
 import welcomehome.auth.EmailVerification;
 import welcomehome.auth.EmailVerificationRequested;
+import welcomehome.auth.InvitationService;
+import welcomehome.auth.OwnerEmailChanged;
 import welcomehome.auth.PasskeyAdded;
+import welcomehome.auth.PasskeyRecoveryCreated;
 import welcomehome.config.WelcomeHomeProperties;
 import welcomehome.db.OwnerTransactions;
 import welcomehome.locks.LockProblemsFound;
@@ -147,6 +148,21 @@ class OwnerNotifier {
         recipients.find(added.ownerEmail()).ifPresent(to -> send(to.email(),
                 message(to, "account.passkey-added.subject"),
                 message(to, "account.passkey-added.body", added.label(), app.link("/settings/passkeys")) + accountFooter(to)));
+    }
+
+    /**
+     * To the address the owner had, which is no longer theirs and so is not looked up: it is the one that can tell
+     * whether the change was the owner's own.
+     */
+    @Async
+    @TransactionalEventListener
+    void on(OwnerEmailChanged changed) {
+        if (!mailer.isConfigured()) {
+            return;
+        }
+        var to = new Recipient(changed.previousEmail(), changed.language());
+        send(to.email(), message(to, "account.email-changed.subject"),
+                message(to, "account.email-changed.body", changed.newEmail()) + accountFooter(to));
     }
 
     /** Also without a transaction, when the owner asks for the link again. */
