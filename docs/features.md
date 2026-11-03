@@ -152,7 +152,7 @@ flowchart TD
 
 - **What it never does.** A GET never opens the door, nor calls the lock provider to act: messaging apps fetch links to preview them. Opening is a POST once the guest slides to open. The page asks search engines not to index it (`X-Robots-Tag` and `<meta name="robots">`).
 - **A bad link.** A malformed token, an unknown link and a wrong or outdated MAC all get the same "Enlace no válido" page (404), so that guests cannot tell which links exist.
-- **What it shows.** The lock's name and, unless the link is expired or revoked, its validity in the lock's time zone, never the owner's label. A slider appears only while the link is active and its door is available: the lock is active and the owner's Nuki connection is OK.
+- **What it shows.** The lock's name and, unless the link is expired or revoked, its validity in the lock's time zone, which it names in the guest's language ("hora de Europa central", not `Europe/Madrid`), never the owner's label. A slider appears only while the link is active and its door is available: the lock is active and the owner's Nuki connection is OK.
 - **When it cannot open.** The page and `POST /api/open` share that check, which reads only the database, and show the same messages: not yet valid (with when it can first open), expired, revoked, or door unavailable.
 - **A schedule.** A link with one shows it, and outside it offers no slider and says when it opens next, or that it will not open again before it expires. A page left open past its hours gets `outside-schedule` from `POST /api/open`.
 
