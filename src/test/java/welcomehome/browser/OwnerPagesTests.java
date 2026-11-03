@@ -58,7 +58,8 @@ class OwnerPagesTests extends BrowserTest {
     void anOwnerRegistersWithAPasskeySignsOutAndSignsInAgain() {
         register();
         assertThat(page.locator("h1")).hasText("Hola");
-        assertThat(passkeys()).isEqualTo(1);
+        assertThat(migrator.sql("SELECT label FROM user_credentials").query(String.class).list())
+                .as("the name given on the invitation page").isEqualTo(List.of("Móvil"));
 
         page.locator("form[action='/logout'] button").click();
         page.waitForURL(url("/login?logout"));
@@ -76,6 +77,7 @@ class OwnerPagesTests extends BrowserTest {
 
         page.navigate(invitations.createInvitation(null, "Otra", false).url().toString());
         page.locator("input[name=email]").fill(ALICE);
+        page.locator("input[name=label]").fill("Portátil");
         page.locator("#registration button[type=submit]").click();
 
         assertThat(page.locator("#registration-error")).isVisible();
@@ -155,6 +157,7 @@ class OwnerPagesTests extends BrowserTest {
     private void register() {
         page.navigate(invitations.createInvitation(null, "Alice", false).url().toString());
         page.locator("input[name=email]").fill(ALICE);
+        page.locator("input[name=label]").fill("Móvil");
         page.locator("#registration button[type=submit]").click();
         page.waitForURL(url("/"));
     }

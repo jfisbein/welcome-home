@@ -43,7 +43,8 @@ import welcomehome.auth.RegistrationException.Reason;
 @Service
 class OwnerRegistration {
 
-    private static final String PASSKEY_LABEL = "Passkey";
+    /** The name of a passkey created from a page that did not ask for one: a page loaded before it did. */
+    private static final String DEFAULT_PASSKEY_LABEL = "Passkey";
 
     private final InvitationService invitations;
     private final OwnerAccountDao owners;
@@ -75,29 +76,40 @@ class OwnerRegistration {
     /**
      * Checks the invitation and returns the passkey creation options.
      *
-     * @param email the new owner's email; ignored for a passkey recovery link, which names its owner
+     * @param email       the new owner's email; ignored for a passkey recovery link, which names its owner
+     * @param passkeyName what the owner calls the passkey, so that they can tell it from the others, as one who lost a
+     *                    device must, to delete its passkey; blank for the default name
      */
-    PendingRegistration start(String invitationToken, @Nullable String email) {
+    PendingRegistration start(String invitationToken, @Nullable String email, @Nullable String passkeyName) {
+        var label = passkeyLabel(passkeyName);
         var invitation = invitations.findRedeemable(invitationToken)
                 .orElseThrow(() -> new RegistrationException(Reason.INVITATION_NOT_REDEEMABLE));
         if (invitation.recoversOwnerId() == null) {
-            return startNewOwner(invitationToken, email);
+            return startNewOwner(invitationToken, email, label);
         }
         var owner = recoveredOwner(invitation)
                 .orElseThrow(() -> new RegistrationException(Reason.INVITATION_NOT_REDEEMABLE));
-        return startRecovery(invitationToken, owner);
+        return startRecovery(invitationToken, owner, label);
     }
 
-    private PendingRegistration startNewOwner(String invitationToken, @Nullable String email) {
+    private static String passkeyLabel(@Nullable String name) {
+        var stripped = name == null ? "" : name.strip();
+        if (stripped.length() > PasskeysController.MAX_LABEL_LENGTH) {
+            throw new RegistrationException(Reason.INVALID_PASSKEY_NAME);
+        }
+        return stripped.isEmpty() ? DEFAULT_PASSKEY_LABEL : stripped;
+    }
+
+    private PendingRegistration startNewOwner(String invitationToken, @Nullable String email, String label) {
         var normalizedEmail = normalize(email);
         if (owners.findByEmail(normalizedEmail).isPresent() || userEntities.findByUsername(normalizedEmail) != null) {
             throw new RegistrationException(Reason.EMAIL_TAKEN);
         }
-        return new PendingRegistration(invitationToken, normalizedEmail, null,
+        return new PendingRegistration(invitationToken, normalizedEmail, null, label,
                 creationOptions(newUserEntity(normalizedEmail), List.of()));
     }
 
-    private PendingRegistration startRecovery(String invitationToken, OwnerAccount owner) {
+    private PendingRegistration startRecovery(String invitationToken, OwnerAccount owner, String label) {
         var existing = userEntities.findByUsername(owner.email());
         var user = existing != null ? existing : newUserEntity(owner.email());
         // The authenticator refuses to create a second passkey where the owner already has one.
@@ -107,7 +119,7 @@ class OwnerRegistration {
                         .transports(passkey.getTransports())
                         .build())
                 .toList();
-        return new PendingRegistration(invitationToken, owner.email(), owner.id(),
+        return new PendingRegistration(invitationToken, owner.email(), owner.id(), label,
                 creationOptions(user, ownPasskeys));
     }
 
@@ -155,7 +167,7 @@ class OwnerRegistration {
         userEntities.save(pending.options().getUser());
         try {
             relyingPartyOperations.registerCredential(new ImmutableRelyingPartyRegistrationRequest(
-                    pending.options(), new RelyingPartyPublicKey(passkey, PASSKEY_LABEL)));
+                    pending.options(), new RelyingPartyPublicKey(passkey, pending.passkeyLabel())));
         } catch (RuntimeException e) {
             throw new RegistrationException(Reason.PASSKEY_REJECTED, e);
         }
@@ -185,10 +197,10 @@ class OwnerRegistration {
 
     /**
      * A registration between the two steps, kept in the visitor's session. {@code recoveredOwnerId} is the
-     * owner who gets the passkey, or {@code null} for a new owner.
+     * owner who gets the passkey, or {@code null} for a new owner; {@code passkeyLabel} what they call it.
      */
     record PendingRegistration(String invitationToken, String email, @Nullable UUID recoveredOwnerId,
-                               PublicKeyCredentialCreationOptions options) {
+                               String passkeyLabel, PublicKeyCredentialCreationOptions options) {
     }
 
     record RegisteredOwner(UUID id, String email, boolean isAdmin) {

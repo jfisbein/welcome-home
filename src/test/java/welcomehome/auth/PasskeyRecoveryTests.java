@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -83,6 +84,20 @@ class PasskeyRecoveryTests {
         assertThat(jdbc.sql("SELECT is_admin FROM owner").query(Boolean.class).single()).as("still an admin").isTrue();
         assertSignsInAsAlice(newDevice);
         assertSignsInAsAlice(oldDevice);
+    }
+
+    /** So that the owner can tell the lost device's passkey from the new one, and delete it. */
+    @Test
+    void theNewPasskeyHasTheNameGivenAndTheOldOneKeepsItsOwn() {
+        var recovery = recoveryPath();
+        var session = new MockHttpSession();
+        assertThat(mvc.get().uri(recovery)).bodyText().contains("Nombre de esta passkey", "name=\"label\"");
+
+        var options = post(session, recovery + "/options", "{\"email\": null, \"label\": \"Móvil nuevo\"}");
+        assertThat(post(session, recovery + "/register", newDevice.create(body(options)))).hasStatusOk();
+
+        assertThat(jdbc.sql("SELECT label FROM user_credentials").query(String.class).list())
+                .containsExactlyInAnyOrderElementsOf(List.of("Passkey", "Móvil nuevo"));
     }
 
     @Test

@@ -62,11 +62,11 @@ const WebAuthn = (() => {
     }
 
     /**
-     * Creates a passkey from an invitation and returns the URL to go to next.
+     * Creates a passkey from an invitation, with the name the owner gives it, and returns the URL to go to next.
      * baseUrl is the invitation's path; the server answers on its /options and /register.
      */
-    async function register(baseUrl, email) {
-        const options = await postJson(`${baseUrl}/options`, {email});
+    async function register(baseUrl, email, label) {
+        const options = await postJson(`${baseUrl}/options`, {email, label});
         const result = await postJson(`${baseUrl}/register`, await create(options));
         return result.redirectUrl;
     }

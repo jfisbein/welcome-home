@@ -13,7 +13,8 @@ class RegistrationException extends RuntimeException {
         INVALID_EMAIL(HttpStatus.BAD_REQUEST, "email"),
         EMAIL_TAKEN(HttpStatus.CONFLICT, "email-taken"),
         NO_REGISTRATION_IN_PROGRESS(HttpStatus.BAD_REQUEST, "expired"),
-        PASSKEY_REJECTED(HttpStatus.BAD_REQUEST, "passkey");
+        PASSKEY_REJECTED(HttpStatus.BAD_REQUEST, "passkey"),
+        INVALID_PASSKEY_NAME(HttpStatus.BAD_REQUEST, "passkey-name");
 
         final HttpStatus status;
         final String code;
