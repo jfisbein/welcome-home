@@ -2,6 +2,7 @@ package welcomehome.access;
 
 import java.time.Instant;
 import java.time.ZoneId;
+import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -59,7 +60,10 @@ class GuestController {
         var link = guestLink.link();
         var zone = ZoneId.of(link.lockTimeZone());
         model.addAttribute("lockName", link.lockName());
-        model.addAttribute("timeZone", link.lockTimeZone());
+        // Its name in the guest's language, which a guest knows better than its id: "hora de Europa central" for
+        // Europe/Madrid. Also the same for the zones that share its rules, such as Europe/Berlin, which Nuki reports
+        // for a lock in Madrid.
+        model.addAttribute("timeZone", zone.getDisplayName(TextStyle.FULL, locale));
         model.addAttribute("validFrom", link.validFrom().atZoneSameInstant(zone));
         model.addAttribute("validUntil", link.validUntil().atZoneSameInstant(zone));
         model.addAttribute("status", guestLink.status());
@@ -69,6 +73,8 @@ class GuestController {
             var pending = guestLink.status() == LinkStatus.PENDING;
             withinSchedule = pending || schedule.allows(now, zone);
             model.addAttribute("schedule", schedules.describe(schedule, locale));
+            // Only while the link can open: they may say where the door is, or where a key is.
+            model.addAttribute("instructions", guestLinks.lock(link).map(OwnerLock::guestInstructions).orElse(null));
             model.addAttribute("opensAt", schedule.firstOpening(pending ? link.validFrom().toInstant() : now,
                     link.validUntil().toInstant(), zone).orElse(null));
         }

@@ -6,7 +6,7 @@
     <article>
         <header><h1 th:text="${lockName}">Casa</h1></header>
         <p th:if="${status.usable}" th:text="#{guest.validity(${#temporals.format(validFrom, #messages.msg('format.datetime'))}, ${#temporals.format(validUntil, #messages.msg('format.datetime'))}, ${timeZone})}">
-            Este enlace abre la puerta del 1/11/2030 15:00 al 3/11/2030 11:00 (hora de Europe/Madrid).
+            Este enlace abre la puerta del 1/11/2030 15:00 al 3/11/2030 11:00 (hora de Europa central).
         </p>
         <th:block th:unless="${#lists.isEmpty(schedule)}">
             <p th:text="#{guest.schedule}">Solo en este horario:</p>
@@ -14,6 +14,9 @@
                 <li th:each="line : ${schedule}" th:text="${line}">Lunes a viernes: 09:00–17:00</li>
             </ul>
         </th:block>
+        <!-- What the owner tells the lock's guests, with its line breaks (see app.css). -->
+        <p class="guest-instructions" th:if="${instructions}" th:text="${instructions}">
+            Calle Mayor 1, 3.º B. La llave del buzón está debajo del felpudo.</p>
 
         <!-- One slide to open per door, the building entrance first. Slide to open: a touch by mistake, in a
              pocket or while scrolling, does not open the door. A native range, so that keyboards and screen

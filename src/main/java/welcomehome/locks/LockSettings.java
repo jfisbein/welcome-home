@@ -12,13 +12,14 @@ import welcomehome.db.OwnerTransactions;
 
 /**
  * What an owner configures on a lock: its name, its time zone, whether the door is relocked some other way than
- * Auto Lock, and for a smart lock, the Opener at its building's entrance. Links store their start and end in UTC,
+ * Auto Lock, for a smart lock the Opener at its building's entrance, and what its guests should know. Links store their start and end in UTC,
  * so changing the time zone changes how they are shown, not when they are valid.
  */
 @Service
 class LockSettings {
 
     static final int MAX_NAME_LENGTH = 100;
+    static final int MAX_GUEST_INSTRUCTIONS_LENGTH = 1000;
 
     /** The IANA region zones, such as Europe/Madrid, plus UTC: no offsets and no legacy aliases like CET. */
     static final List<String> TIME_ZONES;
@@ -43,12 +44,13 @@ class LockSettings {
      * @param name           a name already checked with {@link #normalizeName}
      * @param timeZone       a time zone already checked with {@link #isTimeZone}
      * @param entranceLockId an entrance among those {@link #entrances} offers, or null for none
+     * @param guestInstructions instructions already checked with {@link #normalizeGuestInstructions}, or null for none
      * @return whether the owner has that lock
      */
     boolean update(UUID ownerId, UUID lockId, String name, String timeZone, boolean relockingHandledElsewhere,
-                   @Nullable UUID entranceLockId) {
+                   @Nullable UUID entranceLockId, @Nullable String guestInstructions) {
         return ownerTransactions.execute(ownerId, () -> locks.updateSettings(ownerId, lockId, name, timeZone,
-                relockingHandledElsewhere, entranceLockId));
+                relockingHandledElsewhere, entranceLockId, guestInstructions));
     }
 
     /**
@@ -68,6 +70,17 @@ class LockSettings {
     static Optional<String> normalizeName(String name) {
         var stripped = name.strip();
         return stripped.isEmpty() || stripped.length() > MAX_NAME_LENGTH ? Optional.empty() : Optional.of(stripped);
+    }
+
+    /**
+     * The instructions without surrounding spaces and with a browser's line breaks as one character each, so that
+     * their length is what the owner sees.
+     *
+     * @return them, or empty if they are too long; blank ones are an empty string, which means none
+     */
+    static Optional<String> normalizeGuestInstructions(String instructions) {
+        var normalized = instructions.replace("\r\n", "\n").strip();
+        return normalized.length() > MAX_GUEST_INSTRUCTIONS_LENGTH ? Optional.empty() : Optional.of(normalized);
     }
 
     static boolean isTimeZone(String timeZone) {

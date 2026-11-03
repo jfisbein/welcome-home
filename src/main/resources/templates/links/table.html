@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- A table of a lock's links, with what can be done with each: those that can still open, or those that ended. -->
+<div class="overflow-auto" th:fragment="linkTable(rows)">
+    <table class="links">
+        <thead>
+        <tr>
+            <th scope="col" th:text="#{links.column.for}">Para</th>
+            <th scope="col" th:text="#{links.column.validity}">Validez</th>
+            <th scope="col" th:text="#{links.column.state}">Estado</th>
+            <th scope="col"></th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="link : ${rows}">
+            <td class="label" th:text="${link.label}">Ana</td>
+            <td class="validity">
+                <span th:text="#{links.period(${#temporals.format(link.validFrom, #messages.msg('format.datetime'))}, ${#temporals.format(link.validUntil, #messages.msg('format.datetime'))})}">
+                    1/11/2030 15:00 – 3/11/2030 11:00</span>
+                <small th:each="line : ${link.schedule}" th:text="${line}">Lunes a viernes: 09:00–17:00</small>
+            </td>
+            <td class="state" th:switch="${link.status.name()}">
+                <span th:case="'PENDING'" th:text="#{links.status.pending}">Pendiente</span>
+                <span th:case="'ACTIVE'"><strong th:text="#{links.status.active}">Activo</strong></span>
+                <span th:case="'EXPIRED'" th:text="#{links.status.expired}">Caducado</span>
+                <span th:case="'REVOKED'" th:text="#{links.status.revoked}">Anulado</span>
+            </td>
+            <td class="buttons">
+                <div class="actions">
+                    <a th:if="${link.status.name() != 'REVOKED'}" th:href="@{/links/{id}(id=${link.id})}"
+                       role="button" class="outline secondary" th:text="#{common.edit}">Editar</a>
+                    <a th:href="@{/locks/{lockId}/history(lockId=${lock.id},link=${link.id})}"
+                       role="button" class="outline secondary" th:text="#{common.history}">Historial</a>
+                    <th:block th:if="${link.status.usable}">
+                        <button type="button" class="outline" th:data-copy-text="${link.url}"
+                                th:data-copied="#{common.copied}" th:text="#{common.copy}">Copiar</button>
+                        <button type="button" class="outline secondary" hidden th:data-share-url="${link.url}"
+                                th:data-share-title="#{links.share-title(${lock.name})}"
+                                th:text="#{common.share}">Compartir</button>
+                        <form th:action="@{/links/{id}/regenerate(id=${link.id})}" method="post"
+                              th:data-confirm="#{links.regenerate.confirm(${link.label})}">
+                            <button type="submit" class="outline secondary" th:title="#{links.regenerate.title}"
+                                    th:text="#{links.regenerate}">Cambiar enlace</button>
+                        </form>
+                        <form th:action="@{/links/{id}/revoke(id=${link.id})}" method="post"
+                              th:data-confirm="#{links.revoke.confirm(${link.label})}">
+                            <button type="submit" class="outline contrast"
+                                    th:text="#{links.revoke}">Anular</button>
+                        </form>
+                    </th:block>
+                    <form th:unless="${link.status.usable}" th:action="@{/links/{id}(id=${link.id})}"
+                          th:method="delete" th:data-confirm="#{links.delete.confirm(${link.label})}">
+                        <button type="submit" class="outline contrast"
+                                th:text="#{links.delete}">Borrar</button>
+                    </form>
+                </div>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+</body>
+</html>

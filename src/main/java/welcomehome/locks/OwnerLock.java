@@ -17,9 +17,12 @@ import welcomehome.nuki.DeviceType;
  * @param deviceType      whether it is a smart lock or an Opener
  * @param entranceLockId  the owner's Opener at the building's entrance, which the lock's links open too, or
  *                        {@code null}; only a smart lock has one
+ * @param guestInstructions what the owner tells the lock's guests on its links' page, such as the address or
+ *                        where a key is, or {@code null} for nothing
  */
 public record OwnerLock(UUID id, long nukiSmartlockId, String name, String timeZone, boolean active,
-                        boolean relockingHandledElsewhere, DeviceType deviceType, @Nullable UUID entranceLockId) {
+                        boolean relockingHandledElsewhere, DeviceType deviceType, @Nullable UUID entranceLockId,
+                        @Nullable String guestInstructions) {
 
     /**
      * Tells whether the lock is an Opener.

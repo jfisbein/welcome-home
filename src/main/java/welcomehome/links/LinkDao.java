@@ -98,6 +98,31 @@ class LinkDao {
                 .optional();
     }
 
+    /**
+     * Deletes a link that can no longer open, as it expired or was revoked; its schedule and its attempts go with it.
+     *
+     * @return its lock and label, or empty if the owner has no such link or it can still open
+     */
+    Optional<DeletedLink> deleteEnded(UUID ownerId, UUID linkId) {
+        return jdbc.sql("""
+                        DELETE FROM access_link
+                        WHERE owner_id = :ownerId AND id = :linkId AND (revoked_at IS NOT NULL OR valid_until <= now())
+                        RETURNING lock_id, label
+                        """)
+                .param("ownerId", ownerId)
+                .param("linkId", linkId)
+                .query(DeletedLink.class)
+                .optional();
+    }
+
+    boolean exists(UUID ownerId, UUID linkId) {
+        return jdbc.sql("SELECT EXISTS (SELECT 1 FROM access_link WHERE owner_id = :ownerId AND id = :linkId)")
+                .param("ownerId", ownerId)
+                .param("linkId", linkId)
+                .query(Boolean.class)
+                .single();
+    }
+
     /** Invalidates every earlier URL of a link that is not revoked. */
     Optional<RegeneratedLink> incrementTokenVersion(UUID ownerId, UUID linkId) {
         return jdbc.sql("""
@@ -205,6 +230,9 @@ class LinkDao {
     }
 
     record RevokedLink(UUID lockId, String label) {
+    }
+
+    record DeletedLink(UUID lockId, String label) {
     }
 
     record StoredLink(UUID id, String label, int tokenVersion, OffsetDateTime validFrom, OffsetDateTime validUntil,

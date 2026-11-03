@@ -19,7 +19,7 @@
         <p th:if="${stateError == 'not-connected'}" role="alert"
            th:utext="#{lock.state-error.not-connected(@{/settings/nuki})}">Para ver el estado, conecta Nuki.</p>
         <p th:if="${stateError == 'rejected'}" role="alert"
-           th:utext="#{lock.state-error.rejected(@{/settings/nuki})}">Nuki no ha aceptado tu API token.</p>
+           th:utext="#{lock.state-error.rejected(@{/settings/nuki})}">Nuki ha rechazado la conexión.</p>
         <p th:if="${stateError == 'not-found'}" role="alert"
            th:utext="#{lock.state-error.not-found(@{/locks})}">Nuki no encuentra esta cerradura.</p>
         <p th:if="${stateError == 'unavailable'}" role="alert" th:text="#{lock.state-error.unavailable}">
@@ -73,6 +73,16 @@
                        th:attr="aria-invalid=${nameError} ? 'true' : null">
                 <small th:if="${nameError}" th:text="#{lock.name.error}">Escribe un nombre.</small>
                 <small th:unless="${nameError}" th:text="#{lock.name.hint}">Es el que verán tus invitados.</small>
+            </label>
+            <label>
+                [[#{lock.guest-instructions}]]
+                <textarea name="guestInstructions" rows="4" th:maxlength="${maxGuestInstructionsLength}"
+                          th:text="${guestInstructions}"
+                          th:attr="aria-invalid=${guestInstructionsError} ? 'true' : null">Calle Mayor 1, 3.º B.</textarea>
+                <small th:if="${guestInstructionsError}"
+                       th:text="#{lock.guest-instructions.error}">Hasta 1000 caracteres.</small>
+                <small th:unless="${guestInstructionsError}" th:text="#{lock.guest-instructions.hint}">
+                    Las verán en la página de su enlace.</small>
             </label>
             <label>
                 [[#{lock.time-zone}]]
