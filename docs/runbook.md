@@ -48,7 +48,7 @@ What the stack needs, and what is up to you. The names in brackets are what this
 
    The client id and secret are on Nuki Web's API page, under Advanced API, which Nuki has to grant first. Both files must exist, as `compose.yaml` asks for them: leave them empty if you have no client, and owners connect Nuki by pasting an API token instead.
 
-5. **Start.** Deploy the stack. `db`, `app` and `backup` turn healthy within a minute or two, and `cloudflared` starts once `app` is. `https://welcome-home.example.com/actuator/health` answers `{"status":"UP"}` from outside.
+5. **Start.** Deploy the stack. `db`, `app` and `backup` turn healthy within a minute or two, and `cloudflared` starts once `app` is, and turns healthy once the tunnel connects. `https://welcome-home.example.com/actuator/health` answers `{"status":"UP"}` from outside.
 6. **First admin.** `docker compose run --rm app --bootstrap-admin` prints an invitation link, valid for 72 hours. Open it on your phone or computer, enter your email and create the passkey. Further owners are invited from `/admin/owners`.
 7. **Emails**, optional. With SMTP2GO, for example: verify the sender domain `example.com` (its DNS records) and create an SMTP user; its name and password are `secrets/smtp_username` and `smtp_password`. The server is `SPRING_MAIL_HOST` and `SPRING_MAIL_PORT` in `compose.yaml`, and the sender `NOTIFICATIONS_FROM`. Check with "Enviarme un email de prueba" at `/settings/notifications`.
 8. **Off-site copy**, optional but recommended. Any tool that can reach the database over `dbbackup` as `backup_reader` will do. With Databasus, for example, a stack on the same Docker host that dumps the database to B2 every day:
@@ -192,7 +192,7 @@ The link's **Historial** shows whether, when and from where it was used: the IP 
 
 | Symptom | Where to look |
 |---------|---------------|
-| The site does not load | `docker compose ps`: `cloudflared` running and `app` healthy? `docker compose logs cloudflared` for the tunnel, and the tunnel's status in Cloudflare Zero Trust. |
+| The site does not load | `docker compose ps`: `cloudflared` and `app` healthy? An unhealthy `cloudflared` has no connection to Cloudflare. `docker compose logs cloudflared` for the tunnel, and the tunnel's status in Cloudflare Zero Trust. |
 | `app` does not turn healthy | `docker compose logs app`: a missing or unreadable keyset or secret, or the database, is named in the error. |
 | `backup` restarting, "/backups is not writable by uid 999" | `backups/` did not exist before the first start, so Docker created it for root: `chown 999:999 backups && chmod 700 backups`, then `docker compose restart backup`. |
 | `backup` unhealthy | No dump in the last 25 hours: `docker compose logs backup`, and check that the disk has room. |
