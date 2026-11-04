@@ -31,17 +31,20 @@
                 <strong th:case="'OK'" th:text="${attempt.outcome}">Abierta</strong>
                 <span th:case="*" th:text="${attempt.outcome}">Denegado: caducado</span>
             </td>
-            <td class="origin" th:with="origin=${attempt.origin}">
-                <span th:if="${origin.flag != null}" role="img" tabindex="0" data-placement="left"
-                      th:aria-label="${origin.description}" th:data-tooltip="${origin.description}"
-                      th:text="${origin.flag}">🇪🇸</span>
-                <small th:if="${origin.flag == null and origin.country != null}" tabindex="0" data-placement="left"
-                       th:data-tooltip="${origin.ip}" th:text="${origin.country}">Tor</small>
-                <small th:if="${origin.country == null}" th:text="${origin.ip}">192.0.2.10</small>
-            </td>
+            <td th:replace="~{fragments/attempts :: origin(${attempt.origin})}"></td>
         </tr>
         </tbody>
     </table>
 </div>
+<!-- Where a request came from, as audit.AttemptRow.Origin gives it: in the attempts' table and in the owner's
+     activity. -->
+<td th:fragment="origin(origin)" class="origin">
+    <span th:if="${origin.flag != null}" role="img" tabindex="0" data-placement="left"
+          th:aria-label="${origin.description}" th:data-tooltip="${origin.description}"
+          th:text="${origin.flag}">🇪🇸</span>
+    <small th:if="${origin.flag == null and origin.country != null}" tabindex="0" data-placement="left"
+           th:data-tooltip="${origin.ip}" th:text="${origin.country}">Tor</small>
+    <small th:if="${origin.country == null}" th:text="${origin.ip}">192.0.2.10</small>
+</td>
 </body>
 </html>

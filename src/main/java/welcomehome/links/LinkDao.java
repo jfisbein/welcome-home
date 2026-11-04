@@ -149,18 +149,20 @@ class LinkDao {
                 .optional();
     }
 
-    /** @return whether the owner has that link and it is not revoked */
-    boolean update(UUID ownerId, UUID linkId, String label, Instant validFrom, Instant validUntil) {
+    /** @return the link's lock, or empty if the owner has no such link or it is revoked */
+    Optional<UUID> update(UUID ownerId, UUID linkId, String label, Instant validFrom, Instant validUntil) {
         return jdbc.sql("""
                         UPDATE access_link SET label = :label, valid_from = :validFrom, valid_until = :validUntil
                         WHERE owner_id = :ownerId AND id = :linkId AND revoked_at IS NULL
+                        RETURNING lock_id
                         """)
                 .param("label", label)
                 .param("validFrom", OffsetDateTime.ofInstant(validFrom, ZoneOffset.UTC))
                 .param("validUntil", OffsetDateTime.ofInstant(validUntil, ZoneOffset.UTC))
                 .param("ownerId", ownerId)
                 .param("linkId", linkId)
-                .update() == 1;
+                .query(UUID.class)
+                .optional();
     }
 
     /** The composite foreign key on (owner_id, link_id) rejects another owner's link. */

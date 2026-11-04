@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpMessageConverterAuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.authentication.session.ChangeSessionIdAuthenticationStrategy;
 import org.springframework.security.web.context.SecurityContextHolderFilter;
@@ -58,7 +59,8 @@ class SecurityConfiguration {
     /** Only with the web server: the one-off commands run without it, and without HttpSecurity. */
     @Bean
     @ConditionalOnWebApplication
-    SecurityFilterChain securityFilterChain(HttpSecurity http, OwnerSessions sessions) {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, OwnerSessions sessions, OwnerAccountDao owners,
+                                           PasskeyDao passkeys, ApplicationEventPublisher events) {
         http
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers("/login", "/invite/**", "/email/verify/**", "/o/**", "/api/open",
@@ -84,11 +86,16 @@ class SecurityConfiguration {
                                 .includeSubDomains(true)));
         var chain = http.build();
         // WebAuthnConfigurer leaves its filter without a session strategy, so a sign-in would keep the session id
-        // from before it, which someone who planted that id in the browser would then share.
+        // from before it, which someone who planted that id in the browser would then share. And each sign-in is
+        // announced, for the owner's activity, before the filter's own answer.
         chain.getFilters().stream()
                 .filter(WebAuthnAuthenticationFilter.class::isInstance)
                 .map(WebAuthnAuthenticationFilter.class::cast)
-                .forEach(filter -> filter.setSessionAuthenticationStrategy(new ChangeSessionIdAuthenticationStrategy()));
+                .forEach(filter -> {
+                    filter.setSessionAuthenticationStrategy(new ChangeSessionIdAuthenticationStrategy());
+                    filter.setAuthenticationSuccessHandler(new SignInAnnouncer(
+                            new HttpMessageConverterAuthenticationSuccessHandler(), owners, passkeys, events));
+                });
         return chain;
     }
 

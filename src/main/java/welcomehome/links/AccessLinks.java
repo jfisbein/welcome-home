@@ -9,8 +9,10 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import welcomehome.db.OwnerTransactions;
+import welcomehome.links.LinkChanged.Change;
 import welcomehome.links.LinkDao.DeletedLink;
 import welcomehome.links.LinkDao.EditableLink;
 import welcomehome.links.LinkDao.RevokedLink;
@@ -18,7 +20,8 @@ import welcomehome.locks.OwnerLock;
 
 /**
  * An owner's access links: a link opens one lock between two instants, at the days and hours of its schedule if it
- * has one, through a signed URL that is never stored.
+ * has one, through a signed URL that is never stored. Every change publishes a {@link LinkChanged} in its
+ * transaction.
  */
 @Service
 class AccessLinks {
@@ -27,12 +30,15 @@ class AccessLinks {
     private final LinkUrls urls;
     private final OwnerTransactions ownerTransactions;
     private final LinkSchedules schedules;
+    private final ApplicationEventPublisher events;
 
-    AccessLinks(LinkDao links, LinkUrls urls, OwnerTransactions ownerTransactions, LinkSchedules schedules) {
+    AccessLinks(LinkDao links, LinkUrls urls, OwnerTransactions ownerTransactions, LinkSchedules schedules,
+                ApplicationEventPublisher events) {
         this.links = links;
         this.urls = urls;
         this.ownerTransactions = ownerTransactions;
         this.schedules = schedules;
+        this.events = events;
     }
 
     /**
@@ -46,6 +52,7 @@ class AccessLinks {
         var inserted = ownerTransactions.execute(ownerId, () -> {
             var link = links.insert(ownerId, lockId, label, validFrom, validUntil);
             links.replaceSchedule(ownerId, link.id(), schedule);
+            events.publishEvent(new LinkChanged(ownerId, lockId, link.id(), Change.CREATED));
             return link;
         });
         return urls.url(inserted.id(), inserted.tokenVersion());
@@ -60,7 +67,11 @@ class AccessLinks {
      * @return the revoked link's lock and label, or empty if the owner has no such link
      */
     Optional<RevokedLink> revoke(UUID ownerId, UUID linkId) {
-        return ownerTransactions.execute(ownerId, () -> links.revoke(ownerId, linkId));
+        return ownerTransactions.execute(ownerId, () -> {
+            var revoked = links.revoke(ownerId, linkId);
+            revoked.ifPresent(link -> events.publishEvent(new LinkChanged(ownerId, link.lockId(), linkId, Change.REVOKED)));
+            return revoked;
+        });
     }
 
     /**
@@ -70,7 +81,11 @@ class AccessLinks {
      * @return the deleted link's lock and label, or empty if the owner has no such link or it can still open
      */
     Optional<DeletedLink> deleteEnded(UUID ownerId, UUID linkId) {
-        return ownerTransactions.execute(ownerId, () -> links.deleteEnded(ownerId, linkId));
+        return ownerTransactions.execute(ownerId, () -> {
+            var deleted = links.deleteEnded(ownerId, linkId);
+            deleted.ifPresent(link -> events.publishEvent(new LinkChanged(ownerId, link.lockId(), linkId, Change.DELETED)));
+            return deleted;
+        });
     }
 
     /** @return whether the owner has that link, whatever its state */
@@ -93,11 +108,12 @@ class AccessLinks {
     boolean update(UUID ownerId, UUID linkId, String label, Instant validFrom, Instant validUntil,
                    LinkSchedule schedule) {
         return ownerTransactions.execute(ownerId, () -> {
-            var updated = links.update(ownerId, linkId, label, validFrom, validUntil);
-            if (updated) {
+            var lockId = links.update(ownerId, linkId, label, validFrom, validUntil);
+            lockId.ifPresent(lock -> {
                 links.replaceSchedule(ownerId, linkId, schedule);
-            }
-            return updated;
+                events.publishEvent(new LinkChanged(ownerId, lock, linkId, Change.EDITED));
+            });
+            return lockId.isPresent();
         });
     }
 
@@ -108,7 +124,12 @@ class AccessLinks {
      * @return the link's lock, label and new URL, or empty if the owner has no such link or it is revoked
      */
     Optional<RegeneratedUrl> regenerate(UUID ownerId, UUID linkId) {
-        return ownerTransactions.execute(ownerId, () -> links.incrementTokenVersion(ownerId, linkId))
+        return ownerTransactions.execute(ownerId, () -> {
+                    var regenerated = links.incrementTokenVersion(ownerId, linkId);
+                    regenerated.ifPresent(link ->
+                            events.publishEvent(new LinkChanged(ownerId, link.lockId(), linkId, Change.NEW_URL)));
+                    return regenerated;
+                })
                 .map(link -> new RegeneratedUrl(link.lockId(), link.label(), urls.url(link.id(), link.tokenVersion())));
     }
 

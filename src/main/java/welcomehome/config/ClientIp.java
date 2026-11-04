@@ -1,4 +1,4 @@
-package welcomehome.access;
+package welcomehome.config;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -10,13 +10,14 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
 /**
- * The guest's IP address, for the rate limits and the history. Behind Cloudflare it comes from
+ * The IP address a request came from: a guest's, for the rate limits and the history, or an owner's, for their
+ * account's activity. Behind Cloudflare it comes from
  * CF-Connecting-IP, which Cloudflare sets on every request, overwriting what the client sent; X-Forwarded-For,
  * by contrast, starts with whatever the client sent. Without that header, or when it holds no IP address, it
  * is the address the request came from.
  */
 @Component
-class ClientIp {
+public class ClientIp {
 
     private static final String OCTET = "(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)";
     private static final Pattern IPV4 = Pattern.compile(OCTET + "(\\." + OCTET + "){3}");
@@ -24,12 +25,18 @@ class ClientIp {
 
     private final @Nullable String header;
 
-    ClientIp(AccessProperties properties) {
+    ClientIp(ClientProperties properties) {
         var configured = properties.clientIpHeader();
         this.header = configured == null || configured.isBlank() ? null : configured.strip();
     }
 
-    String of(HttpServletRequest request) {
+    /**
+     * The IP address a request came from, as the proxy says, or the address it came from.
+     *
+     * @param request the request
+     * @return the request's IP address
+     */
+    public String of(HttpServletRequest request) {
         var value = header == null ? null : request.getHeader(header);
         return Optional.ofNullable(value)
                 .flatMap(ip -> ipLiteral(ip.strip()))

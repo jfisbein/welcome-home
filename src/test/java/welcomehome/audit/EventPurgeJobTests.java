@@ -34,6 +34,9 @@ class EventPurgeJobTests {
     AccessEventDao accessEvents;
 
     @Autowired
+    OwnerActivityDao activity;
+
+    @Autowired
     OwnerTransactions ownerTransactions;
 
     @Autowired
@@ -76,7 +79,7 @@ class EventPurgeJobTests {
         insertEvent(link, "31 days", "198.51.100.1");
         insertEvent(link, "29 days", "198.51.100.2");
 
-        new EventPurgeJob(accessEvents, ownerTransactions, new AuditProperties(Duration.ofDays(30), Duration.ofDays(30))).purgeAll();
+        new EventPurgeJob(accessEvents, activity, ownerTransactions, new AuditProperties(Duration.ofDays(30), Duration.ofDays(30))).purgeAll();
 
         assertThat(remainingIps(link)).containsExactly("198.51.100.2");
     }
@@ -105,7 +108,7 @@ class EventPurgeJobTests {
         insertEvent(link, "31 days", "198.51.100.1");
         insertEvent(link, "29 days", "198.51.100.2");
 
-        new EventPurgeJob(accessEvents, ownerTransactions, new AuditProperties(Duration.ofDays(365), Duration.ofDays(30)))
+        new EventPurgeJob(accessEvents, activity, ownerTransactions, new AuditProperties(Duration.ofDays(365), Duration.ofDays(30)))
                 .purgeAll();
 
         assertThat(attempts(link)).containsExactly("opened|-|-|-", "opened|-|198.51.100.2|-");
@@ -117,6 +120,40 @@ class EventPurgeJobTests {
         assertThatThrownBy(() -> jdbc.sql("UPDATE access_event SET reason = 'opened'").update())
                 .isInstanceOf(DataAccessException.class)
                 .rootCause().hasMessageContaining("permission denied for table access_event");
+    }
+
+    @Test
+    void ownersActivityIsDeletedAfterAYearAndForgetsItsIpAddressAfterNinetyDays() {
+        var alice = data.owner("alice@example.com");
+        var bob = data.owner("bob@example.com");
+        for (var owner : List.of(alice, bob)) {
+            for (var age : List.of("366 days", "91 days", "89 days")) {
+                migrator.sql("""
+                                INSERT INTO owner_activity (owner_id, occurred_at, kind, ip, country)
+                                VALUES (?, now() - CAST(? AS interval), 'SIGNED_IN', '198.51.100.1', 'ES')
+                                """)
+                        .params(owner, age).update();
+            }
+        }
+
+        job.purgeAll();
+
+        for (var owner : List.of(alice, bob)) {
+            assertThat(migrator.sql("""
+                            SELECT concat_ws('|', country, coalesce(host(ip), '-')) FROM owner_activity
+                            WHERE owner_id = ? ORDER BY occurred_at
+                            """)
+                    .param(owner).query(String.class).list())
+                    .containsExactly("ES|-", "ES|198.51.100.1");
+        }
+    }
+
+    @Test
+    void theAppMayForgetAnActivitysIpAddressButChangeNothingElse() {
+        jdbc.sql("UPDATE owner_activity SET ip = NULL").update();
+        assertThatThrownBy(() -> jdbc.sql("UPDATE owner_activity SET kind = 'SIGNED_IN'").update())
+                .isInstanceOf(DataAccessException.class)
+                .rootCause().hasMessageContaining("permission denied for table owner_activity");
     }
 
     @Test

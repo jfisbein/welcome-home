@@ -47,7 +47,7 @@ class AttemptRows {
     }
 
     /** The country's flag, and its name in the reader's language. Tor has no flag. */
-    private Origin origin(@Nullable String ip, @Nullable String code, Locale locale) {
+    Origin origin(@Nullable String ip, @Nullable String code, Locale locale) {
         if (code == null) {
             return new Origin(ip, null, null);
         }

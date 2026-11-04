@@ -6,6 +6,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import welcomehome.config.ClientProperties;
 import welcomehome.config.WelcomeHomeProperties;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -15,7 +16,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  * execution runs the event listeners that send emails, away from the request that published the event.
  */
 @SpringBootApplication
-@EnableConfigurationProperties(WelcomeHomeProperties.class)
+@EnableConfigurationProperties({WelcomeHomeProperties.class, ClientProperties.class})
 @EnableAsync
 @EnableScheduling
 public class WelcomeHomeApplication {

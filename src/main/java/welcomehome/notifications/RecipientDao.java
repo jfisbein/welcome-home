@@ -1,5 +1,7 @@
 package welcomehome.notifications;
 
+import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
@@ -40,6 +42,25 @@ class RecipientDao {
                 .optional();
     }
 
+    /** A link of the owner's, with what an email about it says, if the owner's address is verified. */
+    Optional<LinkDetails> findLinkDetails(UUID ownerId, UUID linkId) {
+        return jdbc.sql("""
+                        SELECT o.email, o.language, l.label, k.name AS lock_name, k.time_zone, l.valid_from, l.valid_until
+                        FROM access_link l
+                        JOIN lock k ON k.owner_id = l.owner_id AND k.id = l.lock_id
+                        JOIN owner o ON o.id = l.owner_id
+                        WHERE l.id = :linkId AND l.owner_id = :ownerId AND o.email_verified_at IS NOT NULL
+                        """)
+                .param("linkId", linkId)
+                .param("ownerId", ownerId)
+                .query((rs, row) -> new LinkDetails(
+                        new Recipient(rs.getString("email"), language(rs.getString("language"))),
+                        rs.getString("label"), rs.getString("lock_name"), rs.getString("time_zone"),
+                        rs.getObject("valid_from", OffsetDateTime.class).toInstant(),
+                        rs.getObject("valid_until", OffsetDateTime.class).toInstant()))
+                .optional();
+    }
+
     Optional<Recipient> find(UUID ownerId) {
         return jdbc.sql("SELECT email, language FROM owner WHERE id = :ownerId AND email_verified_at IS NOT NULL")
                 .param("ownerId", ownerId)
@@ -69,5 +90,9 @@ class RecipientDao {
     }
 
     record AttemptDetails(Recipient recipient, String label, String lockName, String timeZone) {
+    }
+
+    record LinkDetails(Recipient recipient, String label, String lockName, String timeZone, Instant validFrom,
+                       Instant validUntil) {
     }
 }

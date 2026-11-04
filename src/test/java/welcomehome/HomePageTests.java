@@ -132,7 +132,7 @@ class HomePageTests {
         assertThat(body(mvc.get().uri("/locks").with(owner(ALICE)).exchange()))
                 .contains("<a href=\"/locks\" aria-current=\"page\">Cerraduras</a>");
         for (var section : new String[] {"/settings/nuki", "/settings/preferences", "/settings/notifications",
-                "/settings/passkeys"}) {
+                "/settings/passkeys", "/settings/activity"}) {
             assertThat(body(mvc.get().uri(section).with(owner(ALICE)).exchange()))
                     .as(section)
                     .contains("<a href=\"/settings\" aria-current=\"page\">Configuración</a>",

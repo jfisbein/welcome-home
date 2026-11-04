@@ -32,7 +32,8 @@
         </li>
     </ul>
 </nav>
-<!-- Configuration's sections, each its own page; current: nuki, preferences, notifications, passkeys or account. -->
+<!-- Configuration's sections, each its own page; current: nuki, preferences, notifications, passkeys, activity or
+     account. -->
 <nav th:fragment="settings(current)" class="sections" th:aria-label="#{nav.settings}">
     <ul>
         <li><a th:href="@{/settings/nuki}" th:attr="aria-current=${current == 'nuki'} ? 'page' : null"
@@ -43,6 +44,8 @@
                th:text="#{nav.notifications}">Avisos</a></li>
         <li><a th:href="@{/settings/passkeys}" th:attr="aria-current=${current == 'passkeys'} ? 'page' : null"
                th:text="#{nav.passkeys}">Passkeys</a></li>
+        <li><a th:href="@{/settings/activity}" th:attr="aria-current=${current == 'activity'} ? 'page' : null"
+               th:text="#{nav.activity}">Actividad</a></li>
         <li><a th:href="@{/settings/account}" th:attr="aria-current=${current == 'account'} ? 'page' : null"
                th:text="#{nav.account}">Cuenta</a></li>
     </ul>

@@ -1,14 +1,11 @@
-package welcomehome.access;
+package welcomehome.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.time.Duration;
 
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
-import welcomehome.access.AccessProperties.Confirmation;
-import welcomehome.access.AccessProperties.RateLimit;
 
 class ClientIpTests {
 
@@ -51,7 +48,6 @@ class ClientIpTests {
     }
 
     private static ClientIp clientIp(@Nullable String header) {
-        return new ClientIp(new AccessProperties(new RateLimit(10, 5, Duration.ofMinutes(1)),
-                new Confirmation(Duration.ofSeconds(15), Duration.ofSeconds(2)), header, "CF-IPCountry"));
+        return new ClientIp(new ClientProperties(header, "CF-IPCountry"));
     }
 }

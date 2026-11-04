@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es" th:lang="${#locale.language}" th:attr="data-theme=${theme}" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head(#{activity.title})}"></head>
+<body>
+<main class="container">
+    <nav th:replace="~{fragments/layout :: menu('settings')}"></nav>
+    <nav th:replace="~{fragments/layout :: settings('activity')}"></nav>
+    <h1 th:text="#{activity.heading}">Actividad de tu cuenta</h1>
+    <p th:text="#{activity.intro}">Cada vez que alguien entra en tu cuenta y cada cambio en tus enlaces.</p>
+    <p><small th:text="#{activity.retention(${timeZone}, ${retentionDays}, ${ipRetentionDays})}">
+        Horas en hora de España peninsular. Cada entrada se guarda 365 días, y su IP, 90.</small></p>
+
+    <p th:if="${rows.isEmpty()}" th:text="#{activity.empty}">Todavía no hay actividad.</p>
+    <div th:unless="${rows.isEmpty()}" class="overflow-auto">
+        <table>
+            <thead>
+            <tr>
+                <th scope="col" th:text="#{history.column.date}">Fecha</th>
+                <th scope="col" th:text="#{activity.column.what}">Qué</th>
+                <th scope="col" th:text="#{activity.column.detail}">Detalle</th>
+                <th scope="col" th:text="#{history.column.origin}">Origen</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="row : ${rows}">
+                <td th:text="${#temporals.format(row.occurredAt, #messages.msg('format.datetime-seconds'))}">
+                    01/11/2030 15:02:13</td>
+                <td th:text="${row.what}">Enlace creado</td>
+                <td th:text="${row.detail}">Ana (Casa)</td>
+                <td th:replace="~{fragments/attempts :: origin(${row.origin})}"></td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+    <p th:if="${limited}"><small th:text="#{activity.limited(${limit})}">Solo las 100 más recientes.</small></p>
+</main>
+</body>
+</html>
