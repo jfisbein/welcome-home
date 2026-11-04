@@ -4,7 +4,7 @@ Status: proposal, 2026-11-04. Nothing here is built yet.
 
 ## Goal
 
-A guest must not open a door by mistake when they are not in front of it: sliding at home to see whether the link works, sliding on the link of another lock they also have, or sliding a day early. The goal is to catch those mistakes, not to stop someone determined: a browser's position can be faked, and whoever holds a link can open with it anyway. So the check never leaves a guest standing at the door unable to open: when it doubts, it asks them to confirm.
+A guest must not open a door by mistake when they are not in front of it: sliding at home to see whether the link works, sliding on the link of another lock they also have, or sliding a day early. It matters more than it seems: some doors, the owner's among them, swing open a few degrees when unlatched, so the lock cannot lock them again from afar, and a door opened "to try" stays open until someone closes it. The goal is to catch those mistakes, not to stop someone determined: a browser's position can be faked, and whoever holds a link can open with it anyway. So the check never leaves a guest standing at the door unable to open: when it doubts, it asks them to confirm.
 
 What already guards against mistakes: the guest slides to open, so a touch by mistake does nothing; the slider stays off for a minute after an opening; the page says to slide when in front of the door; a link with an entrance names each door. And if a door is unlatched by mistake, Nuki's Auto Lock locks it again, which the app warns about when a lock does not have it (unless the owner marked that relocking is handled elsewhere).
 
@@ -49,7 +49,12 @@ The page carries only whether the check is on (`data-location-check`), never the
 1. **When to ask.** On load, the page asks the Permissions API whether geolocation is granted (Chrome, Firefox, and Safari since 16). If it is, it requests the position at once in the background, so that it is ready when the guest slides. If the browser would prompt, it asks only once the guest has slid to the end, so that the prompt follows their gesture. If it is denied, it does not ask.
 2. **How.** `getCurrentPosition` with `enableHighAccuracy: true`, `timeout: 8000`, `maximumAge: 60000`. The slider says "Comprobando dónde estás…" meanwhile.
 3. **What is sent.** `POST /api/open` adds `position: {latitude, longitude, accuracy}`, or `position: null` with `positionError` (`denied`, `unavailable`, `timeout` or `unsupported`), and `confirmed: false`.
-4. **Asked to confirm.** The answer may be the new outcome `confirm-location`, with the distance when there was a position. The page shows "Parece que estás a unos 3 km de la puerta. Si estás delante, desliza otra vez para abrir.", or without a position "No hemos podido comprobar dónde estás. Si estás delante de la puerta, desliza otra vez para abrir.", and enables the slider again at once. Sliding again sends `confirmed: true`. A second slide rather than a button keeps the rule that a touch by mistake opens nothing.
+4. **Asked to confirm.** The answer may be the new outcome `confirm-location`, with the distance when there was a position. The page then makes the guest stop and think before a second slide:
+   - It says what sliding will do, in plain words. Far: "Parece que estás a unos 3 km de la puerta. Si deslizas, la puerta se abrirá de verdad aunque no estés delante, y puede quedarse abierta. Desliza solo si estás delante de ella." Without a position: "No hemos podido comprobar dónde estás. Si deslizas, la puerta se abrirá de verdad. Desliza solo si estás delante de ella."
+   - The slider stays off for 10 seconds, its track counting them down ("Podrás deslizar en 10 s"), and then reads "Desliza para abrir igualmente". The message is in a `role="alert"` element, so screen readers say it, and the countdown is not announced each second.
+   - Sliding again sends `confirmed: true`. A second slide rather than a button keeps the rule that a touch by mistake opens nothing, and the wait keeps a guest from sliding twice out of habit.
+   - The wait is the page's: the server only asks for `confirmed`. A guest who reloads the page slides, is asked again and waits again, as the confirmation lives only in that page.
+   - A guest who refused the permission waits 10 seconds at every opening. It is the price of not knowing where they are; the page asks for the permission saying why, which should make it rare.
 5. **The notice.** `guest.privacy` adds that sliding checks how far the guest is from the door, without keeping where they are.
 
 ### On the server
@@ -71,7 +76,7 @@ On `access_event`, nullable: `distance_m` and `accuracy_m` (integers), and `loca
 ### What the owner sees
 
 - The history's origin shows the distance next to the country ("a 3 km"), and the outcome "No abierta: lejos de la puerta" or "No abierta: sin ubicación".
-- The email about an opening adds ", a unos 3 km de la puerta, tras confirmarlo" when the guest confirmed being far.
+- An opening the guest confirmed while far, or without a position, is emailed to the owner whatever their preferences, as an account email is: "Casa: Ana ha abierto la puerta a unos 3 km de ella", saying that the door may have been left open. It is the case where the owner may need to act, as the lock cannot close a door left ajar. Openings near the door email as before, by preference.
 
 ### Compatibility
 
@@ -81,7 +86,8 @@ Within v2. The migrations only add nullable columns, columns with a default, and
 
 - The rule: near, far, accuracy wider than the distance, no position, a radius from the settings; the distance against known pairs of points.
 - `OpenDoorTests`: near opens; far and unknown ask; confirmed opens and records it; the check off ignores any position; an expired or revoked link is refused without asking; the entrance uses the Opener's position or the lock's; both attempts count for the rate limit; no position reaches the logs.
-- `GuestSlideTests`, in Chromium: Playwright grants or denies the permission and sets the position (`setGeolocation`), so the page's whole flow, the second slide included, runs.
+- `GuestSlideTests`, in Chromium: Playwright grants or denies the permission and sets the position (`setGeolocation`), so the page's whole flow runs: the message, the slider off during the countdown, on afterwards, and the second slide. Playwright's clock (`page.clock`) runs the 10 seconds without waiting them.
+- `NotificationTests`: an opening confirmed far, or without a position, emails the owner with preferences off; one near does not when they are.
 - The lock's settings (the fields, refused coordinates, no check without a position), the import of Nuki's coordinates (WireMock), the purge, and the bundles in five languages.
 - On real phones, before turning it on for anyone but the owner: iPhone Safari, Android Chrome, and the browsers inside WhatsApp and Telegram on both, at the door and from a kilometre away.
 
@@ -104,6 +110,7 @@ Only a phone will tell:
 
 To decide after trying it:
 
-- The radius, 150 m to start.
+- The radius, 150 m to start, and the wait, 10 seconds.
+- A stricter mode per lock, which refuses a guest who is clearly far rather than asking, leaving the confirmation only for an unknown position. It would suit a door that stays ajar when opened, but it is a dead end for a guest at the door whose phone places them wrong: they would have to call the owner.
 - Whether an unknown position should open at once rather than ask, if asking turns out to be frequent.
 - Whether to add the entrance-then-door signal, so that a guest who opened the entrance minutes before is never asked at the door.
