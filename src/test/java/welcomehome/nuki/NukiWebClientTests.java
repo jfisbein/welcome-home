@@ -81,7 +81,7 @@ class NukiWebClientTests {
                 }
                 """)));
 
-        assertThat(client.getSnapshot(TOKEN, LOCK_ID)).isEqualTo(new LockSnapshot(LockPosition.LOCKED, true, false, 52, true));
+        assertThat(client.getSnapshot(TOKEN, LOCK_ID)).isEqualTo(new LockSnapshot(LockPosition.LOCKED, true, false, 52, true, null));
     }
 
     /** An Opener's states mean something else than a lock's: its 1 is online, not locked. */
@@ -96,7 +96,7 @@ class NukiWebClientTests {
                 }
                 """.formatted(nukiState))));
 
-        assertThat(client.getSnapshot(TOKEN, 19)).isEqualTo(new LockSnapshot(status, true, false, null, false));
+        assertThat(client.getSnapshot(TOKEN, 19)).isEqualTo(new LockSnapshot(status, true, false, null, false, null));
     }
 
     @Test
@@ -110,7 +110,7 @@ class NukiWebClientTests {
                 """)));
 
         assertThat(client.getSnapshot(TOKEN, LOCK_ID))
-                .isEqualTo(new LockSnapshot(LockPosition.UNLOCKED, false, true, null, false));
+                .isEqualTo(new LockSnapshot(LockPosition.UNLOCKED, false, true, null, false, null));
     }
 
     @ParameterizedTest

@@ -52,10 +52,10 @@
         </section>
         <!-- Every slide is recorded in the owner's history, so the guest is told what is kept and for how long. -->
         <p th:if="${canOpen}"><small th:text="#{guest.privacy(${ipRetentionDays}, ${retentionDays})}">
-            Al deslizar se guardan la hora, tu país y tu dirección IP, que ve quien te ha dado este enlace. La IP se
-            borra a los 90 días, y lo demás a los 365.</small>
-            <small th:if="${checksLocation}" th:text="#{guest.location-privacy}">Al deslizar se comprueba a qué
-                distancia estás de la puerta, sin guardar dónde estás.</small></p>
+            Al deslizar, quien te dio este enlace podrá ver la hora, tu país y tu dirección IP. La IP se borra a los
+            90 días; lo demás, a los 365.</small>
+            <small th:if="${checksLocation}" th:text="#{guest.location-privacy}">También se comprueba a qué
+                distancia estás de la puerta: se guarda esa distancia, nunca dónde estás.</small></p>
 
         <p th:if="${status.name() == 'PENDING'}" role="alert"
            th:text="#{guest.pending(${#temporals.format(opensAt ?: validFrom, #messages.msg('format.datetime'))})}">

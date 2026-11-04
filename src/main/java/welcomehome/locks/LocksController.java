@@ -153,8 +153,16 @@ class LocksController {
         model.addAttribute("maxLocationRadius", LockSettings.MAX_LOCATION_RADIUS_M);
         if (lock.active()) {
             try {
-                model.addAttribute("snapshot",
-                        lockProvider.getSnapshot(owner.id(), lock.nukiSmartlockId()));
+                var snapshot = lockProvider.getSnapshot(owner.id(), lock.nukiSmartlockId());
+                model.addAttribute("snapshot", snapshot);
+                // A lock without a position is offered Nuki's, when Nuki has one, rather than waiting for a sync to
+                // bring it: the owner checks it on the map and saves it. Not over what the owner just typed.
+                var nukis = snapshot.coordinates();
+                if (lock.coordinates() == null && nukis != null && !model.containsAttribute("coordinatesError")) {
+                    model.addAttribute("coordinates", LockSettings.format(nukis));
+                    model.addAttribute("coordinatesFromNuki", true);
+                    model.addAttribute("mapUrl", LockSettings.mapUrl(nukis));
+                }
             } catch (LockProviderException e) {
                 model.addAttribute("stateError", switch (e.reason()) {
                     case NOT_CONNECTED -> "not-connected";

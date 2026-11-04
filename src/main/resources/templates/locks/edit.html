@@ -101,7 +101,9 @@
                        th:placeholder="#{lock.coordinates.placeholder}"
                        th:attr="aria-invalid=${coordinatesError} ? 'true' : null">
                 <small th:if="${coordinatesError}" th:text="#{lock.coordinates.error}">Latitud y longitud.</small>
-                <small th:unless="${coordinatesError}" th:text="#{lock.coordinates.hint}">Solo la ves tú.</small>
+                <small th:if="${coordinatesFromNuki}" th:text="#{lock.coordinates.from-nuki}">Es la que tiene Nuki.</small>
+                <small th:unless="${coordinatesError == true or coordinatesFromNuki == true}" th:text="#{lock.coordinates.hint}">Solo
+                    la ves tú.</small>
             </label>
             <p>
                 <button type="button" id="use-my-location" class="secondary" hidden

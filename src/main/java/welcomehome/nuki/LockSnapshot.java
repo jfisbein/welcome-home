@@ -11,7 +11,9 @@ import org.jspecify.annotations.Nullable;
  * @param batteryCharge   the battery level in percent, or {@code null} if the lock does not report it
  * @param autoLockEnabled whether the lock locks itself again: without it, an unlatched door stays
  *                        unlocked until someone locks it
+ * @param coordinates     where the lock is, as set in the Nuki app, or {@code null} if it has none
  */
 public record LockSnapshot(LockPosition position, boolean online, boolean batteryCritical,
-                           @Nullable Integer batteryCharge, boolean autoLockEnabled) {
+                           @Nullable Integer batteryCharge, boolean autoLockEnabled,
+                           @Nullable Coordinates coordinates) {
 }
