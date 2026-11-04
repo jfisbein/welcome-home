@@ -18,8 +18,9 @@ import org.jspecify.annotations.Nullable;
  * @param distanceM for a door that checks where its guests are, how far from it the guest was, in metres, if
  *                  their browser said
  * @param accuracyM how far off that distance may be, in metres
- * @param locationConfirmed for a door that checks where its guests are, whether the guest confirmed being in front
- *                  of it; null for a door that does not check
+ * @param locationConfirmed for a door that checks where its guests are, whether it opened only because the guest
+ *                  confirmed being in front of it, while they seemed far or their position was unknown; null for a
+ *                  door that does not check
  */
 public record AccessEvent(UUID ownerId, UUID linkId, UUID lockId, @Nullable UUID entranceLockId,
                           AccessOutcome outcome, String ip, @Nullable String country, @Nullable Integer distanceM,

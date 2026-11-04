@@ -30,8 +30,10 @@ final class DoorDistance {
      *
      * @param distanceM from the guest to the door in metres, rounded to 10, or null without a position
      * @param accuracyM the browser's accuracy in metres, or null without a position
+     * @param byConfirmation whether the door opens only because the guest confirmed being in front of it, while
+     *                  they seemed far or their position was unknown
      */
-    record Check(Verdict verdict, @Nullable Integer distanceM, @Nullable Integer accuracyM) {
+    record Check(Verdict verdict, @Nullable Integer distanceM, @Nullable Integer accuracyM, boolean byConfirmation) {
     }
 
     private DoorDistance() {
@@ -47,14 +49,15 @@ final class DoorDistance {
     static Check check(LocationCheck check, int radiusM, Coordinates door, @Nullable GuestPosition guest,
                        boolean confirmed) {
         if (guest == null) {
-            return new Check(confirmed ? Verdict.OPEN : Verdict.CONFIRM, null, null);
+            return new Check(confirmed ? Verdict.OPEN : Verdict.CONFIRM, null, null, confirmed);
         }
         var distance = metres(door, guest);
         var far = distance - guest.accuracy() > radiusM;
         var verdict = !far ? Verdict.OPEN
                 : check == LocationCheck.REFUSE_WHEN_FAR ? Verdict.REFUSE
                 : confirmed ? Verdict.OPEN : Verdict.CONFIRM;
-        return new Check(verdict, (int) Math.round(distance / 10) * 10, (int) Math.round(guest.accuracy()));
+        return new Check(verdict, (int) Math.round(distance / 10) * 10, (int) Math.round(guest.accuracy()),
+                far && verdict == Verdict.OPEN);
     }
 
     /** The great-circle distance, by the haversine formula: within a few metres over a town. */

@@ -23,10 +23,10 @@ class DoorDistanceTests {
 
     @Test
     void aGuestWithinTheRadiusOpensAndOneClearlyBeyondItIsAsked() {
-        assertThat(check(LocationCheck.CONFIRM_WHEN_FAR, 50, 20, false)).isEqualTo(new Check(Verdict.OPEN, 50, 20));
+        assertThat(check(LocationCheck.CONFIRM_WHEN_FAR, 50, 20, false)).isEqualTo(new Check(Verdict.OPEN, 50, 20, false));
         assertThat(check(LocationCheck.CONFIRM_WHEN_FAR, 3000, 20, false))
-                .isEqualTo(new Check(Verdict.CONFIRM, 3000, 20));
-        assertThat(check(LocationCheck.CONFIRM_WHEN_FAR, 3000, 20, true)).isEqualTo(new Check(Verdict.OPEN, 3000, 20));
+                .isEqualTo(new Check(Verdict.CONFIRM, 3000, 20, false));
+        assertThat(check(LocationCheck.CONFIRM_WHEN_FAR, 3000, 20, true)).isEqualTo(new Check(Verdict.OPEN, 3000, 20, true));
     }
 
     /** Far only when the distance less the accuracy is beyond the radius. */
@@ -38,17 +38,17 @@ class DoorDistanceTests {
 
     @Test
     void theStricterModeRefusesAFarGuestEvenConfirmed() {
-        assertThat(check(LocationCheck.REFUSE_WHEN_FAR, 3000, 20, true)).isEqualTo(new Check(Verdict.REFUSE, 3000, 20));
-        assertThat(check(LocationCheck.REFUSE_WHEN_FAR, 50, 20, false)).isEqualTo(new Check(Verdict.OPEN, 50, 20));
+        assertThat(check(LocationCheck.REFUSE_WHEN_FAR, 3000, 20, true)).isEqualTo(new Check(Verdict.REFUSE, 3000, 20, false));
+        assertThat(check(LocationCheck.REFUSE_WHEN_FAR, 50, 20, false)).isEqualTo(new Check(Verdict.OPEN, 50, 20, false));
     }
 
     @Test
     void anUnknownPositionIsAskedToConfirmInEitherMode() {
         for (var mode : new LocationCheck[] {LocationCheck.CONFIRM_WHEN_FAR, LocationCheck.REFUSE_WHEN_FAR}) {
             assertThat(DoorDistance.check(mode, 150, DOOR, null, false)).as(mode.name())
-                    .isEqualTo(new Check(Verdict.CONFIRM, null, null));
+                    .isEqualTo(new Check(Verdict.CONFIRM, null, null, false));
             assertThat(DoorDistance.check(mode, 150, DOOR, null, true)).as(mode.name())
-                    .isEqualTo(new Check(Verdict.OPEN, null, null));
+                    .isEqualTo(new Check(Verdict.OPEN, null, null, true));
         }
     }
 

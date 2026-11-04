@@ -129,7 +129,7 @@ class LocationCheckTests {
 
         assertThat(open("lock", metresAway(3000, 20), true)).hasStatus(HttpStatus.FORBIDDEN)
                 .bodyJson().isEqualTo("{\"result\": \"too-far\", \"distance\": 3000}");
-        assertThat(lastEvent()).isEqualTo("too-far|3000|20|true");
+        assertThat(lastEvent()).isEqualTo("too-far|3000|20|false");
         nuki.verify(0, anyRequestedFor(anyUrl()));
     }
 
@@ -221,7 +221,10 @@ class LocationCheckTests {
         assertThat(nuki.findAll(postRequestedFor(urlPathEqualTo("/smartlock/17/action")))).hasSize(times);
     }
 
-    /** The latest attempt as "reason|distance|accuracy|confirmed", with "-" for none. */
+    /**
+     * The latest attempt as "reason|distance|accuracy|confirmed", with "-" for none; confirmed means that it opened
+     * only because the guest confirmed.
+     */
     private String lastEvent() {
         return migrator.sql("""
                         SELECT concat_ws('|', reason, coalesce(distance_m::text, '-'), coalesce(accuracy_m::text, '-'),

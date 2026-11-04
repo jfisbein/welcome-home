@@ -99,7 +99,7 @@ class OpenDoor {
         accessEvents.record(new AccessEvent(link.ownerId(), link.linkId(), link.lockId(),
                 entrance == null ? null : entrance.id(), attempt.outcome(), ip, country,
                 location == null ? null : location.distanceM(), location == null ? null : location.accuracyM(),
-                location == null ? null : confirmed));
+                location == null ? null : location.byConfirmation()));
         return new Opening(attempt.outcome(), location == null ? null : location.distanceM());
     }
 
