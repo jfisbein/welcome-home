@@ -11,8 +11,9 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  *
  * @param from                the sender, such as {@code welcome-home <avisos@example.com>}; it must be an
  *                            address the SMTP service accepts
- * @param deniedQuietPeriod   after an email about a refused attempt with a link, no other one about that link
- *                            for this long, so that a leaked link being tried does not flood the owner
+ * @param deniedQuietPeriod   after an email about a refused attempt with a link, no other one about that link's
+ *                            refused attempts for this long, so that a leaked link being tried does not flood the
+ *                            owner; and after one about a failure, none about the same failure with that link
  */
 @ConfigurationProperties("welcomehome.notifications")
 record NotificationProperties(@Nullable String from, @DefaultValue("PT1H") Duration deniedQuietPeriod) {

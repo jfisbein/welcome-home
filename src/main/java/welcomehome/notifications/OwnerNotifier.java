@@ -55,7 +55,8 @@ class OwnerNotifier {
     private final OwnerTransactions ownerTransactions;
     private final RecipientDao recipients;
     private final WelcomeHomeProperties app;
-    private final Cache<UUID, Boolean> recentlyDenied;
+    /** What was told lately, by link: refused attempts, and each reason for a failure. */
+    private final Cache<String, Boolean> recentlyTold;
     private final MessageSource messages;
     private final TimeZoneNames timeZoneNames;
 
@@ -67,7 +68,7 @@ class OwnerNotifier {
         this.ownerTransactions = ownerTransactions;
         this.recipients = recipients;
         this.app = app;
-        this.recentlyDenied = Caffeine.newBuilder().expireAfterWrite(properties.deniedQuietPeriod()).build();
+        this.recentlyTold = Caffeine.newBuilder().expireAfterWrite(properties.deniedQuietPeriod()).build();
         this.messages = messages;
         this.timeZoneNames = timeZoneNames;
     }
@@ -86,8 +87,15 @@ class OwnerNotifier {
         if (kind == null || !wants(attempt.ownerId(), kind)) {
             return;
         }
-        // At most one email per link and quiet period: a leaked link being tried must not flood the owner.
-        if (kind == NotificationKind.DENIED && recentlyDenied.asMap().putIfAbsent(attempt.linkId(), true) != null) {
+        // At most one email per link and quiet period about its refused attempts, whatever the reason, so that a
+        // leaked link being tried does not flood the owner; and one about each reason for a failure, so that a
+        // guest trying again and again while Nuki is down does not either, while a new failure is still told.
+        var told = switch (kind) {
+            case DENIED -> attempt.linkId() + ":denied";
+            case FAILED -> attempt.linkId() + ":" + attempt.outcome().code();
+            default -> null;
+        };
+        if (told != null && recentlyTold.asMap().putIfAbsent(told, true) != null) {
             return;
         }
         var keys = EmailKeys.of(attempt.outcome());

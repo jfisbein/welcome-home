@@ -248,6 +248,26 @@ class NotificationTests {
                 "Casa: intento denegado con el enlace de Ana", "Casa: intento denegado con el enlace de Bea");
     }
 
+    /** A guest trying again and again while Nuki is down; a new failure, or a refusal, is still told. */
+    @Test
+    void failuresWithALinkAreToldOnceInAWhileForEachReason() throws Exception {
+        record(linkId, AccessOutcome.NUKI_ERROR);
+        assertThat(theOnlyEmail().getSubject()).isEqualTo("Casa: Ana no ha podido abrir la puerta");
+
+        // One attempt at a time, as emails are sent on other threads.
+        record(linkId, AccessOutcome.NUKI_ERROR);
+        assertNoMoreThan(1);
+        record(linkId, AccessOutcome.LOCK_FAILED);
+        await().atMost(Duration.ofSeconds(5)).until(() -> mail.getReceivedMessages().length == 2);
+        record(linkId, AccessOutcome.LOCK_FAILED);
+        record(linkId, AccessOutcome.EXPIRED);
+
+        await().atMost(Duration.ofSeconds(5)).until(() -> mail.getReceivedMessages().length >= 3);
+        assertNoMoreThan(3);
+        assertThat(text(mail.getReceivedMessages()[1])).contains("la cerradura no pudo abrir");
+        assertThat(mail.getReceivedMessages()[2].getSubject()).isEqualTo("Casa: intento denegado con el enlace de Ana");
+    }
+
     @Test
     void nukiAcceptingTheTokenAgainIsToldToo() throws Exception {
         ownerTransactions.run(aliceId, () -> events.publishEvent(new NukiReconnected(aliceId)));

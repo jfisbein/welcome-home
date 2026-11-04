@@ -88,7 +88,8 @@ welcomehome:
     # The sender of owners' emails, an address the SMTP service accepts, such as
     # "welcome-home <avisos@example.com>". Without it no email is sent.
     from: ${NOTIFICATIONS_FROM:}
-    # After an email about a refused attempt with a link, none about that link for this long.
+    # After an email about a refused attempt with a link, none about that link's refused attempts for this long; after
+    # one about a failure, none about the same failure with that link.
     denied-quiet-period: PT1H
   audit:
     # How long guests' attempts are kept, and how long they keep the guest's IP address, which is personal data;
