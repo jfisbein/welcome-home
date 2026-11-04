@@ -14,7 +14,11 @@ import org.jspecify.annotations.Nullable;
  * @param entranceLockId the Opener at the lock's building entrance, when the guest opened that, or {@code null}
  * @param outcome    what the attempt came to
  * @param occurredAt when the attempt ended
+ * @param distanceM  for a door that checks where its guests are, how far from it the guest was, if known
+ * @param openedByConfirmation whether the door opened only because the guest confirmed being in front of it, while
+ *                   they seemed far or their position was unknown
  */
 public record AccessAttempted(UUID ownerId, UUID linkId, UUID lockId, @Nullable UUID entranceLockId,
-                              AccessOutcome outcome, Instant occurredAt) {
+                              AccessOutcome outcome, Instant occurredAt, @Nullable Integer distanceM,
+                              boolean openedByConfirmation) {
 }
