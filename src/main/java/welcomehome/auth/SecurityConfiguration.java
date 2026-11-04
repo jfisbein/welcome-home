@@ -76,7 +76,9 @@ class SecurityConfiguration {
                 .webAuthn(webAuthn -> webAuthn.disableDefaultRegistrationPage(true))
                 .addFilterAfter(new OwnerSessionTrackingFilter(sessions), SecurityContextHolderFilter.class)
                 .exceptionHandling(exceptions -> exceptions
-                        .authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login")))
+                        .authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login"))
+                        // Also what a CSRF failure gets: a form from a page whose session ended goes to sign in.
+                        .accessDeniedHandler(new EndedSessionFormHandler()))
                 .logout(logout -> logout.logoutSuccessUrl("/login?logout"))
                 .headers(headers -> headers
                         .contentSecurityPolicy(csp -> csp.policyDirectives(CONTENT_SECURITY_POLICY))
