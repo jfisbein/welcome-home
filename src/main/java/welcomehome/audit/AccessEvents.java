@@ -54,7 +54,8 @@ public class AccessEvents {
         ownerTransactions.run(event.ownerId(), () -> {
             var occurredAt = accessEvents.insert(event);
             events.publishEvent(new AccessAttempted(event.ownerId(), event.linkId(), event.lockId(),
-                    event.entranceLockId(), event.outcome(), occurredAt.toInstant()));
+                    event.entranceLockId(), event.outcome(), occurredAt.toInstant(), event.distanceM(),
+                    Boolean.TRUE.equals(event.locationConfirmed())));
         });
     }
 }

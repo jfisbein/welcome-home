@@ -1,6 +1,5 @@
 package welcomehome.audit;
 
-import java.text.NumberFormat;
 import java.time.ZoneId;
 import java.util.Locale;
 
@@ -8,6 +7,7 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
 import welcomehome.audit.AttemptRow.Origin;
+import welcomehome.config.Distances;
 
 /**
  * Turns recorded attempts into rows for the home page and the history: the time in the lock's zone, the outcome
@@ -55,7 +55,7 @@ class AttemptRows {
     /** Also how far from the door the guest was, for a door that checks it. */
     Origin origin(@Nullable String ip, @Nullable String code, @Nullable Integer distanceM, Locale locale) {
         var distance = distanceM == null ? null
-                : messages.getMessage("history.distance", new Object[] {distance(distanceM, locale)}, locale);
+                : messages.getMessage("history.distance", new Object[] {Distances.of(distanceM, locale)}, locale);
         if (code == null) {
             return new Origin(ip, null, null, distance);
         }
@@ -66,15 +66,6 @@ class AttemptRows {
         return new Origin(ip, flag(code), name.isEmpty() ? code : name, distance);
     }
 
-    /** A distance as the reader reads it: "3,2 km", "300 m". */
-    static String distance(int metres, Locale locale) {
-        var format = NumberFormat.getNumberInstance(locale);
-        if (metres < 1000) {
-            return format.format(metres) + " m";
-        }
-        format.setMaximumFractionDigits(1);
-        return format.format(metres / 1000.0) + " km";
-    }
 
     /**
      * The flag emoji of an ISO 3166 code: its two letters as regional indicator symbols, which systems draw as

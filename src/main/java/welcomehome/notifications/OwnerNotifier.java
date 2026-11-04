@@ -18,12 +18,14 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
 import welcomehome.audit.AccessAttempted;
 import welcomehome.audit.AccessOutcome;
+import welcomehome.audit.AccessResult;
 import welcomehome.auth.EmailVerification;
 import welcomehome.auth.EmailVerificationRequested;
 import welcomehome.auth.InvitationService;
 import welcomehome.auth.OwnerEmailChanged;
 import welcomehome.auth.PasskeyAdded;
 import welcomehome.auth.PasskeyRecoveryCreated;
+import welcomehome.config.Distances;
 import welcomehome.config.TimeZoneNames;
 import welcomehome.config.WelcomeHomeProperties;
 import welcomehome.db.OwnerTransactions;
@@ -37,7 +39,8 @@ import welcomehome.nuki.NukiReconnected;
 /**
  * Emails an owner about their locks, as their preferences say: guests' attempts by outcome, and a Nuki
  * connection that stopped working. Also, whatever the preferences, about their account's security: a passkey
- * recovery link created for them, a passkey added, and a link that may open the door from now on. Only to a verified address: the one email that goes to
+ * recovery link created for them, a passkey added, and a link that may open the door from now on; and about a
+ * door that opened only because a guest who seemed far, or whose position was unknown, confirmed being there. Only to a verified address: the one email that goes to
  * an address not yet verified is the link that verifies it. Listeners run after the event's transaction
  * commits, mostly on another thread, so a guest never waits for an email; one that cannot be sent is logged and
  * dropped.
@@ -75,6 +78,10 @@ class OwnerNotifier {
         if (!mailer.isConfigured()) {
             return;
         }
+        if (attempt.openedByConfirmation() && attempt.outcome().result() == AccessResult.OK) {
+            openedAway(attempt);
+            return;
+        }
         var kind = NotificationKind.of(attempt.outcome());
         if (kind == null || !wants(attempt.ownerId(), kind)) {
             return;
@@ -87,6 +94,34 @@ class OwnerNotifier {
         var found = ownerTransactions.execute(attempt.ownerId(), () -> recipients.findAttemptDetails(attempt));
         found.ifPresent(details ->
                 send(details.recipient().email(), subject(keys, details), body(keys, details, attempt)));
+    }
+
+    /**
+     * A door opened only because the guest confirmed being in front of it, while they seemed far or their position
+     * was unknown: whatever the preferences, as the guest may not have been there, and a door unlatched from afar
+     * may stay ajar where the lock cannot lock it again. Instead of the email about an opening, not as well.
+     */
+    private void openedAway(AccessAttempted attempt) {
+        var found = ownerTransactions.execute(attempt.ownerId(), () -> recipients.findAttemptDetails(attempt));
+        found.ifPresent(details -> {
+            var to = details.recipient();
+            var when = attempt.occurredAt().atZone(ZoneId.of(details.timeZone()));
+            var at = message(to, "notification.when", format(to, "format.date", when), format(to, "format.time", when),
+                    timeZoneNames.of(details.timeZone(), to.language()));
+            var distanceM = attempt.distanceM();
+            var subject = distanceM == null
+                    ? message(to, "notification.away-unknown.subject", details.lockName(), details.label())
+                    : message(to, "notification.away.subject", details.lockName(), details.label(),
+                            Distances.of(distanceM, to.language()));
+            var body = distanceM == null
+                    ? message(to, "notification.away-unknown.body", details.lockName(), details.label(), at)
+                    : message(to, "notification.away.body", details.lockName(), details.label(), at,
+                            Distances.of(distanceM, to.language()));
+            var history = app.link("/locks/" + attempt.lockId() + "/history?link=" + attempt.linkId());
+            send(to.email(), subject, body + "\n\n" + message(to, "notification.away.check") + "\n\n"
+                    + message(to, "notification.history", history) + "\n--\n" + message(to, "notification.away.footer")
+                    + "\n");
+        });
     }
 
     @Async

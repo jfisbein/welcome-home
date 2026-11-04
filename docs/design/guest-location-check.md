@@ -1,6 +1,6 @@
 # Checking where a guest is before opening
 
-Status: proposal, 2026-11-04. Built: everything but the email to the owner about an opening confirmed far away ("What the owner sees"); still to try on real phones. How it works is in `docs/features.md`, "Where the guest is".
+Status: built, 2026-11-04; still to try on real phones (Open questions). How it works is in `docs/features.md`, "Where the guest is".
 
 ## Goal
 

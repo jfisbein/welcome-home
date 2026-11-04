@@ -182,6 +182,41 @@ class NotificationTests {
         assertThat(text(email)).contains("se ha denegado: estaba lejos de la puerta.");
     }
 
+    /** The guest may not have been there, and a door unlatched from afar may stay ajar: whatever the preferences. */
+    @Test
+    void aDoorOpenedOnlyBecauseAGuestFarAwayConfirmedIsEmailedAlways() throws Exception {
+        assertThat(mvc.put().uri("/settings/notifications").with(owner()).with(csrf())).hasStatus3xxRedirection();
+
+        accessEvents.record(new AccessEvent(aliceId, linkId, lockId, null, AccessOutcome.OPENED, "203.0.113.7", "ES",
+                3200, 20, true));
+
+        var email = theOnlyEmail();
+        assertThat(email.getSubject()).isEqualTo("Casa: Ana ha abierto la puerta a unos 3,2 km de ella");
+        assertThat(text(email)).contains(", a unos 3,2 km de ella, tras confirmar que estaba delante.",
+                "Si no estaba delante, la puerta puede haberse quedado abierta: compruébalo.",
+                "/history?link=" + linkId, "Este aviso se envía siempre");
+    }
+
+    @Test
+    void oneConfirmedWithoutAPositionIsEmailedAlwaysAndOnlyOnce() throws Exception {
+        accessEvents.record(new AccessEvent(aliceId, linkId, lockId, null, AccessOutcome.OPENED, "203.0.113.7", "ES",
+                null, null, true));
+
+        var email = theOnlyEmail();
+        assertThat(email.getSubject()).isEqualTo("Casa: Ana ha abierto la puerta sin saberse dónde estaba");
+        assertThat(text(email)).contains("sin que su teléfono dijera dónde estaba.");
+    }
+
+    @Test
+    void anOpeningNearTheDoorIsEmailedByPreferenceAsAnyOther() throws Exception {
+        assertThat(mvc.put().uri("/settings/notifications").with(owner()).with(csrf())).hasStatus3xxRedirection();
+
+        accessEvents.record(new AccessEvent(aliceId, linkId, lockId, null, AccessOutcome.OPENED, "203.0.113.7", "ES",
+                40, 15, false));
+
+        assertNoMoreThan(0);
+    }
+
     @Test
     void anOwnerIsWrittenToInTheirLanguage() throws Exception {
         migrator.sql("UPDATE owner SET language = 'en'").update();
