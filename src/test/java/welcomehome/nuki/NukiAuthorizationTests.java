@@ -59,7 +59,7 @@ class NukiAuthorizationTests {
     static final String ALICE = "alice@example.com";
     static final String BOB = "bob@example.com";
     static final String CALLBACK = IntegrationTest.BASE_URL + "/nuki/callback";
-    static final String SCOPE = "smartlock.readOnly smartlock.action smartlock.log offline_access";
+    static final String SCOPE = "smartlock.readOnly smartlock.action smartlock.log smartlock.auth offline_access";
 
     @Autowired
     MockMvcTester mvc;
@@ -103,7 +103,8 @@ class NukiAuthorizationTests {
         assertThat(location).startsWith(nuki.baseUrl() + "/oauth/authorize?response_type=code"
                 + "&client_id=" + NukiStandInConfiguration.CLIENT_ID
                 + "&redirect_uri=https%3A%2F%2Fwelcome.example%2Fnuki%2Fcallback"
-                + "&scope=smartlock.readOnly%20smartlock.action%20smartlock.log%20offline_access%20webhook.central"
+                + "&scope=smartlock.readOnly%20smartlock.action%20smartlock.log%20smartlock.auth%20offline_access"
+                + "%20webhook.central"
                 + "&state=");
         assertThat(state(location)).matches("[A-Za-z0-9_-]{43}");
         assertThat(param(location, "code_challenge")).matches("[A-Za-z0-9_-]{43}");
@@ -263,6 +264,11 @@ class NukiAuthorizationTests {
     void authorizationWithoutEverythingWelcomeHomeUsesIsNotStored() {
         nukiGrants("no-action", "access-1", "refresh-1", "smartlock.readOnly smartlock.log offline_access");
         assertFailed(callback(ALICE, "code=no-action&state=" + state(authorize(ALICE))), "missing-permission");
+
+        nuki.resetAll();
+        // What welcome-home asked for before Nuki was found to require smartlock.auth to unlatch with its Advanced API.
+        nukiGrants("no-auth", "access-1", "refresh-1", "smartlock.readOnly smartlock.action smartlock.log offline_access");
+        assertFailed(callback(ALICE, "code=no-auth&state=" + state(authorize(ALICE))), "missing-permission");
 
         nuki.resetAll();
         nukiGrants("no-refresh", "access-1", null, "smartlock.readOnly smartlock.action smartlock.log");

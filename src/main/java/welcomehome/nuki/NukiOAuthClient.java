@@ -34,9 +34,14 @@ class NukiOAuthClient {
     private static final Logger log = LoggerFactory.getLogger(NukiOAuthClient.class);
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
-    /** What welcome-home needs from Nuki: to list locks, open them, read their logs, and keep its access. */
+    /**
+     * What welcome-home needs from Nuki: to list locks, open them, read their logs, and keep its access.
+     * {@code smartlock.auth} is not for managing authorizations, which welcome-home never does: Nuki's Advanced API
+     * refuses {@code /action/advanced}, the only advanced call that unlatches, to a token without it, though its
+     * definition asks only {@code smartlock.action} (seen 2026-11-04).
+     */
     static final List<String> SCOPES = List.of("smartlock.readOnly", "smartlock.action", "smartlock.log",
-            "offline_access");
+            "smartlock.auth", "offline_access");
 
     /**
      * What welcome-home also asks for, without needing it: Nuki reports the Advanced API's actions only to central
@@ -134,8 +139,8 @@ class NukiOAuthClient {
         var form = new LinkedMultiValueMap<String, String>();
         form.add("token", refreshToken);
         form.add("token_type_hint", "refresh_token");
-        form.add("client_id", oauth.clientId());
-        form.add("client_secret", oauth.clientSecret());
+        // Only as HTTP Basic: with the client's credentials in the form as well, as the token endpoint takes them,
+        // Nuki's revocation endpoint answers invalid_client (seen 2026-11-04).
         requests.call(false, () -> requests.rest().post().uri(properties.revocationUrl())
                 .headers(headers -> headers.setBasicAuth(oauth.clientId(), oauth.clientSecret()))
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
