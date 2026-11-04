@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "welcomehome"
-version = "2.11.1"
+version = "2.12.0"
 
 java {
     toolchain {
