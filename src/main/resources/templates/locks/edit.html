@@ -94,6 +94,25 @@
                 <small th:if="${timeZoneError}" th:text="#{lock.time-zone.error}">Elige una zona horaria.</small>
                 <small th:unless="${timeZoneError}" th:text="#{lock.time-zone.hint}">Las fechas de los enlaces.</small>
             </label>
+            <!-- Where the lock is, which only its owner sees. location.js shows the button and fills the field. -->
+            <label>
+                [[#{lock.coordinates}]]
+                <input type="text" name="coordinates" autocomplete="off" th:value="${coordinates}"
+                       th:placeholder="#{lock.coordinates.placeholder}"
+                       th:attr="aria-invalid=${coordinatesError} ? 'true' : null">
+                <small th:if="${coordinatesError}" th:text="#{lock.coordinates.error}">Latitud y longitud.</small>
+                <small th:unless="${coordinatesError}" th:text="#{lock.coordinates.hint}">Solo la ves tú.</small>
+            </label>
+            <p>
+                <button type="button" id="use-my-location" class="secondary" hidden
+                        th:data-locating="#{lock.coordinates.locating}"
+                        th:data-found="#{lock.coordinates.found('{0}')}"
+                        th:data-failed="#{lock.coordinates.failed}"
+                        th:text="#{lock.coordinates.use-mine}">Usar mi ubicación actual</button>
+                <a th:if="${mapUrl}" th:href="${mapUrl}" target="_blank" rel="noopener noreferrer"
+                   th:text="#{lock.coordinates.map}">Ver en el mapa</a>
+                <small id="location-status" role="status"></small>
+            </p>
             <label th:unless="${entrances.isEmpty()}">
                 [[#{lock.entrance}]]
                 <select name="entranceLockId" th:attr="aria-invalid=${entranceError} ? 'true' : null">
@@ -115,5 +134,6 @@
     </section>
     <p><a th:href="@{/locks}" th:text="#{lock.back}">Volver a cerraduras</a></p>
 </main>
+<script th:src="@{/js/location.js}"></script>
 </body>
 </html>

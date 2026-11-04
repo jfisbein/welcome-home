@@ -179,6 +179,47 @@ class LockSettingsTests {
         assertThat(guestInstructions(alicesLock)).isEqualTo("x".repeat(998) + "\ny");
     }
 
+    /** As Google Maps copies a place, or with spaces between, rounded to six decimals. */
+    @Test
+    void ownerSetsWhereTheLockIs() {
+        assertThat(updatePosition(alicesLock, " 40.4167754, -3.7037902 ")).hasStatus(HttpStatus.FOUND);
+        assertThat(position(alicesLock)).isEqualTo("40.416775|-3.70379");
+
+        assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE))).bodyText().contains(
+                "value=\"40.416775, -3.703790\"", "Ubicación de la cerradura", "Usar mi ubicación actual",
+                "href=\"https://www.openstreetmap.org/?mlat=40.416775&amp;mlon=-3.703790#map=18/40.416775/-3.703790\"",
+                "/js/location.js");
+
+        assertThat(updatePosition(alicesLock, "41.38879 2.15899")).hasStatus(HttpStatus.FOUND);
+        assertThat(position(alicesLock)).isEqualTo("41.38879|2.15899");
+    }
+
+    @Test
+    void aBlankPositionIsNoneAndAFormWithoutItKeepsTheLocks() {
+        updatePosition(alicesLock, "40.416775, -3.70379");
+
+        assertThat(update(ALICE, alicesLock, "Casa", "Europe/Madrid")).as("no field").hasStatus(HttpStatus.FOUND);
+        assertThat(position(alicesLock)).isEqualTo("40.416775|-3.70379");
+
+        assertThat(updatePosition(alicesLock, "  ")).hasStatus(HttpStatus.FOUND);
+        assertThat(position(alicesLock)).isEqualTo("none");
+        assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE))).bodyText()
+                .contains("name=\"coordinates\" autocomplete=\"off\" value=\"\"").doesNotContain("openstreetmap");
+    }
+
+    @Test
+    void aPositionThatIsNoPlaceOnEarthIsRefusedAndKeptInTheForm() {
+        updatePosition(alicesLock, "40.416775, -3.70379");
+
+        for (var typed : new String[] {"40.4", "40,4168", "91, 0", "40.4, 181", "40.4; -3.7", "norte", "1e3, 2"}) {
+            assertThat(updatePosition(alicesLock, typed)).as(typed)
+                    .hasStatus(HttpStatus.BAD_REQUEST)
+                    .bodyText().contains("Escribe la latitud y la longitud con punto decimal",
+                            "value=\"" + typed + "\"");
+        }
+        assertThat(position(alicesLock)).isEqualTo("40.416775|-3.70379");
+    }
+
     @Test
     void htmlFormSendsThePatchAsAPostWithHiddenMethod() {
         assertThat(mvc.post().uri("/locks/" + alicesLock).with(owner(ALICE)).with(csrf())
@@ -199,6 +240,18 @@ class LockSettingsTests {
         return mvc.patch().uri("/locks/" + lockId).with(owner(email)).with(csrf())
                 .param("name", name).param("timeZone", timeZone)
                 .exchange();
+    }
+
+    private MvcTestResult updatePosition(UUID lockId, String coordinates) {
+        return mvc.patch().uri("/locks/" + lockId).with(owner(ALICE)).with(csrf())
+                .param("name", "Casa").param("timeZone", "Europe/Berlin").param("coordinates", coordinates)
+                .exchange();
+    }
+
+    /** The lock's position as "latitude|longitude", or "none". */
+    private String position(UUID lockId) {
+        return migrator.sql("SELECT coalesce(latitude || '|' || longitude, 'none') FROM lock WHERE id = ?")
+                .param(lockId).query(String.class).single();
     }
 
     private MvcTestResult updateEntrance(UUID lockId, String entranceLockId) {

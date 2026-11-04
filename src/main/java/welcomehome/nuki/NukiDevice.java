@@ -10,6 +10,8 @@ import org.jspecify.annotations.Nullable;
  * @param name        the device's name in the Nuki app
  * @param timeZone    the device's time zone as set in the Nuki app, an IANA id such as {@code Europe/Berlin},
  *                    or {@code null} if the device reports none
+ * @param coordinates where the device is, as set in the Nuki app, or {@code null} if it reports none
  */
-public record NukiDevice(long smartlockId, DeviceType type, String name, @Nullable String timeZone) {
+public record NukiDevice(long smartlockId, DeviceType type, String name, @Nullable String timeZone,
+                         @Nullable Coordinates coordinates) {
 }

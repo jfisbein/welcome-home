@@ -50,7 +50,7 @@ import welcomehome.nuki.LockProviderException.Reason;
 @ExtendWith(OutputCaptureExtension.class)
 class NukiTokenRefreshTests {
 
-    static final List<NukiDevice> CASA = List.of(new NukiDevice(17, DeviceType.SMART_LOCK, "Casa", null));
+    static final List<NukiDevice> CASA = List.of(new NukiDevice(17, DeviceType.SMART_LOCK, "Casa", null, null));
 
     @Autowired
     LockProvider locks;

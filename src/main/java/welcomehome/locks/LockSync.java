@@ -94,7 +94,7 @@ class LockSync {
                 }
                 var timeZone = importedTimeZone(device.timeZone(), serverTimeZone, now);
                 locks.upsert(ownerId, connectionId, device.smartlockId(), device.type(), device.name(),
-                        timeZone);
+                        timeZone, device.coordinates());
             }
             int deactivated = 0;
             for (var lock : known.values()) {

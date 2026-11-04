@@ -10,6 +10,7 @@ import java.util.regex.Pattern;
 import com.google.gson.JsonObject;
 import com.microsoft.playwright.Dialog;
 import com.microsoft.playwright.Page;
+import com.microsoft.playwright.options.Geolocation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -152,6 +153,29 @@ class OwnerPagesTests extends BrowserTest {
 
         assertThat(page.locator("input[name=opens-FRIDAY]")).hasValue("09:30");
         assertThat(page.locator("input[name=closes-MONDAY]")).hasValue("17:45");
+    }
+
+    /** The browser's position, as Chromium gives it with the permission granted; without it, a message. */
+    @Test
+    void theOwnerFillsTheLocksPositionWithTheirOwn() {
+        register();
+        var owner = migrator.sql("SELECT id FROM owner WHERE email = ?").param(ALICE).query(UUID.class).single();
+        var lock = data.lock(owner, 17, "Casa");
+        page.navigate(url("/locks/" + lock));
+
+        page.locator("#use-my-location").click();
+        assertThat(page.locator("#location-status")).containsText("No se ha podido obtener tu ubicación");
+
+        context.grantPermissions(List.of("geolocation"));
+        context.setGeolocation(new Geolocation(40.4167754, -3.7037902).setAccuracy(12));
+        page.locator("#use-my-location").click();
+        assertThat(page.locator("input[name=coordinates]")).hasValue("40.416775, -3.703790");
+        assertThat(page.locator("#location-status")).containsText("una precisión de unos 12 m");
+
+        page.locator("form button[type=submit]").last().click();
+        page.waitForURL(url("/locks"));
+        assertThat(migrator.sql("SELECT latitude || '|' || longitude FROM lock")
+                .query(String.class).single()).isEqualTo("40.416775|-3.70379");
     }
 
     private void register() {
