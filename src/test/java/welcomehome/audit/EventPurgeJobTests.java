@@ -1,6 +1,7 @@
 package welcomehome.audit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Duration;
 import java.util.List;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
@@ -37,6 +39,10 @@ class EventPurgeJobTests {
     @Autowired
     PostgreSQLContainer postgres;
 
+    /** The app's own connection, as app_user. */
+    @Autowired
+    JdbcClient jdbc;
+
     JdbcClient migrator;
     TestData data;
 
@@ -59,8 +65,9 @@ class EventPurgeJobTests {
 
         job.purgeAll();
 
-        assertThat(remainingIps(alice)).containsExactly("198.51.100.2", "198.51.100.3");
-        assertThat(remainingIps(bob)).containsExactly("198.51.100.2", "198.51.100.3");
+        // The one from 364 days ago stays, without its IP address.
+        assertThat(attempts(alice)).containsExactly("opened|-|-|-", "opened|-|198.51.100.3|-");
+        assertThat(attempts(bob)).containsExactly("opened|-|-|-", "opened|-|198.51.100.3|-");
     }
 
     @Test
@@ -69,9 +76,47 @@ class EventPurgeJobTests {
         insertEvent(link, "31 days", "198.51.100.1");
         insertEvent(link, "29 days", "198.51.100.2");
 
-        new EventPurgeJob(accessEvents, ownerTransactions, new AuditProperties(Duration.ofDays(30))).purgeAll();
+        new EventPurgeJob(accessEvents, ownerTransactions, new AuditProperties(Duration.ofDays(30), Duration.ofDays(30))).purgeAll();
 
         assertThat(remainingIps(link)).containsExactly("198.51.100.2");
+    }
+
+    /** The browser, which earlier releases stored and nothing shows, goes from every attempt. */
+    @Test
+    void attemptsForgetTheGuestsIpAddressAfterNinetyDaysButKeepTheirCountry() {
+        var alice = insertLink("alice@example.com");
+        var bob = insertLink("bob@example.com");
+        for (var link : List.of(alice, bob)) {
+            insertEvent(link, "91 days", "198.51.100.1");
+            insertEvent(link, "89 days", "198.51.100.2");
+        }
+        migrator.sql("UPDATE access_event SET country = 'ES', user_agent = 'Firefox'").update();
+
+        job.purgeAll();
+
+        for (var link : List.of(alice, bob)) {
+            assertThat(attempts(link)).containsExactly("opened|ES|-|-", "opened|ES|198.51.100.2|-");
+        }
+    }
+
+    @Test
+    void ipRetentionComesFromTheConfiguration() {
+        var link = insertLink("alice@example.com");
+        insertEvent(link, "31 days", "198.51.100.1");
+        insertEvent(link, "29 days", "198.51.100.2");
+
+        new EventPurgeJob(accessEvents, ownerTransactions, new AuditProperties(Duration.ofDays(365), Duration.ofDays(30)))
+                .purgeAll();
+
+        assertThat(attempts(link)).containsExactly("opened|-|-|-", "opened|-|198.51.100.2|-");
+    }
+
+    @Test
+    void theAppMayForgetAnAttemptsIpAddressButChangeNothingElse() {
+        jdbc.sql("UPDATE access_event SET ip = NULL, user_agent = NULL").update();
+        assertThatThrownBy(() -> jdbc.sql("UPDATE access_event SET reason = 'opened'").update())
+                .isInstanceOf(DataAccessException.class)
+                .rootCause().hasMessageContaining("permission denied for table access_event");
     }
 
     @Test
@@ -87,6 +132,16 @@ class EventPurgeJobTests {
 
     private List<String> remainingIps(UUID linkId) {
         return migrator.sql("SELECT host(ip) FROM access_event WHERE link_id = ? ORDER BY occurred_at")
+                .param(linkId).query(String.class).list();
+    }
+
+    /** Each of the link's attempts, oldest first, as "reason|country|ip|browser", with "-" for none. */
+    private List<String> attempts(UUID linkId) {
+        return migrator.sql("""
+                        SELECT concat_ws('|', reason, coalesce(country, '-'), coalesce(host(ip), '-'),
+                                         coalesce(user_agent, '-'))
+                        FROM access_event WHERE link_id = ? ORDER BY occurred_at
+                        """)
                 .param(linkId).query(String.class).list();
     }
 

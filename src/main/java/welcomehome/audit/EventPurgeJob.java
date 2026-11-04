@@ -10,8 +10,9 @@ import org.springframework.stereotype.Component;
 import welcomehome.db.OwnerTransactions;
 
 /**
- * Deletes guests' attempts older than the retention period once a day, each owner in their own transaction,
- * so that Row-Level Security applies as everywhere else.
+ * Once a day, deletes guests' attempts older than the retention period and forgets the IP address of those older
+ * than its own, shorter one, each owner in their own transaction, so that Row-Level Security applies as everywhere
+ * else.
  */
 @Component
 class EventPurgeJob {
@@ -21,20 +22,27 @@ class EventPurgeJob {
     private final AccessEventDao accessEvents;
     private final OwnerTransactions ownerTransactions;
     private final Duration retention;
+    private final Duration ipRetention;
 
     EventPurgeJob(AccessEventDao accessEvents, OwnerTransactions ownerTransactions, AuditProperties properties) {
         this.accessEvents = accessEvents;
         this.ownerTransactions = ownerTransactions;
         this.retention = properties.retention();
+        this.ipRetention = properties.ipRetention();
     }
 
     @Scheduled(cron = "${welcomehome.audit.purge-cron}")
     void purgeAll() {
-        var cutoff = Instant.now().minus(retention);
+        var now = Instant.now();
+        var cutoff = now.minus(retention);
+        var ipCutoff = now.minus(ipRetention);
         var purged = 0;
+        var forgotten = 0;
         for (var ownerId : accessEvents.allOwnerIds()) {
             try {
                 purged += ownerTransactions.execute(ownerId, () -> accessEvents.deleteOlderThan(ownerId, cutoff));
+                forgotten += ownerTransactions.execute(ownerId,
+                        () -> accessEvents.forgetIpAddresses(ownerId, ipCutoff));
             } catch (RuntimeException e) {
                 // One owner's failure must not stop the others' purge; the next run tries again.
                 log.warn("Could not purge the history of owner {}: {}", ownerId, e.getMessage());
@@ -42,6 +50,9 @@ class EventPurgeJob {
         }
         if (purged > 0) {
             log.info("Purged {} access events from before {}", purged, cutoff);
+        }
+        if (forgotten > 0) {
+            log.info("Forgot the IP address or browser of {} access events", forgotten);
         }
     }
 }

@@ -119,7 +119,7 @@ class NotificationTests {
         var openerId = data.opener(aliceId, 19, "Portal");
 
         accessEvents.record(new AccessEvent(aliceId, linkId, lockId, openerId, AccessOutcome.OPENED, "203.0.113.7",
-                "ES", "curl"));
+                "ES"));
 
         var email = theOnlyEmail();
         assertThat(email.getSubject()).isEqualTo("Portal: Ana ha abierto la puerta");
@@ -298,7 +298,7 @@ class NotificationTests {
     }
 
     private void record(UUID link, AccessOutcome outcome) {
-        accessEvents.record(new AccessEvent(aliceId, link, lockId, null, outcome, "203.0.113.7", "ES", "curl"));
+        accessEvents.record(new AccessEvent(aliceId, link, lockId, null, outcome, "203.0.113.7", "ES"));
     }
 
     private UUID insertLink(String label) {

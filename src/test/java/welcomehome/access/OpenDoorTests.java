@@ -114,7 +114,7 @@ class OpenDoorTests {
                 .withHeader("Authorization", equalTo("Bearer " + ALICES_NUKI_TOKEN))
                 .withRequestBody(equalToJson("{\"action\": 3}")));
         nuki.verify(0, postRequestedFor(urlPathEqualTo("/smartlock/17/action/advanced")));
-        assertThat(lastEvent()).isEqualTo("OK|opened|" + ip + "|Guest browser");
+        assertThat(lastEvent()).isEqualTo("OK|opened|" + ip);
     }
 
     @Test
@@ -133,7 +133,7 @@ class OpenDoorTests {
                 .withRequestBody(equalToJson("{\"action\": 3}")));
         nuki.verify(0, postRequestedFor(urlPathEqualTo("/smartlock/17/action")));
         nuki.verify(0, getRequestedFor(urlPathEqualTo("/smartlock/17/log")));
-        assertThat(lastEvent()).isEqualTo("OK|opened|" + ip + "|Guest browser");
+        assertThat(lastEvent()).isEqualTo("OK|opened|" + ip);
     }
 
     @Test
@@ -362,7 +362,7 @@ class OpenDoorTests {
                 .withHeader("Authorization", equalTo("Bearer " + ALICES_NUKI_TOKEN))
                 .withRequestBody(equalToJson("{\"action\": 3}")));
         nuki.verify(0, postRequestedFor(urlPathEqualTo("/smartlock/17/action")));
-        assertThat(lastEvent()).isEqualTo("OK|opened|" + ip + "|Guest browser");
+        assertThat(lastEvent()).isEqualTo("OK|opened|" + ip);
         assertThat(lastEventsDoors()).isEqualTo(lockId + "|" + portal);
     }
 
@@ -690,7 +690,10 @@ class OpenDoorTests {
                 """.formatted(date, nukiAction, nukiTrigger, nukiState);
     }
 
-    /** The latest event as "result|reason|ip|userAgent". */
+    /**
+     * The latest event as "result|reason|ip", and then its browser, though nothing should keep it: every request
+     * says it is "Guest browser".
+     */
     private String lastEvent() {
         return migrator.sql("""
                         SELECT concat_ws('|', result, reason, ip, user_agent) FROM access_event

@@ -1,5 +1,7 @@
 package welcomehome.audit;
 
+import java.time.Duration;
+
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import welcomehome.db.OwnerTransactions;
@@ -11,17 +13,36 @@ import welcomehome.db.OwnerTransactions;
 @Service
 public class AccessEvents {
 
-    /** Longer user agents are cut: they are for the owner to recognise a device, not to fingerprint it. */
-    private static final int MAX_USER_AGENT_LENGTH = 500;
-
     private final AccessEventDao accessEvents;
     private final OwnerTransactions ownerTransactions;
     private final ApplicationEventPublisher events;
+    private final AuditProperties properties;
 
-    AccessEvents(AccessEventDao accessEvents, OwnerTransactions ownerTransactions, ApplicationEventPublisher events) {
+    AccessEvents(AccessEventDao accessEvents, OwnerTransactions ownerTransactions, ApplicationEventPublisher events,
+                 AuditProperties properties) {
         this.accessEvents = accessEvents;
         this.ownerTransactions = ownerTransactions;
         this.events = events;
+        this.properties = properties;
+    }
+
+    /**
+     * How long an attempt is kept.
+     *
+     * @return the retention of attempts
+     */
+    public Duration retention() {
+        return properties.retention();
+    }
+
+    /**
+     * How long an attempt keeps the guest's IP address: never longer than the attempt itself.
+     *
+     * @return the retention of IP addresses
+     */
+    public Duration ipRetention() {
+        var ipRetention = properties.ipRetention();
+        return ipRetention.compareTo(properties.retention()) < 0 ? ipRetention : properties.retention();
     }
 
     /**
@@ -30,13 +51,8 @@ public class AccessEvents {
      * @param event the attempt
      */
     public void record(AccessEvent event) {
-        var userAgent = event.userAgent();
-        if (userAgent != null && userAgent.length() > MAX_USER_AGENT_LENGTH) {
-            userAgent = userAgent.substring(0, MAX_USER_AGENT_LENGTH);
-        }
-        var trimmedUserAgent = userAgent;
         ownerTransactions.run(event.ownerId(), () -> {
-            var occurredAt = accessEvents.insert(event, trimmedUserAgent);
+            var occurredAt = accessEvents.insert(event);
             events.publishEvent(new AccessAttempted(event.ownerId(), event.linkId(), event.lockId(),
                     event.entranceLockId(), event.outcome(), occurredAt.toInstant()));
         });

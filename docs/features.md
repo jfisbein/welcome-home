@@ -191,7 +191,7 @@ Nuki runs actions asynchronously, so after it accepts the unlatch, or gives no a
 
 So the guest learns whether the door opened, whether the lock failed (for example, motor blocked) or refused it in night mode, or that the lock did not confirm in time. When the guest page gets no answer from the app, it says what it says for an unconfirmed opening: push the door before trying again.
 
-Every attempt with a valid link is recorded in the owner's history (`access_event`), with the guest's IP address and browser. Requests, emails and jobs run on virtual threads (`spring.threads.virtual.enabled`), so that wait, like Nuki's backoff, holds no platform thread.
+Every attempt with a valid link is recorded in the owner's history (`access_event`), with the guest's IP address and country, but not their browser, which nothing shows. Under the doors the page tells the guest so, and how long each is kept (`guest.privacy`): only where they can slide, as only sliding records anything. Requests, emails and jobs run on virtual threads (`spring.threads.virtual.enabled`), so that wait, like Nuki's backoff, holds no platform thread.
 
 ### A building entrance
 
@@ -229,7 +229,7 @@ The guest's country, for the history, comes from `CF-IPCountry` (`welcomehome.ac
 
 A link's label usually holds a guest's name, so a link is kept for `welcomehome.links.retention` (`P365D`) after it expired or was cancelled, once no attempt with it is younger than that either: a job deletes it, with its schedule and attempts, every night at 03:32. Its owner may delete it sooner with "Borrar". Its URL then answers as any unknown link does.
 
-Attempts hold IP addresses, which are personal data, so they are kept for `welcomehome.audit.retention` (`P365D`) only. A job deletes older ones every night (`welcomehome.audit.purge-cron`, `0 30 3 * * *`, in the server's time zone), each owner in their own transaction under Row-Level Security.
+Attempts are kept for `welcomehome.audit.retention` (`P365D`), and their IP addresses, which are personal data, for `welcomehome.audit.ip-retention` (`P90D`) only: an older attempt keeps its country, so its flag still says where the guest was, and shows no IP address. A job deletes older attempts and forgets older IP addresses every night (`welcomehome.audit.purge-cron`, `0 30 3 * * *`, in the server's time zone), each owner in their own transaction under Row-Level Security; it also forgets the browsers that releases before 2.11.0 stored. `app_user` may update only those two columns of `access_event`.
 
 ## Notifications
 

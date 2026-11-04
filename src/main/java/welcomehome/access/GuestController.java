@@ -17,6 +17,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import welcomehome.audit.AccessEvents;
 import welcomehome.audit.AccessOutcome;
 import welcomehome.config.TimeZoneNames;
 import welcomehome.links.LinkSchedules;
@@ -27,7 +28,8 @@ import welcomehome.locks.OwnerLock;
  * The page a guest's URL opens. It only informs: messaging apps fetch links to preview them, so a GET never
  * opens the door. Opening is a POST once the guest slides to open. Search engines are asked not to
  * index the page. It creates no session: it has no CSRF token to keep, as opening needs none. Each door the link
- * opens has its own slide: the lock, and before it the Opener at its building's entrance, if it has one.
+ * opens has its own slide: the lock, and before it the Opener at its building's entrance, if it has one. Under
+ * them, what sliding keeps about the guest and for how long.
  */
 @Controller
 class GuestController {
@@ -39,13 +41,15 @@ class GuestController {
     private final LinkSchedules schedules;
     private final MessageSource messages;
     private final TimeZoneNames timeZoneNames;
+    private final AccessEvents accessEvents;
 
     GuestController(GuestLinks guestLinks, LinkSchedules schedules, MessageSource messages,
-                    TimeZoneNames timeZoneNames) {
+                    TimeZoneNames timeZoneNames, AccessEvents accessEvents) {
         this.guestLinks = guestLinks;
         this.schedules = schedules;
         this.messages = messages;
         this.timeZoneNames = timeZoneNames;
+        this.accessEvents = accessEvents;
     }
 
     @GetMapping("/o/{token}")
@@ -82,6 +86,9 @@ class GuestController {
         var doors = guestLink.status() == LinkStatus.ACTIVE && withinSchedule ? doors(link, locale) : List.<GuestDoor>of();
         model.addAttribute("doors", doors);
         model.addAttribute("canOpen", doors.stream().anyMatch(GuestDoor::available));
+        // What sliding keeps, for the notice under the doors; as text, so that no language groups the digits.
+        model.addAttribute("ipRetentionDays", String.valueOf(accessEvents.ipRetention().toDays()));
+        model.addAttribute("retentionDays", String.valueOf(accessEvents.retention().toDays()));
         return "access/guest";
     }
 

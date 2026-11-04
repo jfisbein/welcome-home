@@ -67,7 +67,7 @@ The home page and **Cerraduras** warn you in red about a lock with no connection
 
 **Auto Lock off** means that the door stays unlocked after a guest opens it. Turn it on in the Nuki app. If you relock some other way, tick **El bloqueo lo gestiono de otra forma**, and the warning goes.
 
-**Who has come in.** The home page shows the latest attempts, and each lock's **Historial** all of them: when, with which link, what happened and from where. Attempts are kept for a year.
+**Who has come in.** The home page shows the latest attempts, and each lock's **Historial** all of them: when, with which link, what happened and from where. Attempts are kept for a year, and their IP address for 90 days: after that only the country remains. Your guests' page tells them so.
 
 **Emails.** In **Configuración → Avisos**, choose whether you hear of openings, failures, refused attempts, problems with Nuki and a lock's problems: a critical battery, no connection or a blocked motor, once a day at most and only when they start. Use **Enviarme un email de prueba** to check that they arrive. Emails about your account, such as a passkey added, always come.
 
