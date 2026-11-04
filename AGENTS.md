@@ -216,6 +216,7 @@ Release: a pull request named `Version X.Y.Z` from branch `release-X.Y.Z` that b
 | `docs/features.md` | each feature in detail, its properties |
 | `docs/user-guide.md` | for owners: how to use it, what to do when a guest cannot get in |
 | `docs/security.md`, `docs/deployment.md` | roles, keysets and web security; the image, the stack and backups |
+| `LICENSE`, `SECURITY.md` | Apache-2.0; how to report a vulnerability, privately through GitHub |
 
 ## Next steps and ideas
 

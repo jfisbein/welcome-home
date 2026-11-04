@@ -23,6 +23,7 @@ flowchart LR
 | Know how data and secrets are protected | [Security and data](docs/security.md) |
 | Set it up: the image, the stack, its secrets, backups | [Deployment](docs/deployment.md) |
 | Run it: first start, upgrades, restoring, when something fails | [Runbook](docs/runbook.md) |
+| Report a vulnerability | [SECURITY.md](SECURITY.md) |
 
 ## Development
 
@@ -39,3 +40,7 @@ docker compose up -d     # development Postgres on localhost:5432
 Quick check: `curl http://localhost:8080/actuator/health`.
 
 The compiler runs [Error Prone](https://errorprone.info) with [NullAway](https://github.com/uber/NullAway) in JSpecify mode: in the app's code nothing is null unless it is `@Nullable` (`org.jspecify.annotations`), and the build fails where a possibly null value could be dereferenced or passed where it may not. Every package is `@NullMarked` in its `package-info.java`, so the IDE knows it too. Tests are not checked for nullness.
+
+## License
+
+Copyright 2026 Joan Fisbein. Licensed under the [Apache License, Version 2.0](LICENSE).
