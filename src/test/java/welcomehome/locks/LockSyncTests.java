@@ -121,6 +121,34 @@ class LockSyncTests {
         }
     }
 
+    /** The owner's position stays: Nuki's fills only a lock without one. */
+    @Test
+    void importTakesNukisPositionsAndSyncsFillOnlyAMissingOne() {
+        connectNuki(ALICE, """
+                [
+                  {"smartlockId": 17, "type": 4, "name": "Casa", "serverState": 0,
+                   "config": {"latitude": 40.41678, "longitude": -3.70379}},
+                  {"smartlockId": 18, "type": 4, "name": "Garaje", "serverState": 0}
+                ]
+                """);
+        assertThat(positions()).containsExactly("17|40.41678|-3.70379", "18|-|-");
+
+        var casa = migrator.sql("SELECT id FROM lock WHERE nuki_smartlock_id = 17").query(UUID.class).single();
+        assertThat(mvc.patch().uri("/locks/" + casa).with(owner(ALICE)).with(csrf()).param("name", "Casa")
+                .param("timeZone", "Europe/Madrid").param("coordinates", "40.5, -3.6")).hasStatus(HttpStatus.FOUND);
+        nukiLists("""
+                [
+                  {"smartlockId": 17, "type": 4, "name": "Casa", "serverState": 0,
+                   "config": {"latitude": 40.41678, "longitude": -3.70379}},
+                  {"smartlockId": 18, "type": 4, "name": "Garaje", "serverState": 0,
+                   "config": {"latitude": 41.38879, "longitude": 2.15899}}
+                ]
+                """);
+        sync(ALICE);
+
+        assertThat(positions()).containsExactly("17|40.5|-3.6", "18|41.38879|2.15899");
+    }
+
     @Test
     void syncImportsLocksAddedSinceConnecting() {
         connectNuki(ALICE, ONLY_CASA);
@@ -259,6 +287,17 @@ class LockSyncTests {
 
     private MvcTestResult sync(String email) {
         return mvc.post().uri("/locks/sync").with(owner(email)).with(csrf()).exchange();
+    }
+
+    /** Where Alice's locks are, as "nukiId|latitude|longitude", with "-" for none. */
+    private List<String> positions() {
+        return migrator.sql("""
+                        SELECT concat_ws('|', nuki_smartlock_id, coalesce(latitude::text, '-'), coalesce(longitude::text, '-'))
+                        FROM lock WHERE owner_id = ? ORDER BY nuki_smartlock_id
+                        """)
+                .param(aliceId)
+                .query(String.class)
+                .list();
     }
 
     /** Alice's locks as "nukiId|name|timeZone|active|connected", where connected means her current connection. */

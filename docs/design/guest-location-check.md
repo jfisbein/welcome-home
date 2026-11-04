@@ -1,6 +1,6 @@
 # Checking where a guest is before opening
 
-Status: proposal, 2026-11-04. Nothing here is built yet.
+Status: proposal, 2026-11-04. Built so far: the lock's position (in "The lock's position and the check's mode", all but the mode and the radius).
 
 ## Goal
 

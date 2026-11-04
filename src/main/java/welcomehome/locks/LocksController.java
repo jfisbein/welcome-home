@@ -74,6 +74,7 @@ class LocksController {
         model.addAttribute("relockingHandledElsewhere", lock.relockingHandledElsewhere());
         model.addAttribute("entranceLockId", lock.entranceLockId());
         model.addAttribute("guestInstructions", lock.guestInstructions());
+        model.addAttribute("coordinates", LockSettings.format(lock.coordinates()));
         return editView(owner, lock, model);
     }
 
@@ -83,6 +84,7 @@ class LocksController {
                   @RequestParam(defaultValue = "false") boolean relockingHandledElsewhere,
                   @RequestParam(required = false) @Nullable UUID entranceLockId,
                   @RequestParam(defaultValue = "") String guestInstructions,
+                  @RequestParam(required = false) @Nullable String coordinates,
                   Model model, HttpServletResponse response, RedirectAttributes redirect) {
         var lock = locks.find(owner.id(), lockId).orElseThrow(LocksController::notFound);
         var normalizedName = LockSettings.normalizeName(name);
@@ -91,13 +93,19 @@ class LocksController {
         var validEntrance = entranceLockId == null || LockSettings.entrances(lock, locks.findAll(owner.id())).stream()
                 .anyMatch(entrance -> entrance.id().equals(entranceLockId));
         var normalizedInstructions = LockSettings.normalizeGuestInstructions(guestInstructions);
-        if (normalizedName.isEmpty() || !validTimeZone || !validEntrance || normalizedInstructions.isEmpty()) {
+        // A form without the field, such as one loaded before it existed, keeps the position the lock has.
+        var typedCoordinates = coordinates == null ? new LockSettings.TypedCoordinates(true, lock.coordinates())
+                : LockSettings.parseCoordinates(coordinates);
+        if (normalizedName.isEmpty() || !validTimeZone || !validEntrance || normalizedInstructions.isEmpty()
+                || !typedCoordinates.valid()) {
             response.setStatus(HttpStatus.BAD_REQUEST.value());
             model.addAttribute("name", name);
             model.addAttribute("timeZone", timeZone);
             model.addAttribute("relockingHandledElsewhere", relockingHandledElsewhere);
             model.addAttribute("entranceLockId", entranceLockId);
             model.addAttribute("guestInstructions", guestInstructions);
+            model.addAttribute("coordinates", coordinates == null ? LockSettings.format(lock.coordinates()) : coordinates);
+            model.addAttribute("coordinatesError", !typedCoordinates.valid());
             model.addAttribute("nameError", normalizedName.isEmpty());
             model.addAttribute("timeZoneError", !validTimeZone);
             model.addAttribute("entranceError", !validEntrance);
@@ -106,7 +114,7 @@ class LocksController {
         }
         var instructions = normalizedInstructions.get();
         if (!lockSettings.update(owner.id(), lockId, normalizedName.get(), timeZone, relockingHandledElsewhere,
-                entranceLockId, instructions.isEmpty() ? null : instructions)) {
+                entranceLockId, instructions.isEmpty() ? null : instructions, typedCoordinates.coordinates())) {
             throw notFound();
         }
         redirect.addFlashAttribute("updated", normalizedName.get());
@@ -119,6 +127,8 @@ class LocksController {
         model.addAttribute("timeZones", LockSettings.TIME_ZONES);
         model.addAttribute("maxGuestInstructionsLength", LockSettings.MAX_GUEST_INSTRUCTIONS_LENGTH);
         model.addAttribute("entrances", LockSettings.entrances(lock, locks.findAll(owner.id())));
+        var saved = lock.coordinates();
+        model.addAttribute("mapUrl", saved == null ? null : LockSettings.mapUrl(saved));
         if (lock.active()) {
             try {
                 model.addAttribute("snapshot",

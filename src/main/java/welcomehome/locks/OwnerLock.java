@@ -2,6 +2,7 @@ package welcomehome.locks;
 
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import welcomehome.nuki.Coordinates;
 import welcomehome.nuki.DeviceType;
 
 /**
@@ -19,10 +20,22 @@ import welcomehome.nuki.DeviceType;
  *                        {@code null}; only a smart lock has one
  * @param guestInstructions what the owner tells the lock's guests on its links' page, such as the address or
  *                        where a key is, or {@code null} for nothing
+ * @param latitude        where the lock is, with {@code longitude}, or {@code null} with it; see {@link #coordinates()}
+ * @param longitude       where the lock is, with {@code latitude}
  */
 public record OwnerLock(UUID id, long nukiSmartlockId, String name, String timeZone, boolean active,
                         boolean relockingHandledElsewhere, DeviceType deviceType, @Nullable UUID entranceLockId,
-                        @Nullable String guestInstructions) {
+                        @Nullable String guestInstructions, @Nullable Double latitude, @Nullable Double longitude) {
+
+    /**
+     * Where the lock is, from Nuki or from its owner. Only the owner sees it: a guest's page must not tell where
+     * the door is.
+     *
+     * @return its coordinates, or {@code null} if it has none
+     */
+    public @Nullable Coordinates coordinates() {
+        return latitude == null || longitude == null ? null : new Coordinates(latitude, longitude);
+    }
 
     /**
      * Tells whether the lock is an Opener.

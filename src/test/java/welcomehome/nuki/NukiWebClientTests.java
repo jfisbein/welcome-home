@@ -50,21 +50,24 @@ class NukiWebClientTests {
         client = clientFor(URI.create(nuki.baseUrl()));
     }
 
+    /** 0, 0 is taken for no position, as a device without one would report it. */
     @Test
     void listsTheSmartLocksAndOpenersOfTheAccountButNotBoxes() {
         nuki.stubFor(get("/smartlock").withHeader("Authorization", equalTo("Bearer " + TOKEN)).willReturn(okJson("""
                 [
-                  {"smartlockId": 17, "type": 5, "name": "Casa", "serverState": 0, "config": {"timezoneId": 37}},
-                  {"smartlockId": 18, "type": 4, "name": "Garaje", "serverState": 0, "config": {"timezoneId": 65535}},
+                  {"smartlockId": 17, "type": 5, "name": "Casa", "serverState": 0,
+                   "config": {"timezoneId": 37, "latitude": 40.41678, "longitude": -3.70379}},
+                  {"smartlockId": 18, "type": 4, "name": "Garaje", "serverState": 0,
+                   "config": {"timezoneId": 65535, "latitude": 0, "longitude": 0}},
                   {"smartlockId": 19, "type": 2, "name": "Portal", "serverState": 0},
                   {"smartlockId": 20, "type": 1, "name": "Buzón", "serverState": 0}
                 ]
                 """)));
 
         assertThat(client.listLocks(TOKEN)).containsExactly(
-                new NukiDevice(17, DeviceType.SMART_LOCK, "Casa", "Europe/Berlin"),
-                new NukiDevice(18, DeviceType.SMART_LOCK, "Garaje", null),
-                new NukiDevice(19, DeviceType.OPENER, "Portal", null));
+                new NukiDevice(17, DeviceType.SMART_LOCK, "Casa", "Europe/Berlin", new Coordinates(40.41678, -3.70379)),
+                new NukiDevice(18, DeviceType.SMART_LOCK, "Garaje", null, null),
+                new NukiDevice(19, DeviceType.OPENER, "Portal", null, null));
     }
 
     @Test

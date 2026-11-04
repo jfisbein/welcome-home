@@ -43,9 +43,12 @@ class NukiWebClient {
 
     List<NukiDevice> listLocks(String accessToken) {
         return devices(accessToken).stream()
-                .map(smartlock -> new NukiDevice(smartlock.smartlockId(), NukiCodes.deviceType(smartlock.type()),
-                        smartlock.name(),
-                        smartlock.config() == null ? null : NukiTimeZones.byId(smartlock.config().timezoneId())))
+                .map(smartlock -> {
+                    var config = smartlock.config();
+                    return new NukiDevice(smartlock.smartlockId(), NukiCodes.deviceType(smartlock.type()),
+                            smartlock.name(), config == null ? null : NukiTimeZones.byId(config.timezoneId()),
+                            config == null ? null : Coordinates.ofNuki(config.latitude(), config.longitude()));
+                })
                 .toList();
     }
 
@@ -166,7 +169,7 @@ class NukiWebClient {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record NukiConfig(@Nullable Integer timezoneId) {
+    record NukiConfig(@Nullable Integer timezoneId, @Nullable Double latitude, @Nullable Double longitude) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

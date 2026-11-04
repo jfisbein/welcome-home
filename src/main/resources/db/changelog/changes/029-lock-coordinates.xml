@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="029-lock-coordinates" author="welcome-home">
+        <comment>
+            Where a lock is, from Nuki or from its owner: both or neither. Only the owner sees it; it is not sent to
+            guests' pages, so that a leaked link does not tell where the door is.
+        </comment>
+        <addColumn tableName="lock">
+            <column name="latitude" type="double precision"/>
+            <column name="longitude" type="double precision"/>
+        </addColumn>
+        <sql>
+            ALTER TABLE lock ADD CONSTRAINT lock_coordinates_check
+                CHECK ((latitude IS NULL AND longitude IS NULL)
+                       OR (latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180));
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

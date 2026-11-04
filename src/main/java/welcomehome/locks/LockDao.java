@@ -8,6 +8,7 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.SimplePropertyRowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
+import welcomehome.nuki.Coordinates;
 import welcomehome.nuki.DeviceType;
 
 /**
@@ -51,7 +52,7 @@ class LockDao {
     List<OwnerLock> findAll(UUID ownerId) {
         return jdbc.sql("""
                         SELECT id, nuki_smartlock_id, name, time_zone, active, relocking_handled_elsewhere, device_type,
-                               entrance_lock_id, guest_instructions
+                               entrance_lock_id, guest_instructions, latitude, longitude
                         FROM lock
                         WHERE owner_id = :ownerId
                         ORDER BY active DESC, name
@@ -64,7 +65,7 @@ class LockDao {
     Optional<OwnerLock> find(UUID ownerId, UUID lockId) {
         return jdbc.sql("""
                         SELECT id, nuki_smartlock_id, name, time_zone, active, relocking_handled_elsewhere, device_type,
-                               entrance_lock_id, guest_instructions
+                               entrance_lock_id, guest_instructions, latitude, longitude
                         FROM lock
                         WHERE owner_id = :ownerId AND id = :lockId
                         """)
@@ -76,18 +77,22 @@ class LockDao {
 
     /** @return whether the owner has that lock */
     boolean updateSettings(UUID ownerId, UUID lockId, String name, String timeZone, boolean relockingHandledElsewhere,
-                           @Nullable UUID entranceLockId, @Nullable String guestInstructions) {
+                           @Nullable UUID entranceLockId, @Nullable String guestInstructions,
+                           @Nullable Coordinates coordinates) {
         return jdbc.sql("""
                         UPDATE lock SET name = :name, time_zone = :timeZone,
                                         relocking_handled_elsewhere = :relockingHandledElsewhere,
                                         entrance_lock_id = :entranceLockId,
-                                        guest_instructions = :guestInstructions
+                                        guest_instructions = :guestInstructions,
+                                        latitude = :latitude, longitude = :longitude
                         WHERE owner_id = :ownerId AND id = :lockId
                         """)
                 .param("name", name)
                 .param("timeZone", timeZone)
                 .param("relockingHandledElsewhere", relockingHandledElsewhere)
                 .param("entranceLockId", entranceLockId)
+                .param("latitude", coordinates == null ? null : coordinates.latitude())
+                .param("longitude", coordinates == null ? null : coordinates.longitude())
                 .param("guestInstructions", guestInstructions)
                 .param("ownerId", ownerId)
                 .param("lockId", lockId)
@@ -96,15 +101,19 @@ class LockDao {
 
     /**
      * Inserts a lock found in Nuki, or marks an existing one as present again. An existing lock keeps the
-     * name and time zone the owner chose.
+     * name, time zone and position the owner chose, except that a position Nuki gives fills one it does not have.
      */
     void upsert(UUID ownerId, UUID connectionId, long nukiSmartlockId, DeviceType deviceType, String name,
-                String timeZone) {
+                String timeZone, @Nullable Coordinates coordinates) {
         jdbc.sql("""
-                        INSERT INTO lock (owner_id, connection_id, nuki_smartlock_id, device_type, name, time_zone)
-                        VALUES (:ownerId, :connectionId, :nukiSmartlockId, :deviceType, :name, :timeZone)
+                        INSERT INTO lock (owner_id, connection_id, nuki_smartlock_id, device_type, name, time_zone,
+                                          latitude, longitude)
+                        VALUES (:ownerId, :connectionId, :nukiSmartlockId, :deviceType, :name, :timeZone,
+                                :latitude, :longitude)
                         ON CONFLICT (owner_id, nuki_smartlock_id) DO UPDATE
-                        SET connection_id = excluded.connection_id, device_type = excluded.device_type, active = true
+                        SET connection_id = excluded.connection_id, device_type = excluded.device_type, active = true,
+                            latitude = coalesce(lock.latitude, excluded.latitude),
+                            longitude = coalesce(lock.longitude, excluded.longitude)
                         """)
                 .param("ownerId", ownerId)
                 .param("connectionId", connectionId)
@@ -112,6 +121,8 @@ class LockDao {
                 .param("deviceType", deviceType.name())
                 .param("name", name)
                 .param("timeZone", timeZone)
+                .param("latitude", coordinates == null ? null : coordinates.latitude())
+                .param("longitude", coordinates == null ? null : coordinates.longitude())
                 .update();
     }
 
