@@ -91,8 +91,10 @@ welcomehome:
     # After an email about a refused attempt with a link, none about that link for this long.
     denied-quiet-period: PT1H
   audit:
-    # Guests' attempts are kept this long (they hold IP addresses), and purged daily, in the server's time zone.
+    # How long guests' attempts are kept, and how long they keep the guest's IP address, which is personal data;
+    # both purged daily, in the server's time zone.
     retention: P365D
+    ip-retention: P90D
     purge-cron: "0 30 3 * * *"
   admin:
     # Invitations and passkey recovery links are deleted 30 days after they expire, daily, in the server's time

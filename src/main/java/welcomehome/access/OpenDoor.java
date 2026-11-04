@@ -56,7 +56,7 @@ class OpenDoor {
         this.accessEvents = accessEvents;
     }
 
-    AccessOutcome open(String token, Door door, String ip, @Nullable String country, @Nullable String userAgent) {
+    AccessOutcome open(String token, Door door, String ip, @Nullable String country) {
         if (!rateLimiter.tryAttemptFromIp(ip)) {
             return AccessOutcome.TOO_MANY_ATTEMPTS;
         }
@@ -70,7 +70,7 @@ class OpenDoor {
         var entrance = door == Door.ENTRANCE ? guestLinks.entrance(link).orElse(null) : null;
         var result = checkAndUnlatch(guestLink, door, entrance);
         accessEvents.record(new AccessEvent(link.ownerId(), link.linkId(), link.lockId(),
-                entrance == null ? null : entrance.id(), result, ip, country, userAgent));
+                entrance == null ? null : entrance.id(), result, ip, country));
         return result;
     }
 

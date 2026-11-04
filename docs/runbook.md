@@ -186,7 +186,7 @@ The owner, on the lock's links page:
 - **Cambiar enlace**, to keep the link for the same guest: the leaked URL stops working at once and the page shows a new one, with the same dates.
 - **Anular**, to end it: from then on it opens nothing.
 
-The link's **Historial** shows whether, when and from which IP address it was used.
+The link's **Historial** shows whether, when and from where it was used: the IP address for 90 days, the country after.
 
 ## When something fails
 

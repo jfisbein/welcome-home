@@ -35,5 +35,6 @@
     <include file="changes/024-lock-problem-emails.xml" relativeToChangelogFile="true"/>
     <include file="changes/025-lock-guest-instructions.xml" relativeToChangelogFile="true"/>
     <include file="changes/026-owner-email-change.xml" relativeToChangelogFile="true"/>
+    <include file="changes/027-access-event-ip-retention.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

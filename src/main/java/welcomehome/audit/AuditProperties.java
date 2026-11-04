@@ -8,8 +8,9 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 /**
  * History settings.
  *
- * @param retention how long guests' attempts are kept: they hold IP addresses, which are personal data
+ * @param retention   how long guests' attempts are kept
+ * @param ipRetention how long they keep the guest's IP address, which is personal data: after it, only its country
  */
 @ConfigurationProperties("welcomehome.audit")
-record AuditProperties(@DefaultValue("P365D") Duration retention) {
+record AuditProperties(@DefaultValue("P365D") Duration retention, @DefaultValue("P90D") Duration ipRetention) {
 }

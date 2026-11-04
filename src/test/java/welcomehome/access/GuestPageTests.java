@@ -41,6 +41,8 @@ class GuestPageTests {
     static final String UNAVAILABLE = "Esta puerta no está disponible ahora mismo.";
     static final String OUTSIDE_SCHEDULE_NOTICE = "<p role=\"alert\">A esta hora este enlace no abre la puerta.";
     static final ZoneId NEW_YORK = ZoneId.of("America/New_York");
+    static final String PRIVACY_NOTICE = "Al deslizar se guardan la hora, tu país y tu dirección IP, que ve quien te ha "
+            + "dado este enlace. La IP se borra a los 90 días, y lo demás a los 365.";
 
     @Autowired
     MockMvcTester mvc;
@@ -89,6 +91,18 @@ class GuestPageTests {
                 .contains("Casa de Alice", "del 01/07/2020 15:00 al 03/07/2040 11:00 (hora oriental)",
                         OPEN_BUTTON, "<meta name=\"robots\" content=\"noindex, nofollow\">")
                 .doesNotContain("Etiqueta privada");
+    }
+
+    /** Only where the guest can slide, as only sliding records anything. */
+    @Test
+    void theGuestIsToldWhatSlidingKeepsAndForHowLong() {
+        var active = insertLink("now() - interval '1 day'", "now() + interval '1 day'", false);
+        var expired = insertLink("now() - interval '2 days'", "now() - interval '1 day'", false);
+
+        assertThat(body(guestPage(signer.sign(active, 1)))).contains(PRIVACY_NOTICE);
+        assertThat(body(guestPage(signer.sign(expired, 1)))).doesNotContain("Al deslizar");
+        migrator.sql("DELETE FROM nuki_connection").update();
+        assertThat(body(guestPage(signer.sign(active, 1)))).as("unavailable").doesNotContain("Al deslizar");
     }
 
     @Test

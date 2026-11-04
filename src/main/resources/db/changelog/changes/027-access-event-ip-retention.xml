@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="027-access-event-ip-retention" author="welcome-home">
+        <comment>
+            Attempts forget the guest's IP address sooner than they are deleted, and the browser that earlier releases
+            stored. Only those two columns may be updated: the rest of an attempt is never changed.
+        </comment>
+        <sql>
+            GRANT UPDATE (ip, user_agent) ON access_event TO app_user;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

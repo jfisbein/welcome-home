@@ -4,7 +4,6 @@ import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.jspecify.annotations.Nullable;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,7 +32,7 @@ class OpenController {
     ResponseEntity<Map<String, String>> open(@RequestBody OpenRequest request, HttpServletRequest http) {
         var token = request.token() == null ? "" : request.token();
         var result = openDoor.open(token, Door.of(request.door()), clientIp.of(http),
-                clientCountry.of(http).orElse(null), http.getHeader(HttpHeaders.USER_AGENT));
+                clientCountry.of(http).orElse(null));
         return ResponseEntity.status(status(result)).body(Map.of("result", result.code()));
     }
 

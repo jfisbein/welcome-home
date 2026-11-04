@@ -47,6 +47,10 @@
                th:text="${door.opener} ? #{guest.entrance.unavailable} : #{guest.unavailable}">
                 Esta puerta no está disponible.</p>
         </section>
+        <!-- Every slide is recorded in the owner's history, so the guest is told what is kept and for how long. -->
+        <p th:if="${canOpen}"><small th:text="#{guest.privacy(${ipRetentionDays}, ${retentionDays})}">
+            Al deslizar se guardan la hora, tu país y tu dirección IP, que ve quien te ha dado este enlace. La IP se
+            borra a los 90 días, y lo demás a los 365.</small></p>
 
         <p th:if="${status.name() == 'PENDING'}" role="alert"
            th:text="#{guest.pending(${#temporals.format(opensAt ?: validFrom, #messages.msg('format.datetime'))})}">

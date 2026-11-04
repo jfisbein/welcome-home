@@ -36,13 +36,18 @@ class AccessEventDao {
         this.jdbc = jdbc;
     }
 
-    /** @return when the attempt was recorded, by the database's clock */
-    OffsetDateTime insert(AccessEvent event, @Nullable String userAgent) {
+    /**
+     * Records an attempt without the guest's browser, which nothing shows: {@code user_agent} stays for the release
+     * before, which still writes it.
+     *
+     * @return when the attempt was recorded, by the database's clock
+     */
+    OffsetDateTime insert(AccessEvent event) {
         return jdbc.sql("""
                         INSERT INTO access_event (owner_id, link_id, lock_id, entrance_lock_id, result, reason,
-                                                  ip, country, user_agent)
+                                                  ip, country)
                         VALUES (:ownerId, :linkId, :lockId, :entranceLockId, :result, :reason, CAST(:ip AS inet),
-                                :country, :userAgent)
+                                :country)
                         RETURNING occurred_at
                         """)
                 .param("ownerId", event.ownerId())
@@ -53,7 +58,6 @@ class AccessEventDao {
                 .param("reason", event.outcome().code())
                 .param("ip", event.ip())
                 .param("country", event.country())
-                .param("userAgent", userAgent)
                 .query(OffsetDateTime.class)
                 .single();
     }
@@ -113,6 +117,24 @@ class AccessEventDao {
     /** @return how many events were deleted */
     int deleteOlderThan(UUID ownerId, Instant cutoff) {
         return jdbc.sql("DELETE FROM access_event WHERE owner_id = :ownerId AND occurred_at < :cutoff")
+                .param("ownerId", ownerId)
+                .param("cutoff", OffsetDateTime.ofInstant(cutoff, ZoneOffset.UTC))
+                .update();
+    }
+
+    /**
+     * Forgets the IP address of attempts before the cutoff, which keep their country, and the browser of every
+     * attempt, which an earlier release stored.
+     *
+     * @return how many attempts were changed
+     */
+    int forgetIpAddresses(UUID ownerId, Instant cutoff) {
+        return jdbc.sql("""
+                        UPDATE access_event
+                        SET ip = CASE WHEN occurred_at < :cutoff THEN NULL ELSE ip END, user_agent = NULL
+                        WHERE owner_id = :ownerId
+                          AND ((occurred_at < :cutoff AND ip IS NOT NULL) OR user_agent IS NOT NULL)
+                        """)
                 .param("ownerId", ownerId)
                 .param("cutoff", OffsetDateTime.ofInstant(cutoff, ZoneOffset.UTC))
                 .update();
