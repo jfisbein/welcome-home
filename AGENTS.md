@@ -209,6 +209,7 @@ Release: a pull request named `Version X.Y.Z` from branch `release-X.Y.Z` that b
 | `deploy/` | production stack: `compose.yaml`, `db-init/`, `backup/`, `restore.sh` |
 | `compose.yaml` | development Postgres |
 | `docs/runbook.md` | production operations |
+| `docs/design/` | designs of what is not built yet |
 | `docs/archive/` | earlier reviews and plans, for their reasoning only |
 | `docs/features.md` | each feature in detail, its properties |
 | `docs/user-guide.md` | for owners: how to use it, what to do when a guest cannot get in |
@@ -256,6 +257,6 @@ What only a real opening will tell, once Nuki accepts it:
 - Owners who cannot use a passkey. First learn why: today almost every device can hold one (iCloud Keychain, Google Password Manager, Bitwarden or 1Password), a computer without one can use the phone's by scanning a QR code, and a security key costs little; help on the invitation page, by platform, may be all it takes. If a real alternative is needed, a one-time code by email: the owner asks for it with their email, gets 6 digits valid for 10 minutes, and types them in the same browser, which a mail scanner opening a link could not use up, and which ties it to the browser that asked. Only to verified addresses, single use, kept as a hash like the verification link, rate limited by email and IP, and an email to the owner on each sign-in this way. Spring Security has one-time token login (`oneTimeTokenLogin()`), but its JDBC store keeps tokens in clear. It makes the email account the owner's credential, weaker than a passkey: so offer it per owner, or only until they add a passkey, and record the trade-off in Decisions. Passwords would add a secret to leak and still need resetting by email, and TOTP alone is a weak factor: neither is worth it here.
 - Re-encrypting stored Nuki tokens after an AEAD rotation, so that old keys can be dropped without owners connecting again.
 - Links with a maximum number of uses (an `access_link` column).
-- Geofence as a deterrent (browsers accept fake locations: store only distance and accuracy, and tell the guest first).
+- Asking a guest who seems far from the door to confirm before opening, against openings by mistake: designed in [docs/design/guest-location-check.md](docs/design/guest-location-check.md), not built.
 - A local Nuki Bridge or MQTT adapter as another `LockProvider`.
 - Cloudflare Access in front of the owner pages, excluding `/o/*` and `/api/open`.
