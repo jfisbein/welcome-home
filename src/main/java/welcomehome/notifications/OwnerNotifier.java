@@ -27,6 +27,7 @@ import welcomehome.auth.PasskeyRecoveryCreated;
 import welcomehome.config.TimeZoneNames;
 import welcomehome.config.WelcomeHomeProperties;
 import welcomehome.db.OwnerTransactions;
+import welcomehome.links.LinkChanged;
 import welcomehome.locks.LockProblemsFound;
 import welcomehome.notifications.RecipientDao.AttemptDetails;
 import welcomehome.notifications.RecipientDao.Recipient;
@@ -36,7 +37,7 @@ import welcomehome.nuki.NukiReconnected;
 /**
  * Emails an owner about their locks, as their preferences say: guests' attempts by outcome, and a Nuki
  * connection that stopped working. Also, whatever the preferences, about their account's security: a passkey
- * recovery link created for them, and a passkey added. Only to a verified address: the one email that goes to
+ * recovery link created for them, a passkey added, and a link that may open the door from now on. Only to a verified address: the one email that goes to
  * an address not yet verified is the link that verifies it. Listeners run after the event's transaction
  * commits, mostly on another thread, so a guest never waits for an email; one that cannot be sent is logged and
  * dropped.
@@ -166,6 +167,33 @@ class OwnerNotifier {
         var to = new Recipient(changed.previousEmail(), changed.language());
         send(to.email(), message(to, "account.email-changed.subject"),
                 message(to, "account.email-changed.body", changed.newEmail()) + accountFooter(to));
+    }
+
+    /**
+     * A link created, edited or given a new URL: whoever got into the owner's account could have made it for
+     * themselves. Never with the URL, which opens the door.
+     */
+    @Async
+    @TransactionalEventListener
+    void on(LinkChanged changed) {
+        if (!mailer.isConfigured() || !changed.change().letsItOpen()) {
+            return;
+        }
+        var found = ownerTransactions.execute(changed.ownerId(),
+                () -> recipients.findLinkDetails(changed.ownerId(), changed.linkId()));
+        found.ifPresent(link -> {
+            var to = link.recipient();
+            var zone = ZoneId.of(link.timeZone());
+            var keys = "account.link." + changed.change().name();
+            send(to.email(), message(to, keys + ".subject", link.lockName(), link.label()),
+                    message(to, keys + ".body", link.lockName(), link.label(),
+                            format(to, "format.datetime", link.validFrom().atZone(zone)),
+                            format(to, "format.datetime", link.validUntil().atZone(zone)),
+                            timeZoneNames.of(link.timeZone(), to.language()))
+                            + "\n\n" + message(to, "account.link.not-you",
+                                    app.link("/locks/" + changed.lockId() + "/links"), app.link("/settings/activity"))
+                            + "\n" + accountFooter(to));
+        });
     }
 
     /** Also without a transaction, when the owner asks for the link again. */

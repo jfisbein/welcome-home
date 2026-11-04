@@ -69,7 +69,7 @@ The home page and **Cerraduras** warn you in red about a lock with no connection
 
 **Who has come in.** The home page shows the latest attempts, and each lock's **Historial** all of them: when, with which link, what happened and from where. Attempts are kept for a year, and their IP address for 90 days: after that only the country remains. Your guests' page tells them so.
 
-**Emails.** In **Configuración → Avisos**, choose whether you hear of openings, failures, refused attempts, problems with Nuki and a lock's problems: a critical battery, no connection or a blocked motor, once a day at most and only when they start. Use **Enviarme un email de prueba** to check that they arrive. Emails about your account, such as a passkey added, always come.
+**Emails.** In **Configuración → Avisos**, choose whether you hear of openings, failures, refused attempts, problems with Nuki and a lock's problems: a critical battery, no connection or a blocked motor, once a day at most and only when they start. Use **Enviarme un email de prueba** to check that they arrive. Emails about your account always come: a passkey added, and a link created, edited or given a new address, so that you hear of one you did not make. They never carry the link's address.
 
 ## If a guest cannot get in
 
@@ -90,6 +90,8 @@ If the door really must open now, you can always use the Nuki app yourself.
 ## Your account
 
 **Configuración → Cuenta** shows the email we write to. If you change it, we send a link to the new one to confirm it, and tell the old one: until you open the link, you get no emails. Your passkeys still work, though your phone may keep showing the old email next to them.
+
+**Configuración → Actividad** lists your latest sign-ins, with the passkey each used, and every change to your links, with where it came from: a flag, and the IP address for 90 days. If something there was not you, delete the passkey you do not recognise in **Configuración → Passkeys**, which signs out its sessions, and disable the links you did not create.
 
 ## Leaving
 

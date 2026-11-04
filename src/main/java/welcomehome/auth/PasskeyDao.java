@@ -5,6 +5,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
@@ -35,6 +36,20 @@ class PasskeyDao {
                 .param("ownerId", ownerId)
                 .query(PasskeyDao::passkey)
                 .list();
+    }
+
+    /** @return the name of the owner's passkey used last, or empty if none has been used */
+    Optional<String> lastUsedLabel(UUID ownerId) {
+        return jdbc.sql("""
+                        SELECT c.label
+                        FROM user_credentials c JOIN user_entities u ON u.id = c.user_entity_user_id
+                        WHERE u.owner_id = :ownerId AND c.last_used IS NOT NULL
+                        ORDER BY c.last_used DESC
+                        LIMIT 1
+                        """)
+                .param("ownerId", ownerId)
+                .query(String.class)
+                .optional();
     }
 
     /** @return whether the owner has that passkey */

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        lock_id and link_id have no foreign key: an entry outlives a deleted link, which is when it matters most. Nor
+        does it copy the link's label, which usually holds a guest's name: the page reads it while the link exists.
+        Only ip may be updated, to forget it sooner than the entry is deleted, as for guests' attempts.
+    -->
+    <changeSet id="028-owner-activity" author="welcome-home">
+        <comment>
+            What an owner did with their account: each sign-in, with the passkey it used, and each change to a link,
+            with where it was made from.
+        </comment>
+        <createTable tableName="owner_activity">
+            <column name="id" type="uuid" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" primaryKeyName="owner_activity_pkey"/>
+            </column>
+            <column name="owner_id" type="uuid">
+                <constraints nullable="false"
+                             foreignKeyName="owner_activity_owner_id_fkey"
+                             referencedTableName="owner" referencedColumnNames="id" deleteCascade="true"/>
+            </column>
+            <column name="occurred_at" type="timestamptz" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+            <column name="kind" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="lock_id" type="uuid"/>
+            <column name="link_id" type="uuid"/>
+            <column name="passkey" type="text"/>
+            <column name="ip" type="inet"/>
+            <column name="country" type="text"/>
+        </createTable>
+        <createIndex indexName="owner_activity_owner_idx" tableName="owner_activity">
+            <column name="owner_id"/>
+            <column name="occurred_at" descending="true"/>
+        </createIndex>
+        <sql>
+            ALTER TABLE owner_activity ADD CONSTRAINT owner_activity_kind_check
+                CHECK (kind IN ('SIGNED_IN', 'LINK_CREATED', 'LINK_EDITED', 'LINK_NEW_URL', 'LINK_REVOKED',
+                                'LINK_DELETED'));
+            ALTER TABLE owner_activity ENABLE ROW LEVEL SECURITY;
+            CREATE POLICY owner_isolation ON owner_activity
+                USING (owner_id = current_owner_id())
+                WITH CHECK (owner_id = current_owner_id());
+            GRANT SELECT, INSERT, DELETE ON owner_activity TO app_user;
+            GRANT UPDATE (ip) ON owner_activity TO app_user;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

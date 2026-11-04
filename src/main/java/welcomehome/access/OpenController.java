@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import welcomehome.audit.AccessOutcome;
+import welcomehome.config.ClientCountry;
+import welcomehome.config.ClientIp;
 
 /**
  * The guest page's slide to open, for the link's lock or its building entrance. The token travels in the body,
