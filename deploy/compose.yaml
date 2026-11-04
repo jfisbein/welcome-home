@@ -142,11 +142,24 @@ services:
     command: tunnel --no-autoupdate run
     environment:
       TUNNEL_TOKEN_FILE: /run/secrets/tunnel_token
+      # The metrics server, with the /ready that the health check asks, only inside the container: otherwise it
+      # listens on every interface, so app could read its metrics, configuration and profiling.
+      TUNNEL_METRICS: 127.0.0.1:20241
     secrets:
       - tunnel_token
     depends_on:
       app:
         condition: service_healthy
+    healthcheck:
+      # Healthy while the tunnel holds a connection to Cloudflare. The image has no shell, hence CMD: its own
+      # binary asks /ready at TUNNEL_METRICS. Docker does not restart an unhealthy container; cloudflared reconnects
+      # by itself, and the health is for Dockge to show.
+      test: ["CMD", "cloudflared", "tunnel", "ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+      start_interval: 2s
     networks:
       - frontend
     read_only: true
