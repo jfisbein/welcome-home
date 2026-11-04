@@ -22,6 +22,7 @@ import welcomehome.audit.AccessOutcome;
 import welcomehome.config.TimeZoneNames;
 import welcomehome.links.LinkSchedules;
 import welcomehome.links.LinkStatus;
+import welcomehome.locks.LocationCheck;
 import welcomehome.locks.OwnerLock;
 
 /**
@@ -86,20 +87,27 @@ class GuestController {
         var doors = guestLink.status() == LinkStatus.ACTIVE && withinSchedule ? doors(link, locale) : List.<GuestDoor>of();
         model.addAttribute("doors", doors);
         model.addAttribute("canOpen", doors.stream().anyMatch(GuestDoor::available));
+        model.addAttribute("checksLocation", doors.stream().anyMatch(door -> door.available() && door.checksLocation()));
         // What sliding keeps, for the notice under the doors; as text, so that no language groups the digits.
         model.addAttribute("ipRetentionDays", String.valueOf(accessEvents.ipRetention().toDays()));
         model.addAttribute("retentionDays", String.valueOf(accessEvents.retention().toDays()));
         return "access/guest";
     }
 
-    /** The doors a link opens, in the order the guest reaches them: its lock's building entrance first, if any. */
+    /**
+     * The doors a link opens, in the order the guest reaches them: its lock's building entrance first, if any. An
+     * entrance without a position of its own checks against its link's lock's, as OpenDoor does.
+     */
     private List<GuestDoor> doors(ResolvedLink link, Locale locale) {
         var doors = new ArrayList<GuestDoor>();
+        var lock = guestLinks.lock(link);
         guestLinks.entrance(link).ifPresent(entrance -> doors.add(new GuestDoor("open-entrance", Door.ENTRANCE.code(),
-                true, guestLinks.entranceAvailable(link, entrance), outcomeMessages(true, locale))));
-        var opener = guestLinks.lock(link).map(OwnerLock::opener).orElse(false);
+                true, guestLinks.entranceAvailable(link, entrance), outcomeMessages(true, locale),
+                entrance.locationCheck() != LocationCheck.OFF && (entrance.coordinates() != null
+                        || lock.map(OwnerLock::coordinates).isPresent()))));
+        var opener = lock.map(OwnerLock::opener).orElse(false);
         doors.add(new GuestDoor("open", Door.LOCK.code(), opener, guestLinks.doorAvailable(link),
-                outcomeMessages(opener, locale)));
+                outcomeMessages(opener, locale), lock.map(OwnerLock::checksLocation).orElse(false)));
         return doors;
     }
 
@@ -117,6 +125,9 @@ class GuestController {
             }
             outcomeMessages.put(outcome, message);
         }
+        // Asked to confirm without a position, which the guest reads instead of the distance.
+        outcomeMessages.put("confirm-location-unknown",
+                messages.getMessage("guest.result.confirm-location-unknown", null, locale));
         return outcomeMessages;
     }
 }

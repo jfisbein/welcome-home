@@ -21,6 +21,50 @@ const KEY_MOVES = {ArrowRight: 25, ArrowUp: 25, PageUp: 25, ArrowLeft: -25, Arro
     Home: -100, End: 100};
 
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+// For a door that checks where its guests are: how long a guest asked to confirm, or refused as far, waits before
+// sliding again, long enough to read why; and how long the browser may take to say where the guest is, and how old
+// a position it may give.
+const LOCATION_WAIT_S = 10;
+const POSITION_TIMEOUT_MS = 8 * 1000;
+const POSITION_MAX_AGE_MS = 60 * 1000;
+
+// Where the browser says the guest is, {latitude, longitude, accuracy}, or {error} when it does not say. Asked for
+// on loading only when the browser already allows it, so that it is ready when the guest slides, and otherwise when
+// they have slid, so that the browser's question follows their gesture.
+let earlyPosition = null;
+if (document.querySelector("input[data-location-check=true]") && navigator.permissions) {
+    navigator.permissions.query({name: "geolocation"})
+        .then(permission => {
+            if (permission.state === "granted") {
+                earlyPosition = guestPosition(POSITION_MAX_AGE_MS);
+            }
+        })
+        .catch(() => {
+        });
+}
+
+function guestPosition(maxAge) {
+    return new Promise(resolve => {
+        if (!("geolocation" in navigator)) {
+            resolve({error: "unsupported"});
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            found => resolve({
+                latitude: found.coords.latitude, longitude: found.coords.longitude, accuracy: found.coords.accuracy
+            }),
+            failure => resolve({error: {1: "denied", 2: "unavailable", 3: "timeout"}[failure.code] || "unavailable"}),
+            {enableHighAccuracy: true, timeout: POSITION_TIMEOUT_MS, maximumAge: maxAge});
+    });
+}
+
+// A distance as the guest reads it, in the page's language: "3,2 km", "300 m".
+function distanceText(metres) {
+    const language = document.documentElement.lang;
+    return metres >= 1000
+        ? new Intl.NumberFormat(language, {maximumFractionDigits: 1}).format(metres / 1000) + " km"
+        : new Intl.NumberFormat(language).format(metres) + " m";
+}
 
 // Each door has its own slider: the link's lock, and the building entrance before it if it has one.
 for (const door of document.querySelectorAll(".door")) {
@@ -38,6 +82,11 @@ function setUp(door, slider) {
     const slide = label.textContent;
     const message = door.querySelector(".open-result");
     const enableAgainAfter = slider.dataset.opener === "true" ? OPENER_ENABLE_AGAIN_AFTER_MS : ENABLE_AGAIN_AFTER_MS;
+    const checksLocation = slider.dataset.locationCheck === "true";
+    // Once the guest is asked to confirm where they are, the next slide confirms; once refused as far, it asks the
+    // browser afresh, in case it placed them wrong. Only within this page: a guest who reloads it is asked again.
+    let confirming = false;
+    let askAfresh = false;
 
     // Whether a pointer is down on the slider, and whether it started on the thumb: only then may it move it.
     let touching = false;
@@ -113,23 +162,65 @@ function setUp(door, slider) {
         slider.disabled = false;
     }
 
+    // A guest asked to confirm, or refused as far, waits before sliding again, the track counting down the seconds.
+    function waitThenEnable(then) {
+        let left = LOCATION_WAIT_S;
+        const tick = () => {
+            if (left === 0) {
+                label.textContent = then;
+                enable();
+                return;
+            }
+            label.textContent = label.dataset.waitText.replace("{0}", String(left));
+            left--;
+            setTimeout(tick, 1000);
+        };
+        tick();
+    }
+
     async function open() {
         slider.disabled = true;
         label.setAttribute("aria-busy", "true");
+        const request = {token: window.location.pathname.split("/").pop(), door: slider.dataset.door};
+        if (checksLocation) {
+            label.textContent = label.dataset.locatingText;
+            const found = await (askAfresh ? guestPosition(0) : earlyPosition ?? guestPosition(POSITION_MAX_AGE_MS));
+            earlyPosition = null;
+            askAfresh = false;
+            request.position = found.error ? null : found;
+            request.positionError = found.error ?? null;
+            request.confirmed = confirming;
+        }
         label.textContent = label.dataset.busyText;
         // Without an answer from the app, the request may still have reached the lock: the guest is told to push
         // the door before trying again, as after an unconfirmed opening.
         let result = "not-confirmed";
+        let distance = null;
         try {
             const response = await fetch("/api/open", {
                 method: "POST",
                 // No CSRF token: the link's token is the credential, and the page keeps no session to hold one.
                 headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({token: window.location.pathname.split("/").pop(), door: slider.dataset.door})
+                body: JSON.stringify(request)
             });
-            result = (await response.json()).result || result;
+            const answer = await response.json();
+            result = answer.result || result;
+            distance = answer.distance ?? null;
         } catch (e) {
             console.error(e);
+        }
+        confirming = false;
+        if (result === "confirm-location" || result === "too-far") {
+            label.removeAttribute("aria-busy");
+            message.textContent = distance === null ? messages["confirm-location-unknown"]
+                : messages[result].replace("{0}", distanceText(distance));
+            message.hidden = false;
+            confirming = result === "confirm-location";
+            askAfresh = result === "too-far";
+            slider.value = 0;
+            lastValue = 0;
+            waitThenEnable(confirming ? label.dataset.anywayText : slide);
+            return;
         }
         message.textContent = messages[result] || messages["not-confirmed"];
         message.hidden = false;

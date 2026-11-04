@@ -10,6 +10,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -155,17 +156,30 @@ class NotificationTests {
                 "no ha confirmado que se abriera: puede que se abriera o que no.");
     }
 
+    /** All but a guest asked to confirm where they are, whose mistake was caught. */
     @Test
     void everyOutcomeHasItsEmail() throws Exception {
-        for (var outcome : AccessOutcome.values()) {
+        var emailed = Arrays.stream(AccessOutcome.values())
+                .filter(outcome -> outcome != AccessOutcome.CONFIRM_LOCATION).toList();
+        for (var outcome : emailed) {
             record(insertLink(outcome.code()), outcome);
         }
 
         await().atMost(Duration.ofSeconds(5))
-                .until(() -> mail.getReceivedMessages().length == AccessOutcome.values().length);
+                .until(() -> mail.getReceivedMessages().length == emailed.size());
         for (var message : mail.getReceivedMessages()) {
             assertThat(message.getSubject() + "\n" + text(message)).doesNotContain("{", "}", "null", "notification.");
         }
+    }
+
+    @Test
+    void aGuestAskedToConfirmWhereTheyAreIsNoNewsButOneRefusedAsFarIs() throws Exception {
+        record(linkId, AccessOutcome.CONFIRM_LOCATION);
+        record(insertLink("Luis"), AccessOutcome.TOO_FAR);
+
+        var email = theOnlyEmail();
+        assertThat(email.getSubject()).isEqualTo("Casa: intento denegado con el enlace de Luis");
+        assertThat(text(email)).contains("se ha denegado: estaba lejos de la puerta.");
     }
 
     @Test

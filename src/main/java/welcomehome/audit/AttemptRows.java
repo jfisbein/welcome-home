@@ -1,5 +1,6 @@
 package welcomehome.audit;
 
+import java.text.NumberFormat;
 import java.time.ZoneId;
 import java.util.Locale;
 
@@ -36,7 +37,7 @@ class AttemptRows {
     AttemptRow row(StoredAttempt attempt, ZoneId zone, Locale locale) {
         return new AttemptRow(attempt.occurredAt().atZoneSameInstant(zone), attempt.lockId(), attempt.lockName(),
                 attempt.linkId(), attempt.linkLabel(), attempt.entranceName(), attempt.result(),
-                outcome(attempt.reason(), locale), origin(attempt.ip(), attempt.country(), locale));
+                outcome(attempt.reason(), locale), origin(attempt.ip(), attempt.country(), attempt.distanceM(), locale));
     }
 
     /** What an event's reason code means to the owner; a code no outcome has is shown as it is. */
@@ -48,14 +49,31 @@ class AttemptRows {
 
     /** The country's flag, and its name in the reader's language. Tor has no flag. */
     Origin origin(@Nullable String ip, @Nullable String code, Locale locale) {
+        return origin(ip, code, null, locale);
+    }
+
+    /** Also how far from the door the guest was, for a door that checks it. */
+    Origin origin(@Nullable String ip, @Nullable String code, @Nullable Integer distanceM, Locale locale) {
+        var distance = distanceM == null ? null
+                : messages.getMessage("history.distance", new Object[] {distance(distanceM, locale)}, locale);
         if (code == null) {
-            return new Origin(ip, null, null);
+            return new Origin(ip, null, null, distance);
         }
         if (code.equals(TOR)) {
-            return new Origin(ip, null, messages.getMessage("history.tor", null, locale));
+            return new Origin(ip, null, messages.getMessage("history.tor", null, locale), distance);
         }
         var name = Locale.of("", code).getDisplayCountry(locale);
-        return new Origin(ip, flag(code), name.isEmpty() ? code : name);
+        return new Origin(ip, flag(code), name.isEmpty() ? code : name, distance);
+    }
+
+    /** A distance as the reader reads it: "3,2 km", "300 m". */
+    static String distance(int metres, Locale locale) {
+        var format = NumberFormat.getNumberInstance(locale);
+        if (metres < 1000) {
+            return format.format(metres) + " m";
+        }
+        format.setMaximumFractionDigits(1);
+        return format.format(metres / 1000.0) + " km";
     }
 
     /**

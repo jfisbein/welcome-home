@@ -23,7 +23,7 @@ class AccessEventDao {
     /** What every page's attempts are read from: each with the names of its link, its lock and its entrance. */
     private static final String ATTEMPTS = """
             SELECT e.id, e.occurred_at, k.time_zone, e.lock_id, k.name AS lock_name, e.link_id, l.label AS link_label,
-                   d.name AS entrance_name, e.result, e.reason, host(e.ip) AS ip, e.country
+                   d.name AS entrance_name, e.result, e.reason, host(e.ip) AS ip, e.country, e.distance_m
             FROM access_event e
             JOIN access_link l ON l.owner_id = e.owner_id AND l.id = e.link_id
             JOIN lock k ON k.owner_id = e.owner_id AND k.id = e.lock_id
@@ -45,9 +45,9 @@ class AccessEventDao {
     OffsetDateTime insert(AccessEvent event) {
         return jdbc.sql("""
                         INSERT INTO access_event (owner_id, link_id, lock_id, entrance_lock_id, result, reason,
-                                                  ip, country)
+                                                  ip, country, distance_m, accuracy_m, location_confirmed)
                         VALUES (:ownerId, :linkId, :lockId, :entranceLockId, :result, :reason, CAST(:ip AS inet),
-                                :country)
+                                :country, :distanceM, :accuracyM, :locationConfirmed)
                         RETURNING occurred_at
                         """)
                 .param("ownerId", event.ownerId())
@@ -58,6 +58,9 @@ class AccessEventDao {
                 .param("reason", event.outcome().code())
                 .param("ip", event.ip())
                 .param("country", event.country())
+                .param("distanceM", event.distanceM())
+                .param("accuracyM", event.accuracyM())
+                .param("locationConfirmed", event.locationConfirmed())
                 .query(OffsetDateTime.class)
                 .single();
     }
@@ -123,17 +126,22 @@ class AccessEventDao {
     }
 
     /**
-     * Forgets the IP address of attempts before the cutoff, which keep their country, and the browser of every
-     * attempt, which an earlier release stored.
+     * Forgets the IP address of attempts before the cutoff, which keep their country, with their distance to the
+     * door, which says where the guest was too, and the browser of every attempt, which an earlier release stored.
      *
      * @return how many attempts were changed
      */
     int forgetIpAddresses(UUID ownerId, Instant cutoff) {
         return jdbc.sql("""
                         UPDATE access_event
-                        SET ip = CASE WHEN occurred_at < :cutoff THEN NULL ELSE ip END, user_agent = NULL
+                        SET ip = CASE WHEN occurred_at < :cutoff THEN NULL ELSE ip END,
+                            distance_m = CASE WHEN occurred_at < :cutoff THEN NULL ELSE distance_m END,
+                            accuracy_m = CASE WHEN occurred_at < :cutoff THEN NULL ELSE accuracy_m END,
+                            user_agent = NULL
                         WHERE owner_id = :ownerId
-                          AND ((occurred_at < :cutoff AND ip IS NOT NULL) OR user_agent IS NOT NULL)
+                          AND ((occurred_at < :cutoff AND (ip IS NOT NULL OR distance_m IS NOT NULL
+                                                           OR accuracy_m IS NOT NULL))
+                               OR user_agent IS NOT NULL)
                         """)
                 .param("ownerId", ownerId)
                 .param("cutoff", OffsetDateTime.ofInstant(cutoff, ZoneOffset.UTC))

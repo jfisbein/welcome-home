@@ -1,5 +1,6 @@
 package welcomehome.notifications;
 
+import org.jspecify.annotations.Nullable;
 import welcomehome.audit.AccessOutcome;
 
 /** The kinds of email an owner can choose to get. */
@@ -22,12 +23,16 @@ enum NotificationKind {
     /**
      * The kind of an attempt. An unavailable door is a failure, not a denial: the link was fine, and the owner is
      * the one who must act.
+     *
+     * @return the kind, or null for an attempt no email is about: a guest asked to confirm where they are, whose
+     *         mistake was caught
      */
-    static NotificationKind of(AccessOutcome outcome) {
+    static @Nullable NotificationKind of(AccessOutcome outcome) {
         return switch (outcome) {
             case OPENED -> OPENED;
             case NOT_CONFIRMED, UNAVAILABLE, NUKI_ERROR, LOCK_FAILED, NIGHT_MODE, MISSING_PERMISSION -> FAILED;
-            case INVALID, TOO_MANY_ATTEMPTS, REVOKED, NOT_YET_VALID, EXPIRED, OUTSIDE_SCHEDULE -> DENIED;
+            case INVALID, TOO_MANY_ATTEMPTS, REVOKED, NOT_YET_VALID, EXPIRED, OUTSIDE_SCHEDULE, TOO_FAR -> DENIED;
+            case CONFIRM_LOCATION -> null;
         };
     }
 }

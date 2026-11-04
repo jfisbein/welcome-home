@@ -61,6 +61,8 @@ The guest needs no app or account. They open the link and slide **Desliza para a
 
 A touch by mistake does nothing: the slider must go all the way across.
 
+So that nobody opens your door by mistake from elsewhere, say sliding at home to try the link, a lock can check that its guest is in front of it: in **Estado y ajustes**, under **Comprobar que el invitado está delante de la puerta**, once the lock has its location. With **Si parece lejos, pedirle que lo confirme**, a guest who seems far reads that the door will really open, waits 10 seconds and slides again to open; with **Si está claramente lejos, no abrir**, they cannot open from far away at all. A guest whose phone does not say where they are can always open by confirming. **Distancia a la que cuenta como delante** is how far still counts: indoors a phone can be tens of metres off, so try it at your door first, with a link of your own, and widen it if needed. The history shows how far each guest was.
+
 ## Checking your locks
 
 The home page and **Cerraduras** warn you in red about a lock with no connection, a critical battery, a blocked motor or Auto Lock off. For more, press **Estado y ajustes** on the lock, where you can also change its name and its time zone, and write **Instrucciones para tus invitados**: the address, the floor or where the key is, which every guest of that lock reads on their link's page. **Ubicación de la cerradura** is where the door is, which only you see: Nuki's, if you set it in the Nuki app, or paste it from Google Maps, or press **Usar mi ubicación actual** standing at the door; **Ver en el mapa** shows it.

@@ -38,5 +38,6 @@
     <include file="changes/027-access-event-ip-retention.xml" relativeToChangelogFile="true"/>
     <include file="changes/028-owner-activity.xml" relativeToChangelogFile="true"/>
     <include file="changes/029-lock-coordinates.xml" relativeToChangelogFile="true"/>
+    <include file="changes/030-location-check.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

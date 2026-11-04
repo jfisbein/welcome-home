@@ -138,7 +138,17 @@ public final class TestData {
                 .params(result, reason, ip, link).update();
     }
 
-    /** A connection with a pasted API token, already encrypted for its owner. */
+    /**
+     * Where a lock is, and how it checks where its guests are.
+     *
+     * @param check {@code OFF}, {@code CONFIRM_WHEN_FAR} or {@code REFUSE_WHEN_FAR}
+     */
+    public void locationCheck(UUID lock, double latitude, double longitude, String check, int radiusM) {
+        db.sql("UPDATE lock SET latitude = ?, longitude = ?, location_check = ?, location_radius_m = ? WHERE id = ?")
+                .params(latitude, longitude, check, radiusM, lock).update();
+    }
+
+        /** A connection with a pasted API token, already encrypted for its owner. */
     public void apiToken(UUID owner, byte[] accessTokenEncrypted) {
         apiToken(owner, accessTokenEncrypted, "OK");
     }

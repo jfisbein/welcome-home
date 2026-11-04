@@ -1,5 +1,7 @@
 package welcomehome.locks;
 
+import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.UUID;
 
 import jakarta.servlet.http.HttpServletResponse;
@@ -75,6 +77,8 @@ class LocksController {
         model.addAttribute("entranceLockId", lock.entranceLockId());
         model.addAttribute("guestInstructions", lock.guestInstructions());
         model.addAttribute("coordinates", LockSettings.format(lock.coordinates()));
+        model.addAttribute("locationCheck", lock.locationCheck().name());
+        model.addAttribute("locationRadius", String.valueOf(lock.locationRadiusM()));
         return editView(owner, lock, model);
     }
 
@@ -85,6 +89,8 @@ class LocksController {
                   @RequestParam(required = false) @Nullable UUID entranceLockId,
                   @RequestParam(defaultValue = "") String guestInstructions,
                   @RequestParam(required = false) @Nullable String coordinates,
+                  @RequestParam(required = false) @Nullable String locationCheck,
+                  @RequestParam(required = false) @Nullable String locationRadius,
                   Model model, HttpServletResponse response, RedirectAttributes redirect) {
         var lock = locks.find(owner.id(), lockId).orElseThrow(LocksController::notFound);
         var normalizedName = LockSettings.normalizeName(name);
@@ -96,8 +102,15 @@ class LocksController {
         // A form without the field, such as one loaded before it existed, keeps the position the lock has.
         var typedCoordinates = coordinates == null ? new LockSettings.TypedCoordinates(true, lock.coordinates())
                 : LockSettings.parseCoordinates(coordinates);
+        // The same for the check: a form without its fields keeps the lock's.
+        var check = locationCheck == null ? Optional.of(lock.locationCheck())
+                : LockSettings.parseLocationCheck(locationCheck);
+        var radius = locationRadius == null ? OptionalInt.of(lock.locationRadiusM())
+                : LockSettings.parseRadius(locationRadius);
+        // Checking takes knowing where the door is.
+        var validCheck = check.isPresent() && (check.get() == LocationCheck.OFF || typedCoordinates.coordinates() != null);
         if (normalizedName.isEmpty() || !validTimeZone || !validEntrance || normalizedInstructions.isEmpty()
-                || !typedCoordinates.valid()) {
+                || !typedCoordinates.valid() || !validCheck || radius.isEmpty()) {
             response.setStatus(HttpStatus.BAD_REQUEST.value());
             model.addAttribute("name", name);
             model.addAttribute("timeZone", timeZone);
@@ -106,6 +119,11 @@ class LocksController {
             model.addAttribute("guestInstructions", guestInstructions);
             model.addAttribute("coordinates", coordinates == null ? LockSettings.format(lock.coordinates()) : coordinates);
             model.addAttribute("coordinatesError", !typedCoordinates.valid());
+            model.addAttribute("locationCheck", locationCheck == null ? lock.locationCheck().name() : locationCheck);
+            model.addAttribute("locationCheckError", !validCheck);
+            model.addAttribute("locationRadius",
+                    locationRadius == null ? String.valueOf(lock.locationRadiusM()) : locationRadius);
+            model.addAttribute("locationRadiusError", radius.isEmpty());
             model.addAttribute("nameError", normalizedName.isEmpty());
             model.addAttribute("timeZoneError", !validTimeZone);
             model.addAttribute("entranceError", !validEntrance);
@@ -114,7 +132,8 @@ class LocksController {
         }
         var instructions = normalizedInstructions.get();
         if (!lockSettings.update(owner.id(), lockId, normalizedName.get(), timeZone, relockingHandledElsewhere,
-                entranceLockId, instructions.isEmpty() ? null : instructions, typedCoordinates.coordinates())) {
+                entranceLockId, instructions.isEmpty() ? null : instructions, typedCoordinates.coordinates(),
+                check.get(), radius.getAsInt())) {
             throw notFound();
         }
         redirect.addFlashAttribute("updated", normalizedName.get());
@@ -129,6 +148,9 @@ class LocksController {
         model.addAttribute("entrances", LockSettings.entrances(lock, locks.findAll(owner.id())));
         var saved = lock.coordinates();
         model.addAttribute("mapUrl", saved == null ? null : LockSettings.mapUrl(saved));
+        model.addAttribute("locationChecks", LocationCheck.values());
+        model.addAttribute("minLocationRadius", LockSettings.MIN_LOCATION_RADIUS_M);
+        model.addAttribute("maxLocationRadius", LockSettings.MAX_LOCATION_RADIUS_M);
         if (lock.active()) {
             try {
                 model.addAttribute("snapshot",

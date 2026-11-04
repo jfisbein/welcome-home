@@ -1,6 +1,6 @@
 # Checking where a guest is before opening
 
-Status: proposal, 2026-11-04. Built so far: the lock's position (in "The lock's position and the check's mode", all but the mode and the radius).
+Status: proposal, 2026-11-04. Built: everything but the email to the owner about an opening confirmed far away ("What the owner sees"); still to try on real phones. How it works is in `docs/features.md`, "Where the guest is".
 
 ## Goal
 

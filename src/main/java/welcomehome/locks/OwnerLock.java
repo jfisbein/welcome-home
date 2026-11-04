@@ -22,10 +22,23 @@ import welcomehome.nuki.DeviceType;
  *                        where a key is, or {@code null} for nothing
  * @param latitude        where the lock is, with {@code longitude}, or {@code null} with it; see {@link #coordinates()}
  * @param longitude       where the lock is, with {@code latitude}
+ * @param locationCheck   whether a guest's distance to the door is checked before opening; see
+ *                        {@link #checksLocation()}
+ * @param locationRadiusM how far from the door, in metres, a guest still counts as in front of it
  */
 public record OwnerLock(UUID id, long nukiSmartlockId, String name, String timeZone, boolean active,
                         boolean relockingHandledElsewhere, DeviceType deviceType, @Nullable UUID entranceLockId,
-                        @Nullable String guestInstructions, @Nullable Double latitude, @Nullable Double longitude) {
+                        @Nullable String guestInstructions, @Nullable Double latitude, @Nullable Double longitude,
+                        LocationCheck locationCheck, int locationRadiusM) {
+
+    /**
+     * Whether a guest's distance to the door is checked: the check is on and the lock has a position.
+     *
+     * @return whether to check
+     */
+    public boolean checksLocation() {
+        return locationCheck != LocationCheck.OFF && coordinates() != null;
+    }
 
     /**
      * Where the lock is, from Nuki or from its owner. Only the owner sees it: a guest's page must not tell where
