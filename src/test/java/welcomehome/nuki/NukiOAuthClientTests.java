@@ -34,7 +34,7 @@ class NukiOAuthClientTests {
     static final String CLIENT_ID = "client-id";
     static final String CLIENT_SECRET = "client-secret";
     static final URI CALLBACK = URI.create("https://welcome.example/nuki/callback");
-    static final String SCOPE = "smartlock.readOnly smartlock.action smartlock.log offline_access";
+    static final String SCOPE = "smartlock.readOnly smartlock.action smartlock.log smartlock.auth offline_access";
 
     @RegisterExtension
     static WireMockExtension nuki = WireMockExtension.newInstance().options(wireMockConfig().dynamicPort())
@@ -54,7 +54,8 @@ class NukiOAuthClientTests {
                 .hasToString(nuki.baseUrl()
                         + "/oauth/authorize?response_type=code&client_id=client-id"
                         + "&redirect_uri=https%3A%2F%2Fwelcome.example%2Fnuki%2Fcallback"
-                        + "&scope=smartlock.readOnly%20smartlock.action%20smartlock.log%20offline_access"
+                        + "&scope=smartlock.readOnly%20smartlock.action%20smartlock.log%20smartlock.auth"
+                        + "%20offline_access"
                         + "%20webhook.central"
                         + "&state=the-state&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
                         + "&code_challenge_method=S256");
@@ -66,7 +67,8 @@ class NukiOAuthClientTests {
                 .hasToString(nuki.baseUrl()
                         + "/oauth/authorize?response_type=code&client_id=client-id"
                         + "&redirect_uri=https%3A%2F%2Fwelcome.example%2Fnuki%2Fcallback"
-                        + "&scope=smartlock.readOnly%20smartlock.action%20smartlock.log%20offline_access"
+                        + "&scope=smartlock.readOnly%20smartlock.action%20smartlock.log%20smartlock.auth"
+                        + "%20offline_access"
                         + "&state=the-state&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
                         + "&code_challenge_method=S256");
     }
@@ -126,6 +128,20 @@ class NukiOAuthClientTests {
 
         nuki.stubFor(post("/oauth/token").willReturn(status(400).withBody("not json")));
         assertFailsWith(Reason.ACCESS_DENIED, () -> client.refresh("revoked"));
+    }
+
+    @Test
+    void revokesWithTheClientsCredentialsOnlyAsHttpBasic() {
+        nuki.stubFor(post("/oauth2/revoke").willReturn(status(200)));
+
+        client.revoke("refresh-1");
+
+        // Nuki answers invalid_client when they are also in the form.
+        nuki.verify(1, postRequestedFor(urlPathEqualTo("/oauth2/revoke"))
+                .withHeader("Authorization", equalTo("Basic " + Base64.getEncoder()
+                        .encodeToString((CLIENT_ID + ":" + CLIENT_SECRET).getBytes(StandardCharsets.UTF_8))))
+                .withHeader("Content-Type", containing("application/x-www-form-urlencoded"))
+                .withRequestBody(equalTo("token=refresh-1&token_type_hint=refresh_token")));
     }
 
     @Test
