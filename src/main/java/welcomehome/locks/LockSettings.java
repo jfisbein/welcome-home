@@ -1,9 +1,11 @@
 package welcomehome.locks;
 
 import java.time.ZoneId;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -14,7 +16,8 @@ import welcomehome.nuki.Coordinates;
 
 /**
  * What an owner configures on a lock: its name, its time zone, whether the door is relocked some other way than
- * Auto Lock, for a smart lock the Opener at its building's entrance, what its guests should know, and where it is. Links store their start and end in UTC,
+ * Auto Lock, for a smart lock the Opener at its building's entrance, what its guests should know, where it is, and
+ * whether a guest's distance to it is checked before opening. Links store their start and end in UTC,
  * so changing the time zone changes how they are shown, not when they are valid.
  */
 @Service
@@ -26,6 +29,10 @@ class LockSettings {
     /** A latitude and a longitude in degrees, separated by a comma or spaces, as Google Maps copies a place. */
     private static final Pattern COORDINATES =
             Pattern.compile("(-?\\d+(?:\\.\\d+)?)(?:\\s*,\\s*|\\s+)(-?\\d+(?:\\.\\d+)?)");
+
+    /** How far from the door a guest may be and still count as in front of it, in metres: a few steps to a town. */
+    static final int MIN_LOCATION_RADIUS_M = 20;
+    static final int MAX_LOCATION_RADIUS_M = 10_000;
 
     /** Six decimals are some 10 cm, more than any phone knows. */
     private static final double DECIMALS = 1e6;
@@ -56,13 +63,32 @@ class LockSettings {
      * @param guestInstructions instructions already checked with {@link #normalizeGuestInstructions}, or null for none
      * @param coordinates    where the lock is, or null for nowhere known: the next sync then takes Nuki's, if it
      *                       has any
+     * @param locationCheck  the check, which is {@link LocationCheck#OFF} without coordinates
+     * @param locationRadiusM a radius already checked with {@link #parseRadius}
      * @return whether the owner has that lock
      */
     boolean update(UUID ownerId, UUID lockId, String name, String timeZone, boolean relockingHandledElsewhere,
                    @Nullable UUID entranceLockId, @Nullable String guestInstructions,
-                   @Nullable Coordinates coordinates) {
+                   @Nullable Coordinates coordinates, LocationCheck locationCheck, int locationRadiusM) {
         return ownerTransactions.execute(ownerId, () -> locks.updateSettings(ownerId, lockId, name, timeZone,
-                relockingHandledElsewhere, entranceLockId, guestInstructions, coordinates));
+                relockingHandledElsewhere, entranceLockId, guestInstructions, coordinates, locationCheck,
+                locationRadiusM));
+    }
+
+    /** @return the check named, or empty if none is */
+    static Optional<LocationCheck> parseLocationCheck(String name) {
+        return Arrays.stream(LocationCheck.values()).filter(check -> check.name().equals(name)).findFirst();
+    }
+
+    /** @return the radius in whole metres, or empty if it is not a number within the limits */
+    static OptionalInt parseRadius(String metres) {
+        var stripped = metres.strip();
+        if (!stripped.matches("\\d{1,6}")) {
+            return OptionalInt.empty();
+        }
+        var radius = Integer.parseInt(stripped);
+        return radius < MIN_LOCATION_RADIUS_M || radius > MAX_LOCATION_RADIUS_M ? OptionalInt.empty()
+                : OptionalInt.of(radius);
     }
 
     /**

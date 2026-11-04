@@ -23,13 +23,16 @@ public record AttemptRow(ZonedDateTime occurredAt, UUID lockId, String lockName,
                          @Nullable String entranceName, AccessResult result, String outcome, Origin origin) {
 
     /**
-     * Where a guest was: their IP address and, if Cloudflare knew it, their country.
+     * Where a guest was: their IP address and, if Cloudflare knew it, their country; and for a door that checks
+     * where its guests are, how far from it they were.
      *
-     * @param ip      the guest's IP address, if still kept
-     * @param flag    the country's flag emoji, or null for none or for Tor
-     * @param country the country's name in the reader's language, Tor by name, or null if unknown
+     * @param ip       the guest's IP address, if still kept
+     * @param flag     the country's flag emoji, or null for none or for Tor
+     * @param country  the country's name in the reader's language, Tor by name, or null if unknown
+     * @param distance how far from the door, in the reader's language, such as "a 3,2 km de la puerta", or null
      */
-    public record Origin(@Nullable String ip, @Nullable String flag, @Nullable String country) {
+    public record Origin(@Nullable String ip, @Nullable String flag, @Nullable String country,
+                         @Nullable String distance) {
 
         /**
          * What the flag's tooltip says.

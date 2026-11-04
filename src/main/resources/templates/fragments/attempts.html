@@ -45,6 +45,8 @@
     <small th:if="${origin.flag == null and origin.country != null}" tabindex="0" data-placement="left"
            th:data-tooltip="${origin.ip}" th:text="${origin.country}">Tor</small>
     <small th:if="${origin.country == null}" th:text="${origin.ip}">192.0.2.10</small>
+    <br th:if="${origin.distance != null}"><small th:if="${origin.distance != null}"
+                                                  th:text="${origin.distance}">a 3 km de la puerta</small>
 </td>
 </body>
 </html>

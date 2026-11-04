@@ -102,7 +102,25 @@ class EventPurgeJobTests {
         }
     }
 
+    /** A distance to a known door says where the guest was too. */
     @Test
+    void attemptsForgetTheirDistanceToTheDoorWithTheIpAddress() {
+        var link = insertLink("alice@example.com");
+        insertEvent(link, "91 days", "198.51.100.1");
+        insertEvent(link, "89 days", "198.51.100.2");
+        migrator.sql("UPDATE access_event SET distance_m = 3000, accuracy_m = 20, location_confirmed = true").update();
+
+        job.purgeAll();
+
+        assertThat(migrator.sql("""
+                        SELECT concat_ws('|', coalesce(distance_m::text, '-'), coalesce(accuracy_m::text, '-'),
+                                         location_confirmed)
+                        FROM access_event ORDER BY occurred_at
+                        """)
+                .query(String.class).list()).containsExactly("-|-|t", "3000|20|t");
+    }
+
+        @Test
     void ipRetentionComesFromTheConfiguration() {
         var link = insertLink("alice@example.com");
         insertEvent(link, "31 days", "198.51.100.1");
@@ -116,7 +134,7 @@ class EventPurgeJobTests {
 
     @Test
     void theAppMayForgetAnAttemptsIpAddressButChangeNothingElse() {
-        jdbc.sql("UPDATE access_event SET ip = NULL, user_agent = NULL").update();
+        jdbc.sql("UPDATE access_event SET ip = NULL, user_agent = NULL, distance_m = NULL, accuracy_m = NULL").update();
         assertThatThrownBy(() -> jdbc.sql("UPDATE access_event SET reason = 'opened'").update())
                 .isInstanceOf(DataAccessException.class)
                 .rootCause().hasMessageContaining("permission denied for table access_event");

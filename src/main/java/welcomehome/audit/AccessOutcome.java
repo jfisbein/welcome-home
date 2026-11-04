@@ -39,7 +39,14 @@ public enum AccessOutcome {
     /** The lock is in night mode and refused to open. */
     NIGHT_MODE("night-mode", AccessResult.ERROR),
     /** Nuki refused the unlatch: the owner's Nuki token lacks the permission to operate the lock. */
-    MISSING_PERMISSION("missing-permission", AccessResult.ERROR);
+    MISSING_PERMISSION("missing-permission", AccessResult.ERROR),
+    /**
+     * The door checks where its guests are, and this one seemed far from it, or its position was unknown: the
+     * guest may open by confirming they are in front of it. Nothing was asked of the lock.
+     */
+    CONFIRM_LOCATION("confirm-location", AccessResult.DENIED),
+    /** The door checks where its guests are, refuses those far from it, and this one was. */
+    TOO_FAR("too-far", AccessResult.DENIED);
 
     private final String code;
     private final AccessResult result;

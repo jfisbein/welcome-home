@@ -221,6 +221,36 @@ class LockSettingsTests {
     }
 
     @Test
+    void ownerChoosesHowTheLockChecksWhereItsGuestsAre() {
+        assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE))).bodyText()
+                .contains("Comprobar que el invitado está delante de la puerta", "Si está claramente lejos, no abrir",
+                        "name=\"locationRadius\"", "value=\"150\"")
+                .containsPattern("<option value=\"OFF\"\\s+selected");
+
+        assertThat(updateCheck("40.416775, -3.70379", "REFUSE_WHEN_FAR", "300")).hasStatus(HttpStatus.FOUND);
+        assertThat(check(alicesLock)).isEqualTo("REFUSE_WHEN_FAR|300");
+        assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE))).bodyText()
+                .contains("value=\"300\"").containsPattern("<option value=\"REFUSE_WHEN_FAR\"\\s+selected");
+
+        assertThat(update(ALICE, alicesLock, "Casa", "Europe/Madrid")).as("a form without the fields keeps them")
+                .hasStatus(HttpStatus.FOUND);
+        assertThat(check(alicesLock)).isEqualTo("REFUSE_WHEN_FAR|300");
+    }
+
+    @Test
+    void checkingTakesTheLocksPositionAndARadiusWithinItsLimits() {
+        assertThat(updateCheck("", "CONFIRM_WHEN_FAR", "150")).hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyText().contains("Indica antes la ubicación de la cerradura");
+        for (var radius : new String[] {"19", "10001", "1e3", "cien", ""}) {
+            assertThat(updateCheck("40.416775, -3.70379", "CONFIRM_WHEN_FAR", radius)).as(radius)
+                    .hasStatus(HttpStatus.BAD_REQUEST)
+                    .bodyText().contains("Escribe un número de metros entre 20 y 10.000.");
+        }
+        assertThat(updateCheck("40.416775, -3.70379", "SOMETIMES", "150")).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(check(alicesLock)).isEqualTo("OFF|150");
+    }
+
+    @Test
     void htmlFormSendsThePatchAsAPostWithHiddenMethod() {
         assertThat(mvc.post().uri("/locks/" + alicesLock).with(owner(ALICE)).with(csrf())
                 .param("_method", "patch").param("name", "Casa").param("timeZone", "Europe/Madrid"))
@@ -251,6 +281,19 @@ class LockSettingsTests {
     /** The lock's position as "latitude|longitude", or "none". */
     private String position(UUID lockId) {
         return migrator.sql("SELECT coalesce(latitude || '|' || longitude, 'none') FROM lock WHERE id = ?")
+                .param(lockId).query(String.class).single();
+    }
+
+    private MvcTestResult updateCheck(String coordinates, String locationCheck, String locationRadius) {
+        return mvc.patch().uri("/locks/" + alicesLock).with(owner(ALICE)).with(csrf())
+                .param("name", "Casa").param("timeZone", "Europe/Berlin").param("coordinates", coordinates)
+                .param("locationCheck", locationCheck).param("locationRadius", locationRadius)
+                .exchange();
+    }
+
+    /** The lock's check as "mode|radius". */
+    private String check(UUID lockId) {
+        return migrator.sql("SELECT location_check || '|' || location_radius_m FROM lock WHERE id = ?")
                 .param(lockId).query(String.class).single();
     }
 

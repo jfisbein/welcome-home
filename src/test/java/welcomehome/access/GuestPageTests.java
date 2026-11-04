@@ -105,6 +105,20 @@ class GuestPageTests {
         assertThat(body(guestPage(signer.sign(active, 1)))).as("unavailable").doesNotContain("Al deslizar");
     }
 
+    /** Whether the slide sends the guest's position: never where the door is, which a leaked link must not tell. */
+    @Test
+    void aDoorThatChecksWhereItsGuestsAreSaysSoButNotWhereItIs() {
+        var link = signer.sign(insertLink("now() - interval '1 day'", "now() + interval '1 day'", false), 1);
+        assertThat(body(guestPage(link))).contains("data-location-check=\"false\"").doesNotContain("a qué distancia");
+
+        data.locationCheck(lockId, 40.416775, -3.703790, "CONFIRM_WHEN_FAR", 150);
+
+        assertThat(body(guestPage(link))).contains("data-location-check=\"true\"",
+                        "Al deslizar se comprueba a qué distancia estás de la puerta, sin guardar dónde estás.",
+                        "data-wait-text=\"Podrás deslizar en {0} s\"", "Parece que estás a unos {0} de la puerta")
+                .doesNotContain("40.41", "3.70");
+    }
+
     @Test
     void pendingLinkSaysWhenItStarts() {
         var link = insertLink("'2040-11-01T19:00:00Z'", "'2040-11-03T16:00:00Z'", false);
@@ -236,9 +250,9 @@ class GuestPageTests {
 
         assertThat(body(guestPage(signer.sign(link, 1))))
                 .containsPattern("(?s)<h2>Portal</h2>.*<input type=\"range\" id=\"open-entrance\"[^>]*"
-                        + "aria-label=\"Desliza para abrir el portal\"\\s+data-door=\"entrance\" data-opener=\"true\">"
+                        + "aria-label=\"Desliza para abrir el portal\"\\s+data-door=\"entrance\" data-opener=\"true\"\\s+data-location-check=\"false\">"
                         + ".*<h2>Puerta</h2>.*<input type=\"range\" id=\"open\"[^>]*"
-                        + "aria-label=\"Desliza para abrir\"\\s+data-door=\"lock\" data-opener=\"false\">")
+                        + "aria-label=\"Desliza para abrir\"\\s+data-door=\"lock\" data-opener=\"false\"\\s+data-location-check=\"false\">")
                 .as("each slider carries its own messages")
                 .contains("Portal abierto: empújalo ya", "Puerta abierta: empújala.");
     }

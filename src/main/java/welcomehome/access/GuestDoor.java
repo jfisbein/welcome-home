@@ -11,6 +11,9 @@ import java.util.Map;
  * @param opener    whether it is an Opener, which opens an entrance for a few seconds, rather than a lock
  * @param available whether it can be opened at all: its lock is active and its owner's Nuki connection is OK
  * @param messages  what the guest reads after sliding, by outcome code, in the guest's language
+ * @param checksLocation whether sliding sends the guest's position, for a door that checks where its guests are;
+ *                  never where the door is
  */
-public record GuestDoor(String id, String door, boolean opener, boolean available, Map<String, String> messages) {
+public record GuestDoor(String id, String door, boolean opener, boolean available, Map<String, String> messages,
+                        boolean checksLocation) {
 }

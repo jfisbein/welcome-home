@@ -29,10 +29,13 @@
                     <!-- The same short text on every track, which the heading above names; screen readers hear
                          which door from the range's own label. -->
                     <span class="slide-label" aria-hidden="true" th:data-busy-text="#{guest.opening}"
+                          th:data-locating-text="#{guest.locating}" th:data-wait-text="#{guest.wait('{0}')}"
+                          th:data-anyway-text="#{guest.open-anyway}"
                           th:text="#{guest.open}">Desliza para abrir</span>
                     <input type="range" th:id="${door.id}" min="0" max="100" step="1" value="0"
                            th:aria-label="${door.opener} ? #{guest.entrance.open} : #{guest.open}"
-                           th:data-door="${door.door}" th:data-opener="${door.opener}">
+                           th:data-door="${door.door}" th:data-opener="${door.opener}"
+                           th:data-location-check="${door.checksLocation}">
                 </div>
                 <p class="open-result" role="status" hidden></p>
                 <p><small th:text="${door.opener} ? #{guest.entrance.hint} : #{guest.hint}">
@@ -50,7 +53,9 @@
         <!-- Every slide is recorded in the owner's history, so the guest is told what is kept and for how long. -->
         <p th:if="${canOpen}"><small th:text="#{guest.privacy(${ipRetentionDays}, ${retentionDays})}">
             Al deslizar se guardan la hora, tu país y tu dirección IP, que ve quien te ha dado este enlace. La IP se
-            borra a los 90 días, y lo demás a los 365.</small></p>
+            borra a los 90 días, y lo demás a los 365.</small>
+            <small th:if="${checksLocation}" th:text="#{guest.location-privacy}">Al deslizar se comprueba a qué
+                distancia estás de la puerta, sin guardar dónde estás.</small></p>
 
         <p th:if="${status.name() == 'PENDING'}" role="alert"
            th:text="#{guest.pending(${#temporals.format(opensAt ?: validFrom, #messages.msg('format.datetime'))})}">

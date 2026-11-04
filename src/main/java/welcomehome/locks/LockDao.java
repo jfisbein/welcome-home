@@ -52,7 +52,8 @@ class LockDao {
     List<OwnerLock> findAll(UUID ownerId) {
         return jdbc.sql("""
                         SELECT id, nuki_smartlock_id, name, time_zone, active, relocking_handled_elsewhere, device_type,
-                               entrance_lock_id, guest_instructions, latitude, longitude
+                               entrance_lock_id, guest_instructions, latitude, longitude, location_check,
+                               location_radius_m
                         FROM lock
                         WHERE owner_id = :ownerId
                         ORDER BY active DESC, name
@@ -65,7 +66,8 @@ class LockDao {
     Optional<OwnerLock> find(UUID ownerId, UUID lockId) {
         return jdbc.sql("""
                         SELECT id, nuki_smartlock_id, name, time_zone, active, relocking_handled_elsewhere, device_type,
-                               entrance_lock_id, guest_instructions, latitude, longitude
+                               entrance_lock_id, guest_instructions, latitude, longitude, location_check,
+                               location_radius_m
                         FROM lock
                         WHERE owner_id = :ownerId AND id = :lockId
                         """)
@@ -78,13 +80,14 @@ class LockDao {
     /** @return whether the owner has that lock */
     boolean updateSettings(UUID ownerId, UUID lockId, String name, String timeZone, boolean relockingHandledElsewhere,
                            @Nullable UUID entranceLockId, @Nullable String guestInstructions,
-                           @Nullable Coordinates coordinates) {
+                           @Nullable Coordinates coordinates, LocationCheck locationCheck, int locationRadiusM) {
         return jdbc.sql("""
                         UPDATE lock SET name = :name, time_zone = :timeZone,
                                         relocking_handled_elsewhere = :relockingHandledElsewhere,
                                         entrance_lock_id = :entranceLockId,
                                         guest_instructions = :guestInstructions,
-                                        latitude = :latitude, longitude = :longitude
+                                        latitude = :latitude, longitude = :longitude,
+                                        location_check = :locationCheck, location_radius_m = :locationRadiusM
                         WHERE owner_id = :ownerId AND id = :lockId
                         """)
                 .param("name", name)
@@ -93,6 +96,8 @@ class LockDao {
                 .param("entranceLockId", entranceLockId)
                 .param("latitude", coordinates == null ? null : coordinates.latitude())
                 .param("longitude", coordinates == null ? null : coordinates.longitude())
+                .param("locationCheck", locationCheck.name())
+                .param("locationRadiusM", locationRadiusM)
                 .param("guestInstructions", guestInstructions)
                 .param("ownerId", ownerId)
                 .param("lockId", lockId)

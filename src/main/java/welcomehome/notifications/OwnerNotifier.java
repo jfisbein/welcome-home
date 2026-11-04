@@ -76,7 +76,7 @@ class OwnerNotifier {
             return;
         }
         var kind = NotificationKind.of(attempt.outcome());
-        if (!wants(attempt.ownerId(), kind)) {
+        if (kind == null || !wants(attempt.ownerId(), kind)) {
             return;
         }
         // At most one email per link and quiet period: a leaked link being tried must not flood the owner.
@@ -267,8 +267,8 @@ class OwnerNotifier {
                 case NOT_CONFIRMED -> new EmailKeys("notification.not-confirmed", null);
                 case UNAVAILABLE, NUKI_ERROR, LOCK_FAILED, NIGHT_MODE, MISSING_PERMISSION ->
                         new EmailKeys("notification.failed", reason);
-                case INVALID, TOO_MANY_ATTEMPTS, REVOKED, NOT_YET_VALID, EXPIRED, OUTSIDE_SCHEDULE ->
-                        new EmailKeys("notification.denied", reason);
+                case INVALID, TOO_MANY_ATTEMPTS, REVOKED, NOT_YET_VALID, EXPIRED, OUTSIDE_SCHEDULE, TOO_FAR,
+                     CONFIRM_LOCATION -> new EmailKeys("notification.denied", reason);
             };
         }
     }

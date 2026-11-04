@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Whether a guest's distance to the door is checked before opening (docs/design/guest-location-check.md). The
+        check needs the lock's position, which the app makes sure of: a CHECK tying them would fail the release
+        before, which knows nothing of the check, when its owner clears the position.
+    -->
+    <changeSet id="030-location-check" author="welcome-home">
+        <comment>
+            A lock's check of where its guests are, and on each attempt how far the guest was: only the distance
+            and its accuracy, never where the guest was, forgotten with the IP address.
+        </comment>
+        <addColumn tableName="lock">
+            <column name="location_check" type="text" defaultValue="OFF">
+                <constraints nullable="false"/>
+            </column>
+            <column name="location_radius_m" type="integer" defaultValueNumeric="150">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+        <addColumn tableName="access_event">
+            <column name="distance_m" type="integer"/>
+            <column name="accuracy_m" type="integer"/>
+            <column name="location_confirmed" type="boolean"/>
+        </addColumn>
+        <sql>
+            ALTER TABLE lock ADD CONSTRAINT lock_location_check_check
+                CHECK (location_check IN ('OFF', 'CONFIRM_WHEN_FAR', 'REFUSE_WHEN_FAR'));
+            ALTER TABLE lock ADD CONSTRAINT lock_location_radius_check
+                CHECK (location_radius_m BETWEEN 10 AND 100000);
+            GRANT UPDATE (distance_m, accuracy_m) ON access_event TO app_user;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

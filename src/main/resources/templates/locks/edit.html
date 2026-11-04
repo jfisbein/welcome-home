@@ -113,6 +113,27 @@
                    th:text="#{lock.coordinates.map}">Ver en el mapa</a>
                 <small id="location-status" role="status"></small>
             </p>
+            <!-- Whether a guest's distance to the door is checked before opening, which needs the position above. -->
+            <label>
+                [[#{lock.location-check}]]
+                <select name="locationCheck" th:attr="aria-invalid=${locationCheckError} ? 'true' : null">
+                    <option th:each="check : ${locationChecks}" th:value="${check.name()}"
+                            th:text="#{'lock.location-check.' + ${check.name()}}"
+                            th:selected="${check.name() == locationCheck}">No comprobar</option>
+                </select>
+                <small th:if="${locationCheckError}" th:text="#{lock.location-check.error}">Falta la ubicación.</small>
+                <small th:unless="${locationCheckError}" th:text="#{lock.location-check.hint}">Contra errores.</small>
+            </label>
+            <label>
+                [[#{lock.location-radius}]]
+                <input type="number" name="locationRadius" required th:min="${minLocationRadius}"
+                       th:max="${maxLocationRadius}" step="1" th:value="${locationRadius}"
+                       th:attr="aria-invalid=${locationRadiusError} ? 'true' : null">
+                <small th:if="${locationRadiusError}"
+                       th:text="#{lock.location-radius.error(${minLocationRadius}, ${maxLocationRadius})}">De 20 a
+                    10000 metros.</small>
+                <small th:unless="${locationRadiusError}" th:text="#{lock.location-radius.hint}">Metros.</small>
+            </label>
             <label th:unless="${entrances.isEmpty()}">
                 [[#{lock.entrance}]]
                 <select name="entranceLockId" th:attr="aria-invalid=${entranceError} ? 'true' : null">
