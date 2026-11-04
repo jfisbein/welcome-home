@@ -41,8 +41,8 @@ class GuestPageTests {
     static final String UNAVAILABLE = "Esta puerta no está disponible ahora mismo.";
     static final String OUTSIDE_SCHEDULE_NOTICE = "<p role=\"alert\">A esta hora este enlace no abre la puerta.";
     static final ZoneId NEW_YORK = ZoneId.of("America/New_York");
-    static final String PRIVACY_NOTICE = "Al deslizar se guardan la hora, tu país y tu dirección IP, que ve quien te ha "
-            + "dado este enlace. La IP se borra a los 90 días, y lo demás a los 365.";
+    static final String PRIVACY_NOTICE = "Al deslizar, quien te dio este enlace podrá ver la hora, tu país y tu "
+            + "dirección IP. La IP se borra a los 90 días; lo demás, a los 365.";
 
     @Autowired
     MockMvcTester mvc;
@@ -114,7 +114,7 @@ class GuestPageTests {
         data.locationCheck(lockId, 40.416775, -3.703790, "CONFIRM_WHEN_FAR", 150);
 
         assertThat(body(guestPage(link))).contains("data-location-check=\"true\"",
-                        "Al deslizar se comprueba a qué distancia estás de la puerta, sin guardar dónde estás.",
+                        "También se comprueba a qué distancia estás de la puerta: se guarda esa distancia, nunca dónde estás.",
                         "data-wait-text=\"Podrás deslizar en {0} s\"", "Parece que estás a unos {0} de la puerta")
                 .doesNotContain("40.41", "3.70");
     }

@@ -77,6 +77,7 @@ class NukiWebClient {
     private static LockSnapshot lockState(NukiSmartlock smartlock) {
         var state = smartlock.state();
         var advancedConfig = smartlock.advancedConfig();
+        var config = smartlock.config();
         var opener = NukiCodes.deviceType(smartlock.type()) == DeviceType.OPENER;
         return new LockSnapshot(
                 state == null ? LockPosition.UNKNOWN
@@ -84,7 +85,8 @@ class NukiWebClient {
                 smartlock.serverState() == SERVER_STATE_OK,
                 state != null && Boolean.TRUE.equals(state.batteryCritical()),
                 state == null ? null : state.batteryCharge(),
-                advancedConfig != null && Boolean.TRUE.equals(advancedConfig.autoLock()));
+                advancedConfig != null && Boolean.TRUE.equals(advancedConfig.autoLock()),
+                config == null ? null : Coordinates.ofNuki(config.latitude(), config.longitude()));
     }
 
     void unlatch(String accessToken, long smartlockId) {

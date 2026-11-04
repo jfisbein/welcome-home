@@ -1,11 +1,14 @@
 package welcomehome.locks;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.util.UUID;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +23,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
 import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
+import welcomehome.crypto.CryptoService;
 import welcomehome.nuki.NukiStandInConfiguration;
 
 /** Same configuration as LockSyncTests, so both share one application context. */
@@ -36,6 +40,12 @@ class LockSettingsTests {
 
     @Autowired
     PostgreSQLContainer postgres;
+
+    @Autowired
+    WireMockServer nuki;
+
+    @Autowired
+    CryptoService crypto;
 
     JdbcClient migrator;
     TestData data;
@@ -240,7 +250,7 @@ class LockSettingsTests {
     @Test
     void checkingTakesTheLocksPositionAndARadiusWithinItsLimits() {
         assertThat(updateCheck("", "CONFIRM_WHEN_FAR", "150")).hasStatus(HttpStatus.BAD_REQUEST)
-                .bodyText().contains("Indica antes la ubicación de la cerradura");
+                .bodyText().contains("Para comprobarlo hace falta saber dónde está la puerta: pulsa «Usar mi ubicación actual»");
         for (var radius : new String[] {"19", "10001", "1e3", "cien", ""}) {
             assertThat(updateCheck("40.416775, -3.70379", "CONFIRM_WHEN_FAR", radius)).as(radius)
                     .hasStatus(HttpStatus.BAD_REQUEST)
@@ -248,6 +258,32 @@ class LockSettingsTests {
         }
         assertThat(updateCheck("40.416775, -3.70379", "SOMETIMES", "150")).hasStatus(HttpStatus.BAD_REQUEST);
         assertThat(check(alicesLock)).isEqualTo("OFF|150");
+    }
+
+    /** Offered, not saved: the owner checks it on the map and saves it, rather than waiting for a sync. */
+    @Test
+    void aLockWithoutAPositionIsOfferedNukisAndOneWithItsOwnIsNot() {
+        var alice = ownerOf(alicesLock);
+        data.apiToken(alice, crypto.encryptAccessToken(alice, "alices-token"));
+        var stub = nuki.stubFor(get("/smartlock/17").willReturn(okJson("""
+                {"smartlockId": 17, "type": 4, "name": "Casa", "serverState": 0, "state": {"state": 1},
+                 "config": {"latitude": 40.41678, "longitude": -3.70379}}
+                """)));
+        try {
+            assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE))).bodyText()
+                    .contains("value=\"40.416780, -3.703790\"", "Es la ubicación que tiene Nuki para esta cerradura",
+                            "mlat=40.416780&amp;mlon=-3.703790")
+                    .doesNotContain("Solo la ves tú");
+            assertThat(position(alicesLock)).as("offered, not saved").isEqualTo("none");
+
+            updatePosition(alicesLock, "40.5, -3.6");
+
+            assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE))).bodyText()
+                    .contains("value=\"40.500000, -3.600000\"", "Solo la ves tú")
+                    .doesNotContain("Es la ubicación que tiene Nuki");
+        } finally {
+            nuki.removeStub(stub);
+        }
     }
 
     @Test

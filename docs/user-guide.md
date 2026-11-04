@@ -65,7 +65,7 @@ So that nobody opens your door by mistake from elsewhere, say sliding at home to
 
 ## Checking your locks
 
-The home page and **Cerraduras** warn you in red about a lock with no connection, a critical battery, a blocked motor or Auto Lock off. For more, press **Estado y ajustes** on the lock, where you can also change its name and its time zone, and write **Instrucciones para tus invitados**: the address, the floor or where the key is, which every guest of that lock reads on their link's page. **Ubicación de la cerradura** is where the door is, which only you see: Nuki's, if you set it in the Nuki app, or paste it from Google Maps, or press **Usar mi ubicación actual** standing at the door; **Ver en el mapa** shows it.
+The home page and **Cerraduras** warn you in red about a lock with no connection, a critical battery, a blocked motor or Auto Lock off. For more, press **Estado y ajustes** on the lock, where you can also change its name and its time zone, and write **Instrucciones para tus invitados**: the address, the floor or where the key is, which every guest of that lock reads on their link's page. **Ubicación de la cerradura** is where the door is, which only you see. If you set it in the Nuki app, the page offers it: check it with **Ver en el mapa** and save. Otherwise paste it from Google Maps, or press **Usar mi ubicación actual** standing at the door.
 
 **Auto Lock off** means that the door stays unlocked after a guest opens it. Turn it on in the Nuki app. If you relock some other way, tick **El bloqueo lo gestiono de otra forma**, and the warning goes.
 
