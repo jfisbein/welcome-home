@@ -55,7 +55,7 @@ public final class PasskeyEmulator {
         if (verifiesUser) {
             return attestationObject;
         }
-        var cbor = webauthn4j.getCborConverter();
+        var cbor = webauthn4j.getCborMapper();
         @SuppressWarnings("unchecked")
         Map<String, Object> attestation = cbor.readValue(attestationObject, Map.class);
         var authData = ((byte[]) attestation.get("authData")).clone();
@@ -67,7 +67,7 @@ public final class PasskeyEmulator {
 
     /** navigator.credentials.create: returns the body posted to /invite/{token}/register. */
     public String create(String creationOptionsJson) {
-        var options = webauthn4j.getJsonConverter().readValue(creationOptionsJson, PublicKeyCredentialCreationOptions.class);
+        var options = webauthn4j.getJsonMapper().readValue(creationOptionsJson, PublicKeyCredentialCreationOptions.class);
         var credential = browser.create(options);
         var response = credential.getResponse();
         return json.writeValueAsString(Map.of(
@@ -83,7 +83,7 @@ public final class PasskeyEmulator {
 
     /** navigator.credentials.get: returns the body posted to /login/webauthn. */
     public String get(String requestOptionsJson) {
-        var options = webauthn4j.getJsonConverter().readValue(requestOptionsJson, PublicKeyCredentialRequestOptions.class);
+        var options = webauthn4j.getJsonMapper().readValue(requestOptionsJson, PublicKeyCredentialRequestOptions.class);
         var credential = browser.get(options);
         var response = credential.getResponse();
         var assertion = new LinkedHashMap<String, Object>();

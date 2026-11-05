@@ -9,6 +9,7 @@ import java.security.GeneralSecurityException;
 import com.google.crypto.tink.InsecureSecretKeyAccess;
 import com.google.crypto.tink.KeysetHandle;
 import com.google.crypto.tink.Parameters;
+import com.google.crypto.tink.RegistryConfiguration;
 import com.google.crypto.tink.TinkJsonProtoKeysetFormat;
 import com.google.crypto.tink.aead.AeadConfig;
 import com.google.crypto.tink.mac.MacConfig;
@@ -48,14 +49,15 @@ final class Keysets {
     }
 
     static KeysetHandle parse(String json) throws GeneralSecurityException {
-        return TinkJsonProtoKeysetFormat.parseKeyset(json, InsecureSecretKeyAccess.get());
+        return TinkJsonProtoKeysetFormat.parseKeyset(json, RegistryConfiguration.get(), InsecureSecretKeyAccess.get());
     }
 
     static String toJson(KeysetHandle keyset) throws GeneralSecurityException {
-        return TinkJsonProtoKeysetFormat.serializeKeyset(keyset, InsecureSecretKeyAccess.get());
+        return TinkJsonProtoKeysetFormat.serializeKeyset(keyset, RegistryConfiguration.get(),
+                InsecureSecretKeyAccess.get());
     }
 
     static String generateJson(Parameters parameters) throws GeneralSecurityException {
-        return toJson(KeysetHandle.generateNew(parameters));
+        return toJson(KeysetHandle.generateNew(parameters, RegistryConfiguration.get()));
     }
 }

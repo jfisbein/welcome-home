@@ -19,6 +19,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
@@ -140,8 +141,8 @@ class NukiAuthorizationTests {
         assertThat(new String(stored.refreshToken(), StandardCharsets.ISO_8859_1)).doesNotContain("refresh-1");
         assertThat(crypto.decryptAccessToken(aliceId, stored.accessToken())).isEqualTo("access-1");
         assertThat(crypto.decryptRefreshToken(aliceId, stored.refreshToken())).isEqualTo("refresh-1");
-        assertThat(stored.expiresAt()).isBetween(OffsetDateTime.now().plusSeconds(3599 - 60),
-                OffsetDateTime.now().plusSeconds(3599));
+        assertThat(stored.expiresAt()).isBetween(OffsetDateTime.now(ZoneOffset.UTC).plusSeconds(3599 - 60),
+                OffsetDateTime.now(ZoneOffset.UTC).plusSeconds(3599));
         assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)))
                 .bodyText().contains("Conectado con tu cuenta de Nuki.", "<summary>Usar un API token en su lugar</summary>")
                 .doesNotContain("/settings/nuki/oauth", "Te llevamos a Nuki");
