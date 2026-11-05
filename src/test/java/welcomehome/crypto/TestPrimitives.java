@@ -3,7 +3,6 @@ package welcomehome.crypto;
 import java.nio.file.Files;
 import java.security.GeneralSecurityException;
 
-import com.google.crypto.tink.Aead;
 import com.google.crypto.tink.Mac;
 
 /**
@@ -16,7 +15,7 @@ final class TestPrimitives {
     private TestPrimitives() {
     }
 
-    static Aead aead() throws GeneralSecurityException {
+    static AeadKeyset aead() throws GeneralSecurityException {
         return new CryptoConfiguration().aead(PROPERTIES);
     }
 

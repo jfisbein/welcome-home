@@ -157,7 +157,7 @@ The AEAD keyset encrypts the owners' Nuki tokens: pasted API tokens, and OAuth2 
 2. Store the rotated file in your password manager, replacing the old one.
 3. On the server, replace `secrets/aead-keyset.json` with it (`chmod 444`) and restart `app`: `docker compose restart app`. Delete the copy on the development machine.
 
-Tokens stay encrypted with the key they were stored with until they are stored again. OAuth2 tokens are, on the first refresh after the rotation, within a day at most as the daily check refreshes them; a pasted API token only when its owner pastes it again. A disconnected connection is not refreshed. To see how many connections each key encrypts (the id is in the ciphertext, after a version byte):
+On starting, the app encrypts again with the new key every stored token that an earlier key encrypted, whatever its connection's status, and logs `Nuki tokens encrypted again with key <id>: <count>` and then `Every stored Nuki token is encrypted with key <id>`. A token that does not decrypt, as when its key already left the keyset, is left as it is and named in a warning (`Could not decrypt the Nuki tokens of owner ...`): that owner has to connect Nuki again. To see how many connections each key encrypts (the id is in the ciphertext, after a version byte):
 
 ```sh
 docker compose exec db psql -U postgres -d welcome_home -c "
@@ -165,14 +165,14 @@ docker compose exec db psql -U postgres -d welcome_home -c "
   FROM nuki_connection GROUP BY 1"
 ```
 
-A key that no token uses can be removed from the keyset (`jq 'del(.key[] | select(.keyId == <id>))'`), then stored and deployed as above. Removing a key that tokens still use leaves those owners without a working connection: they have to connect Nuki again.
+Keep the earlier key for 30 days, as long as the dumps taken before the rotation are kept: restoring one of them needs it, or the restored connections do not decrypt and their owners have to connect Nuki again. Then remove it from the keyset (`jq 'del(.key[] | select(.keyId == <id>))'`), and store and deploy the keyset as above. Removing a key that tokens still use leaves those owners without a working connection: they have to connect Nuki again.
 
 **If the AEAD keyset leaked**, together with a dump the owners' tokens are exposed. Rotate the keyset, then ask every owner to replace theirs:
 
 - Connected with an API token: delete it in Nuki Web, and paste a new one.
 - Connected with OAuth2: at `/settings/nuki`, "Desconectar Nuki", which asks Nuki to revoke the authorization (check the log for "Asked Nuki to revoke"), and then "Conectar con Nuki". Using a stolen refresh token also takes the client secret: if that may have leaked too, replace it in Nuki Web and in `secrets/nuki-oauth-client-secret`.
 
-Once the old key encrypts no token, remove it.
+Remove the old key at once, without waiting the 30 days: the app has encrypted every token again on starting, and the dumps that need the old key are the ones whose tokens the owners are replacing.
 
 **If the MAC keyset leaked**, anyone who knows a link's id can forge its URL. Replace it with a new one (`./gradlew generateKeysets` into an empty folder, keeping only `mac-keyset.json`), store it in your password manager and on the server, and restart `app`: every access link changes, and owners have to share their links again.
 

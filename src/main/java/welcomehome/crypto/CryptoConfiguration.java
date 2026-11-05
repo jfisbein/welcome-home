@@ -2,7 +2,6 @@ package welcomehome.crypto;
 
 import java.security.GeneralSecurityException;
 
-import com.google.crypto.tink.Aead;
 import com.google.crypto.tink.Mac;
 import com.google.crypto.tink.RegistryConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -17,9 +16,8 @@ import org.springframework.context.annotation.Configuration;
 class CryptoConfiguration {
 
     @Bean
-    Aead aead(CryptoProperties properties) throws GeneralSecurityException {
-        return Keysets.read(properties.aeadKeysetFile(), "AEAD_KEYSET_FILE")
-                .getPrimitive(RegistryConfiguration.get(), Aead.class);
+    AeadKeyset aead(CryptoProperties properties) throws GeneralSecurityException {
+        return AeadKeyset.of(Keysets.read(properties.aeadKeysetFile(), "AEAD_KEYSET_FILE"));
     }
 
     @Bean

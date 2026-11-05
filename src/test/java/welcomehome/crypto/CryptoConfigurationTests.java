@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.file.Path;
 
-import com.google.crypto.tink.Aead;
 import com.google.crypto.tink.Mac;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -34,7 +33,7 @@ class CryptoConfigurationTests {
         context.withPropertyValues(aeadKeysetFile, macKeysetFile)
                 .run(started -> assertThat(started)
                         .hasNotFailed()
-                        .hasSingleBean(Aead.class)
+                        .hasSingleBean(AeadKeyset.class)
                         .hasSingleBean(Mac.class));
     }
 

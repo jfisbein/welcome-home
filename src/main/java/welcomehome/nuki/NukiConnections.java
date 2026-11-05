@@ -391,6 +391,44 @@ class NukiConnections {
         return reconnected;
     }
 
+    /**
+     * Encrypts the owner's stored tokens again with the AEAD keyset's primary key, where an earlier key encrypted
+     * them, whatever the connection's status. It takes the owner's turn among refreshes: a refresh that read the
+     * tokens before they changed would not store the tokens Nuki returned, and Nuki rotates the refresh token.
+     *
+     * @return how many of the owner's tokens were encrypted again, from 0 to 2
+     * @throws DecryptionFailedException if a stored token does not decrypt, as when its key left the keyset
+     */
+    int reEncrypt(UUID ownerId) {
+        var lock = refreshes.computeIfAbsent(ownerId, _ -> new ReentrantLock());
+        lock.lock();
+        try {
+            var found = ownerTransactions.execute(ownerId, () -> connections.find(ownerId));
+            if (found.isEmpty()) {
+                return 0;
+            }
+            var stored = found.get();
+            var accessToken = stored.accessTokenEncrypted();
+            var refreshToken = stored.refreshTokenEncrypted();
+            var reEncryptedAccessToken = crypto.reEncryptAccessToken(ownerId, accessToken);
+            var reEncryptedRefreshToken = refreshToken == null ? Optional.<byte[]>empty()
+                    : crypto.reEncryptRefreshToken(ownerId, refreshToken);
+            if (reEncryptedAccessToken.isEmpty() && reEncryptedRefreshToken.isEmpty()) {
+                return 0;
+            }
+            var newAccessToken = reEncryptedAccessToken.orElse(accessToken);
+            var newRefreshToken = reEncryptedRefreshToken.isPresent() ? reEncryptedRefreshToken.get() : refreshToken;
+            var saved = ownerTransactions.execute(ownerId, () -> connections.saveReEncrypted(ownerId, accessToken,
+                    refreshToken, newAccessToken, newRefreshToken));
+            if (!saved) {
+                return 0;
+            }
+            return (reEncryptedAccessToken.isPresent() ? 1 : 0) + (reEncryptedRefreshToken.isPresent() ? 1 : 0);
+        } finally {
+            lock.unlock();
+        }
+    }
+
     List<UUID> ownersToCheck() {
         return connections.allOwnerIds();
     }
