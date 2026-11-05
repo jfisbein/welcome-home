@@ -2,6 +2,7 @@ package welcomehome.crypto;
 
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
+import java.util.Optional;
 import java.util.UUID;
 
 import com.google.crypto.tink.Aead;
@@ -11,6 +12,10 @@ import org.springframework.stereotype.Service;
  * Encrypts each owner's Nuki tokens with AEAD (AES-256-GCM): the token sent to Nuki, an API token or an OAuth2
  * access token, and an OAuth2 refresh token. The owner's id is bound as associated data, so a ciphertext copied
  * into another owner's row cannot be decrypted, and so is the kind of token, so neither stands in for the other.
+ * <p>
+ * Tokens are encrypted with the keyset's primary key and decrypted with whichever key encrypted them. After a
+ * rotation, tokens that an earlier key encrypted can be encrypted again with the primary one, so that the earlier key
+ * can leave the keyset.
  */
 @Service
 public class CryptoService {
@@ -19,10 +24,21 @@ public class CryptoService {
     private static final String ACCESS_TOKEN_CONTEXT = "nuki-api-token:";
     private static final String REFRESH_TOKEN_CONTEXT = "nuki-refresh-token:";
 
+    private final AeadKeyset keyset;
     private final Aead aead;
 
-    CryptoService(Aead aead) {
-        this.aead = aead;
+    CryptoService(AeadKeyset keyset) {
+        this.keyset = keyset;
+        this.aead = keyset.aead();
+    }
+
+    /**
+     * The id of the key that encrypts tokens from now on, as {@code ./gradlew rotateAeadKeyset} prints it.
+     *
+     * @return the primary key's id, an unsigned 32-bit number
+     */
+    public long primaryKeyId() {
+        return keyset.primaryKeyId();
     }
 
     /**
@@ -71,6 +87,39 @@ public class CryptoService {
      */
     public String decryptRefreshToken(UUID ownerId, byte[] encrypted) {
         return decrypt(encrypted, associatedData(REFRESH_TOKEN_CONTEXT, ownerId), ownerId);
+    }
+
+    /**
+     * Encrypts an owner's access token again with the primary key, if an earlier key encrypted it.
+     *
+     * @param ownerId   the owner the token was encrypted for
+     * @param encrypted the ciphertext from {@link #encryptAccessToken(UUID, String)}
+     * @return the token encrypted with the primary key, or empty if the primary key already encrypted it
+     * @throws DecryptionFailedException if the token was encrypted for another owner, was altered, or its key is no
+     *                                   longer in the keyset
+     */
+    public Optional<byte[]> reEncryptAccessToken(UUID ownerId, byte[] encrypted) {
+        return reEncrypt(encrypted, associatedData(ACCESS_TOKEN_CONTEXT, ownerId), ownerId);
+    }
+
+    /**
+     * Encrypts an owner's OAuth2 refresh token again with the primary key, if an earlier key encrypted it.
+     *
+     * @param ownerId   the owner the token was encrypted for
+     * @param encrypted the ciphertext from {@link #encryptRefreshToken(UUID, String)}
+     * @return the token encrypted with the primary key, or empty if the primary key already encrypted it
+     * @throws DecryptionFailedException if the token was encrypted for another owner or as an access token, was
+     *                                   altered, or its key is no longer in the keyset
+     */
+    public Optional<byte[]> reEncryptRefreshToken(UUID ownerId, byte[] encrypted) {
+        return reEncrypt(encrypted, associatedData(REFRESH_TOKEN_CONTEXT, ownerId), ownerId);
+    }
+
+    private Optional<byte[]> reEncrypt(byte[] encrypted, byte[] associatedData, UUID ownerId) {
+        if (keyset.encryptedWithPrimary(encrypted)) {
+            return Optional.empty();
+        }
+        return Optional.of(encrypt(decrypt(encrypted, associatedData, ownerId), associatedData));
     }
 
     private byte[] encrypt(String token, byte[] associatedData) {

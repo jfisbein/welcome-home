@@ -21,6 +21,12 @@ class CommandLineTests {
         assertThat(context.getBeanNamesForType(welcomehome.auth.InvitationService.class)).hasSize(1);
     }
 
+    /** A command prints a link and exits: the tokens are encrypted again when the server starts. */
+    @Test
+    void theNukiTokensAreNotEncryptedAgainForACommand() {
+        assertThat(context.containsBean("tokenReEncryption")).isFalse();
+    }
+
     @Test
     void onlyTheCommandsRunWithoutTheWebServer() {
         assertThat(WelcomeHomeApplication.runsACommand("--bootstrap-admin")).isTrue();

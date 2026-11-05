@@ -27,7 +27,7 @@ The app needs two Tink keysets and does not start without them:
 | `AEAD_KEYSET_FILE` | AES-256-GCM               | Encrypting Nuki tokens       |
 | `MAC_KEYSET_FILE`  | HMAC-SHA256, 128-bit tag  | Signing access links         |
 
-`./gradlew generateKeysets` writes both to `secrets/`, readable only by the current user, and never overwrites existing files. In production they are Docker secrets, backed up separately from the database: losing them means every owner connecting Nuki again and regenerating every access link. `./gradlew rotateAeadKeyset --args=<file>` adds a new primary key to an AEAD keyset; the earlier keys keep decrypting the tokens stored with them.
+`./gradlew generateKeysets` writes both to `secrets/`, readable only by the current user, and never overwrites existing files. In production they are Docker secrets, backed up separately from the database: losing them means every owner connecting Nuki again and regenerating every access link. `./gradlew rotateAeadKeyset --args=<file>` adds a new primary key to an AEAD keyset; the earlier keys keep decrypting the tokens stored with them, and on starting the app encrypts those tokens again with the new key, so that the earlier keys can then leave the keyset (runbook, "Rotate the AEAD keyset").
 
 ## Web security
 

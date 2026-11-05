@@ -168,6 +168,29 @@ class NukiConnectionDao {
     }
 
     /**
+     * Stores the owner's tokens encrypted again with another key, if the connection still holds the ones that were
+     * encrypted again: tokens stored in the meantime, by connecting Nuki again, stay.
+     *
+     * @return whether the tokens were stored
+     */
+    boolean saveReEncrypted(UUID ownerId, byte[] accessTokenEncrypted, byte @Nullable [] refreshTokenEncrypted,
+                            byte[] reEncryptedAccessToken, byte @Nullable [] reEncryptedRefreshToken) {
+        return jdbc.sql("""
+                        UPDATE nuki_connection
+                        SET access_token_encrypted = :reEncryptedAccessToken,
+                            refresh_token_encrypted = :reEncryptedRefreshToken
+                        WHERE owner_id = :ownerId AND access_token_encrypted = :accessTokenEncrypted
+                          AND refresh_token_encrypted IS NOT DISTINCT FROM CAST(:refreshTokenEncrypted AS bytea)
+                        """)
+                .param("ownerId", ownerId)
+                .param("accessTokenEncrypted", accessTokenEncrypted)
+                .param("refreshTokenEncrypted", refreshTokenEncrypted)
+                .param("reEncryptedAccessToken", reEncryptedAccessToken)
+                .param("reEncryptedRefreshToken", reEncryptedRefreshToken)
+                .update() == 1;
+    }
+
+    /**
      * Locks keep their row: their connection_id becomes NULL, and their links do not change.
      *
      * @return how the deleted connection was made, or empty if the owner had none
