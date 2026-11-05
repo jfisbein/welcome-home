@@ -39,7 +39,7 @@ Non-functional:
 - GDPR: guests' IP addresses expire after 90 days, their browsers are not kept, guests are told on their page, and so does a link a year after it ended, with the guest's name in its label; a deleted owner's data is gone from backups after their 30-day retention.
 - Upgrades within a major version are pulling the new image: no backup, no change on the server, and rolling back is pinning the previous release.
 
-Out of scope so far: geofencing, push notifications, use limits, exceptions to a link's schedule (holidays), Ring to Open, native apps.
+Out of scope so far: geofencing, push notifications, exceptions to a link's schedule (holidays), Ring to Open, native apps. Decided against on 2026-11-05 (the user's choices): links with a maximum number of uses; a local Nuki Bridge or MQTT in place of Nuki's Web API; and Cloudflare Access in front of the owner pages, as the app is to keep control of how owners sign in and authorize.
 
 ## Stack
 
@@ -260,7 +260,4 @@ What only a guest's real opening will tell:
 
 - Owners who cannot use a passkey. First learn why: today almost every device can hold one (iCloud Keychain, Google Password Manager, Bitwarden or 1Password), a computer without one can use the phone's by scanning a QR code, and a security key costs little; help on the invitation page, by platform, may be all it takes. If a real alternative is needed, a one-time code by email: the owner asks for it with their email, gets 6 digits valid for 10 minutes, and types them in the same browser, which a mail scanner opening a link could not use up, and which ties it to the browser that asked. Only to verified addresses, single use, kept as a hash like the verification link, rate limited by email and IP, and an email to the owner on each sign-in this way. Spring Security has one-time token login (`oneTimeTokenLogin()`), but its JDBC store keeps tokens in clear. It makes the email account the owner's credential, weaker than a passkey: so offer it per owner, or only until they add a passkey, and record the trade-off in Decisions. Passwords would add a secret to leak and still need resetting by email, and TOTP alone is a weak factor: neither is worth it here.
 - Re-encrypting stored Nuki tokens after an AEAD rotation, so that old keys can be dropped without owners connecting again.
-- Links with a maximum number of uses (an `access_link` column).
 - The guest location check ([docs/design/guest-location-check.md](docs/design/guest-location-check.md)): built; what is left is trying it on real phones (its open questions).
-- A local Nuki Bridge or MQTT adapter as another `LockProvider`.
-- Cloudflare Access in front of the owner pages, excluding `/o/*` and `/api/open`.
