@@ -63,7 +63,7 @@ Before the first `docker compose up`, create `secrets/` next to `compose.yaml`:
 | `nuki-oauth-client-id` | welcome-home's OAuth2 client id, from Nuki Web's API page; empty without an OAuth2 client |
 | `nuki-oauth-client-secret` | its secret                                           |
 
-Write the passwords without a trailing newline (`printf`, or `tr -d '\n'`). Compose mounts each file with its host permissions and the containers run as different users (Postgres 999, the app 10001, cloudflared 65532), so: `chmod 700 secrets` (only root on the host can read them) and `chmod 444 secrets/*` (each container sees only its own). The database passwords are only read on the first start, when the volume is empty.
+Write the passwords without a trailing newline (`printf`, or `tr -d '\n'`). Compose mounts each file with its host permissions and the containers run as different users (Postgres 70, `backup` 999, the app 10001, cloudflared 65532), so: `chmod 700 secrets` (only root on the host can read them) and `chmod 444 secrets/*` (each container sees only its own). The database passwords are only read on the first start, when the volume is empty.
 
 Create `backups/` as well, owned by the `backup` service's user: `install -d -o 999 -g 999 -m 700 backups`.
 

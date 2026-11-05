@@ -6,6 +6,11 @@ set -eu
 
 BACKUP_TIME="${BACKUP_TIME:-04:00}"
 BACKUP_RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-30}"
+# Compared with the clock as date prints it: "4:00" would never match.
+case "$BACKUP_TIME" in
+    [0-2][0-9]:[0-5][0-9]) ;;
+    *) echo "BACKUP_TIME must be HH:MM, such as 04:00: $BACKUP_TIME" >&2; exit 1 ;;
+esac
 PGPASSWORD="$(cat "$PGPASSWORD_FILE")"
 export PGPASSWORD
 
@@ -32,21 +37,22 @@ backup() {
     find /backups -name 'welcome_home-*.dump' -mtime +"$((BACKUP_RETENTION_DAYS - 1))" -print -delete
 }
 
-seconds_until_next_backup() {
-    now=$(date +%s)
-    next=$(date -d "today $BACKUP_TIME" +%s)
-    if [ "$next" -le "$now" ]; then
-        next=$(date -d "tomorrow $BACKUP_TIME" +%s)
-    fi
-    echo $((next - now))
-}
-
 backup
 if [ "${1:-}" = now ]; then
     exit 0
 fi
+# The clock is read twice a minute rather than slept on until the next dump: the change to and from summer time
+# then moves nothing, and no date arithmetic is needed, which BusyBox's date in the Alpine image cannot do.
+# The dump at start counts as the day's when it was taken at $BACKUP_TIME.
+dumped_on=""
+if [ "$(date +%H:%M)" = "$BACKUP_TIME" ]; then
+    dumped_on=$(date +%F)
+fi
 while true; do
-    sleep "$(seconds_until_next_backup)"
-    # A failed dump is logged, the container's health check reports it, and tomorrow's dump tries again.
-    backup || echo "Backup failed" >&2
+    sleep 30
+    if [ "$(date +%H:%M)" = "$BACKUP_TIME" ] && [ "$(date +%F)" != "$dumped_on" ]; then
+        dumped_on=$(date +%F)
+        # A failed dump is logged, the container's health check reports it, and tomorrow's dump tries again.
+        backup || echo "Backup failed" >&2
+    fi
 done
