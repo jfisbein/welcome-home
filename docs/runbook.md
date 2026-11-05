@@ -149,6 +149,26 @@ A new major version (17 → 18, later 19) cannot read the old one's data files: 
 
 Since Postgres 18 the image keeps its data in `/var/lib/postgresql/<major>/docker`, so the volume is mounted at `/var/lib/postgresql`; an 18 image refuses to start on a volume mounted at the old `/var/lib/postgresql/data`.
 
+## Move the database to the Alpine image
+
+Until 2026-11 the stack ran Postgres's Debian image (`postgres:18`); `deploy/compose.yaml` now has the Alpine one (`postgres:18-alpine`), which the other stacks on the server use. The data files are the same, but Debian compares text with glibc and Alpine with musl, which compares it byte by byte: the indexes on text, owners' emails and passkeys among them, were built in glibc's order, and until they are rebuilt Postgres misses rows they hold, without any error: an owner's passkey may not be found, and they cannot sign in. So, once, as root in the stack's folder:
+
+1. Copy `deploy/backup/backup.sh` over `backup/backup.sh`: the earlier one cannot schedule its dumps with Alpine's `date`, and the new one works with either image.
+2. `docker compose exec backup /backup/backup.sh now`, and note the dump it prints.
+3. `docker compose stop app`: nothing may use the indexes until they are rebuilt.
+4. In Dockge, set `image: postgres:18-alpine` for `db` and `backup`, as `deploy/compose.yaml` has them, and save it without deploying; then `docker compose up -d db backup`. The image's entrypoint gives the data files to its `postgres` user (uid 70 rather than 999); `backups/` stays 999's, as the `backup` service still runs as 999.
+5. Rebuild the indexes, and forget the glibc version that each database recorded, which musl cannot give, as otherwise every connection logs `has no actual collation version, but a version was recorded` (`ALTER DATABASE ... REFRESH COLLATION VERSION` refuses to clear it):
+
+   ```sh
+   docker compose exec db psql -U postgres -d welcome_home -c 'REINDEX DATABASE welcome_home'
+   docker compose exec db psql -U postgres -d postgres -c 'UPDATE pg_database SET datcollversion = NULL WHERE datcollversion IS NOT NULL'
+   ```
+
+6. `docker compose up -d`, check that `app` turns healthy and that you can sign in, and, after its 04:00, that `backup` logged a dump.
+7. `docker image rm postgres:18` and `docker image prune`, now that no stack uses them.
+
+Going back is the same steps with `postgres:18`, the REINDEX included. Lists ordered by name, such as the locks, now put capitals before lower case and accented letters after `z`. Development's database (`compose.yaml`) moves the same way: `docker compose up -d`, then step 5 against it.
+
 ## Rotate the AEAD keyset
 
 The AEAD keyset encrypts the owners' Nuki tokens: pasted API tokens, and OAuth2 access and refresh tokens. Rotating it adds a new primary key: tokens stored from then on use it, and the earlier keys stay in the keyset to decrypt the tokens already stored.

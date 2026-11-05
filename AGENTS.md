@@ -48,7 +48,7 @@ Out of scope so far: geofencing, push notifications, exceptions to a link's sche
 | Language, build      | Java 25, Gradle 9 (Kotlin DSL, wrapper)                                             |
 | Framework            | Spring Boot 4.1, Spring Security 7.1 (WebAuthn passkeys), Spring Modulith 2.1       |
 | Web                  | Spring MVC, Thymeleaf, Pico CSS, a few small vanilla JS files (no build step)        |
-| Data                 | PostgreSQL 18, `JdbcClient` with records, Liquibase (XML changelogs)                |
+| Data                 | PostgreSQL 18 (Alpine image), `JdbcClient` with records, Liquibase (XML changelogs) |
 | Crypto               | Google Tink: AEAD AES-256-GCM (Nuki tokens), MAC HMAC-SHA256/128 (links)            |
 | Nuki                 | Nuki Web API over `RestClient`, with timeouts and backoff                           |
 | Rate limiting, cache | Bucket4j and Caffeine, in memory                                                    |
@@ -149,6 +149,7 @@ A modular monolith: one Spring Boot app is the only component that talks to Nuki
 | Configuration's pages under `/settings/...`, their former addresses redirecting (301) | Emails already sent link to `/nuki/connection`, `/notifications` and `/passkeys`: within a major version, every URL already sent keeps working. |
 | The app's own error page; `/error` public; the session only in its cookie | Spring Boot's page broke the app's look, and a guest's error on a public route was redirected to /login, starting a session whose id Tomcat put in the URL (`;jsessionid=`). An unknown address still sends a visitor who is not signed in to /login, so no route shows it exists. |
 | The color theme in a cookie, not in the owner's row | The user's choice: it belongs to the browser, so a phone and a laptop may differ, and it also applies to the pages before signing in. The server writes `<html data-theme>`, so no script and no flash of the other theme; no cookie means the system's. |
+| Postgres's Alpine image (`postgres:18-alpine`) in production, development and tests, since 2026-11 | The other stacks on the server run it, so the Debian image (457 MB there) was this stack's alone (the user's choice, 2026-11-05). Alpine's musl compares text byte by byte, not as glibc's `en_US.utf8` did: lists ordered by name put capitals first and accented letters last, and moving a database from one image to the other needs its text indexes rebuilt, or lookups by email or passkey miss rows without an error (runbook, "Move the database to the Alpine image", tried on a copy of the stack). `backup` keeps uid 999, which owns `backups/` on servers set up before. |
 | Pico CSS 2.1.1 kept, though Pico is unmaintained since 2.1.1 (repositories archived) | It is a static CSS file served from `static/css/` with no JavaScript, so there are no fixes to miss, and what it lacks goes in `app.css`. The templates lean on its classless styling of semantic HTML (`article`, `nav`, `fieldset role="group"`, `aria-busy`, `aria-current`, automatic dark mode): Bootstrap, Bulma or Pure would mean adding classes to every template for no visible gain, and Pure is barely maintained either. Revisit if a browser starts drawing something wrong that `app.css` cannot fix cheaply, or for a redesign; then prefer a fork of Pico, or own CSS keeping its variables. |
 
 ## Conventions

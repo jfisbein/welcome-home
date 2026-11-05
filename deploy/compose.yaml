@@ -4,7 +4,7 @@ name: welcome-home
 
 services:
   db:
-    image: postgres:18
+    image: postgres:18-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: welcome_home
@@ -97,12 +97,13 @@ services:
       start_period: 60s
 
   backup:
-    image: postgres:18
+    image: postgres:18-alpine
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
-    # The postgres user, which owns ./backups on the host.
+    # The owner of ./backups on the host: the postgres user of the Debian image that the stack used until 2026-11,
+    # which servers set up earlier keep. In the Alpine image, postgres is 70.
     user: "999:999"
     entrypoint: ["/backup/backup.sh"]
     environment:
