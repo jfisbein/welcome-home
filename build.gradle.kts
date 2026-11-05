@@ -29,6 +29,11 @@ dependencyManagement {
     }
 }
 
+// Mockito's agent, given to the tests' JVM at startup: loaded while they run, as Mockito does by itself, it makes
+// Java warn that a future release will refuse agents loaded that way. The agent adds a jar to the boot class path,
+// which makes the JVM warn that class data sharing then works only for its own classes: the tests go without it.
+val mockitoAgent = configurations.create("mockitoAgent")
+
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
@@ -62,6 +67,7 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.testcontainers:testcontainers-postgresql")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    mockitoAgent("org.mockito:mockito-core") { isTransitive = false }
 
     errorprone("com.google.errorprone:error_prone_core:2.51.0")
     errorprone("com.uber.nullaway:nullaway:0.14.3")
@@ -83,6 +89,9 @@ tasks.withType<JavaCompile>().configureEach {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    jvmArgumentProviders.add(CommandLineArgumentProvider {
+        listOf("-javaagent:${mockitoAgent.singleFile}", "-Xshare:off")
+    })
 }
 
 // Public API must be documented: missing or broken javadoc fails `check`.

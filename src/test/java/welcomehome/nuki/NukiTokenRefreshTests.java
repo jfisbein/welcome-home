@@ -15,6 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Executors;
@@ -95,8 +96,8 @@ class NukiTokenRefreshTests {
                 equalTo("Bearer access-1")));
         assertThat(crypto.decryptAccessToken(aliceId, column("access_token_encrypted"))).isEqualTo("access-2");
         assertThat(crypto.decryptRefreshToken(aliceId, column("refresh_token_encrypted"))).isEqualTo("refresh-2");
-        assertThat(expiresAt()).isBetween(OffsetDateTime.now().plusSeconds(3599 - 60),
-                OffsetDateTime.now().plusSeconds(3599));
+        assertThat(expiresAt()).isBetween(OffsetDateTime.now(ZoneOffset.UTC).plusSeconds(3599 - 60),
+                OffsetDateTime.now(ZoneOffset.UTC).plusSeconds(3599));
     }
 
     @Test

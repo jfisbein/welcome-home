@@ -64,7 +64,7 @@ class EndedSessionTests {
     /** The cookie of a session the server has: the login page starts one for its CSRF token. */
     private String liveSession() throws Exception {
         var response = client.send(HttpRequest.newBuilder(uri("/login")).build(), HttpResponse.BodyHandlers.discarding());
-        return response.headers().firstValue("Set-Cookie").orElseThrow().split(";")[0];
+        return response.headers().firstValue("Set-Cookie").orElseThrow().split(";", 2)[0];
     }
 
     private HttpResponse<String> post(String path, @Nullable String cookie, String contentType, String body)
