@@ -57,7 +57,7 @@
                 </th:block>
             </dl>
 
-            <article th:if="${!lock.opener and !snapshot.autoLockEnabled and !lock.relockingHandledElsewhere}" role="alert">
+            <article th:if="${!lock.opener and !snapshot.autoLockEnabled and !lock.relockingHandledElsewhere}" aria-live="assertive" aria-atomic="true">
                 <p th:utext="#{lock.auto-lock.warning}"><strong>Auto Lock está desactivado.</strong></p>
                 <p th:text="#{lock.auto-lock.advice}">Actívalo en la app de Nuki.</p>
             </article>

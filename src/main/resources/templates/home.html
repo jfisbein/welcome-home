@@ -11,10 +11,10 @@
     <article th:if="${verificationSent}">
         <p th:text="#{home.verification-sent(${email})}">Te hemos enviado un enlace nuevo.</p>
     </article>
-    <article th:if="${verificationRecent}" role="alert">
+    <article th:if="${verificationRecent}" aria-live="assertive" aria-atomic="true">
         <p th:text="#{home.verification-recent}">Te enviamos uno hace menos de 5 minutos.</p>
     </article>
-    <article th:unless="${emailVerified}" role="alert">
+    <article th:unless="${emailVerified}" aria-live="assertive" aria-atomic="true">
         <p th:utext="#{home.unverified(${#strings.escapeXml(email)})}"><strong>Confirma tu email.</strong></p>
         <form th:action="@{/email/verification}" method="post">
             <button type="submit" class="secondary" th:text="#{home.unverified.resend}">Enviar el enlace de nuevo</button>
@@ -25,7 +25,7 @@
         <p th:text="#{home.connect.text}">Conecta tu cuenta de Nuki para crear enlaces que abran tu puerta.</p>
         <a th:href="@{/settings/nuki}" role="button" th:text="#{home.connect.button}">Conectar Nuki</a>
     </article>
-    <article th:if="${nukiConnection != null and nukiConnection.status.name() == 'DISCONNECTED'}" role="alert">
+    <article th:if="${nukiConnection != null and nukiConnection.status.name() == 'DISCONNECTED'}" aria-live="assertive" aria-atomic="true">
         <p th:utext="#{home.disconnected.text}"><strong>Nuki ha rechazado la conexión.</strong></p>
         <a th:href="@{/settings/nuki}" role="button" th:text="#{home.disconnected.button}">Volver a conectar Nuki</a>
     </article>

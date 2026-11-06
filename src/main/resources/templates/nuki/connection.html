@@ -22,7 +22,7 @@
             Nuki desconectado: hemos borrado los tokens con los que welcome-home entraba en tu cuenta de Nuki.</p>
     </article>
 
-    <article th:if="${authorizationError}" role="alert">
+    <article th:if="${authorizationError}" aria-live="assertive" aria-atomic="true">
         <p th:if="${authorizationError == 'cancelled'}" th:text="#{nuki.authorization.cancelled}">
             Has cancelado la autorización en Nuki.</p>
         <p th:if="${authorizationError == 'failed'}" th:text="#{nuki.authorization.failed}">

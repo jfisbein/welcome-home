@@ -19,7 +19,7 @@
     <article th:if="${updated}">
         <p th:text="#{locks.updated(${updated})}">Guardados los cambios de Casa.</p>
     </article>
-    <article th:if="${syncError}" role="alert">
+    <article th:if="${syncError}" aria-live="assertive" aria-atomic="true">
         <p th:if="${syncError == 'not-connected'}" th:utext="#{locks.sync-error.not-connected(@{/settings/nuki})}">
             Para actualizar, primero conecta tu cuenta de Nuki.</p>
         <p th:if="${syncError == 'rejected'}" th:utext="#{locks.sync-error.rejected(@{/settings/nuki})}">
@@ -42,7 +42,7 @@
                 <th scope="col" th:text="#{locks.column.name}">Nombre</th>
                 <th scope="col" th:text="#{locks.column.time-zone}">Zona horaria</th>
                 <th scope="col" th:text="#{locks.column.state}">Estado</th>
-                <th scope="col"></th>
+                <th scope="col"><span class="visually-hidden" th:text="#{locks.column.actions}">Acciones</span></th>
             </tr>
             </thead>
             <tbody>
