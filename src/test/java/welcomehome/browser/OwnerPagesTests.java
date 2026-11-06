@@ -178,6 +178,18 @@ class OwnerPagesTests extends BrowserTest {
                 .query(String.class).single()).isEqualTo("40.416775|-3.70379");
     }
 
+    @Test
+    void theFirstTabOffersToSkipTheMenuAndEnterMovesFocusToTheContent() {
+        register();
+
+        page.keyboard().press("Tab");
+        assertThat(page.locator(".skip-link")).isFocused();
+        assertThat(page.locator(".skip-link")).isVisible();
+        page.keyboard().press("Enter");
+
+        assertThat(page.locator("main")).isFocused();
+    }
+
     private void register() {
         page.navigate(invitations.createInvitation(null, "Alice", false).url().toString());
         page.locator("input[name=email]").fill(ALICE);

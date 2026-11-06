@@ -2,7 +2,7 @@
 <html lang="es" th:lang="${#locale.language}" th:attr="data-theme=${theme}" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/layout :: head(#{link-edit.title})}"></head>
 <body>
-<main class="container">
+<main id="main" tabindex="-1" class="container">
     <nav th:replace="~{fragments/layout :: menu('locks')}"></nav>
     <h1 th:text="#{link-edit.heading(${link.label})}">Enlace de Ana</h1>
     <p th:text="#{link-edit.text(${link.lockName})}">Abre Casa. Si cambias las fechas o para quién es, el enlace sigue siendo el mismo.</p>

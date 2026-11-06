@@ -2,7 +2,7 @@
 <html lang="es" th:lang="${#locale.language}" th:attr="data-theme=${theme}" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/layout :: head(#{preferences.title})}"></head>
 <body>
-<main class="container">
+<main id="main" tabindex="-1" class="container">
     <nav th:replace="~{fragments/layout :: menu('settings')}"></nav>
     <nav th:replace="~{fragments/layout :: settings('preferences')}"></nav>
     <h1 th:text="#{preferences.title}">Preferencias</h1>
