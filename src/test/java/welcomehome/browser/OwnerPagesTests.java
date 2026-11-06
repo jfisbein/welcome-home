@@ -10,6 +10,7 @@ import java.util.regex.Pattern;
 import com.google.gson.JsonObject;
 import com.microsoft.playwright.Dialog;
 import com.microsoft.playwright.Page;
+import com.microsoft.playwright.options.ColorScheme;
 import com.microsoft.playwright.options.Geolocation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -188,6 +189,24 @@ class OwnerPagesTests extends BrowserTest {
         page.keyboard().press("Enter");
 
         assertThat(page.locator("main")).isFocused();
+    }
+
+    @Test
+    void theControlTheKeyboardIsOnHasASolidRingInLightAndDark() {
+        register();
+        page.keyboard().press("Tab");
+        page.keyboard().press("Tab");
+
+        for (var scheme : List.of(ColorScheme.LIGHT, ColorScheme.DARK)) {
+            page.emulateMedia(new Page.EmulateMediaOptions().setColorScheme(scheme));
+            var ring = (String) page.evaluate("""
+                    () => { const s = getComputedStyle(document.activeElement);
+                            return s.outlineStyle + ' ' + s.outlineWidth + ' ' + s.outlineColor + ' ' + s.boxShadow; }""");
+            var primary = (String) page.evaluate("""
+                    () => { const e = document.createElement('i'); e.style.color = 'var(--pico-primary)';
+                            document.body.append(e); const c = getComputedStyle(e).color; e.remove(); return c; }""");
+            assertThat(ring).as(scheme + " ring").isEqualTo("solid 3px " + primary + " none");
+        }
     }
 
     private void register() {

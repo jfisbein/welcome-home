@@ -346,3 +346,12 @@ nav.sections li a[aria-current="page"] {
 main:focus {
     outline: none;
 }
+
+/* Where the keyboard is. Pico's ring is a translucent halo (about 1.5:1 against the page), too faint for WCAG 2.2's
+   3:1 (1.4.11): a solid ring in the primary color, which has that contrast against both themes' backgrounds, set off
+   from the control so that it also shows around the primary buttons and the slider's thumb. */
+:root :focus-visible {
+    outline: 3px solid var(--pico-primary);
+    outline-offset: 3px;
+    box-shadow: none;
+}
