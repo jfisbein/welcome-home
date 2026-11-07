@@ -356,13 +356,22 @@ main:focus {
     box-shadow: none;
 }
 
-/* The owner's PIN field: an eye to read it, whose two drawings take turns. */
+/* The owner's PIN field: at most 8 digits and an eye, so no wider than that, not the form's whole width. An eye to
+   read it, whose two drawings take turns. */
+.reveal {
+    max-width: 14rem;
+}
+
 .reveal button svg {
     width: 1.25rem;
     height: 1.25rem;
 }
 
-/* The guest's PIN, typed right after the slide, large for a thumb. */
+/* The guest's PIN, typed right after the slide, large for a thumb, and no wider than 8 digits need. */
+.pin-form {
+    max-width: 16rem;
+}
+
 .pin-form input {
     font-size: 1.5rem;
     letter-spacing: 0.25em;
