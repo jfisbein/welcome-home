@@ -79,6 +79,11 @@ class NukiWebClient {
         var advancedConfig = smartlock.advancedConfig();
         var config = smartlock.config();
         var opener = NukiCodes.deviceType(smartlock.type()) == DeviceType.OPENER;
+        if (smartlock.serverState() != SERVER_STATE_OK) {
+            // Nuki's own code for why it cannot reach the device, which the app does not otherwise keep.
+            log.warn("Nuki reports smartlock {} not reachable, serverState {}", smartlock.smartlockId(),
+                    smartlock.serverState());
+        }
         return new LockSnapshot(
                 state == null ? LockPosition.UNKNOWN
                         : opener ? NukiCodes.openerPosition(state.state()) : NukiCodes.position(state.state()),

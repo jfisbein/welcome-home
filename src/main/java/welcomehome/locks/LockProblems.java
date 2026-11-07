@@ -9,6 +9,8 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import welcomehome.db.OwnerTransactions;
@@ -23,6 +25,8 @@ import welcomehome.nuki.LockSnapshot;
  */
 @Service
 class LockProblems {
+
+    private static final Logger log = LoggerFactory.getLogger(LockProblems.class);
 
     private static final Set<LockWarning> PROBLEMS =
             EnumSet.of(LockWarning.OFFLINE, LockWarning.BATTERY_CRITICAL, LockWarning.MOTOR_BLOCKED);
@@ -69,6 +73,7 @@ class LockProblems {
         if (now.equals(before)) {
             return;
         }
+        log.info("Problems of lock {} changed: now {}, before {}", lock.id(), now, before);
         locks.saveNotifiedProblems(ownerId, lock.id(), now.isEmpty() ? null
                 : now.stream().map(Enum::name).sorted().collect(Collectors.joining(",")));
         var started = new ArrayList<>(now);
