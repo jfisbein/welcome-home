@@ -1,0 +1,11 @@
+# Conventions
+
+Read when: writing any code: the rules that hold everywhere.
+
+See also: [web](web.md) for templates and scripts, [database](database.md) for data access and Liquibase, [AGENTS.md](../../AGENTS.md#rules) for what stays out of the repository and commits.
+
+- **Language**: code, comments, javadoc, docs and commit messages in English. Table, column and enum names in English. UI texts only in `i18n/messages*.properties` (Spanish the default bundle; English, French, German and Italian the others): never in Java, templates or JavaScript, which `TemplateTextTests` checks. A message with markup goes through `th:utext`, with every value escaped by `#strings.escapeXml`; an apostrophe in a message is written `''`. A new language: "Adding a language" in `docs/features.md`.
+- **Javadoc** on every public class and method (`-Xdoclint:all -Werror` fails `check`). Comment the why, sparingly.
+- **Nullness**: everything is non-null unless `@Nullable` (JSpecify); every package has `@NullMarked`; NullAway fails the build. Spring 7's `JdbcClient.query(X.class).list()` returns `List<@Nullable X>`: use `new SimplePropertyRowMapper<>(X.class)` or a lambda for lists.
+- **Compatibility**: within a major version every release is backward compatible, as production pulls `:vN` without reading release notes and rolls back by pinning the previous release. So: the previous release runs against the new schema; no new required property, secret or environment variable (a new one has a default); nothing to change in `deploy/`; every URL already sent keeps working (guest links, invitations, recovery and verification links, history URLs). Migrations only expand the schema: new tables, nullable columns or columns with a default, indexes, grants; never drop, rename or retype, never add NOT NULL or UNIQUE to what exists, never revoke, every changeset in a transaction. `MigrationCompatibilityTests` checks the changesets from `COMPATIBLE_FROM` on. Anything else waits for the next major, which moves `COMPATIBLE_FROM` past its breaking changesets and production to `:vN+1`.
+- **Configuration**: `application.yaml` (and `application-dev.yaml`); `@ConfigurationProperties` records; durations in ISO-8601 (`PT1M`).

@@ -1,0 +1,15 @@
+# Testing
+
+Read when: writing tests, or checking a change by hand. Each area's own tests are in its page: [nuki](nuki.md#tests), [guest flow](guest-flow.md#tests), [links](links.md#tests), [owners](owners.md#tests), [privacy](privacy.md#tests), [notifications](notifications.md#tests), [web](web.md#tests), [database](database.md#tests), [release](release.md#tests).
+
+## How tests run
+
+`./gradlew build` compiles (Error Prone, NullAway), runs every test and checks javadoc. Tests start from rows written by `TestData` (owners, locks, links, schedules, attempts, connections, passkeys), so that a change to a table means a change there; a test writes its own SQL only when the SQL is what it checks, such as Row-Level Security or a constraint. Most tests are integration tests (`@IntegrationTest`): a real Postgres in Testcontainers, initialised with the production role script, migrated by Liquibase as `migrator`, used by the app as `app_user`, with freshly generated keysets.
+
+- **JavaScript**: `src/test/java/welcomehome/browser` runs it in headless Chromium, which Playwright downloads when first used, on a real server with the Nuki stand-in, with pages of a phone's size. `GuestSlideTests` slides `open.js` with real touch events (what keeps a touch by mistake from opening, keys, what follows each outcome); `OwnerPagesTests` registers and signs in through `webauthn.js` with Chromium's virtual authenticator, and tries `confirm.js` and `schedule.js`. CI installs the browser's system packages first (`./gradlew installBrowser`).
+- **Commands**: `CommandLineTests` starts the app without the web server.
+
+## Practice
+
+- **Practice**: start with `git fetch`: the development clone has been dozens of commits behind `origin/main`, which is where work from other machines and release merges land. Each change is checked with a mutation test by hand (break the code, see a test fail, restore it), and deployment changes are tried on a local copy of the production stack (`COMPOSE_PROJECT_NAME=...` to stay apart from the development database).
+- **By hand in a browser**, for what no test runs: how pages look, in light and dark and at phone width, and the scripts with no test of their own (`copy.js`, `share.js`). Run the dev app (`docker compose up -d`, `./gradlew bootRun`) and use Chrome; owner pages need the owner's passkey, which only the owner can use (sessions live in memory, so a restart signs them out). Sample rows go into the development database as its superuser (`docker compose exec -T db psql -U postgres -d welcome_home`) and are deleted afterwards. For the guest page to offer opening without any risk, add a `nuki_connection` with status `OK` and `access_token_encrypted` set to `'\x00'`: the token does not decrypt, so an opening fails as unavailable before anything reaches Nuki. Never with a real token. Chrome's window does not shrink below about 616 px: for phone widths the owner switches on DevTools' device mode, and sizes are read with JavaScript (`innerWidth`, `scrollWidth`).

@@ -1,6 +1,6 @@
 # Features
 
-What welcome-home does and how, feature by feature. For how to use it, see the [user guide](user-guide.md); for why it is built this way, [AGENTS.md](../AGENTS.md); for its settings on a server, [deployment](deployment.md).
+What welcome-home does and how, feature by feature. For how to use it, see the [user guide](user-guide.md); for why it is built this way, the Decisions in each area of [docs/dev](../AGENTS.md#what-to-read-for-a-task); for its settings on a server, [deployment](deployment.md).
 
 ## Pages
 

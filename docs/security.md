@@ -1,6 +1,6 @@
 # Security and data
 
-How owners' data is kept apart and secrets are kept. For why, see the Decisions in [AGENTS.md](../AGENTS.md).
+How owners' data is kept apart and secrets are kept. For why, see the Decisions in [database](dev/database.md#decisions), [owners](dev/owners.md#decisions), [guest flow](dev/guest-flow.md#decisions) and [release](dev/release.md#decisions).
 
 ## Database
 
