@@ -74,12 +74,12 @@ class TokenLoggingTests {
                 })
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"token\": \"" + token + "\", \"position\": {\"latitude\": 40.4167751,"
-                        + " \"longitude\": -3.7037902, \"accuracy\": 12}, \"confirmed\": true}")
+                        + " \"longitude\": -3.7037902, \"accuracy\": 12}, \"confirmed\": true, \"pin\": \"482913\"}")
                 .exchange();
 
         // Nor the guest's position, which says where they are.
-        assertThat(output.getAll()).contains("OpenRequest[token=***, door=null, position=***, confirmed=true]")
-                .doesNotContain(mac()).doesNotContain("40.4167751").doesNotContain("3.7037902");
+        assertThat(output.getAll()).contains("OpenRequest[token=***, door=null, position=***, confirmed=true, pin=***]")
+                .doesNotContain(mac()).doesNotContain("482913").doesNotContain("40.4167751").doesNotContain("3.7037902");
     }
 
     @Test

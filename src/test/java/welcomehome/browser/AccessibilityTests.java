@@ -65,11 +65,14 @@ class AccessibilityTests extends BrowserTest {
         var open = "/o/" + signer.sign(data.link(lock, "Ana"), 1);
         var revoked = "/o/" + signer.sign(data.link(lock, "Eva", "now() - interval '2 day'",
                 "now() + interval '2 day'", "now()"), 1);
+        var withPin = data.link(lock, "Pía");
+        data.pin(withPin, crypto.encryptLinkPin(owner, withPin, "4821"));
+        var pinLink = "/o/" + signer.sign(withPin, 1);
         var invitation = invitations.createInvitation(null, "Bea", false).url().getPath();
         var found = new ArrayList<String>();
         for (var language : Languages.SUPPORTED) {
             context.setExtraHTTPHeaders(Map.of("Accept-Language", language.getLanguage()));
-            for (var path : List.of(open, revoked, "/o/invalid", "/login", invitation, "/no-such-page")) {
+            for (var path : List.of(open, revoked, pinLink, "/o/invalid", "/login", invitation, "/no-such-page")) {
                 scan(path, language.getLanguage(), found);
             }
         }

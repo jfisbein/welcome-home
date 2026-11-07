@@ -19,6 +19,7 @@
                 <span th:text="#{links.period(${#temporals.format(link.validFrom, #messages.msg('format.datetime'))}, ${#temporals.format(link.validUntil, #messages.msg('format.datetime'))})}">
                     1/11/2030 15:00 – 3/11/2030 11:00</span>
                 <small th:each="line : ${link.schedule}" th:text="${line}">Lunes a viernes: 09:00–17:00</small>
+                <small th:if="${link.hasPin}" th:text="#{links.pin-set}">Pide un PIN</small>
             </td>
             <td class="state" th:switch="${link.status.name()}">
                 <span th:case="'PENDING'" th:text="#{links.status.pending}">Pendiente</span>

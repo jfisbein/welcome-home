@@ -18,8 +18,9 @@ import org.springframework.ui.Model;
  * @param validFrom  the start, such as {@code 2030-11-01T15:00}
  * @param validUntil the end
  * @param schedule   the days and hours
+ * @param pin        the PIN the guest must type, or blank for none
  */
-record LinkForm(String label, String validFrom, String validUntil, ScheduleForm schedule) {
+record LinkForm(String label, String validFrom, String validUntil, ScheduleForm schedule, String pin) {
 
     static final int MAX_LABEL_LENGTH = 100;
     private static final DateTimeFormatter INPUT_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
@@ -27,19 +28,22 @@ record LinkForm(String label, String validFrom, String validUntil, ScheduleForm 
     /** A new link's form: from now, for one day. */
     static LinkForm startingNow(ZoneId zone) {
         var now = LocalDateTime.now(zone).truncatedTo(ChronoUnit.MINUTES);
-        return new LinkForm("", INPUT_FORMAT.format(now), INPUT_FORMAT.format(now.plusDays(1)), ScheduleForm.empty());
+        return new LinkForm("", INPUT_FORMAT.format(now), INPUT_FORMAT.format(now.plusDays(1)), ScheduleForm.empty(),
+                "");
     }
 
     /** An existing link's form. */
-    static LinkForm of(String label, Instant validFrom, Instant validUntil, LinkSchedule schedule, ZoneId zone) {
+    static LinkForm of(String label, Instant validFrom, Instant validUntil, LinkSchedule schedule, ZoneId zone,
+                       String pin) {
         return new LinkForm(label, INPUT_FORMAT.format(validFrom.atZone(zone)), INPUT_FORMAT.format(validUntil.atZone(zone)),
-                ScheduleForm.of(schedule));
+                ScheduleForm.of(schedule), pin);
     }
 
     /**
      * Checks the form: a label of 1 to {@link #MAX_LABEL_LENGTH} characters, an end after the start and after
      * {@code now}, and a schedule with hours that are fine on each day, under which the link can still open before
-     * its end. The start may be in the past, for a link valid from now on.
+     * its end, and a PIN, if any, of {@value LinkPins#MIN_LENGTH} to {@value LinkPins#MAX_LENGTH} digits. The start may
+     * be in the past, for a link valid from now on.
      */
     Validation validate(ZoneId zone, Instant now) {
         var strippedLabel = label.strip();
@@ -57,8 +61,10 @@ record LinkForm(String label, String validFrom, String validUntil, ScheduleForm 
         var checkedSchedule = schedule.isValid() ? schedule.schedule() : LinkSchedule.ANY_TIME;
         var neverOpens = from != null && until != null && untilError == null
                 && checkedSchedule.firstOpening(from.isAfter(now) ? from : now, until, zone).isEmpty();
+        var strippedPin = pin.strip();
+        var pinError = !strippedPin.isEmpty() && !LinkPins.isValid(strippedPin);
         return new Validation(strippedLabel, from, until, checkedSchedule, labelError, from == null, untilError,
-                !schedule.isValid(), neverOpens);
+                !schedule.isValid(), neverOpens, strippedPin.isEmpty() ? null : strippedPin, pinError);
     }
 
     /** Puts the form's values, and the errors if any, where the link-fields template fragment reads them. */
@@ -69,6 +75,10 @@ record LinkForm(String label, String validFrom, String validUntil, ScheduleForm 
         model.addAttribute("scheduleDays", schedule.days());
         model.addAttribute("scheduleOpen", schedule.anySelected());
         model.addAttribute("scheduleNeverOpens", validation != null && validation.scheduleNeverOpens());
+        model.addAttribute("pin", pin);
+        model.addAttribute("pinError", validation != null && validation.pinError());
+        model.addAttribute("pinMinLength", LinkPins.MIN_LENGTH);
+        model.addAttribute("pinMaxLength", LinkPins.MAX_LENGTH);
         if (validation != null) {
             model.addAttribute("labelError", validation.labelError());
             model.addAttribute("validFromError", validation.validFromError());
@@ -100,13 +110,16 @@ record LinkForm(String label, String validFrom, String validUntil, ScheduleForm 
      * @param validUntilError {@code invalid}, {@code before-start}, {@code past}, or null if the end is fine
      * @param scheduleError   whether a day's hours are wrong, which its row shows
      * @param scheduleNeverOpens whether the schedule leaves no time at which the link could still open
+     * @param pin             the PIN without surrounding spaces, or null for none
+     * @param pinError        whether the PIN is not {@value LinkPins#MIN_LENGTH} to {@value LinkPins#MAX_LENGTH} digits
      */
     record Validation(String label, @Nullable Instant validFrom, @Nullable Instant validUntil, LinkSchedule schedule,
                       boolean labelError, boolean validFromError, @Nullable String validUntilError,
-                      boolean scheduleError, boolean scheduleNeverOpens) {
+                      boolean scheduleError, boolean scheduleNeverOpens, @Nullable String pin, boolean pinError) {
 
         boolean isValid() {
-            return !labelError && !validFromError && validUntilError == null && !scheduleError && !scheduleNeverOpens;
+            return !labelError && !validFromError && validUntilError == null && !scheduleError && !scheduleNeverOpens
+                    && !pinError;
         }
     }
 }

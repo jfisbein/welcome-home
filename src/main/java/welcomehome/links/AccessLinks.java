@@ -9,6 +9,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import welcomehome.db.OwnerTransactions;
@@ -30,14 +31,16 @@ class AccessLinks {
     private final LinkUrls urls;
     private final OwnerTransactions ownerTransactions;
     private final LinkSchedules schedules;
+    private final LinkPins pins;
     private final ApplicationEventPublisher events;
 
     AccessLinks(LinkDao links, LinkUrls urls, OwnerTransactions ownerTransactions, LinkSchedules schedules,
-                ApplicationEventPublisher events) {
+                LinkPins pins, ApplicationEventPublisher events) {
         this.links = links;
         this.urls = urls;
         this.ownerTransactions = ownerTransactions;
         this.schedules = schedules;
+        this.pins = pins;
         this.events = events;
     }
 
@@ -46,12 +49,17 @@ class AccessLinks {
      * @param validFrom  when the link starts to open the door
      * @param validUntil when it stops, after {@code validFrom}
      * @param schedule   the days and hours at which it opens between them
+     * @param pin        the PIN the guest must type, checked with {@link LinkForm}, or null for none
      * @return the new link's URL, to give to the guest
      */
-    URI create(UUID ownerId, UUID lockId, String label, Instant validFrom, Instant validUntil, LinkSchedule schedule) {
+    URI create(UUID ownerId, UUID lockId, String label, Instant validFrom, Instant validUntil, LinkSchedule schedule,
+               @Nullable String pin) {
         var inserted = ownerTransactions.execute(ownerId, () -> {
             var link = links.insert(ownerId, lockId, label, validFrom, validUntil);
             links.replaceSchedule(ownerId, link.id(), schedule);
+            if (pin != null) {
+                pins.set(ownerId, link.id(), pin);
+            }
             events.publishEvent(new LinkChanged(ownerId, lockId, link.id(), Change.CREATED));
             return link;
         });
@@ -93,24 +101,31 @@ class AccessLinks {
         return ownerTransactions.execute(ownerId, () -> links.exists(ownerId, linkId));
     }
 
+    /** @return the link's PIN for its owner to read, or empty if it has none */
+    Optional<String> pinOf(UUID ownerId, UUID linkId) {
+        return pins.of(ownerId, linkId);
+    }
+
     /** @return the link, or empty if the owner has no such link or it is revoked */
     Optional<EditableLink> findEditable(UUID ownerId, UUID linkId) {
         return ownerTransactions.execute(ownerId, () -> links.findEditable(ownerId, linkId));
     }
 
     /**
-     * Changes a link's label, dates and schedule. Its URL stays the same, since it depends only on the link's id and
+     * Changes a link's label, dates, schedule and PIN. Its URL stays the same, since it depends only on the link's id and
      * token version.
      *
      * @param label a label already checked with {@link LinkForm}
+     * @param pin   the PIN, checked with {@link LinkForm}, or null to take it off
      * @return whether the owner has that link and it is not revoked
      */
     boolean update(UUID ownerId, UUID linkId, String label, Instant validFrom, Instant validUntil,
-                   LinkSchedule schedule) {
+                   LinkSchedule schedule, @Nullable String pin) {
         return ownerTransactions.execute(ownerId, () -> {
             var lockId = links.update(ownerId, linkId, label, validFrom, validUntil);
             lockId.ifPresent(lock -> {
                 links.replaceSchedule(ownerId, linkId, schedule);
+                pins.set(ownerId, linkId, pin);
                 events.publishEvent(new LinkChanged(ownerId, lock, linkId, Change.EDITED));
             });
             return lockId.isPresent();
@@ -148,7 +163,8 @@ class AccessLinks {
                         schedules.describe(linkSchedules.getOrDefault(link.id(), LinkSchedule.ANY_TIME), locale),
                         LinkStatus.of(link.validFrom().toInstant(), link.validUntil().toInstant(),
                                 link.revokedAt() == null ? null : link.revokedAt().toInstant(), now),
-                        urls.url(link.id(), link.tokenVersion())))
+                        urls.url(link.id(), link.tokenVersion()),
+                        link.hasPin()))
                 .sorted(Comparator.comparing((LinkView link) -> !link.status().isUsable()))
                 .toList();
     }

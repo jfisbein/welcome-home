@@ -209,6 +209,28 @@ class OwnerPagesTests extends BrowserTest {
         }
     }
 
+    @Test
+    void theEyeShowsAndHidesThePinTheOwnerTypes() {
+        register();
+        openTheLocksLinks();
+        var pin = page.locator("#link-pin");
+        var eye = page.locator("button[data-reveal=link-pin]");
+
+        assertThat(eye).isVisible();
+        assertThat(pin).hasAttribute("type", "password");
+        pin.fill("4821");
+
+        eye.click();
+        assertThat(pin).hasAttribute("type", "text");
+        assertThat(eye).hasAttribute("aria-pressed", "true");
+        assertThat(eye).hasAttribute("aria-label", "Ocultar el PIN");
+        assertThat(pin).hasValue("4821");
+
+        eye.click();
+        assertThat(pin).hasAttribute("type", "password");
+        assertThat(eye).hasAttribute("aria-label", "Mostrar el PIN");
+    }
+
     private void register() {
         page.navigate(invitations.createInvitation(null, "Alice", false).url().toString());
         page.locator("input[name=email]").fill(ALICE);

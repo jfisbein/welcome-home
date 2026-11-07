@@ -65,6 +65,44 @@ class LinkDao {
                 .update();
     }
 
+    /** @return the link's encrypted PIN, or empty if it has none or the owner has no such link */
+    Optional<byte[]> findPin(UUID ownerId, UUID linkId) {
+        return jdbc.sql("SELECT pin_encrypted FROM access_link WHERE owner_id = :ownerId AND id = :linkId "
+                        + "AND pin_encrypted IS NOT NULL")
+                .param("ownerId", ownerId)
+                .param("linkId", linkId)
+                .query((rs, row) -> rs.getBytes("pin_encrypted"))
+                .optional();
+    }
+
+    /** Sets the link's PIN. */
+    void setPin(UUID ownerId, UUID linkId, byte[] pinEncrypted) {
+        jdbc.sql("UPDATE access_link SET pin_encrypted = :pin WHERE owner_id = :ownerId AND id = :linkId")
+                .param("pin", pinEncrypted)
+                .param("ownerId", ownerId)
+                .param("linkId", linkId)
+                .update();
+    }
+
+    /** Takes the link's PIN off. */
+    void clearPin(UUID ownerId, UUID linkId) {
+        jdbc.sql("UPDATE access_link SET pin_encrypted = NULL WHERE owner_id = :ownerId AND id = :linkId")
+                .param("ownerId", ownerId)
+                .param("linkId", linkId)
+                .update();
+    }
+
+    /** The owner's links that have a PIN, with it as it is stored. */
+    Map<UUID, byte[]> findPins(UUID ownerId) {
+        var pins = new HashMap<UUID, byte[]>();
+        jdbc.sql("SELECT id, pin_encrypted FROM access_link WHERE owner_id = :ownerId AND pin_encrypted IS NOT NULL")
+                .param("ownerId", ownerId)
+                .query(rs -> {
+                    pins.put(rs.getObject("id", UUID.class), rs.getBytes("pin_encrypted"));
+                });
+        return pins;
+    }
+
     /** From owner, which has no Row-Level Security: without an owner context access_link shows no rows. */
     List<UUID> allOwnerIds() {
         return jdbc.sql("SELECT id FROM owner ORDER BY created_at")
@@ -74,7 +112,7 @@ class LinkDao {
 
     List<StoredLink> findByLock(UUID ownerId, UUID lockId) {
         return jdbc.sql("""
-                        SELECT id, label, token_version, valid_from, valid_until, revoked_at
+                        SELECT id, label, token_version, valid_from, valid_until, revoked_at, pin_encrypted IS NOT NULL AS has_pin
                         FROM access_link
                         WHERE owner_id = :ownerId AND lock_id = :lockId
                         ORDER BY valid_from DESC
@@ -238,6 +276,6 @@ class LinkDao {
     }
 
     record StoredLink(UUID id, String label, int tokenVersion, OffsetDateTime validFrom, OffsetDateTime validUntil,
-                      @Nullable OffsetDateTime revokedAt) {
+                      @Nullable OffsetDateTime revokedAt, boolean hasPin) {
     }
 }

@@ -87,6 +87,8 @@ class GuestController {
         var doors = guestLink.status() == LinkStatus.ACTIVE && withinSchedule ? doors(link, locale) : List.<GuestDoor>of();
         model.addAttribute("doors", doors);
         model.addAttribute("canOpen", doors.stream().anyMatch(GuestDoor::available));
+        // Whether the page asks for a PIN once the guest has slid: only the link's owner and holders of its URL know.
+        model.addAttribute("pinRequired", !doors.isEmpty() && guestLinks.pinRequired(link));
         model.addAttribute("checksLocation", doors.stream().anyMatch(door -> door.available() && door.checksLocation()));
         // What sliding keeps, for the notice under the doors; as text, so that no language groups the digits.
         model.addAttribute("ipRetentionDays", String.valueOf(accessEvents.ipRetention().toDays()));

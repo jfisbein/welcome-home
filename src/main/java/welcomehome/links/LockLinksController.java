@@ -51,7 +51,7 @@ class LockLinksController {
     @PostMapping
     String create(CurrentOwner owner, @PathVariable UUID lockId, @RequestParam(defaultValue = "") String label,
                   @RequestParam(defaultValue = "") String validFrom, @RequestParam(defaultValue = "") String validUntil,
-                  @RequestParam Map<String, String> params, Locale locale, Model model, HttpServletResponse response,
+                  @RequestParam(defaultValue = "") String pin, @RequestParam Map<String, String> params, Locale locale, Model model, HttpServletResponse response,
                   RedirectAttributes redirect) {
         var lock = findLock(owner, lockId);
         if (!lock.active()) {
@@ -59,7 +59,7 @@ class LockLinksController {
             return view(owner, lock, locale, model);
         }
         var zone = ZoneId.of(lock.timeZone());
-        var form = new LinkForm(label, validFrom, validUntil, ScheduleForm.of(params));
+        var form = new LinkForm(label, validFrom, validUntil, ScheduleForm.of(params), pin);
         var validation = form.validate(zone, Instant.now());
         if (!validation.isValid()) {
             response.setStatus(HttpStatus.BAD_REQUEST.value());
@@ -68,7 +68,8 @@ class LockLinksController {
         }
         var from = Objects.requireNonNull(validation.validFrom());
         var until = Objects.requireNonNull(validation.validUntil());
-        var url = accessLinks.create(owner.id(), lock.id(), validation.label(), from, until, validation.schedule());
+        var url = accessLinks.create(owner.id(), lock.id(), validation.label(), from, until, validation.schedule(),
+                validation.pin());
         redirect.addFlashAttribute("createdUrl", url);
         redirect.addFlashAttribute("createdLabel", validation.label());
         redirect.addFlashAttribute("createdFrom", from.atZone(zone));

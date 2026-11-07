@@ -35,6 +35,6 @@ class AccessOutcomeTests {
         assertThat(AccessOutcome.values()).extracting(AccessOutcome::code).containsExactly(
                 "opened", "not-confirmed", "invalid", "too-many-attempts", "revoked", "not-yet-valid", "expired",
                 "outside-schedule", "unavailable", "nuki-error", "lock-failed", "night-mode", "missing-permission",
-                "confirm-location", "too-far");
+                "confirm-location", "too-far", "pin-required", "wrong-pin");
     }
 }

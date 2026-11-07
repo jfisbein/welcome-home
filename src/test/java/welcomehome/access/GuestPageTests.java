@@ -53,6 +53,9 @@ class GuestPageTests {
     @Autowired
     PostgreSQLContainer postgres;
 
+    @Autowired
+    welcomehome.crypto.CryptoService crypto;
+
     /** Every GET below must leave it untouched: the guest page never acts on a lock. */
     @MockitoSpyBean
     LockProvider lockProvider;
@@ -117,6 +120,19 @@ class GuestPageTests {
                         "También se comprueba a qué distancia estás de la puerta: se guarda esa distancia, nunca dónde estás.",
                         "data-wait-text=\"Podrás deslizar en {0} s\"", "Parece que estás a unos {0} de la puerta")
                 .doesNotContain("40.41", "3.70");
+    }
+
+    @Test
+    void aLinkWithAPinTellsThePageToAskForItAfterTheSlideButNeverSaysWhichPin() {
+        var link = insertLink("now() - interval '1 day'", "now() + interval '1 day'", false);
+        var token = signer.sign(link, 1);
+        assertThat(body(guestPage(token))).contains("data-pin-required=\"false\"").doesNotContain("pin-form");
+
+        var owner = migrator.sql("SELECT owner_id FROM access_link WHERE id = ?").param(link).query(UUID.class).single();
+        new TestData(migrator).pin(link, crypto.encryptLinkPin(owner, link, "4821"));
+
+        assertThat(body(guestPage(token))).contains("data-pin-required=\"true\"").contains("class=\"pin-form\"")
+                .doesNotContain("4821");
     }
 
     @Test
@@ -250,9 +266,9 @@ class GuestPageTests {
 
         assertThat(body(guestPage(signer.sign(link, 1))))
                 .containsPattern("(?s)<h2>Portal</h2>.*<input type=\"range\" id=\"open-entrance\"[^>]*"
-                        + "aria-label=\"Desliza para abrir el portal\"\\s+data-door=\"entrance\" data-opener=\"true\"\\s+data-location-check=\"false\">"
+                        + "aria-label=\"Desliza para abrir el portal\"\\s+data-door=\"entrance\" data-opener=\"true\"\\s+data-location-check=\"false\"\\s+data-pin-required=\"false\">"
                         + ".*<h2>Puerta</h2>.*<input type=\"range\" id=\"open\"[^>]*"
-                        + "aria-label=\"Desliza para abrir\"\\s+data-door=\"lock\" data-opener=\"false\"\\s+data-location-check=\"false\">")
+                        + "aria-label=\"Desliza para abrir\"\\s+data-door=\"lock\" data-opener=\"false\"\\s+data-location-check=\"false\"\\s+data-pin-required=\"false\">")
                 .as("each slider carries its own messages")
                 .contains("Portal abierto: empújalo ya", "Puerta abierta: empújala.");
     }

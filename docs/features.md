@@ -122,11 +122,19 @@ A link may be limited to certain days and hours: the form's "Limitar a ciertos d
 
 The same page lists the lock's links with their state, computed and never stored (`LinkStatus`): revoked if revoked, otherwise pending before the start, active from the start (inclusive) to the end (exclusive), and expired after. Pending and active links come first and can be copied, or shared through the device's share sheet where the browser supports it. Expired and revoked ones are folded below them ("Caducados y anulados", with their count), so the list stays short while they wait for the purge; the fold opens after deleting one, so the owner can go on. Narrower than 1024 px, where a link's buttons no longer fit beside its dates, each link shows as a card instead of a table row: its label and state, its dates, then its buttons.
 
+A link may ask its guest for a **PIN** (`access_link.pin_encrypted`, `LinkPins`), the form's "PIN (opcional)": 4 to 8 digits, nothing by default.
+
+- It is encrypted with the AEAD keyset, bound to its owner and its link (`CryptoService.encryptLinkPin`), rather than hashed, so that its owner can read it back: the edit form shows it in a password field with an eye (`reveal.js`) to show it or hide it, and saving the form with the field empty takes it off. The list only says "Pide un PIN"; it never carries the PIN. Only its owner reads it, and a guest's request compares it in constant time in the owner's context, after the link's token is verified.
+- The guest page asks for it after the slide, in a form under the slider (`open.js`), and sends it with the slide in `POST /api/open`; nothing reaches the lock without it. A wrong PIN lets the guest type again without sliding again; "Cancelar" gives the slider back. A guest asked afterwards to confirm where they are is not asked for the PIN twice.
+- Wrong PINs are counted per link, from any address (`welcomehome.access.pin.failures`, 5, over `period`, `PT15M`): a link that has spent them refuses every attempt, a right PIN too, as `too-many-attempts`, until they come back gradually. Counted in memory, like the other limits.
+- Changing or removing a PIN is an edit of the link: it is recorded in the owner's activity and emailed like any edit. A wrong PIN is a refused attempt (`wrong-pin`, in the history and, under the owners' refused-attempts preference, in an email); a missing one (`pin-required`) only comes from a client other than the page and is recorded without an email.
+- After rotating the AEAD keyset, PINs are encrypted again with the new key on start, like the Nuki tokens (`LinkPinReEncryption`).
+
 "Anular" (`POST /links/{id}/revoke`) revokes a link at once and for good: from then on it opens nothing, whatever its dates. Revoking again keeps the first revocation time.
 
 "Cambiar enlace" (`POST /links/{id}/regenerate`), for a URL that leaked, asks first, and so does "Anular": the browser shows what will happen before the form is sent (`data-confirm`, `confirm.js`). It increments the link's `token_version`: every earlier URL stops working and the page shows the new one. Dates, label and state stay the same; revoked links are not regenerated.
 
-"Editar" (`GET /links/{id}`, saved with `PATCH /links/{id}`) changes a link's label, dates and schedule, with the same checks as creating one; an expired link can be extended this way. Its URL stays the same. Revoked links cannot be edited.
+"Editar" (`GET /links/{id}`, saved with `PATCH /links/{id}`) changes a link's label, dates, schedule and PIN, with the same checks as creating one; an expired link can be extended this way. Its URL stays the same. Revoked links cannot be edited.
 
 "Borrar" (`DELETE /links/{id}`, after confirming) deletes an expired or revoked link now, rather than when the purge would, with its schedule and its attempts in the history: its label may hold a guest's name. A link that can still open answers 409, so that deleting never stops a guest: it is revoked first. An email that linked to its history then gets 404, as after the purge.
 
@@ -183,8 +191,9 @@ Reaching the end sends `POST /api/open` with the token in the body. The checks r
 3. Rate limit per link.
 4. Within its dates.
 5. Within its schedule, read in the owner's context.
-6. The lock is active.
-7. The owner's Nuki connection is OK.
+6. Its PIN, if it has one: a link that has spent its wrong PINs refuses everything, a missing PIN is `pin-required`, a wrong one `wrong-pin` and counts against the link.
+7. The lock is active.
+8. The owner's Nuki connection is OK.
 
 Only then is the door unlatched, in the context of the owner that `resolve_link` returned. Only one action runs per lock at a time: a guest who slides to open while the same lock is being opened waits for that action and gets its result, so Nuki receives a single action.
 

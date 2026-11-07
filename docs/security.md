@@ -24,10 +24,14 @@ The app needs two Tink keysets and does not start without them:
 
 | Variable           | Keyset                    | Used for                     |
 |--------------------|---------------------------|------------------------------|
-| `AEAD_KEYSET_FILE` | AES-256-GCM               | Encrypting Nuki tokens       |
+| `AEAD_KEYSET_FILE` | AES-256-GCM               | Encrypting Nuki tokens and links' PINs |
 | `MAC_KEYSET_FILE`  | HMAC-SHA256, 128-bit tag  | Signing access links         |
 
 `./gradlew generateKeysets` writes both to `secrets/`, readable only by the current user, and never overwrites existing files. In production they are Docker secrets, backed up separately from the database: losing them means every owner connecting Nuki again and regenerating every access link. `./gradlew rotateAeadKeyset --args=<file>` adds a new primary key to an AEAD keyset; the earlier keys keep decrypting the tokens stored with them, and on starting the app encrypts those tokens again with the new key, so that the earlier keys can then leave the keyset (runbook, "Rotate the AEAD keyset").
+
+## Links' PINs
+
+A link may have a PIN that its guest types after sliding. It is stored encrypted with the AEAD keyset (bound to its owner and link, so a copy in another row does not decrypt) so that its owner can read it back, which hashing would not allow. So a database copy alone does not show PINs, but whoever also holds the AEAD keyset can read them, as they could the Nuki tokens. Its strength is the limit, not the secret: a 4 to 8 digit code can be guessed, so wrong PINs are counted per link and a link that has spent them refuses every attempt for a while (features, Access links). The PIN adds to the link's MAC: it does not replace it, and a leaked URL alone no longer opens the door.
 
 ## Web security
 

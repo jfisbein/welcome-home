@@ -38,6 +38,7 @@ On the home page, press **Crear enlace** next to the lock. Fill in:
 
 - **Para quién es:** a reminder for you, such as "Ana, fin de semana". Guests do not see it.
 - **Desde** and **Hasta:** when it works, at the lock's time.
+- **PIN (opcional)**, if you want: 4 to 8 digits. The guest must type it right after sliding, so that someone who only has the link, because it was forwarded or leaked, cannot open the door. Tell the guest the PIN yourself, apart from the link. The eye beside the field shows or hides it, and you can read it again whenever you edit the link; take it off by emptying the field. The list says "Pide un PIN" under the links that ask for one. After a few wrong PINs (5 by default) the link refuses every attempt, the right PIN too, for about 15 minutes, and you get the usual email about a refused attempt, at most one an hour per link.
 - **Limitar a ciertos días y horas**, if you want: for instance, a cleaner on Mondays from 9:00 to 13:00. A closing time before the opening time means the next day, and **Todo el día** takes the whole day.
 
 Press **Crear enlace**, and then **Copiar** or **Compartir** to send it. WhatsApp or Telegram showing a preview of it opens nothing: only sliding does.
@@ -60,7 +61,7 @@ A link that expired or was cancelled moves under **Caducados y anulados**, folde
 
 The guest needs no app or account. They open the link and slide **Desliza para abrir** to the end, standing at the door, then push it when they hear the lock. If your lock has a building entrance set up, they see two sliders: the entrance first, then the door. Above them they read the lock's instructions, if you wrote any, from the moment you send the link until it ends.
 
-A touch by mistake does nothing: the slider must go all the way across.
+A touch by mistake does nothing: the slider must go all the way across. If the link has a PIN, the guest is asked for it once they have slid, and can type it again without sliding again if it was wrong.
 
 So that nobody opens your door by mistake from elsewhere, say sliding at home to try the link, a lock can check that its guest is in front of it: in **Estado y ajustes**, under **Comprobar que el invitado está delante de la puerta**, once the lock has its location. With **Si parece lejos, pedirle que lo confirme**, a guest who seems far reads that the door will really open, waits 10 seconds and slides again to open; with **Si está claramente lejos, no abrir**, they cannot open from far away at all. A guest whose phone does not say where they are can always open by confirming. **Distancia a la que cuenta como delante** is how far still counts: indoors a phone can be tens of metres off, so try it at your door first, with a link of your own, and widen it if needed. The history shows how far each guest was, and if a guest opens after confirming while they seemed far, or without their phone saying where they were, you get an email at once, even with opening emails off, as your door may have been left open.
 
@@ -86,6 +87,7 @@ The home page and **Cerraduras** warn you in red about a lock with no connection
 | "Esta puerta no está disponible" | The lock left your Nuki account, or Nuki is disconnected | Look at your home page, which says which: **Volver a conectar Nuki** if it offers that |
 | "La cerradura no responde" | Nuki or the lock failed | Try again in a few seconds. Check the lock's connection and battery |
 | "Hemos pedido a la cerradura que abra, pero no lo ha confirmado" | The lock was asked to open and did not say that it did | Try pushing the door before sliding again |
+| "El PIN no es correcto" | They typed another PIN | Check it with **Editar**, where you can read it, and tell them |
 | "La cerradura está en modo nocturno" | The lock refuses in night mode | Change it in the Nuki app |
 
 If the door really must open now, you can always use the Nuki app yourself.

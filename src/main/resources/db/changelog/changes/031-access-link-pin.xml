@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="031-access-link-pin" author="welcome-home">
+        <comment>
+            An optional PIN a link asks of the guest after the slide, so that whoever merely holds the URL cannot open
+            the door. Encrypted (AEAD, bound to its owner and link) rather than hashed, so that the owner can read it
+            back; NULL, the default, is no PIN. A release before this one ignores it.
+        </comment>
+        <addColumn tableName="access_link">
+            <column name="pin_encrypted" type="bytea"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

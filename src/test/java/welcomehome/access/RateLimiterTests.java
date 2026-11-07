@@ -13,7 +13,19 @@ import welcomehome.access.AccessProperties.RateLimit;
 class RateLimiterTests {
 
     final RateLimiter limiter = new RateLimiter(new AccessProperties(new RateLimit(2, 3, Duration.ofHours(1)),
-            new Confirmation(Duration.ofSeconds(15), Duration.ofSeconds(2))));
+            new Confirmation(Duration.ofSeconds(15), Duration.ofSeconds(2)),
+            new AccessProperties.Pin(2, Duration.ofHours(1))));
+
+    @Test
+    void aLinkThatSpentItsWrongPinsIsLockedUntilTheyComeBack() {
+        var link = UUID.randomUUID();
+        assertThat(limiter.pinLocked(link)).isFalse();
+        limiter.pinFailed(link);
+        assertThat(limiter.pinLocked(link)).isFalse();
+        limiter.pinFailed(link);
+        assertThat(limiter.pinLocked(link)).isTrue();
+        assertThat(limiter.pinLocked(UUID.randomUUID())).as("another link").isFalse();
+    }
 
     @Test
     void limitsComeFromTheConfiguration() {

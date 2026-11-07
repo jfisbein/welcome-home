@@ -10,6 +10,7 @@ import welcomehome.access.GuestLinks.GuestLink;
 import welcomehome.audit.AccessEvent;
 import welcomehome.audit.AccessEvents;
 import welcomehome.audit.AccessOutcome;
+import welcomehome.links.LinkPins;
 import welcomehome.links.LinkStatus;
 import welcomehome.locks.LocationCheck;
 import welcomehome.locks.Locks;
@@ -27,6 +28,8 @@ import welcomehome.nuki.PendingAction;
  *     <li>the link exists, its MAC is valid and it is not revoked;</li>
  *     <li>rate limit per link;</li>
  *     <li>within the link's dates, and within its schedule if it has one;</li>
+ *     <li>the link's PIN, if it has one: a link that has spent its wrong PINs refuses every attempt, and a wrong one
+ *     counts against the link;</li>
  *     <li>the door is available: its lock is active and the owner's Nuki connection is OK; for the building
  *     entrance, the link's lock has one, an Opener, and it is active;</li>
  *     <li>for a door that checks where its guests are, the guest is in front of it, or confirms being so
@@ -80,9 +83,10 @@ class OpenDoor {
     /**
      * @param position  where the guest's browser says they are, or null if it did not say
      * @param confirmed whether the guest confirmed being in front of the door, when asked to
+     * @param pin       what the guest typed when the link asked for a PIN, or null
      */
     Opening open(String token, Door door, String ip, @Nullable String country, @Nullable GuestPosition position,
-                 boolean confirmed) {
+                 boolean confirmed, @Nullable String pin) {
         if (!rateLimiter.tryAttemptFromIp(ip)) {
             return new Opening(AccessOutcome.TOO_MANY_ATTEMPTS, null);
         }
@@ -94,7 +98,7 @@ class OpenDoor {
         var link = guestLink.link();
         // The token is verified: the entrance may be read, and the attempt is recorded with it.
         var entrance = door == Door.ENTRANCE ? guestLinks.entrance(link).orElse(null) : null;
-        var attempt = checkAndUnlatch(guestLink, door, entrance, position, confirmed);
+        var attempt = checkAndUnlatch(guestLink, door, entrance, position, confirmed, pin);
         var location = attempt.location();
         accessEvents.record(new AccessEvent(link.ownerId(), link.linkId(), link.lockId(),
                 entrance == null ? null : entrance.id(), attempt.outcome(), ip, country,
@@ -105,7 +109,7 @@ class OpenDoor {
 
     /** @param entrance the link's entrance, for {@link Door#ENTRANCE}, or null if it has none */
     private Attempt checkAndUnlatch(GuestLink guestLink, Door door, @Nullable OwnerLock entrance,
-                                    @Nullable GuestPosition position, boolean confirmed) {
+                                    @Nullable GuestPosition position, boolean confirmed, @Nullable String pin) {
         var link = guestLink.link();
         if (guestLink.status() == LinkStatus.REVOKED) {
             return Attempt.of(AccessOutcome.REVOKED);
@@ -121,6 +125,10 @@ class OpenDoor {
         }
         if (!guestLinks.withinSchedule(link, Instant.now())) {
             return Attempt.of(AccessOutcome.OUTSIDE_SCHEDULE);
+        }
+        var pinOutcome = checkPin(link, pin);
+        if (pinOutcome != null) {
+            return Attempt.of(pinOutcome);
         }
         if (door == Door.ENTRANCE) {
             if (entrance == null || !guestLinks.entranceAvailable(link, entrance)) {
@@ -152,6 +160,29 @@ class OpenDoor {
         var nukiSmartlockId = lock.get().nukiSmartlockId();
         return new Attempt(lockActions.runOnce(link.lockId(), () -> unlatchAndConfirm(link.ownerId(), nukiSmartlockId)),
                 location);
+    }
+
+    /**
+     * The PIN, if the link has one. A link that spent its wrong PINs refuses before comparing anything, so that
+     * guessing gets nowhere even when it hits.
+     *
+     * @return why the guest cannot go on, or null if the link has no PIN or the guest typed it
+     */
+    private @Nullable AccessOutcome checkPin(ResolvedLink link, @Nullable String typed) {
+        if (!guestLinks.pinRequired(link)) {
+            return null;
+        }
+        if (rateLimiter.pinLocked(link.linkId())) {
+            return AccessOutcome.TOO_MANY_ATTEMPTS;
+        }
+        if (typed == null || typed.isBlank()) {
+            return AccessOutcome.PIN_REQUIRED;
+        }
+        if (guestLinks.checkPin(link, typed) == LinkPins.Check.MATCHES) {
+            return null;
+        }
+        rateLimiter.pinFailed(link.linkId());
+        return AccessOutcome.WRONG_PIN;
     }
 
     /**

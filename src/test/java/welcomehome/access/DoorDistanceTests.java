@@ -59,8 +59,8 @@ class DoorDistanceTests {
         assertThat(GuestPosition.of(40.0, null, 10.0)).isNull();
         assertThat(GuestPosition.of(40.41677, -3.70379, 10.0)).hasToString("GuestPosition[***]");
         assertThat(new OpenController.OpenRequest("secret-token", "lock",
-                new OpenController.PositionRequest(40.41677, -3.70379, 10.0), true).toString())
-                .doesNotContain("40.41677", "3.70379", "secret-token");
+                new OpenController.PositionRequest(40.41677, -3.70379, 10.0), true, "482913").toString())
+                .doesNotContain("40.41677", "3.70379", "secret-token", "482913");
     }
 
     /** A guest due north of the door at this distance, with this accuracy, in metres. */

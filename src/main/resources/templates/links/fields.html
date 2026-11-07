@@ -28,6 +28,28 @@
             <small th:if="${validUntilError == 'past'}" th:text="#{link-form.until.error.past}">El fin ya ha pasado.</small>
         </label>
     </div>
+    <!-- The PIN a guest types after the slide, if any. A password field with an eye (reveal.js) to read it: the owner
+         can see it again whenever they edit the link. -->
+    <label for="link-pin" th:text="#{link-form.pin}">PIN (opcional)</label>
+    <fieldset role="group" class="reveal">
+        <input id="link-pin" type="password" name="pin" inputmode="numeric" autocomplete="off"
+               th:pattern="|[0-9]{${pinMinLength},${pinMaxLength}}|" th:maxlength="${pinMaxLength}" th:value="${pin}"
+               aria-describedby="link-pin-hint"
+               th:attr="aria-invalid=${pinError} ? 'true' : null">
+        <button type="button" class="secondary" hidden data-reveal="link-pin" aria-pressed="false"
+                th:data-show="#{link-form.pin.show}" th:data-hide="#{link-form.pin.hide}"
+                th:aria-label="#{link-form.pin.show}">
+            <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" hidden>
+                <path d="M17.94 17.94A10.9 10.9 0 0 1 12 19c-7 0-11-7-11-7a19.8 19.8 0 0 1 5.06-5.94M9.9 4.24A10.9 10.9 0 0 1 12 5c7 0 11 7 11 7a19.9 19.9 0 0 1-3.17 4.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/>
+                <path d="M1 1l22 22"/></svg>
+        </button>
+    </fieldset>
+    <small id="link-pin-hint" th:text="${pinError} ? #{link-form.pin.error(${pinMinLength}, ${pinMaxLength})} : #{link-form.pin.hint(${pinMinLength}, ${pinMaxLength})}">
+        Si pones un PIN, quien abra el enlace tendrá que escribirlo después de deslizar.</small>
     <!-- A row per day, no JavaScript needed: CSS hides the hours of a whole day. schedule.js keeps a row's two ticks
          in step and offers to copy one day's hours to the rest. -->
     <details class="schedule" th:open="${scheduleOpen or scheduleNeverOpens}">

@@ -46,7 +46,11 @@ public enum AccessOutcome {
      */
     CONFIRM_LOCATION("confirm-location", AccessResult.DENIED),
     /** The door checks where its guests are, refuses those far from it, and this one was. */
-    TOO_FAR("too-far", AccessResult.DENIED);
+    TOO_FAR("too-far", AccessResult.DENIED),
+    /** The link has a PIN and none came with the slide. The page asks for it first, so only other clients get here. */
+    PIN_REQUIRED("pin-required", AccessResult.DENIED),
+    /** The link has a PIN and this was not it. */
+    WRONG_PIN("wrong-pin", AccessResult.DENIED);
 
     private final String code;
     private final AccessResult result;

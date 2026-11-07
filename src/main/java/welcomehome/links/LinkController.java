@@ -42,7 +42,8 @@ class LinkController {
     String edit(CurrentOwner owner, @PathVariable UUID linkId, Model model) {
         var link = findEditable(owner, linkId);
         LinkForm.of(link.label(), link.validFrom().toInstant(), link.validUntil().toInstant(),
-                        schedules.of(owner.id(), linkId), ZoneId.of(link.timeZone()))
+                        schedules.of(owner.id(), linkId), ZoneId.of(link.timeZone()),
+                        accessLinks.pinOf(owner.id(), linkId).orElse(""))
                 .addTo(model, null);
         model.addAttribute("link", link);
         return "links/edit";
@@ -51,10 +52,10 @@ class LinkController {
     @PatchMapping
     String update(CurrentOwner owner, @PathVariable UUID linkId, @RequestParam(defaultValue = "") String label,
                   @RequestParam(defaultValue = "") String validFrom, @RequestParam(defaultValue = "") String validUntil,
-                  @RequestParam Map<String, String> params, Model model, HttpServletResponse response,
+                  @RequestParam(defaultValue = "") String pin, @RequestParam Map<String, String> params, Model model, HttpServletResponse response,
                   RedirectAttributes redirect) {
         var link = findEditable(owner, linkId);
-        var form = new LinkForm(label, validFrom, validUntil, ScheduleForm.of(params));
+        var form = new LinkForm(label, validFrom, validUntil, ScheduleForm.of(params), pin);
         var validation = form.validate(ZoneId.of(link.timeZone()), Instant.now());
         if (!validation.isValid()) {
             response.setStatus(HttpStatus.BAD_REQUEST.value());
@@ -64,7 +65,7 @@ class LinkController {
         }
         if (!accessLinks.update(owner.id(), linkId, validation.label(),
                 Objects.requireNonNull(validation.validFrom()), Objects.requireNonNull(validation.validUntil()),
-                validation.schedule())) {
+                validation.schedule(), validation.pin())) {
             throw notFound();
         }
         redirect.addFlashAttribute("updatedLabel", validation.label());

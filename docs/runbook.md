@@ -120,7 +120,7 @@ A new major version, such as `v3`, may break compatibility: read its release not
 
 ## Roll back
 
-Pin the previous release, such as `ghcr.io/jfisbein/welcome-home:v2.0.0`, and deploy. Within a major version the older release works with the newer schema, so nothing else is needed; go back to `:v2` once a fixed release is out. **One thing to weigh first:** a release before 2.6.0 knows nothing of links' schedules, and those links open at any time within their dates. Before going back that far, revoke the links that have a schedule, or accept that; `SELECT DISTINCT link_id FROM access_link_schedule` lists them. Rolling back to an earlier major version means restoring the dump taken before upgrading (next section), and pinning that major's last release, such as `:v1.12.0`.
+Pin the previous release, such as `ghcr.io/jfisbein/welcome-home:v2.0.0`, and deploy. Within a major version the older release works with the newer schema, so nothing else is needed; go back to `:v2` once a fixed release is out. **One thing to weigh first:** a release before 2.6.0 knows nothing of links' schedules, and those links open at any time within their dates. Before going back that far, revoke the links that have a schedule, or accept that; `SELECT DISTINCT link_id FROM access_link_schedule` lists them. **Another to weigh:** a release before 2.16.0 knows nothing of links' PINs, and those links open without one. Before going back that far, revoke the links that ask for one, or accept that; `SELECT id FROM access_link WHERE pin_encrypted IS NOT NULL` lists them. Rolling back to an earlier major version means restoring the dump taken before upgrading (next section), and pinning that major's last release, such as `:v1.12.0`.
 
 ## Restore a dump
 

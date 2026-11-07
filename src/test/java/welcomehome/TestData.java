@@ -114,6 +114,11 @@ public final class TestData {
                 .params(label, lock).query(UUID.class).single();
     }
 
+    /** Gives a link the PIN that {@code CryptoService.encryptLinkPin} encrypted. */
+    public void pin(UUID link, byte[] encrypted) {
+        db.sql("UPDATE access_link SET pin_encrypted = ? WHERE id = ?").params(encrypted, link).update();
+    }
+
     /** The hours at which a link opens on a day, local to its lock: 00:00 to 00:00 is the whole day. */
     public void schedule(UUID link, DayOfWeek day, String opens, String closes) {
         db.sql("""

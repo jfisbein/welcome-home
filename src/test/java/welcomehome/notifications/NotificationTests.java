@@ -156,11 +156,12 @@ class NotificationTests {
                 "no ha confirmado que se abriera: puede que se abriera o que no.");
     }
 
-    /** All but a guest asked to confirm where they are, whose mistake was caught. */
+    /** All but a guest asked to confirm where they are or to type a PIN, whose mistake was caught. */
     @Test
     void everyOutcomeHasItsEmail() throws Exception {
         var emailed = Arrays.stream(AccessOutcome.values())
-                .filter(outcome -> outcome != AccessOutcome.CONFIRM_LOCATION).toList();
+                .filter(outcome -> outcome != AccessOutcome.CONFIRM_LOCATION && outcome != AccessOutcome.PIN_REQUIRED)
+                .toList();
         for (var outcome : emailed) {
             record(insertLink(outcome.code()), outcome);
         }
@@ -180,6 +181,16 @@ class NotificationTests {
         var email = theOnlyEmail();
         assertThat(email.getSubject()).isEqualTo("Casa: intento denegado con el enlace de Luis");
         assertThat(text(email)).contains("se ha denegado: estaba lejos de la puerta.");
+    }
+
+    @Test
+    void aWrongPinIsNewsButNotTypingNoneYet() throws Exception {
+        record(linkId, AccessOutcome.PIN_REQUIRED);
+        record(insertLink("Luis"), AccessOutcome.WRONG_PIN);
+
+        var email = theOnlyEmail();
+        assertThat(email.getSubject()).isEqualTo("Casa: intento denegado con el enlace de Luis");
+        assertThat(text(email)).contains("se ha denegado: el PIN escrito era incorrecto.");
     }
 
     /** The guest may not have been there, and a door unlatched from afar may stay ajar: whatever the preferences. */

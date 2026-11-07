@@ -12,6 +12,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.status;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
@@ -78,6 +79,9 @@ class OpenDoorTests {
 
     @Autowired
     CryptoService crypto;
+
+    @Autowired
+    RateLimiter rateLimiter;
 
     JdbcClient migrator;
     TestData data;
@@ -610,6 +614,76 @@ class OpenDoorTests {
         return new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8);
     }
 
+    @Test
+    void aLinkWithAPinAsksForItBeforeAnythingReachesNuki() {
+        var token = signer.sign(linkWithPin("4821"), 1);
+
+        assertThat(open(token)).hasStatus(HttpStatus.PRECONDITION_REQUIRED)
+                .bodyJson().extractingPath("$.result").isEqualTo("pin-required");
+
+        assertThat(lastEvent()).startsWith("DENIED|pin-required|");
+        nuki.verify(0, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
+    void aWrongPinIsRefusedRecordedAndNeverReachesNuki() {
+        var token = signer.sign(linkWithPin("4821"), 1);
+
+        assertThat(openWithPin(token, "1234")).hasStatus(HttpStatus.UNAUTHORIZED)
+                .bodyJson().extractingPath("$.result").isEqualTo("wrong-pin");
+
+        assertThat(lastEvent()).startsWith("DENIED|wrong-pin|");
+        nuki.verify(0, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
+    void theRightPinOpensTheDoor() {
+        nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));
+        lockLogShowsUnlatch(0);
+        var token = signer.sign(linkWithPin("4821"), 1);
+
+        assertThat(openWithPin(token, " 4821 ")).hasStatusOk()
+                .bodyJson().extractingPath("$.result").isEqualTo("opened");
+
+        nuki.verify(1, postRequestedFor(urlPathEqualTo("/smartlock/17/action")));
+    }
+
+    @Test
+    void aLinkWithoutAPinIgnoresOneSent() {
+        nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));
+        lockLogShowsUnlatch(0);
+        var token = signer.sign(insertLink("now() - interval '1 hour'", "now() + interval '1 day'"), 1);
+
+        assertThat(openWithPin(token, "9999")).hasStatusOk()
+                .bodyJson().extractingPath("$.result").isEqualTo("opened");
+    }
+
+    @Test
+    void aLinkThatSpentItsWrongPinsRefusesEvenTheRightOne() {
+        var link = linkWithPin("4821");
+        for (var i = 0; i < 5; i++) {
+            rateLimiter.pinFailed(link);
+        }
+
+        assertThat(openWithPin(signer.sign(link, 1), "4821")).hasStatus(HttpStatus.TOO_MANY_REQUESTS)
+                .bodyJson().extractingPath("$.result").isEqualTo("too-many-attempts");
+
+        nuki.verify(0, anyRequestedFor(anyUrl()));
+    }
+
+    @Test
+    void theStoredPinIsNotInClearAndOnlyItsLinkDecryptsIt() {
+        var link = linkWithPin("4821");
+        var owner = migrator.sql("SELECT owner_id FROM access_link WHERE id = ?").param(link).query(UUID.class).single();
+        var stored = migrator.sql("SELECT pin_encrypted FROM access_link WHERE id = ?").param(link)
+                .query(byte[].class).single();
+
+        assertThat(new String(stored, StandardCharsets.ISO_8859_1)).doesNotContain("4821");
+        assertThat(crypto.decryptLinkPin(owner, link, stored)).isEqualTo("4821");
+        assertThatThrownBy(() -> crypto.decryptLinkPin(owner, UUID.randomUUID(), stored))
+                .isInstanceOf(welcomehome.crypto.DecryptionFailedException.class);
+    }
+
     private MvcTestResult open(String token) {
         return open(token, ip);
     }
@@ -621,6 +695,18 @@ class OpenDoorTests {
     /** Opens one of the link's doors, as the guest page does: {@code lock} or {@code entrance}. */
     private MvcTestResult openDoor(String token, String door) {
         return send(ip, "{\"token\": \"" + token + "\", \"door\": \"" + door + "\"}");
+    }
+
+    private MvcTestResult openWithPin(String token, String pin) {
+        return send(ip, "{\"token\": \"" + token + "\", \"pin\": \"" + pin + "\"}");
+    }
+
+    /** A link valid now, with this PIN. */
+    private UUID linkWithPin(String pin) {
+        var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
+        var owner = migrator.sql("SELECT owner_id FROM access_link WHERE id = ?").param(link).query(UUID.class).single();
+        data.pin(link, crypto.encryptLinkPin(owner, link, pin));
+        return link;
     }
 
     private MvcTestResult send(String from, String body) {

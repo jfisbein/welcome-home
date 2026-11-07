@@ -87,6 +87,12 @@ function setUp(door, slider) {
     // browser afresh, in case it placed them wrong. Only within this page: a guest who reloads it is asked again.
     let confirming = false;
     let askAfresh = false;
+    // For a link with a PIN: the form that asks for it after the slide, and the PIN while the guest is asked to
+    // confirm where they are, so that they are not asked twice.
+    const needsPin = slider.dataset.pinRequired === "true";
+    const pinForm = door.querySelector(".pin-form");
+    const pinField = pinForm ? pinForm.querySelector("input") : null;
+    let rememberedPin = null;
 
     // Whether a pointer is down on the slider, and whether it started on the thumb: only then may it move it.
     let touching = false;
@@ -178,7 +184,45 @@ function setUp(door, slider) {
         tick();
     }
 
-    async function open() {
+    // The slide is over and the link wants a PIN: the thumb stays at the end, off, while the guest types it.
+    function askForPin() {
+        slider.disabled = true;
+        message.hidden = true;
+        pinField.removeAttribute("aria-invalid");
+        pinForm.hidden = false;
+        pinField.focus();
+    }
+
+    function stopAskingForPin() {
+        pinForm.hidden = true;
+        pinField.value = "";
+        pinField.removeAttribute("aria-invalid");
+    }
+
+    if (needsPin) {
+        pinForm.addEventListener("submit", event => {
+            event.preventDefault();
+            const typed = pinField.value.trim();
+            if (typed === "") {
+                pinField.focus();
+                return;
+            }
+            open(typed);
+        });
+        pinForm.querySelector("[data-cancel-pin]").addEventListener("click", () => {
+            stopAskingForPin();
+            enable();
+        });
+    }
+
+    async function open(pin) {
+        if (needsPin && pin === undefined) {
+            if (rememberedPin === null) {
+                askForPin();
+                return;
+            }
+            pin = rememberedPin;
+        }
         slider.disabled = true;
         label.setAttribute("aria-busy", "true");
         const request = {token: window.location.pathname.split("/").pop(), door: slider.dataset.door};
@@ -190,6 +234,12 @@ function setUp(door, slider) {
             request.position = found.error ? null : found;
             request.positionError = found.error ?? null;
             request.confirmed = confirming;
+        }
+        if (needsPin) {
+            request.pin = pin;
+            for (const control of pinForm.elements) {
+                control.disabled = true;
+            }
         }
         label.textContent = label.dataset.busyText;
         // Without an answer from the app, the request may still have reached the lock: the guest is told to push
@@ -210,6 +260,26 @@ function setUp(door, slider) {
             console.error(e);
         }
         confirming = false;
+        if (needsPin) {
+            for (const control of pinForm.elements) {
+                control.disabled = false;
+            }
+            if (result === "wrong-pin" || result === "pin-required") {
+                // Typing it again needs no second slide.
+                label.removeAttribute("aria-busy");
+                label.textContent = slide;
+                message.textContent = messages[result];
+                message.hidden = false;
+                rememberedPin = null;
+                pinField.value = "";
+                pinField.setAttribute("aria-invalid", "true");
+                pinField.focus();
+                return;
+            }
+            stopAskingForPin();
+            // The PIN passed: a guest asked to confirm where they are does not type it again.
+            rememberedPin = result === "confirm-location" || result === "too-far" ? pin : null;
+        }
         if (result === "confirm-location" || result === "too-far") {
             label.removeAttribute("aria-busy");
             message.textContent = distance === null ? messages["confirm-location-unknown"]

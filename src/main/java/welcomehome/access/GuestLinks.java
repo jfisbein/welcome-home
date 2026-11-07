@@ -4,8 +4,10 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Optional;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import welcomehome.crypto.LinkTokenSigner;
+import welcomehome.links.LinkPins;
 import welcomehome.links.LinkSchedule;
 import welcomehome.links.LinkSchedules;
 import welcomehome.links.LinkStatus;
@@ -26,14 +28,16 @@ class GuestLinks {
     private final LockProvider lockProvider;
     private final Locks locks;
     private final LinkSchedules schedules;
+    private final LinkPins pins;
 
     GuestLinks(LinkTokenSigner signer, ResolvedLinkDao resolvedLinks, LockProvider lockProvider, Locks locks,
-               LinkSchedules schedules) {
+               LinkSchedules schedules, LinkPins pins) {
         this.signer = signer;
         this.resolvedLinks = resolvedLinks;
         this.lockProvider = lockProvider;
         this.locks = locks;
         this.schedules = schedules;
+        this.pins = pins;
     }
 
     /**
@@ -62,6 +66,16 @@ class GuestLinks {
     /** Tells whether a link's schedule lets it open at an instant: only for a link whose token was verified. */
     boolean withinSchedule(ResolvedLink link, Instant now) {
         return schedule(link).allows(now, ZoneId.of(link.lockTimeZone()));
+    }
+
+    /** Tells whether a link asks for a PIN: only for a link whose token was verified. */
+    boolean pinRequired(ResolvedLink link) {
+        return pins.isSet(link.ownerId(), link.linkId());
+    }
+
+    /** Compares what a guest typed with the link's PIN: only for a link whose token was verified. */
+    LinkPins.Check checkPin(ResolvedLink link, @Nullable String typed) {
+        return pins.check(link.ownerId(), link.linkId(), typed);
     }
 
     /**

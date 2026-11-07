@@ -15,7 +15,8 @@ import java.util.UUID;
  * @param schedule   the days and hours at which it opens, in the reader's language; none if at any time
  * @param status     its state now
  * @param url        its guest URL, computed for the current token version
+ * @param hasPin     whether it asks the guest for a PIN
  */
 record LinkView(UUID id, String label, ZonedDateTime validFrom, ZonedDateTime validUntil, List<String> schedule,
-                LinkStatus status, URI url) {
+                LinkStatus status, URI url, boolean hasPin) {
 }

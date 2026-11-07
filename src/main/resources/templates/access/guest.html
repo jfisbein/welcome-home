@@ -35,8 +35,18 @@
                     <input type="range" th:id="${door.id}" min="0" max="100" step="1" value="0"
                            th:aria-label="${door.opener} ? #{guest.entrance.open} : #{guest.open}"
                            th:data-door="${door.door}" th:data-opener="${door.opener}"
-                           th:data-location-check="${door.checksLocation}">
+                           th:data-location-check="${door.checksLocation}" th:data-pin-required="${pinRequired}">
                 </div>
+                <!-- After the slide, for a link with a PIN: open.js shows it, and sends the PIN with the slide. -->
+                <form class="pin-form" th:if="${pinRequired}" hidden>
+                    <label th:for="|${door.id}-pin|" th:text="#{guest.pin.label}">PIN</label>
+                    <input type="text" th:id="|${door.id}-pin|" inputmode="numeric" pattern="[0-9]*" autocomplete="off"
+                           maxlength="8" enterkeyhint="go" required>
+                    <div role="group">
+                        <button type="submit" th:text="#{guest.pin.submit}">Abrir</button>
+                        <button type="button" class="secondary" data-cancel-pin th:text="#{guest.pin.cancel}">Cancelar</button>
+                    </div>
+                </form>
                 <p class="open-result" role="status" hidden></p>
                 <p><small th:text="${door.opener} ? #{guest.entrance.hint} : #{guest.hint}">
                     Pulsa cuando estés delante de la puerta.</small></p>
