@@ -188,6 +188,8 @@ function setUp(door, slider) {
     function askForPin() {
         slider.disabled = true;
         message.hidden = true;
+        // The thumb stays at the end, over where the text is on a narrow screen: the text waits.
+        label.textContent = "";
         pinField.removeAttribute("aria-invalid");
         pinForm.hidden = false;
         pinField.focus();
@@ -211,6 +213,7 @@ function setUp(door, slider) {
         });
         pinForm.querySelector("[data-cancel-pin]").addEventListener("click", () => {
             stopAskingForPin();
+            label.textContent = slide;
             enable();
         });
     }
@@ -267,7 +270,7 @@ function setUp(door, slider) {
             if (result === "wrong-pin" || result === "pin-required") {
                 // Typing it again needs no second slide.
                 label.removeAttribute("aria-busy");
-                label.textContent = slide;
+                label.textContent = "";
                 message.textContent = messages[result];
                 message.hidden = false;
                 rememberedPin = null;

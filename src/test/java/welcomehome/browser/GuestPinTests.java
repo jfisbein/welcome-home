@@ -71,6 +71,7 @@ class GuestPinTests extends BrowserTest {
         assertThat(pinForm).isVisible();
         assertThat(pinField).isFocused();
         assertThat(slider).isDisabled();
+        assertThat(page.locator(".slide-label")).hasText("");
         assertUnlatches(0);
     }
 
@@ -84,6 +85,7 @@ class GuestPinTests extends BrowserTest {
         assertThat(pinField).hasValue("");
         assertThat(pinField).hasAttribute("aria-invalid", "true");
         assertThat(pinField).isFocused();
+        assertThat(page.locator(".slide-label")).hasText("");
         assertUnlatches(0);
 
         pinField.fill("4821");
@@ -103,6 +105,7 @@ class GuestPinTests extends BrowserTest {
         assertThat(pinForm).isHidden();
         assertThat(slider).isEnabled();
         assertThat(slider).hasValue("0");
+        assertThat(page.locator(".slide-label")).hasText("Desliza para abrir");
         assertUnlatches(0);
     }
 
