@@ -65,6 +65,7 @@ Out of scope so far: geofencing, push notifications, exceptions to a link's sche
 - **What stays out of the repository**, which is public, history included: production's hostnames, addresses, container ids and paths on the server, and when anyone opened a door or which devices they have. Tokens and keysets, of course. What runs where belongs in the owner's private notes, what each release changed in its GitHub release.
 - **Commits**: one per task, pushed to `main` once `./gradlew build` is green.
 - **Start with `git fetch`**: the development clone has often been many commits behind `origin/main` ([testing](docs/dev/testing.md#practice)).
+- **Docs are part of the task**: a change that makes a page in `docs/dev/` wrong updates it in the same commit, and so does anything learned that the next maintainer would need (a decision and its why, a test, something found about Nuki, an open question). It goes in its area's page, never here: this file only gets what holds for every task. A new area gets its page, with its "Read when", and a line under Modules and What to read for a task. Now and then the owner runs the `review-docs` skill (`.claude/skills/review-docs/`), which catches what this misses.
 
 ## Modules
 
@@ -110,6 +111,7 @@ Releasing, the image and its workflow: [release](docs/dev/release.md).
 | `deploy/` | production stack: `compose.yaml`, `db-init/`, `backup/`, `restore.sh` |
 | `compose.yaml` | development Postgres |
 | `docs/dev/` | for maintainers: one page per area, from this file |
+| `.claude/skills/` | skills for Claude Code: `review-docs`, the periodic review of these docs |
 | `docs/runbook.md` | production operations |
 | `docs/design/` | designs of what is not built yet |
 | `docs/archive/` | earlier reviews and plans, for their reasoning only |
