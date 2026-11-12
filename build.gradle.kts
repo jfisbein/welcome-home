@@ -58,7 +58,7 @@ dependencies {
     // SMTP server stand-in for the owners' notifications.
     testImplementation("com.icegreen:greenmail:2.1.15")
     // Parses the templates for TemplateTextTests, which finds text that is not in the bundles.
-    testImplementation("org.jsoup:jsoup:1.23.2")
+    testImplementation("org.jsoup:jsoup:1.24.1")
     // Runs the app's JavaScript in a real browser (src/test/java/welcomehome/browser), which it downloads when first used.
     testImplementation("com.microsoft.playwright:playwright:1.64.0")
     // axe-core, which AccessibilityTests runs on every page to find what breaks WCAG 2.2 AA.
