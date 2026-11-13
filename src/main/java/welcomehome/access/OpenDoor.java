@@ -5,6 +5,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import welcomehome.access.GuestLinks.GuestLink;
 import welcomehome.audit.AccessEvent;
@@ -13,6 +15,7 @@ import welcomehome.audit.AccessOutcome;
 import welcomehome.links.LinkPins;
 import welcomehome.links.LinkStatus;
 import welcomehome.locks.LocationCheck;
+import welcomehome.locks.LockReachability;
 import welcomehome.locks.Locks;
 import welcomehome.locks.OwnerLock;
 import welcomehome.nuki.Coordinates;
@@ -44,6 +47,8 @@ import welcomehome.nuki.PendingAction;
 @Service
 class OpenDoor {
 
+    private static final Logger log = LoggerFactory.getLogger(OpenDoor.class);
+
     private final RateLimiter rateLimiter;
     private final GuestLinks guestLinks;
     private final Locks locks;
@@ -51,9 +56,11 @@ class OpenDoor {
     private final LockMutex lockActions;
     private final UnlatchConfirmation confirmation;
     private final AccessEvents accessEvents;
+    private final LockReachability reachability;
 
     OpenDoor(RateLimiter rateLimiter, GuestLinks guestLinks, Locks locks, LockProvider lockProvider,
-             LockMutex lockActions, UnlatchConfirmation confirmation, AccessEvents accessEvents) {
+             LockMutex lockActions, UnlatchConfirmation confirmation, AccessEvents accessEvents,
+             LockReachability reachability) {
         this.rateLimiter = rateLimiter;
         this.guestLinks = guestLinks;
         this.locks = locks;
@@ -61,6 +68,7 @@ class OpenDoor {
         this.lockActions = lockActions;
         this.confirmation = confirmation;
         this.accessEvents = accessEvents;
+        this.reachability = reachability;
     }
 
     /**
@@ -144,7 +152,7 @@ class OpenDoor {
             }
             var openerSmartlockId = entrance.nukiSmartlockId();
             return new Attempt(lockActions.runOnce(entrance.id(),
-                    () -> unlatchAndConfirm(link.ownerId(), openerSmartlockId)), location);
+                    () -> unlatchAndConfirm(link.ownerId(), entrance.id(), openerSmartlockId)), location);
         }
         if (!guestLinks.doorAvailable(link)) {
             return Attempt.of(AccessOutcome.UNAVAILABLE);
@@ -158,8 +166,8 @@ class OpenDoor {
             return refused(location);
         }
         var nukiSmartlockId = lock.get().nukiSmartlockId();
-        return new Attempt(lockActions.runOnce(link.lockId(), () -> unlatchAndConfirm(link.ownerId(), nukiSmartlockId)),
-                location);
+        return new Attempt(lockActions.runOnce(link.lockId(),
+                () -> unlatchAndConfirm(link.ownerId(), link.lockId(), nukiSmartlockId)), location);
     }
 
     /**
@@ -204,7 +212,31 @@ class OpenDoor {
                 : AccessOutcome.CONFIRM_LOCATION, location);
     }
 
-    private AccessOutcome unlatchAndConfirm(UUID ownerId, long nukiSmartlockId) {
+    private AccessOutcome unlatchAndConfirm(UUID ownerId, UUID lockId, long nukiSmartlockId) {
+        var outcome = unlatchAndAwait(ownerId, nukiSmartlockId);
+        try {
+            noteReachability(ownerId, lockId, outcome);
+        } catch (RuntimeException e) {
+            // The lock has been asked already: the guest must still learn what came of it.
+            log.warn("Could not note whether Nuki reached lock {}", lockId, e);
+        }
+        return outcome;
+    }
+
+    /**
+     * What the unlatch tells of Nuki's connection to the lock, which Nuki may wrongly report as offline
+     * ({@link LockReachability}). A refusal in night mode tells nothing either way, nor does a failure that is
+     * about the owner's connection to Nuki.
+     */
+    private void noteReachability(UUID ownerId, UUID lockId, AccessOutcome outcome) {
+        switch (outcome) {
+            case OPENED -> reachability.opened(ownerId, lockId);
+            case NOT_CONFIRMED, NUKI_ERROR, LOCK_FAILED -> reachability.failedToOpen(ownerId, lockId);
+            default -> { }
+        }
+    }
+
+    private AccessOutcome unlatchAndAwait(UUID ownerId, long nukiSmartlockId) {
         var requestedAt = Instant.now();
         var unlatch = PendingAction.UNREPORTED;
         try {

@@ -17,6 +17,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import welcomehome.locks.LockReachability.Connection;
 import welcomehome.nuki.LockProvider;
 import welcomehome.nuki.LockProviderException;
 import welcomehome.nuki.LockSnapshot;
@@ -35,10 +36,12 @@ public class LockChecks {
     private static final LockWarnings UNKNOWN = new LockWarnings(Map.of(), true);
 
     private final LockProvider lockProvider;
+    private final LockReachability reachability;
     private final Executor executor = Executors.newVirtualThreadPerTaskExecutor();
 
-    LockChecks(LockProvider lockProvider) {
+    LockChecks(LockProvider lockProvider, LockReachability reachability) {
         this.lockProvider = lockProvider;
+        this.reachability = reachability;
     }
 
     /**
@@ -71,7 +74,7 @@ public class LockChecks {
         for (var lock : active) {
             var state = states.get(lock.nukiSmartlockId());
             if (state != null) {
-                var warnings = warningsOf(lock, state);
+                var warnings = warningsOf(lock, state, reachability.observe(ownerId, lock.id(), state.online()));
                 if (!warnings.isEmpty()) {
                     byLock.put(lock.id(), warnings);
                 }
@@ -80,9 +83,9 @@ public class LockChecks {
         return new LockWarnings(byLock, false);
     }
 
-    private static List<LockWarning> warningsOf(OwnerLock lock, LockSnapshot state) {
+    private static List<LockWarning> warningsOf(OwnerLock lock, LockSnapshot state, Connection connection) {
         var warnings = new ArrayList<LockWarning>();
-        if (!state.online()) {
+        if (connection == Connection.OFFLINE) {
             warnings.add(LockWarning.OFFLINE);
         }
         if (state.batteryCritical()) {

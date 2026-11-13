@@ -36,14 +36,16 @@ class LocksController {
     private final LockSettings lockSettings;
     private final LockProvider lockProvider;
     private final LockChecks lockChecks;
+    private final LockReachability reachability;
 
     LocksController(Locks locks, LockSync lockSync, LockSettings lockSettings, LockProvider lockProvider,
-                    LockChecks lockChecks) {
+                    LockChecks lockChecks, LockReachability reachability) {
         this.locks = locks;
         this.lockSync = lockSync;
         this.lockSettings = lockSettings;
         this.lockProvider = lockProvider;
         this.lockChecks = lockChecks;
+        this.reachability = reachability;
     }
 
     @GetMapping
@@ -155,6 +157,7 @@ class LocksController {
             try {
                 var snapshot = lockProvider.getSnapshot(owner.id(), lock.nukiSmartlockId());
                 model.addAttribute("snapshot", snapshot);
+                model.addAttribute("connection", reachability.observe(owner.id(), lock.id(), snapshot.online()));
                 // A lock without a position is offered Nuki's, when Nuki has one, rather than waiting for a sync to
                 // bring it: the owner checks it on the map and saves it. Not over what the owner just typed.
                 var nukis = snapshot.coordinates();

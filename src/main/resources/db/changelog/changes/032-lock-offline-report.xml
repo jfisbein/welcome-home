@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="032-lock-offline-report" author="welcome-home">
+        <comment>
+            Nuki's Web API may report a lock offline while the lock is online and opens. offline_since is when the
+            app first saw Nuki report the lock offline, NULL while Nuki reports it online; offline_disproved_at is
+            when a guest's opening succeeded since then, NULL again once an opening fails. A lock reported offline
+            and disproved is not told to its owner as a problem.
+        </comment>
+        <addColumn tableName="lock">
+            <column name="offline_since" type="timestamptz"/>
+            <column name="offline_disproved_at" type="timestamptz"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

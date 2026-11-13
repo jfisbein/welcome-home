@@ -49,6 +49,69 @@ class LockDao {
                 .update();
     }
 
+    /**
+     * What is kept of Nuki reporting a lock offline.
+     *
+     * @param reported  whether Nuki reported the lock offline when last asked
+     * @param disproved whether an opening has succeeded since Nuki began to, and none has failed after it
+     */
+    record OfflineReport(boolean reported, boolean disproved) {
+    }
+
+    Optional<OfflineReport> findOfflineReport(UUID ownerId, UUID lockId) {
+        return jdbc.sql("""
+                        SELECT offline_since IS NOT NULL AS reported, offline_disproved_at IS NOT NULL AS disproved
+                        FROM lock
+                        WHERE owner_id = :ownerId AND id = :lockId
+                        """)
+                .param("ownerId", ownerId)
+                .param("lockId", lockId)
+                .query((rs, row) -> new OfflineReport(rs.getBoolean("reported"), rs.getBoolean("disproved")))
+                .optional();
+    }
+
+    /** Nuki began to report the lock offline: nothing that opened before tells against it. */
+    void startOfflineReport(UUID ownerId, UUID lockId) {
+        jdbc.sql("""
+                        UPDATE lock SET offline_since = now(), offline_disproved_at = NULL
+                        WHERE owner_id = :ownerId AND id = :lockId
+                        """)
+                .param("ownerId", ownerId)
+                .param("lockId", lockId)
+                .update();
+    }
+
+    void endOfflineReport(UUID ownerId, UUID lockId) {
+        jdbc.sql("""
+                        UPDATE lock SET offline_since = NULL, offline_disproved_at = NULL
+                        WHERE owner_id = :ownerId AND id = :lockId
+                        """)
+                .param("ownerId", ownerId)
+                .param("lockId", lockId)
+                .update();
+    }
+
+    /** An opening succeeded: it disproves a report that Nuki was making, and says nothing without one. */
+    void disproveOfflineReport(UUID ownerId, UUID lockId) {
+        jdbc.sql("""
+                        UPDATE lock SET offline_disproved_at = now()
+                        WHERE owner_id = :ownerId AND id = :lockId AND offline_since IS NOT NULL
+                        """)
+                .param("ownerId", ownerId)
+                .param("lockId", lockId)
+                .update();
+    }
+
+    void believeOfflineReport(UUID ownerId, UUID lockId) {
+        jdbc.sql("""
+                        UPDATE lock SET offline_disproved_at = NULL
+                        WHERE owner_id = :ownerId AND id = :lockId AND offline_disproved_at IS NOT NULL
+                        """)
+                .param("ownerId", ownerId)
+                .param("lockId", lockId)
+                .update();
+    }
+
     List<OwnerLock> findAll(UUID ownerId) {
         return jdbc.sql("""
                         SELECT id, nuki_smartlock_id, name, time_zone, active, relocking_handled_elsewhere, device_type,

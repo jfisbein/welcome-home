@@ -35,6 +35,7 @@ import welcomehome.nuki.NukiStandInConfiguration;
 class LockStateTests {
 
     static final String ALICE = "alice@example.com";
+    static final String OFFLINE = "Nuki indica que la cerradura no tiene conexión";
     static final String AUTO_LOCK_WARNING = "Auto Lock está desactivado.";
 
     @Autowired
@@ -46,8 +47,12 @@ class LockStateTests {
     @Autowired
     PostgreSQLContainer postgres;
 
+    @Autowired
+    LockReachability reachability;
+
     JdbcClient migrator;
     TestData data;
+    UUID aliceId;
     UUID lockId;
 
     @BeforeEach
@@ -56,7 +61,8 @@ class LockStateTests {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
         migrator.sql("DELETE FROM owner").update();
-        lockId = data.lock(data.owner(ALICE), 17, "Casa");
+        aliceId = data.owner(ALICE);
+        lockId = data.lock(aliceId, 17, "Casa");
     }
 
     @Test
@@ -111,7 +117,22 @@ class LockStateTests {
                  "advancedConfig": {"autoLock": true}}
                 """);
 
-        assertThat(lockPage()).bodyText().contains("Motor bloqueado", "Sin conexión con Nuki", "Batería crítica");
+        assertThat(lockPage()).bodyText().contains("Motor bloqueado", OFFLINE, "Batería crítica");
+    }
+
+    @Test
+    void saysThatALockReportedOfflineHasOpenedSince() {
+        connectNuki();
+        nukiReportsState("""
+                {"serverState": 4, "state": {"state": 1, "batteryCritical": false, "batteryCharge": 80},
+                 "advancedConfig": {"autoLock": true}}
+                """);
+        assertThat(lockPage()).bodyText().contains(OFFLINE);
+
+        reachability.opened(aliceId, lockId);
+
+        assertThat(lockPage()).bodyText().contains("pero ha abierto la puerta desde entonces")
+                .doesNotContain(OFFLINE, "En línea");
     }
 
     @Test

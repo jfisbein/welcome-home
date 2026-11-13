@@ -39,7 +39,7 @@ import welcomehome.nuki.NukiStandInConfiguration;
 class LockWarningsTests {
 
     static final String ALICE = "alice@example.com";
-    static final String OFFLINE = "Sin conexión con Nuki";
+    static final String OFFLINE = "Nuki indica que la cerradura no tiene conexión";
     static final String BATTERY = "Batería crítica";
     static final String MOTOR = "Motor bloqueado";
     static final String AUTO_LOCK = "Auto Lock desactivado";
@@ -58,6 +58,9 @@ class LockWarningsTests {
 
     @Autowired
     PostgreSQLContainer postgres;
+
+    @Autowired
+    LockReachability reachability;
 
     JdbcClient migrator;
     TestData data;
@@ -93,6 +96,40 @@ class LockWarningsTests {
         nukiLists(ALL_WELL);
 
         assertThat(body(page)).doesNotContain(OFFLINE, BATTERY, MOTOR, AUTO_LOCK, UNKNOWN);
+    }
+
+    @Test
+    void aLockReportedOfflineThatHasOpenedSinceIsNotWarnedAboutUntilAnOpeningFails() {
+        var casa = migrator.sql("SELECT id FROM lock WHERE nuki_smartlock_id = 17").query(UUID.class).single();
+        connectNuki();
+        nukiLists(ALL_WELL.replace("\"serverState\": 0", "\"serverState\": 4"));
+
+        reachability.opened(aliceId, casa);
+        assertThat(body("/locks")).as("an opening before Nuki's report was seen tells nothing").contains(OFFLINE);
+
+        reachability.opened(aliceId, casa);
+        assertThat(body("/locks")).doesNotContain(OFFLINE);
+        assertThat(body("/")).doesNotContain(OFFLINE);
+
+        reachability.failedToOpen(aliceId, casa);
+        assertThat(body("/locks")).contains(OFFLINE);
+    }
+
+    @Test
+    void anOpeningDisprovesOnlyTheOfflineReportItCameAfter() {
+        var casa = migrator.sql("SELECT id FROM lock WHERE nuki_smartlock_id = 17").query(UUID.class).single();
+        connectNuki();
+        var offline = ALL_WELL.replace("\"serverState\": 0", "\"serverState\": 4");
+        nukiLists(offline);
+        assertThat(body("/locks")).contains(OFFLINE);
+        reachability.opened(aliceId, casa);
+        assertThat(body("/locks")).doesNotContain(OFFLINE);
+
+        nukiLists(ALL_WELL);
+        assertThat(body("/locks")).doesNotContain(OFFLINE);
+
+        nukiLists(offline);
+        assertThat(body("/locks")).as("Nuki reports it offline anew").contains(OFFLINE);
     }
 
     @Test

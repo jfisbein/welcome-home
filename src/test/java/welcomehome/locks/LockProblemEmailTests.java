@@ -40,6 +40,9 @@ class LockProblemEmailTests {
     LockSyncJob job;
 
     @Autowired
+    LockReachability reachability;
+
+    @Autowired
     WireMockServer nuki;
 
     @Autowired
@@ -77,7 +80,7 @@ class LockProblemEmailTests {
         assertThat(email.getSubject()).isEqualTo("Casa: la cerradura necesita que hagas algo");
         assertThat((String) email.getContent()).contains("La batería está crítica",
                 IntegrationTest.BASE_URL + "/locks/" + casa, IntegrationTest.BASE_URL + "/settings/notifications")
-                .doesNotContain("Nuki no puede comunicarse");
+                .doesNotContain("no puede comunicarse con ella");
 
         job.syncAll();
         emails(1);
@@ -101,8 +104,25 @@ class LockProblemEmailTests {
         job.syncAll();
 
         var second = emails(2)[1];
-        assertThat((String) second.getContent()).contains("Nuki no puede comunicarse")
+        assertThat((String) second.getContent()).contains("Nuki indica que no puede comunicarse con ella")
                 .doesNotContain("La batería está crítica");
+    }
+
+    @Test
+    void aLockReportedOfflineThatHasOpenedSinceIsNoProblemUntilAnOpeningFails() {
+        nukiReports(false, false);
+        job.syncAll();
+        emails(1);
+
+        reachability.opened(aliceId, casa);
+        job.syncAll();
+        emails(1);
+        assertThat(migrator.sql("SELECT notified_problems FROM lock WHERE id = ?").param(casa)
+                .query((rs, row) -> String.valueOf(rs.getString(1))).single()).isEqualTo("null");
+
+        reachability.failedToOpen(aliceId, casa);
+        job.syncAll();
+        emails(2);
     }
 
     @Test

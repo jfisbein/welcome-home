@@ -40,5 +40,6 @@
     <include file="changes/029-lock-coordinates.xml" relativeToChangelogFile="true"/>
     <include file="changes/030-location-check.xml" relativeToChangelogFile="true"/>
     <include file="changes/031-access-link-pin.xml" relativeToChangelogFile="true"/>
+    <include file="changes/032-lock-offline-report.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

@@ -40,7 +40,11 @@
                     <span th:case="*" th:text="#{lock.status.unknown}">Estado desconocido</span>
                 </dd>
                 <dt th:text="#{lock.connection}">Conexión</dt>
-                <dd th:text="${snapshot.online} ? #{lock.online} : #{lock.offline}">En línea</dd>
+                <dd th:switch="${connection.name()}">
+                    <span th:case="'ONLINE'" th:text="#{lock.online}">En línea</span>
+                    <span th:case="'OFFLINE'" th:text="#{lock.offline}">Sin conexión</span>
+                    <span th:case="'OFFLINE_YET_OPENING'" th:text="#{lock.offline.opening}">Sin conexión, pero abre</span>
+                </dd>
                 <dt th:text="#{lock.battery}">Batería</dt>
                 <dd th:if="${snapshot.batteryCritical}" th:utext="#{lock.battery.critical}">Batería crítica.</dd>
                 <dd th:if="${!snapshot.batteryCritical and snapshot.batteryCharge != null}"

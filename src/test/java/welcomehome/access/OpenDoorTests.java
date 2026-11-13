@@ -289,6 +289,57 @@ class OpenDoorTests {
     }
 
     @Test
+    void anOpeningDisprovesNukiReportingTheLockOfflineAndAnUnconfirmedOneRestoresIt() {
+        migrator.sql("UPDATE lock SET offline_since = now() - interval '1 hour'").update();
+        nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));
+        var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
+
+        lockLogShowsUnlatch(10);
+        assertThat(open(signer.sign(link, 1))).bodyJson().extractingPath("$.result").isEqualTo("night-mode");
+        assertThat(offlineReportDisproved(lockId)).isFalse();
+
+        lockLogShowsUnlatch(0);
+        assertThat(open(signer.sign(link, 1))).bodyJson().extractingPath("$.result").isEqualTo("opened");
+        assertThat(offlineReportDisproved(lockId)).isTrue();
+
+        nuki.stubFor(get(urlPathEqualTo("/smartlock/17/log"))
+                .willReturn(okJson(log(Instant.now().minus(Duration.ofHours(1)), 3, 0))));
+        assertThat(open(signer.sign(link, 1))).bodyJson().extractingPath("$.result").isEqualTo("not-confirmed");
+        assertThat(offlineReportDisproved(lockId)).isFalse();
+    }
+
+    @Test
+    void anOpeningOfTheEntranceTellsOfTheOpenerNotOfTheLock() {
+        var portal = insertOpenerAsEntrance();
+        migrator.sql("UPDATE lock SET offline_since = now() - interval '1 hour'").update();
+        nuki.stubFor(post("/smartlock/19/action").willReturn(status(204)));
+        nuki.stubFor(get(urlPathEqualTo("/smartlock/19/log")).willReturn(okJson(log(Instant.now(), 3, 0))));
+        var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
+
+        assertThat(openDoor(signer.sign(link, 1), "entrance")).bodyJson().extractingPath("$.result")
+                .isEqualTo("opened");
+
+        assertThat(offlineReportDisproved(portal)).isTrue();
+        assertThat(offlineReportDisproved(lockId)).isFalse();
+    }
+
+    @Test
+    void anOpeningOfALockNukiReportsOnlineDisprovesNothing() {
+        nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));
+        lockLogShowsUnlatch(0);
+        var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
+
+        assertThat(open(signer.sign(link, 1))).bodyJson().extractingPath("$.result").isEqualTo("opened");
+
+        assertThat(offlineReportDisproved(lockId)).isFalse();
+    }
+
+    private boolean offlineReportDisproved(UUID lock) {
+        return migrator.sql("SELECT offline_disproved_at IS NOT NULL FROM lock WHERE id = ?").param(lock)
+                .query(Boolean.class).single();
+    }
+
+    @Test
     void invalidTokenOpensNothingAndRecordsNothing() {
         var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
 

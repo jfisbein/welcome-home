@@ -18,5 +18,5 @@ See also: [links](links.md) (PINs and schedules), [nuki](nuki.md) (the unlatch),
 
 ## Tests
 
-- **Guest flow**: `OpenDoorTests` (order of checks, results, confirmation from the log or Nuki's webhook, the Advanced API's fallback to the plain action, concurrency, client IP, the building entrance), `LockMutexTests` (one action per lock), `TokenLoggingTests` (tokens and PINs never logged), `GuestPageTests` (a GET never calls the lock provider; one slider per door; a link's schedule; what sliding keeps).
+- **Guest flow**: `OpenDoorTests` (order of checks, results, confirmation from the log or Nuki's webhook, the Advanced API's fallback to the plain action, concurrency, client IP, the building entrance, what an opening tells of a lock that Nuki reports offline), `LockMutexTests` (one action per lock), `TokenLoggingTests` (tokens and PINs never logged), `GuestPageTests` (a GET never calls the lock provider; one slider per door; a link's schedule; what sliding keeps).
 - **Where the guest is**: `DoorDistanceTests` (the distance, the rule and its accuracy, the stricter mode, an unknown position), `LocationCheckTests` (what a slide comes to by distance, before anything reaches Nuki, the entrance's position, the history), `GuestLocationTests` in Chromium (the position sent, the 10 seconds' wait and the second slide, a refusal and the fresh position after it).
