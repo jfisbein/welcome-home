@@ -14,5 +14,5 @@ See also: [guest flow](guest-flow.md) (where the PIN and the schedule are checke
 
 ## Tests
 
-- **Links' PINs**: `LinkPinTests` (set, changed and removed from the forms, stored encrypted and bound to its link, read back by its owner alone, refused when not 4 to 8 digits, encrypted again with the new key), `OpenDoorTests` (a PIN asked for before anything reaches Nuki, a wrong one, the right one, one sent to a link without, a link that spent its wrong PINs), `RateLimiterTests`, `GuestPinTests` in Chromium (the form after the slide, typing again after a wrong PIN, cancelling, axe on the open form), `OwnerPagesTests` (the eye).
+- **Links' PINs**: `LinkPinTests` (set, changed and removed from the forms, stored encrypted and bound to its link, read back by its owner alone, refused when not 4 to 8 digits, encrypted again with the new key), `OpenDoorTests` (a PIN asked for before anything reaches Nuki, a wrong one, the right one, one sent to a link without, a link that spent its wrong PINs), `RateLimiterTests`, `GuestPinTests` in Chromium (the form after the slide, typing again after a wrong PIN, told in red, cancelling, axe on the open form), `OwnerPagesTests` (the eye).
 - **Links' schedules**: `LinkScheduleTests` (hours, midnight, the clocks changing, the first opening), `LinkScheduleFormTests` (the form, what is refused, a schedule said in each language).

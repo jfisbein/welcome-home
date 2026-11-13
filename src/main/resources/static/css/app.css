@@ -377,3 +377,9 @@ main:focus {
     letter-spacing: 0.25em;
     text-align: center;
 }
+
+/* A wrong PIN is told in the color of the field's own mark, so that a guest about to type again sees why. */
+.open-result[data-outcome="wrong-pin"],
+.open-result[data-outcome="pin-required"] {
+    color: var(--pico-del-color);
+}

@@ -82,6 +82,16 @@ class GuestPinTests extends BrowserTest {
         pinForm.locator("button[type=submit]").click();
 
         assertThat(page.locator(".open-result")).containsText("El PIN no es correcto");
+        var wrongPinColor = page.locator(".open-result").evaluate("message => getComputedStyle(message).color");
+        assertThat(wrongPinColor).as("in red, like the field's mark")
+                .isEqualTo(page.evaluate("""
+                        () => {
+                            const probe = document.body.appendChild(document.createElement("span"));
+                            probe.style.color = "var(--pico-del-color)";
+                            const color = getComputedStyle(probe).color;
+                            probe.remove();
+                            return color;
+                        }"""));
         assertThat(pinField).hasValue("");
         assertThat(pinField).hasAttribute("aria-invalid", "true");
         assertThat(pinField).isFocused();
@@ -92,6 +102,8 @@ class GuestPinTests extends BrowserTest {
         pinField.press("Enter");
 
         assertThat(page.locator(".open-result")).containsText("Puerta abierta");
+        assertThat(page.locator(".open-result").evaluate("message => getComputedStyle(message).color"))
+                .as("an opened door is not told in red").isNotEqualTo(wrongPinColor);
         assertThat(pinForm).isHidden();
         assertUnlatches(1);
     }

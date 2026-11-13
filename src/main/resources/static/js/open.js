@@ -272,6 +272,7 @@ function setUp(door, slider) {
                 label.removeAttribute("aria-busy");
                 label.textContent = "";
                 message.textContent = messages[result];
+                message.dataset.outcome = result;
                 message.hidden = false;
                 rememberedPin = null;
                 pinField.value = "";
@@ -287,6 +288,7 @@ function setUp(door, slider) {
             label.removeAttribute("aria-busy");
             message.textContent = distance === null ? messages["confirm-location-unknown"]
                 : messages[result].replace("{0}", distanceText(distance));
+            message.dataset.outcome = result;
             message.hidden = false;
             confirming = result === "confirm-location";
             askAfresh = result === "too-far";
@@ -296,6 +298,7 @@ function setUp(door, slider) {
             return;
         }
         message.textContent = messages[result] || messages["not-confirmed"];
+        message.dataset.outcome = result;
         message.hidden = false;
         label.removeAttribute("aria-busy");
         label.textContent = slide;
