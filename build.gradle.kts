@@ -60,7 +60,7 @@ dependencies {
     // Parses the templates for TemplateTextTests, which finds text that is not in the bundles.
     testImplementation("org.jsoup:jsoup:1.24.1")
     // Runs the app's JavaScript in a real browser (src/test/java/welcomehome/browser), which it downloads when first used.
-    testImplementation("com.microsoft.playwright:playwright:1.64.0")
+    testImplementation("com.microsoft.playwright:playwright:1.65.0")
     // axe-core, which AccessibilityTests runs on every page to find what breaks WCAG 2.2 AA.
     testImplementation("com.deque.html.axe-core:playwright:4.14.0")
     testImplementation("org.springframework.boot:spring-boot-starter-jdbc-test")
