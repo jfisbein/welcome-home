@@ -285,6 +285,17 @@ class NukiConnectionTests {
                 .doesNotContain("API token de welcome-home");
     }
 
+    /** It stops every link of the owner's: not one tap. */
+    @Test
+    void disconnectingAsksFirstWhatItStops() {
+        nukiAccepts(TOKEN);
+        connect(ALICE, TOKEN);
+
+        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE))).bodyText().contains(
+                "data-confirm=\"Tus enlaces dejarán de abrir la puerta hasta que vuelvas a conectar Nuki. "
+                        + "¿Desconectar?\"", "/js/confirm.js");
+    }
+
     @Test
     void htmlFormSendsTheDeleteAsAPostWithHiddenMethod() {
         nukiAccepts(TOKEN);

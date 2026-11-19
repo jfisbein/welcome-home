@@ -86,7 +86,11 @@ class MigrationCompatibilityTests {
             Map.entry("030-location-check.xml: constraint on lock: lock_location_check_check",
                     "on location_check, added with it and its default, which every row and earlier insert gets"),
             Map.entry("030-location-check.xml: constraint on lock: lock_location_radius_check",
-                    "on location_radius_m, added with it and its default, which every row and earlier insert gets"));
+                    "on location_radius_m, added with it and its default, which every row and earlier insert gets"),
+            Map.entry("035-owner-make-admin.xml: SQL CREATE FUNCTION make_admin(requested_owner_id uuid) RETURNS ",
+                    "a new function, which an earlier release never calls and which touches no row until called"),
+            Map.entry("035-owner-make-admin.xml: SQL REVOKE ALL ON FUNCTION make_admin(uuid) FROM PUBLIC",
+                    "on the function the changeset has just created: nobody could run it yet"));
 
     @Test
     void changesetsWithinTheMajorVersionOnlyExpandTheSchema() throws Exception {

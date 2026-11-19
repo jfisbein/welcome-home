@@ -34,7 +34,9 @@ class WebSecurityTests {
     void loginPageIsPublicAndInSpanish() {
         assertThat(mvc.get().uri("/login"))
                 .hasStatusOk()
-                .bodyText().contains("Entrar con passkey");
+                .bodyText().contains("Entrar con passkey")
+                .as("what to do without the passkey, which the page is no use for")
+                .contains("¿Has perdido tu passkey? Pide a quien te invitó un enlace de nueva passkey.");
     }
 
     @Test

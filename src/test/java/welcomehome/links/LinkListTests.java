@@ -103,6 +103,21 @@ class LinkListTests {
                 "data-share-text=\"" + words + " Te envío el PIN aparte.\"");
     }
 
+    /** Whether the guest got in, without opening each link's history: an attempt that did not open is not it. */
+    @Test
+    void eachLinkSaysWhenItLastOpenedTheDoorInTheLocksTimeZone() {
+        var ana = insertLink(lockId, "Ana", "now() - interval '1 day'", "now() + interval '1 day'", false);
+        var bea = insertLink(lockId, "Bea", "now() - interval '2 days'", "now() + interval '1 day'", false);
+        data.attempt(ana, "'2030-01-14 08:00:00+00'", "OK", "opened", null);
+        data.attempt(ana, "'2030-01-15 18:23:00+00'", "OK", "opened", null);
+        data.attempt(ana, "'2030-01-16 09:00:00+00'", "DENIED", "wrong-pin", null);
+        data.attempt(bea, "'2030-01-16 09:00:00+00'", "ERROR", "nuki-error", null);
+
+        assertThat(page()).containsSubsequence("Ana", "Última apertura: 15/01/2030 19:23",
+                        "Bea", "Todavía no ha abierto la puerta")
+                .containsOnlyOnce("Última apertura").containsOnlyOnce("Todavía no ha abierto la puerta");
+    }
+
     @Test
     void regeneratingOrRevokingAsksFirstWhatItDoes() {
         insertLink(lockId, "Bea", "now() - interval '1 day'", "now() + interval '1 day'", false);

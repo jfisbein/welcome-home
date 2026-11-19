@@ -6,7 +6,7 @@ import java.time.OffsetDateTime;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A link's state, computed from its dates and revocation, never stored. A link opens the door from
+ * A link's state, computed from its dates, revocation and pause, never stored. A link opens the door from
  * {@code validFrom}, inclusive, to {@code validUntil}, exclusive.
  */
 public enum LinkStatus {
@@ -18,20 +18,27 @@ public enum LinkStatus {
     /** No longer valid. */
     EXPIRED,
     /** Revoked by the owner, whatever its dates. */
-    REVOKED;
+    REVOKED,
+    /** Paused by the owner before its end: it opens nothing until they resume it. */
+    PAUSED;
 
     /**
      * Computes a link's state.
      *
      * @param validFrom  when the link starts to open the door
      * @param validUntil when it stops
-     * @param revokedAt  when the owner revoked it, or {@code null}
+     * @param revokedAt  when the owner revoked or paused it, or {@code null}
+     * @param paused     whether that was a pause, which the owner can end; a paused link past its end has expired
      * @param now        the instant to compute the state at
      * @return the link's state at {@code now}
      */
-    public static LinkStatus of(Instant validFrom, Instant validUntil, @Nullable Instant revokedAt, Instant now) {
-        if (revokedAt != null) {
+    public static LinkStatus of(Instant validFrom, Instant validUntil, @Nullable Instant revokedAt, boolean paused,
+                                Instant now) {
+        if (revokedAt != null && !paused) {
             return REVOKED;
+        }
+        if (revokedAt != null) {
+            return now.isBefore(validUntil) ? PAUSED : EXPIRED;
         }
         if (now.isBefore(validFrom)) {
             return PENDING;
@@ -44,13 +51,15 @@ public enum LinkStatus {
      *
      * @param validFrom  when the link starts to open the door
      * @param validUntil when it stops
-     * @param revokedAt  when the owner revoked it, or {@code null}
+     * @param revokedAt  when the owner revoked or paused it, or {@code null}
+     * @param paused     whether that was a pause
      * @param now        the instant to compute the state at
      * @return the link's state at {@code now}
      */
     public static LinkStatus of(OffsetDateTime validFrom, OffsetDateTime validUntil,
-                                @Nullable OffsetDateTime revokedAt, Instant now) {
-        return of(validFrom.toInstant(), validUntil.toInstant(), revokedAt == null ? null : revokedAt.toInstant(), now);
+                                @Nullable OffsetDateTime revokedAt, boolean paused, Instant now) {
+        return of(validFrom.toInstant(), validUntil.toInstant(), revokedAt == null ? null : revokedAt.toInstant(),
+                paused, now);
     }
 
     /**
@@ -60,5 +69,14 @@ public enum LinkStatus {
      */
     public boolean isUsable() {
         return this == PENDING || this == ACTIVE;
+    }
+
+    /**
+     * Tells whether the link is over: nothing its owner can do makes it open again but new dates, or nothing at all.
+     *
+     * @return whether the link expired or was revoked
+     */
+    public boolean isEnded() {
+        return this == EXPIRED || this == REVOKED;
     }
 }

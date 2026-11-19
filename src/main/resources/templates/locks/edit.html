@@ -5,6 +5,9 @@
 <main id="main" tabindex="-1" class="container">
     <nav th:replace="~{fragments/layout :: menu('locks')}"></nav>
     <h1 th:text="${lock.name}">Casa</h1>
+    <article th:if="${updated}">
+        <p th:text="#{locks.updated(${updated})}">Guardados los cambios de Casa.</p>
+    </article>
     <p class="actions">
         <a th:href="@{/locks/{id}/links(id=${lock.id})}" role="button" th:text="#{lock.links}">Enlaces</a>
         <a th:href="@{/locks/{id}/history(id=${lock.id})}" role="button" class="secondary"

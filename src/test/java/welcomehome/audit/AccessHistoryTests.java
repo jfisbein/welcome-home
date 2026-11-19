@@ -224,8 +224,68 @@ class AccessHistoryTests {
         assertThat(body(history(casa, ""))).doesNotContain("198.51.100.9");
     }
 
+    /** "Did anyone get in?" without reading every refusal. */
+    @Test
+    void theHistoryIsNarrowedToWhatItsAttemptsCameTo() {
+        insertEvent(ana, "2030-07-01T10:00:00Z", "DENIED", "not-yet-valid", "198.51.100.1");
+        insertEvent(bea, "2030-07-02T10:00:00Z", "OK", "opened", "198.51.100.2");
+        insertEvent(ana, "2030-07-03T10:00:00Z", "ERROR", "night-mode", "198.51.100.3");
+
+        assertThat(body(history(casa, "?result=OK"))).contains("198.51.100.2")
+                .doesNotContain("198.51.100.1", "198.51.100.3")
+                .as("the form says what is shown").contains("<option value=\"OK\" selected=\"selected\">Aperturas");
+        assertThat(body(history(casa, "?result=ERROR"))).contains("198.51.100.3")
+                .doesNotContain("198.51.100.1", "198.51.100.2");
+        assertThat(body(history(casa, "?result=DENIED"))).contains("198.51.100.1")
+                .doesNotContain("198.51.100.2", "198.51.100.3");
+        assertThat(body(history(casa, "?result="))).as("all of them")
+                .contains("198.51.100.1", "198.51.100.2", "198.51.100.3").doesNotContain("selected=");
+        assertThat(body(history(casa, "?result=OK&link=" + ana))).as("a link's, narrowed, keeps its link in the form")
+                .contains("Ningún intento con ese filtro.", "name=\"link\" value=\"" + ana + "\"")
+                .doesNotContain("198.51.100.", "Todavía no hay intentos de abrir");
+    }
+
+    /** "Who opened on Saturday night?": the day asked for is shown whole, as its lock's clock had it, and then back. */
+    @Test
+    void theHistoryStartsAtADayOfTheLocksCalendar() {
+        insertEvent(ana, "2030-07-01T10:00:00Z", "OK", "opened", "198.51.100.1");
+        insertEvent(ana, "2030-07-02T21:59:59Z", "OK", "opened", "198.51.100.2");
+        insertEvent(ana, "2030-07-02T22:00:00Z", "OK", "opened", "198.51.100.3");
+
+        var page = body(history(casa, "?until=2030-07-02"));
+
+        assertThat(page).as("23:59:59 in Madrid is that day; midnight is the next").containsSubsequence(
+                        "02/07/2030 23:59:59", "198.51.100.2", "01/07/2030 12:00:00", "198.51.100.1")
+                .doesNotContain("198.51.100.3")
+                .as("the form keeps the day, and the latest are one press away")
+                .contains("name=\"until\" value=\"2030-07-02\"", "Más recientes");
+        assertThat(body(history(casa, "?until=2030-06-30"))).contains("Ningún intento con ese filtro.");
+    }
+
+    @Test
+    void aNarrowedHistoryStaysNarrowedOnItsNextPage() {
+        migrator.sql("""
+                        INSERT INTO access_event (owner_id, link_id, lock_id, occurred_at, result, reason, ip)
+                        SELECT owner_id, id, lock_id, timestamptz '2030-07-01T10:00:00Z' + n * interval '1 minute',
+                               CASE WHEN n % 2 = 0 THEN 'OK' ELSE 'DENIED' END,
+                               CASE WHEN n % 2 = 0 THEN 'opened' ELSE 'expired' END, ('10.0.0.' || n)::inet
+                        FROM access_link, generate_series(1, 104) AS n WHERE id = ?
+                        """)
+                .param(ana).update();
+
+        var first = body(history(casa, "?result=OK&until=2030-07-01"));
+        assertThat(first).contains(">10.0.0.104<", ">10.0.0.6<").doesNotContain(">10.0.0.4<", ">10.0.0.103<");
+        var older = first.replaceAll("(?s).*href=\"([^\"]*)\">Anteriores.*", "$1").replace("&amp;", "&");
+        assertThat(older).startsWith("/locks/" + casa + "/history?result=OK&before=");
+
+        var second = body(mvc.get().uri(older).with(owner(ALICE)).exchange());
+        assertThat(second).contains(">10.0.0.4<", ">10.0.0.2<").doesNotContain(">10.0.0.6<", ">10.0.0.3<", "Anteriores");
+    }
+
     @Test
     void malformedParametersAreBadRequests() {
+        assertThat(history(casa, "?result=MAYBE")).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(history(casa, "?until=saturday")).hasStatus(HttpStatus.BAD_REQUEST);
         assertThat(history(casa, "?before=yesterday")).hasStatus(HttpStatus.BAD_REQUEST);
         assertThat(history(casa, "?before=2030-07-01T10:00:00Z&beforeId=nonsense")).hasStatus(HttpStatus.BAD_REQUEST);
         assertThat(history(casa, "?link=ana")).hasStatus(HttpStatus.BAD_REQUEST);

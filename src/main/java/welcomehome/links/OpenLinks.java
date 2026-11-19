@@ -7,8 +7,9 @@ import org.springframework.stereotype.Service;
 import welcomehome.db.OwnerTransactions;
 
 /**
- * How many of an owner's links can open each of their locks right now, for the home page: a link made for a guest
- * long gone still opens the door, and its owner may not remember it.
+ * Which of an owner's links can open: how many can open each of their locks right now, for the home page, as a
+ * link made for a guest long gone still opens the door and its owner may not remember it; and whether one that
+ * cannot was paused.
  */
 @Service
 public class OpenLinks {
@@ -30,5 +31,16 @@ public class OpenLinks {
      */
     public Map<UUID, Integer> countByLock(UUID ownerId) {
         return ownerTransactions.execute(ownerId, () -> links.countOpenByLock(ownerId));
+    }
+
+    /**
+     * Tells whether a link that reads as revoked was paused, which its owner can end. In the owner's transaction.
+     *
+     * @param ownerId the link's owner
+     * @param linkId  the link
+     * @return whether the link is paused
+     */
+    public boolean isPaused(UUID ownerId, UUID linkId) {
+        return links.isPaused(ownerId, linkId);
     }
 }

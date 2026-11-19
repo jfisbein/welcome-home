@@ -129,6 +129,9 @@ class OpenDoor {
         if (link.status() == LinkStatus.REVOKED) {
             return Attempt.of(AccessOutcome.REVOKED);
         }
+        if (link.status() == LinkStatus.PAUSED) {
+            return Attempt.of(AccessOutcome.PAUSED);
+        }
         if (!rateLimiter.tryAttemptWithLink(link.linkId())) {
             return Attempt.of(AccessOutcome.TOO_MANY_ATTEMPTS);
         }

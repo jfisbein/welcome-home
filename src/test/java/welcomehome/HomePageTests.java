@@ -61,6 +61,7 @@ class HomePageTests {
         data.deactivate(garaje);
 
         assertThat(home()).containsSubsequence("Casa", "Garaje", "Ya no está en tu cuenta de Nuki")
+                .as("a lock's name leads to it").contains("<a href=\"/locks/" + casa + "\">Casa</a>")
                 .contains("href=\"/locks/" + casa + "/links\"", "href=\"/locks/" + casa + "/history\"",
                         "href=\"/locks/" + garaje + "/links\"")
                 .doesNotContain("Casa de Bob");
@@ -133,8 +134,8 @@ class HomePageTests {
                 .contains("data-tooltip=\"España · 198.51.100.1\">🇪🇸</span>");
         assertThat(history).containsSubsequence("Fecha", "Enlace", "Resultado", "Origen")
                 .contains("data-tooltip=\"España · 198.51.100.1\">🇪🇸</span>");
-        assertThat(rowOf(home)).isEqualTo(rowOf(history).replace("<td>01/07/2030 12:00:00</td>",
-                "<td>01/07/2030 12:00:00</td><td><a href=\"/locks/" + casa + "/history\">Casa</a></td>"));
+        assertThat(rowOf(home)).isEqualTo(rowOf(history).replace("<td class=\"main\">01/07/2030 12:00:00</td>",
+                "<td class=\"main\">01/07/2030 12:00:00</td><td><a href=\"/locks/" + casa + "/history\">Casa</a></td>"));
     }
 
     @Test

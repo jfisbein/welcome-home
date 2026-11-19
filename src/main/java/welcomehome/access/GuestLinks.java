@@ -13,6 +13,7 @@ import welcomehome.links.LinkPins;
 import welcomehome.links.LinkSchedule;
 import welcomehome.links.LinkSchedules;
 import welcomehome.links.LinkStatus;
+import welcomehome.links.OpenLinks;
 import welcomehome.locks.Locks;
 import welcomehome.locks.OwnerLock;
 import welcomehome.nuki.Coordinates;
@@ -34,10 +35,12 @@ class GuestLinks {
     private final Locks locks;
     private final LinkSchedules schedules;
     private final LinkPins pins;
+    private final OpenLinks openLinks;
     private final OwnerTransactions ownerTransactions;
 
     GuestLinks(LinkTokenSigner signer, ResolvedLinkDao resolvedLinks, LockProvider lockProvider, Locks locks,
-               LinkSchedules schedules, LinkPins pins, OwnerTransactions ownerTransactions) {
+               LinkSchedules schedules, LinkPins pins, OpenLinks openLinks, OwnerTransactions ownerTransactions) {
+        this.openLinks = openLinks;
         this.signer = signer;
         this.resolvedLinks = resolvedLinks;
         this.lockProvider = lockProvider;
@@ -66,7 +69,9 @@ class GuestLinks {
             var lock = locks.find(ownerId, link.lockId()).orElse(null);
             var entranceId = lock == null ? null : lock.entranceLockId();
             var entrance = entranceId == null ? null : locks.find(ownerId, entranceId).orElse(null);
-            var status = LinkStatus.of(link.validFrom(), link.validUntil(), link.revokedAt(), now);
+            // resolve_link does not say whether a revoked link was paused: asked only of one that reads as revoked.
+            var paused = link.revokedAt() != null && openLinks.isPaused(ownerId, link.linkId());
+            var status = LinkStatus.of(link.validFrom(), link.validUntil(), link.revokedAt(), paused, now);
             return new VerifiedLink(link, status, schedules.of(ownerId, link.linkId()),
                     pins.isSet(ownerId, link.linkId()), lock, entrance,
                     lockProvider.findConnection(ownerId).filter(LockConnection::works).isPresent());

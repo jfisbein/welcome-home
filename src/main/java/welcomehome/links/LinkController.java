@@ -25,7 +25,8 @@ import welcomehome.links.LinkDao.EditableLink;
 
 /**
  * One link: its edit page and the actions on it. Each action returns to its lock's links page; another
- * owner's link, or a revoked one for editing and regenerating, is not found. Only a link that ended can be deleted.
+ * owner's link, or a revoked or paused one for editing and regenerating, is not found. Only a link that ended can
+ * be deleted, and only one that could open can be paused.
  */
 @Controller
 @RequestMapping("/links/{linkId}")
@@ -84,6 +85,20 @@ class LinkController {
         var revoked = accessLinks.revoke(owner.id(), linkId).orElseThrow(LinkController::notFound);
         redirect.addFlashAttribute("revokedLabel", revoked.label());
         return "redirect:/locks/" + revoked.lockId() + "/links";
+    }
+
+    @PostMapping("/pause")
+    String pause(CurrentOwner owner, @PathVariable UUID linkId, RedirectAttributes redirect) {
+        var paused = accessLinks.pause(owner.id(), linkId).orElseThrow(LinkController::notFound);
+        redirect.addFlashAttribute("pausedLabel", paused.label());
+        return "redirect:/locks/" + paused.lockId() + "/links";
+    }
+
+    @PostMapping("/resume")
+    String resume(CurrentOwner owner, @PathVariable UUID linkId, RedirectAttributes redirect) {
+        var resumed = accessLinks.resume(owner.id(), linkId).orElseThrow(LinkController::notFound);
+        redirect.addFlashAttribute("resumedLabel", resumed.label());
+        return "redirect:/locks/" + resumed.lockId() + "/links";
     }
 
     @DeleteMapping

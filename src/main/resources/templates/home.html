@@ -38,7 +38,7 @@
             <tbody>
             <tr th:each="lock : ${locks}">
                 <td>
-                    <strong th:text="${lock.name}">Casa</strong>
+                    <strong><a th:href="@{/locks/{id}(id=${lock.id})}" th:text="${lock.name}">Casa</a></strong>
                     <small th:unless="${lock.active}"><br><span th:text="#{locks.inactive}">Ya no está en tu cuenta de
                         Nuki</span></small>
                     <th:block th:replace="~{fragments/lock-warnings :: warnings(${lockWarnings.of(lock.id)})}"></th:block>

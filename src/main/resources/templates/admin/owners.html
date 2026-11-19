@@ -14,9 +14,13 @@
         <fieldset role="group">
             <input id="recovery-url" type="text" readonly th:value="${recovery.url}"
                    th:aria-label="#{admin.recovery.url}">
-            <button type="button" data-copy="recovery-url" th:data-copied="#{common.copied}"
+            <button type="button" data-copy="recovery-url" th:data-copied="#{common.copied}" th:data-copy-failed="#{common.copy-failed}"
                     th:text="#{common.copy}">Copiar</button>
         </fieldset>
+    </article>
+
+    <article th:if="${madeAdmin}">
+        <p th:text="#{admin.made-admin(${madeAdmin})}">ana@example.com ya es administrador.</p>
     </article>
 
     <article th:if="${deletedEmail}">
@@ -24,21 +28,32 @@
     </article>
 
     <p><a th:href="@{/admin/invitations}" role="button" th:text="#{admin.invite}">Invitar a un propietario</a></p>
+    <!-- Below the large width each owner is a card, as each link is: their buttons do not fit beside them. -->
     <div class="overflow-auto">
-        <table>
+        <table class="cards">
             <thead>
             <tr>
                 <th scope="col" th:text="#{admin.column.email}">Email</th>
                 <th scope="col" th:text="#{admin.column.registered}">Alta</th>
+                <th scope="col" th:text="#{admin.column.admin}">Administrador</th>
                 <th scope="col"></th>
             </tr>
             </thead>
             <tbody>
             <tr th:each="owner : ${owners}">
-                <td th:text="${owner.email}">propietario@example.com</td>
-                <td th:text="${#temporals.format(owner.registeredOn, #messages.msg('format.date'))}">1/1/2026</td>
+                <td class="main" th:text="${owner.email}">propietario@example.com</td>
+                <td th:data-label="#{admin.column.registered}"
+                    th:text="${#temporals.format(owner.registeredOn, #messages.msg('format.date'))}">1/1/2026</td>
+                <td class="aside"><span th:if="${owner.admin}" th:text="#{admin.column.admin}">Administrador</span></td>
                 <td class="actions">
-                    <form th:action="@{/admin/recoveries}" method="post">
+                    <form th:unless="${owner.admin}" th:action="@{/admin/admins}" method="post"
+                          th:data-confirm="#{admin.make-admin.confirm(${owner.email})}">
+                        <input type="hidden" name="email" th:value="${owner.email}">
+                        <button type="submit" class="outline secondary" th:text="#{admin.make-admin}">Hacer
+                            administrador</button>
+                    </form>
+                    <form th:action="@{/admin/recoveries}" method="post"
+                          th:data-confirm="#{admin.recovery.confirm(${owner.email})}">
                         <input type="hidden" name="email" th:value="${owner.email}">
                         <button type="submit" class="outline secondary" th:title="#{admin.recovery.title}"
                                 th:text="#{admin.recovery}">Nueva passkey</button>
@@ -61,7 +76,7 @@
         </article>
         <p th:if="${pending.isEmpty()}" th:text="#{admin.pending.empty}">No hay enlaces sin usar.</p>
         <div class="overflow-auto" th:unless="${pending.isEmpty()}">
-            <table>
+            <table class="cards">
                 <thead>
                 <tr>
                     <th scope="col" th:text="#{admin.pending.column.for}">Para quién</th>
@@ -72,13 +87,14 @@
                 </thead>
                 <tbody>
                 <tr th:each="link : ${pending}">
-                    <td th:text="${link.recipient}">Ana</td>
-                    <td th:switch="${link.recovery ? 'recovery' : (link.grantsAdmin ? 'admin' : 'owner')}">
+                    <td class="main" th:text="${link.recipient}">Ana</td>
+                    <td class="aside" th:switch="${link.recovery ? 'recovery' : (link.grantsAdmin ? 'admin' : 'owner')}">
                         <span th:case="'recovery'" th:text="#{admin.pending.kind.recovery}">Nueva passkey</span>
                         <span th:case="'admin'" th:text="#{admin.pending.kind.admin}">Invitación de admin</span>
                         <span th:case="*" th:text="#{admin.pending.kind.owner}">Invitación</span>
                     </td>
-                    <td th:text="${#temporals.format(link.expiresAt, #messages.msg('format.datetime'))}">1/1/2026 10:00</td>
+                    <td th:data-label="#{admin.pending.column.expires}"
+                        th:text="${#temporals.format(link.expiresAt, #messages.msg('format.datetime'))}">1/1/2026 10:00</td>
                     <td class="actions">
                         <form th:action="@{/admin/invitations/{id}(id=${link.id})}" th:method="delete"
                               th:data-confirm="#{admin.pending.cancel.confirm(${link.recipient})}">

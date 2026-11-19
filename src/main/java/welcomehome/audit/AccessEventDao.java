@@ -73,11 +73,12 @@ class AccessEventDao {
      * @param before only events before this one, or the latest if null
      * @param limit  how many events at most
      */
-    List<StoredAttempt> findByLock(UUID ownerId, UUID lockId, @Nullable UUID linkId, @Nullable Cursor before,
-                                   int limit) {
+    List<StoredAttempt> findByLock(UUID ownerId, UUID lockId, @Nullable UUID linkId, @Nullable AccessResult result,
+                                   @Nullable Cursor before, int limit) {
         return jdbc.sql(ATTEMPTS + """
                         WHERE e.owner_id = :ownerId AND (e.lock_id = :lockId OR e.entrance_lock_id = :lockId)
                           AND (CAST(:linkId AS uuid) IS NULL OR e.link_id = :linkId)
+                          AND (CAST(:result AS text) IS NULL OR e.result = :result)
                           AND (CAST(:before AS timestamptz) IS NULL OR e.occurred_at < :before
                                OR (e.occurred_at = :before AND e.id < CAST(:beforeId AS uuid)))
                         ORDER BY e.occurred_at DESC, e.id DESC
@@ -86,6 +87,7 @@ class AccessEventDao {
                 .param("ownerId", ownerId)
                 .param("lockId", lockId)
                 .param("linkId", linkId)
+                .param("result", result == null ? null : result.name())
                 .param("before", before == null ? null : OffsetDateTime.ofInstant(before.occurredAt(), ZoneOffset.UTC))
                 .param("beforeId", before == null ? null : before.id())
                 .param("limit", limit)

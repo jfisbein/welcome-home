@@ -16,9 +16,6 @@
                 No hay cambios.</span>
         </p>
     </article>
-    <article th:if="${updated}">
-        <p th:text="#{locks.updated(${updated})}">Guardados los cambios de Casa.</p>
-    </article>
     <article th:if="${syncError}" aria-live="assertive" aria-atomic="true">
         <p th:if="${syncError == 'not-connected'}" th:utext="#{locks.sync-error.not-connected(@{/settings/nuki})}">
             Para actualizar, primero conecta tu cuenta de Nuki.</p>

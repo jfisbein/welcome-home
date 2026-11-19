@@ -12,6 +12,9 @@
     </article>
     <article th:unless="${emailVerified}" aria-live="assertive" aria-atomic="true">
         <p th:text="#{notifications.unverified}">Tu email no está confirmado.</p>
+        <form th:action="@{/email/verification}" method="post">
+            <button type="submit" class="secondary" th:text="#{home.unverified.resend}">Enviar el enlace de nuevo</button>
+        </form>
     </article>
     <article th:if="${testUnverified}" aria-live="assertive" aria-atomic="true">
         <p th:text="#{notifications.unverified}">Tu email no está confirmado.</p>

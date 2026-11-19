@@ -88,6 +88,35 @@ class AccessLinks {
     }
 
     /**
+     * Pauses a link that could still open: it opens nothing until its owner resumes it, with the same URL, dates,
+     * schedule and PIN. Recorded as an edit.
+     *
+     * @return the link's lock and label, or empty if the owner has no such link or it cannot be paused
+     */
+    Optional<EndedLink> pause(UUID ownerId, UUID linkId) {
+        return ownerTransactions.execute(ownerId, () -> {
+            var paused = links.pause(ownerId, linkId);
+            paused.ifPresent(link -> events.publishEvent(new LinkChanged(ownerId, link.lockId(), linkId, Change.EDITED)));
+            return paused;
+        });
+    }
+
+    /**
+     * Resumes a paused link, which opens again within its dates: its owner is told, as of any change that lets a
+     * link open.
+     *
+     * @return the link's lock and label, or empty if the owner has no such link or it is not paused
+     */
+    Optional<EndedLink> resume(UUID ownerId, UUID linkId) {
+        return ownerTransactions.execute(ownerId, () -> {
+            var resumed = links.resume(ownerId, linkId);
+            resumed.ifPresent(link -> events.publishEvent(new LinkChanged(ownerId, link.lockId(), linkId, Change.EDITED,
+                    Set.of(OpensMore.RESUMED))));
+            return resumed;
+        });
+    }
+
+    /**
      * Deletes a link that no longer opens the door, as it expired or was revoked, with its schedule and its attempts in
      * the history, ahead of the daily purge. One that can still open is revoked first, so deleting never stops a guest.
      *
@@ -189,7 +218,7 @@ class AccessLinks {
                 .map(link -> new RegeneratedUrl(link.lockId(), link.label(), urls.url(link.id(), link.tokenVersion())));
     }
 
-    /** The lock's links, usable ones first, each group with the latest start first. */
+    /** The lock's links, those that can still open first, each group with the latest start first. */
     List<LinkView> list(UUID ownerId, OwnerLock lock, Locale locale) {
         var zone = ZoneId.of(lock.timeZone());
         var now = clock.instant();
@@ -202,11 +231,12 @@ class AccessLinks {
                         link.validFrom().atZoneSameInstant(zone),
                         link.validUntil().atZoneSameInstant(zone),
                         schedules.describe(linkSchedules.getOrDefault(link.id(), LinkSchedule.ANY_TIME), locale),
-                        LinkStatus.of(link.validFrom(), link.validUntil(), link.revokedAt(), now),
+                        LinkStatus.of(link.validFrom(), link.validUntil(), link.revokedAt(), link.paused(), now),
                         urls.url(link.id(), link.tokenVersion()),
                         link.hasPin(),
-                        link.hasPin() && pins.isLocked(link.pinFailures())))
-                .sorted(Comparator.comparing((LinkView link) -> !link.status().isUsable()))
+                        link.hasPin() && pins.isLocked(link.pinFailures()),
+                        link.lastOpenedAt() == null ? null : link.lastOpenedAt().atZoneSameInstant(zone)))
+                .sorted(Comparator.comparing((LinkView link) -> link.status().isEnded()))
                 .toList();
     }
 }

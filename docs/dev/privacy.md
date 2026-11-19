@@ -16,4 +16,5 @@ See also: [security](../security.md), [links](links.md), [architecture](architec
 ## Tests
 
 - **Owners' activity**: `OwnerActivityTests` (an edit that only renames or narrows a link recorded and not emailed, one that takes off the PIN or changes the hours saying so in its email; a sign-in with its passkey and where it came from, every change to a link and nothing for a refused one, the page with only the owner's entries, newest first).
+- **History narrowed**: `AccessHistoryTests` (to what the attempts came to, from a day of the lock's calendar, the next page still narrowed, malformed values refused).
 - **History's retention**: `EventPurgeJobTests` (attempts deleted after a year, IP addresses forgotten after 90 days, browsers from earlier releases too, and that `app_user` may update nothing else of an attempt).

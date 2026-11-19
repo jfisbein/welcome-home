@@ -30,11 +30,13 @@ class AccessHistory {
      * those of the locks whose entrance it is.
      *
      * @param linkId only this link's events, or all of the lock's if null
+     * @param result only the events that came to this, or all of them if null
      * @param before only events before this one, or the latest if null
      */
-    HistoryPage find(UUID ownerId, UUID lockId, @Nullable UUID linkId, @Nullable Cursor before, int pageSize) {
+    HistoryPage find(UUID ownerId, UUID lockId, @Nullable UUID linkId, @Nullable AccessResult result,
+                     @Nullable Cursor before, int pageSize) {
         var events = ownerTransactions.execute(ownerId,
-                () -> accessEvents.findByLock(ownerId, lockId, linkId, before, pageSize + 1));
+                () -> accessEvents.findByLock(ownerId, lockId, linkId, result, before, pageSize + 1));
         if (events.size() <= pageSize) {
             return new HistoryPage(events, null);
         }

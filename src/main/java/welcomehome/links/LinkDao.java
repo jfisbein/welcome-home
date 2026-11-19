@@ -159,13 +159,16 @@ class LinkDao {
         return counts;
     }
 
+    /** A lock's links, each with when it last opened the door, so that its owner need not read its history to know. */
     List<StoredLink> findByLock(UUID ownerId, UUID lockId) {
         return jdbc.sql("""
-                        SELECT id, label, token_version, valid_from, valid_until, revoked_at, pin_encrypted IS NOT NULL AS has_pin,
-                               pin_failures
-                        FROM access_link
-                        WHERE owner_id = :ownerId AND lock_id = :lockId
-                        ORDER BY valid_from DESC
+                        SELECT l.id, l.label, l.token_version, l.valid_from, l.valid_until, l.revoked_at,
+                               l.paused_at IS NOT NULL AS paused, l.pin_encrypted IS NOT NULL AS has_pin, l.pin_failures,
+                               (SELECT max(e.occurred_at) FROM access_event e
+                                WHERE e.owner_id = l.owner_id AND e.link_id = l.id AND e.result = 'OK') AS last_opened_at
+                        FROM access_link l
+                        WHERE l.owner_id = :ownerId AND l.lock_id = :lockId
+                        ORDER BY l.valid_from DESC
                         """)
                 .param("ownerId", ownerId)
                 .param("lockId", lockId)
@@ -173,10 +176,51 @@ class LinkDao {
                 .list();
     }
 
-    /** Revokes the link now, or keeps the first revocation if it already was revoked. */
+    /**
+     * Pauses a link that could still open: revoked, so that whatever refuses a revoked link refuses it, and marked
+     * as one its owner may resume.
+     *
+     * @return its lock and label, or empty if the owner has no such link, or it is revoked, paused or past its end
+     */
+    Optional<EndedLink> pause(UUID ownerId, UUID linkId) {
+        return jdbc.sql("""
+                        UPDATE access_link SET revoked_at = now(), paused_at = now()
+                        WHERE owner_id = :ownerId AND id = :linkId AND revoked_at IS NULL AND valid_until > now()
+                        RETURNING lock_id, label
+                        """)
+                .param("ownerId", ownerId)
+                .param("linkId", linkId)
+                .query(EndedLink.class)
+                .optional();
+    }
+
+    /** @return the resumed link's lock and label, or empty if the owner has no such link or it is not paused */
+    Optional<EndedLink> resume(UUID ownerId, UUID linkId) {
+        return jdbc.sql("""
+                        UPDATE access_link SET revoked_at = NULL, paused_at = NULL
+                        WHERE owner_id = :ownerId AND id = :linkId AND paused_at IS NOT NULL
+                        RETURNING lock_id, label
+                        """)
+                .param("ownerId", ownerId)
+                .param("linkId", linkId)
+                .query(EndedLink.class)
+                .optional();
+    }
+
+    /** @return whether the link is paused, which no link of another owner, or none, is */
+    boolean isPaused(UUID ownerId, UUID linkId) {
+        return jdbc.sql("SELECT paused_at IS NOT NULL FROM access_link WHERE owner_id = :ownerId AND id = :linkId")
+                .param("ownerId", ownerId)
+                .param("linkId", linkId)
+                .query(Boolean.class)
+                .optional()
+                .orElse(false);
+    }
+
+    /** Revokes the link now, for good even if it was paused, or keeps the first revocation if it already was revoked. */
     Optional<EndedLink> revoke(UUID ownerId, UUID linkId) {
         return jdbc.sql("""
-                        UPDATE access_link SET revoked_at = coalesce(revoked_at, now())
+                        UPDATE access_link SET revoked_at = coalesce(revoked_at, now()), paused_at = NULL
                         WHERE owner_id = :ownerId AND id = :linkId
                         RETURNING lock_id, label
                         """)
@@ -188,13 +232,15 @@ class LinkDao {
 
     /**
      * Deletes a link that can no longer open, as it expired or was revoked; its schedule and its attempts go with it.
+     * Not a paused one, which its owner may resume.
      *
      * @return its lock and label, or empty if the owner has no such link or it can still open
      */
     Optional<EndedLink> deleteEnded(UUID ownerId, UUID linkId) {
         return jdbc.sql("""
                         DELETE FROM access_link
-                        WHERE owner_id = :ownerId AND id = :linkId AND (revoked_at IS NOT NULL OR valid_until <= now())
+                        WHERE owner_id = :ownerId AND id = :linkId
+                          AND ((revoked_at IS NOT NULL AND paused_at IS NULL) OR valid_until <= now())
                         RETURNING lock_id, label
                         """)
                 .param("ownerId", ownerId)
@@ -322,7 +368,8 @@ class LinkDao {
     }
 
     record StoredLink(UUID id, String label, int tokenVersion, OffsetDateTime validFrom, OffsetDateTime validUntil,
-                      @Nullable OffsetDateTime revokedAt, boolean hasPin, int pinFailures) {
+                      @Nullable OffsetDateTime revokedAt, boolean paused, boolean hasPin, int pinFailures,
+                      @Nullable OffsetDateTime lastOpenedAt) {
     }
 
     /** A link's PIN as it is stored, its lock, and how many wrong PINs the link has been given. */

@@ -16,6 +16,8 @@
         <p th:if="${state == 'done'}" th:utext="#{email-verify.done(${#strings.escapeXml(email)})}">
             Email confirmado.
         </p>
+        <p th:if="${state == 'done'}"><a th:href="@{/}" role="button" th:text="#{email-verify.onward}">Ir a
+            welcome-home</a></p>
         <p th:if="${state == 'invalid'}" th:text="#{email-verify.invalid}">Este enlace ya se ha usado o ha caducado.</p>
     </article>
 </main>

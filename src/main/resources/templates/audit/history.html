@@ -11,7 +11,33 @@
     </p>
     <p th:text="#{history.time-zone(${@timeZoneNames.of(lock.timeZone, #locale)})}">Horas en la zona horaria de la cerradura: hora de Europa central.</p>
 
-    <p th:if="${events.isEmpty()}" th:text="#{history.empty}">Todavía no hay intentos de abrir.</p>
+    <!-- Narrows the history: to what the attempts came to, and from a day back. A GET, so that the page it gives
+         can be reloaded and sent. -->
+    <form class="history-filter" th:action="@{/locks/{id}/history(id=${lock.id})}" method="get">
+        <input th:if="${link != null}" type="hidden" name="link" th:value="${link}">
+        <fieldset class="grid">
+            <label>
+                [[#{history.column.outcome}]]
+                <select name="result">
+                    <option value="" th:text="#{history.filter.all}">Todos</option>
+                    <option value="OK" th:selected="${result != null and result.name() == 'OK'}"
+                            th:text="#{history.filter.OK}">Aperturas</option>
+                    <option value="ERROR" th:selected="${result != null and result.name() == 'ERROR'}"
+                            th:text="#{history.filter.ERROR}">Fallos</option>
+                    <option value="DENIED" th:selected="${result != null and result.name() == 'DENIED'}"
+                            th:text="#{history.filter.DENIED}">Denegados</option>
+                </select>
+            </label>
+            <label>
+                [[#{history.filter.until}]]
+                <input type="date" name="until" th:value="${until}">
+            </label>
+        </fieldset>
+        <button type="submit" class="secondary" th:text="#{history.filter.apply}">Filtrar</button>
+    </form>
+
+    <p th:if="${events.isEmpty() and !narrowed}" th:text="#{history.empty}">Todavía no hay intentos de abrir.</p>
+    <p th:if="${events.isEmpty() and narrowed}" th:text="#{history.empty-narrowed}">Ningún intento así.</p>
     <th:block th:unless="${events.isEmpty()}">
         <div th:replace="~{fragments/attempts :: table(${events}, false)}"></div>
     </th:block>

@@ -174,7 +174,8 @@ class OwnerPagesTests extends BrowserTest {
         assertThat(page.locator("#location-status")).containsText("una precisión de unos 12 m");
 
         page.locator("form button[type=submit]").last().click();
-        page.waitForURL(url("/locks"));
+        // Saving stays on the lock's page, which says so.
+        assertThat(page.locator("main")).containsText("Guardados los cambios de Casa");
         assertThat(migrator.sql("SELECT latitude || '|' || longitude FROM lock")
                 .query(String.class).single()).isEqualTo("40.416775|-3.70379");
     }
@@ -229,6 +230,50 @@ class OwnerPagesTests extends BrowserTest {
         eye.click();
         assertThat(pin).hasAttribute("type", "password");
         assertThat(eye).hasAttribute("aria-label", "Mostrar el PIN");
+    }
+
+    /** "Did my guest get in?", asked from a phone: the answer was a column off the screen. */
+    @Test
+    void onAPhoneAnAttemptsResultIsOnTheScreenBesideItsDate() {
+        register();
+        var owner = migrator.sql("SELECT id FROM owner WHERE email = ?").param(ALICE).query(UUID.class).single();
+        var link = data.link(data.lock(owner, 17, "Casa"), "Ana");
+        data.attempt(link, "now()", "DENIED", "location-required", "198.51.100.7");
+
+        for (var path : List.of("/", "/locks/" + lockOf(link) + "/history")) {
+            page.navigate(url(path));
+            var date = page.locator("table.attempts tbody td.main").boundingBox();
+            var outcome = page.locator("table.attempts tbody td.aside").boundingBox();
+
+            assertThat(page.locator("table.attempts tbody td.aside")).containsText("Denegado");
+            assertThat(outcome.x + outcome.width).as(path + ": within the screen").isLessThanOrEqualTo(360);
+            assertThat(outcome.y).as(path + ": on the date's line").isLessThan(date.y + date.height);
+            assertThat(outcome.x).as(path + ": beside the date").isGreaterThanOrEqualTo(date.x + date.width);
+            assertThat(page.locator("table.attempts thead")).isHidden();
+        }
+    }
+
+    /** A second copy must be seen to work too, and one the browser refuses must not look like one that worked. */
+    @Test
+    void theCopyButtonSaysWhatHappenedAndThenItsNameAgain() {
+        context.grantPermissions(List.of("clipboard-read", "clipboard-write"));
+        register();
+        openTheLocksLinks();
+        createALink();
+        var copy = page.locator("table.links button[data-copy-text]");
+
+        copy.click();
+        assertThat(copy).hasText("Copiado");
+        assertThat(copy).hasText("Copiar");
+
+        page.evaluate("() => { navigator.clipboard.writeText = () => Promise.reject(new Error('refused')); }");
+        copy.click();
+        assertThat(copy).hasText("No se ha podido copiar");
+        assertThat(copy).hasText("Copiar");
+    }
+
+    private UUID lockOf(UUID link) {
+        return migrator.sql("SELECT lock_id FROM access_link WHERE id = ?").param(link).query(UUID.class).single();
     }
 
     private void register() {

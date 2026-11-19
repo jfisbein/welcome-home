@@ -115,10 +115,11 @@
     <section th:if="${connection != null}">
         <h2 th:text="#{nuki.disconnect}">Desconectar</h2>
         <p th:text="#{nuki.disconnect.text}">Borra de welcome-home la conexión con Nuki.</p>
-        <form th:action="@{/settings/nuki}" th:method="delete">
+        <form th:action="@{/settings/nuki}" th:method="delete" th:data-confirm="#{nuki.disconnect.confirm}">
             <button type="submit" class="secondary" th:text="#{nuki.disconnect.button}">Desconectar Nuki</button>
         </form>
     </section>
 </main>
+<script th:src="@{/js/confirm.js}"></script>
 </body>
 </html>

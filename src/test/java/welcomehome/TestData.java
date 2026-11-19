@@ -79,6 +79,11 @@ public final class TestData {
         db.sql("UPDATE access_link SET revoked_at = now() WHERE id = ?").param(link).update();
     }
 
+    /** Pauses a link now, as the app does: revoked, and marked as one its owner may resume. */
+    public void pause(UUID link) {
+        db.sql("UPDATE access_link SET revoked_at = now(), paused_at = now() WHERE id = ?").param(link).update();
+    }
+
     public UUID owner(String email) {
         return owner(email, false);
     }

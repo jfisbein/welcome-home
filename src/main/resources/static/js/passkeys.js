@@ -9,6 +9,8 @@ document.getElementById("add-passkey").addEventListener("submit", async event =>
     const error = document.getElementById("add-passkey-error");
     error.hidden = true;
     const label = new FormData(event.target).get("label").trim();
+    const button = event.target.querySelector("button[type=submit]");
+    WebAuthn.busy(button, true);
     try {
         await WebAuthn.add(label);
         window.location.href = "/settings/passkeys?added";
@@ -16,5 +18,6 @@ document.getElementById("add-passkey").addEventListener("submit", async event =>
         console.error(e);
         error.textContent = ADD_MESSAGES[e.name] || ADD_MESSAGES["default"];
         error.hidden = false;
+        WebAuthn.busy(button, false);
     }
 });

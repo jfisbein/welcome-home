@@ -74,9 +74,10 @@ class LockSettingsTests {
         // London, not Madrid: the list names zones, and Madrid's name is Berlin's.
         var result = update(ALICE, alicesLock, "  Casa de la playa ", "Europe/London");
 
-        assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/locks");
+        assertThat(result).as("back on the lock's page, where what was saved shows").hasStatus(HttpStatus.FOUND)
+                .redirectedUrl().isEqualTo("/locks/" + alicesLock);
         assertThat(settings(alicesLock)).isEqualTo("Casa de la playa|Europe/London");
-        assertThat(mvc.get().uri("/locks").with(owner(ALICE)).flashAttr("updated", "Casa de la playa"))
+        assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE)).flashAttr("updated", "Casa de la playa"))
                 .bodyText().contains("Guardados los cambios de Casa de la playa", "hora de Londres");
     }
 

@@ -5,6 +5,8 @@ import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * A link as its lock's links page shows it.
  *
@@ -18,7 +20,8 @@ import java.util.UUID;
  * @param hasPin     whether it asks the guest for a PIN
  * @param pinLocked  whether it has been given so many wrong PINs that it opens no more, until its owner edits it or
  *                   gives it a new URL
+ * @param lastOpened when it last opened the door, in the lock's time zone, or {@code null} if it never has
  */
 record LinkView(UUID id, String label, ZonedDateTime validFrom, ZonedDateTime validUntil, List<String> schedule,
-                LinkStatus status, URI url, boolean hasPin, boolean pinLocked) {
+                LinkStatus status, URI url, boolean hasPin, boolean pinLocked, @Nullable ZonedDateTime lastOpened) {
 }

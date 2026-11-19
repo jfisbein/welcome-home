@@ -113,6 +113,11 @@ class OwnerIsolationTests {
                         .param("validUntil", "2030-11-03T11:00").exchange()),
                 new Attempt("POST /links/{linkId}/regenerate", as -> mvc.post().uri("/links/" + bobsLink + "/regenerate")
                         .with(as).with(csrf()).exchange()),
+                new Attempt("POST /links/{linkId}/pause", as -> mvc.post().uri("/links/" + bobsLink + "/pause")
+                        .with(as).with(csrf()).exchange()),
+                // Once paused, Bob may resume it.
+                new Attempt("POST /links/{linkId}/resume", as -> mvc.post().uri("/links/" + bobsLink + "/resume")
+                        .with(as).with(csrf()).exchange()),
                 new Attempt("POST /links/{linkId}/revoke", as -> mvc.post().uri("/links/" + bobsLink + "/revoke")
                         .with(as).with(csrf()).exchange()),
                 // Once revoked, Bob may delete it.

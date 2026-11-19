@@ -138,8 +138,9 @@ class LocksController {
                 check.get(), radius.getAsInt())) {
             throw notFound();
         }
+        // Back on the lock's page, where what was saved shows, and its state with it.
         redirect.addFlashAttribute("updated", normalizedName.get());
-        return "redirect:/locks";
+        return "redirect:/locks/" + lockId;
     }
 
     /** The lock's page, with its live state from Nuki when it can be read: Nuki failing never hides the settings. */

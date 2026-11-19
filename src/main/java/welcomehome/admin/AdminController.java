@@ -19,9 +19,9 @@ import welcomehome.auth.InvitationService;
 import welcomehome.auth.OwnerAccounts;
 
 /**
- * The admin panel: the owner list, new invitations, passkey recovery links and deleting owners. Only admins reach it (see the
- * security configuration), and it shows owners' emails and registration dates, nothing of their locks or
- * links.
+ * The admin panel: the owner list, new invitations, passkey recovery links, making an owner an admin and deleting
+ * owners. Only admins reach it (see the security configuration), and it shows owners' emails, registration dates
+ * and who is an admin, nothing of their locks or links.
  */
 @Controller
 @RequestMapping("/admin")
@@ -58,6 +58,20 @@ class AdminController {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
         redirect.addFlashAttribute("deletedEmail", email);
+        return "redirect:/admin/owners";
+    }
+
+    /**
+     * Makes an owner an admin, as an invitation with the tick would have: until now only a new invitation gave the
+     * role, so the only admin could not leave without inviting someone again.
+     */
+    @PostMapping("/admins")
+    String makeAdmin(@RequestParam String email, RedirectAttributes redirect) {
+        var ownerId = ownerAccounts.findIdByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        if (ownerAccounts.makeAdmin(ownerId)) {
+            redirect.addFlashAttribute("madeAdmin", email);
+        }
         return "redirect:/admin/owners";
     }
 

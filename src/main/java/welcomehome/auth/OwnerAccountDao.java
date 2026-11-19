@@ -65,9 +65,18 @@ class OwnerAccountDao {
 
     /** Only what the admin panel shows. */
     List<OwnerSummary> findAll() {
-        return jdbc.sql("SELECT email, created_at::date AS registered_on FROM owner ORDER BY created_at")
+        return jdbc.sql("SELECT email, created_at::date AS registered_on, is_admin AS admin FROM owner ORDER BY created_at")
                 .query(new SimplePropertyRowMapper<>(OwnerSummary.class))
                 .list();
+    }
+
+    /**
+     * Through make_admin, as the app may not update is_admin: it can give the role and never take it away.
+     *
+     * @return whether the owner became an admin, which one who was already, or nobody, does not
+     */
+    boolean makeAdmin(UUID id) {
+        return jdbc.sql("SELECT make_admin(:id)").param("id", id).query(Boolean.class).single();
     }
 
     /** @return whether the owner is an admin and no other owner is */

@@ -95,6 +95,7 @@
         </th:block>
         <p th:if="${status.name() == 'EXPIRED'}" role="alert" th:text="#{guest.expired}">Este enlace ha caducado.</p>
         <p th:if="${status.name() == 'REVOKED'}" role="alert" th:text="#{guest.revoked}">Este enlace se ha anulado.</p>
+        <p th:if="${status.name() == 'PAUSED'}" role="alert" th:text="#{guest.paused}">Este enlace está en pausa.</p>
     </article>
     <!-- A guest whose browser asked for a language the app lacks gets Spanish: any guest may choose another. -->
     <nav class="languages" th:aria-label="#{guest.language}">

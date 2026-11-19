@@ -367,6 +367,26 @@ class OpenDoorTests {
         nuki.verify(0, anyRequestedFor(anyUrl()));
     }
 
+    /** Paused, and then resumed: the same URL opens again, which is what a pause is for. */
+    @Test
+    void aPausedLinkOpensNoDoorUntilItIsResumed() {
+        insertOpenerAsEntrance();
+        nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));
+        lockLogShowsUnlatch(0);
+        var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
+        data.pause(link);
+
+        assertDenied(link, HttpStatus.FORBIDDEN, "paused");
+        assertThat(lastEvent()).startsWith("DENIED|paused|");
+        assertThat(openDoor(signer.sign(link, 1), "entrance")).hasStatus(HttpStatus.FORBIDDEN)
+                .bodyJson().extractingPath("$.result").isEqualTo("paused");
+        nuki.verify(0, anyRequestedFor(anyUrl()));
+
+        migrator.sql("UPDATE access_link SET revoked_at = NULL, paused_at = NULL WHERE id = ?").param(link).update();
+
+        assertThat(open(signer.sign(link, 1))).hasStatusOk().bodyJson().extractingPath("$.result").isEqualTo("opened");
+    }
+
     @Test
     void outsideItsScheduleALinkOpensNeitherDoorAndTheAttemptIsRecorded() {
         insertOpenerAsEntrance();

@@ -59,6 +59,53 @@
     }
 }
 
+/* The same for the other tables too wide for a phone (attempts, an owner's activity, the admin's owners and unused
+   links): a card per row, with its first cell (main) and what matters most of it (aside: an attempt's result) on
+   its first line, and the rest below. A cell that needs its column's name there carries it in data-label. */
+@media (max-width: 1023px) {
+    table.cards thead {
+        display: none;
+    }
+
+    table.cards tr {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.25rem 1rem;
+        padding: 0.75rem 0;
+        border-bottom: var(--pico-border-width) solid var(--pico-table-border-color);
+    }
+
+    table.cards td {
+        display: block;
+        grid-column: 1 / -1;
+        padding: 0;
+        border: 0;
+    }
+
+    table.cards td.main {
+        grid-column: 1;
+    }
+
+    table.cards td.aside {
+        grid-column: 2;
+        grid-row: 1;
+        text-align: right;
+    }
+
+    table.cards td:empty {
+        display: none;
+    }
+
+    table.cards td[data-label]::before {
+        content: attr(data-label) ": ";
+    }
+
+    table.cards td.actions {
+        display: flex;
+        margin-top: 0.5rem;
+    }
+}
+
 /* A link's schedule among its dates, a line per run of days. */
 table.links td.validity small {
     display: block;

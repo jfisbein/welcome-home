@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Until now is_admin was only set when an owner registered, from their invitation, and app_user may not
+        update it. A function rather than a grant on the column, so that it still may not: the app can make an
+        admin, and can never take the role away, which would leave the app with no admin. It runs as its owner,
+        migrator; search_path is fixed so that no other schema can shadow the table.
+    -->
+    <changeSet id="035-owner-make-admin" author="welcome-home">
+        <comment>The app may make an admin of an owner who registered without the role, and only that.</comment>
+
+        <sql splitStatements="false">
+            CREATE FUNCTION make_admin(requested_owner_id uuid)
+                RETURNS boolean
+                LANGUAGE sql
+                SECURITY DEFINER
+                SET search_path = pg_catalog, pg_temp
+            AS $$
+                WITH made AS (
+                    UPDATE public.owner SET is_admin = true
+                    WHERE id = requested_owner_id AND NOT is_admin
+                    RETURNING id
+                )
+                SELECT EXISTS (SELECT 1 FROM made);
+            $$;
+        </sql>
+
+        <sql>
+            REVOKE ALL ON FUNCTION make_admin(uuid) FROM PUBLIC;
+            GRANT EXECUTE ON FUNCTION make_admin(uuid) TO app_user;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

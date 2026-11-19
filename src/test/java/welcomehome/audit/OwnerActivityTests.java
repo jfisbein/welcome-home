@@ -184,8 +184,9 @@ class OwnerActivityTests {
         mail.purgeEmailFromAllMailboxes();
         asAlice(mvc.post().uri("/links/" + link + "/regenerate"));
         var newUrl = theOnlyEmail();
-        assertThat(newUrl.getSubject()).isEqualTo("Casa: URL nueva del enlace «Luis»");
-        assertThat(text(newUrl)).contains("la anterior ya no abre la puerta").doesNotContain("/o/");
+        assertThat(newUrl.getSubject()).isEqualTo("Casa: enlace «Luis» sustituido");
+        assertThat(text(newUrl)).contains("se ha sustituido por uno nuevo, y el anterior ya no abre la puerta")
+                .doesNotContain("/o/");
     }
 
     /** An email for every edit would teach the owner to ignore the one that tells of an intruder. */
@@ -206,6 +207,28 @@ class OwnerActivityTests {
 
         assertNoMoreThan(0);
         assertThat(activity(ALICE)).hasSize(3).allMatch(entry -> entry.startsWith("LINK_"));
+    }
+
+    /** A pause opens nothing more, so it is no news; resuming lets the link open again, as an intruder might. */
+    @Test
+    void pausingALinkIsRecordedAndResumingItIsEmailedToo() throws Exception {
+        create("Ana", "2030-11-01T15:00", "2030-11-03T11:00");
+        var link = linkId("Ana");
+        theOnlyEmail();
+        mail.purgeEmailFromAllMailboxes();
+
+        assertThat(asAlice(mvc.post().uri("/links/" + link + "/pause"))).hasStatus3xxRedirection();
+
+        assertNoMoreThan(0);
+        assertThat(activity(ALICE)).hasSize(2);
+
+        assertThat(asAlice(mvc.post().uri("/links/" + link + "/resume"))).hasStatus3xxRedirection();
+
+        var resumed = theOnlyEmail();
+        assertThat(resumed.getSubject()).isEqualTo("Casa: enlace «Ana» editado");
+        assertThat(text(resumed)).contains("- Estaba en pausa y se ha reanudado.").doesNotContain("/o/");
+        assertThat(activity(ALICE)).as("both are edits to the owner's activity").hasSize(3)
+                .filteredOn(entry -> entry.startsWith("LINK_EDITED")).hasSize(2);
     }
 
     /** The dates alone do not say what an intruder would change: the email says what the link now does. */

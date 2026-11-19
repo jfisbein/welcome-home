@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.web.webauthn.management.PublicKeyCredentialUserEntityRepository;
@@ -16,6 +18,8 @@ import welcomehome.config.Languages;
  */
 @Service
 public class OwnerAccounts {
+
+    private static final Logger LOG = LoggerFactory.getLogger(OwnerAccounts.class);
 
     private final OwnerAccountDao owners;
     private final PublicKeyCredentialUserEntityRepository userEntities;
@@ -58,6 +62,21 @@ public class OwnerAccounts {
      */
     public List<OwnerSummary> list() {
         return owners.findAll();
+    }
+
+    /**
+     * Makes an owner an admin, for good: nothing takes the role away but deleting the account. Their role is read
+     * when they sign in, so a session they have open stays an owner's until then.
+     *
+     * @param ownerId the owner
+     * @return whether they became one, which an admin, or nobody, does not
+     */
+    public boolean makeAdmin(UUID ownerId) {
+        var made = owners.makeAdmin(ownerId);
+        if (made) {
+            LOG.info("Owner {} is now an admin", ownerId);
+        }
+        return made;
     }
 
     /**

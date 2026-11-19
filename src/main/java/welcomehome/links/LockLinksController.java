@@ -94,8 +94,9 @@ class LockLinksController {
                 : model.getAttribute("regeneratedUrl");
         model.addAttribute("sentLink", links.stream().filter(link -> link.url().equals(sentUrl)).findFirst()
                 .orElse(null));
-        model.addAttribute("links", links.stream().filter(link -> link.status().isUsable()).toList());
-        model.addAttribute("endedLinks", links.stream().filter(link -> !link.status().isUsable()).toList());
+        // A paused link stays among those that can open: resuming it is one press away.
+        model.addAttribute("links", links.stream().filter(link -> !link.status().isEnded()).toList());
+        model.addAttribute("endedLinks", links.stream().filter(link -> link.status().isEnded()).toList());
         return VIEW;
     }
 

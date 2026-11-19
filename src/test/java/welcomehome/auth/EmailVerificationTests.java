@@ -98,7 +98,8 @@ class EmailVerificationTests {
         assertThat(emailVerification.isVerified(aliceId)).as("opening the link verifies nothing").isFalse();
 
         assertThat(mvc.post().uri(link).with(csrf())).hasStatusOk().bodyText()
-                .contains("Email confirmado: los avisos llegarán a <strong>alice@example.com</strong>.");
+                .contains("Email confirmado: los avisos llegarán a <strong>alice@example.com</strong>.")
+                .as("and a way on from there").contains("<a href=\"/\" role=\"button\">Ir a welcome-home</a>");
         assertThat(emailVerification.isVerified(aliceId)).isTrue();
         assertThat(mvc.post().uri(link).with(csrf())).as("the link works once").hasStatus(HttpStatus.NOT_FOUND)
                 .bodyText().contains("Este enlace ya se ha usado o ha caducado");
@@ -145,13 +146,17 @@ class EmailVerificationTests {
         assertThat(mvc.get().uri("/").with(owner())).hasStatusOk().bodyText()
                 .contains("Confirma tu email.", "Enviar el enlace de nuevo");
         assertThat(mvc.get().uri("/settings/notifications").with(owner())).hasStatusOk().bodyText()
-                .contains("Tu email no está confirmado").doesNotContain("/settings/notifications/test");
+                .contains("Tu email no está confirmado: hasta que lo confirmes con el enlace que te enviamos")
+                .as("the button is where the page says to press it")
+                .contains("action=\"/email/verification\"", "Enviar el enlace de nuevo")
+                .doesNotContain("/settings/notifications/test");
 
         migrator.sql("UPDATE owner SET email_verified_at = now()").update();
 
         assertThat(mvc.get().uri("/").with(owner())).bodyText().doesNotContain("Confirma tu email.");
         assertThat(mvc.get().uri("/settings/notifications").with(owner())).bodyText()
-                .doesNotContain("Tu email no está confirmado").contains("/settings/notifications/test");
+                .doesNotContain("Tu email no está confirmado", "/email/verification")
+                .contains("/settings/notifications/test");
     }
 
     @Test

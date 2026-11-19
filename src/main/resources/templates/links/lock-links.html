@@ -46,6 +46,14 @@
             90 días. Anúlalo cuando deje de hacer falta.</small></p>
     </article>
 
+    <article th:if="${pausedLabel}">
+        <p th:text="#{links.paused(${pausedLabel})}">Enlace de Ana en pausa: no abre la puerta hasta que lo reanudes.</p>
+    </article>
+
+    <article th:if="${resumedLabel}">
+        <p th:text="#{links.resumed(${resumedLabel})}">Enlace de Ana reanudado: vuelve a abrir la puerta.</p>
+    </article>
+
     <article th:if="${revokedLabel}">
         <p th:text="#{links.revoked(${revokedLabel})}">Enlace de Ana anulado: ya no abre la puerta.</p>
     </article>
@@ -74,7 +82,7 @@
         <th:block th:unless="${links.isEmpty()}">
             <div th:replace="~{links/table :: linkTable(${links})}"></div>
             <p><small th:text="#{links.actions.hint}">
-                «Cambiar enlace» crea un enlace nuevo. «Anular» hace que deje de abrir la puerta.</small></p>
+                «Sustituir enlace» crea un enlace nuevo. «Anular» hace que deje de abrir la puerta.</small></p>
         </th:block>
         <!-- Those that ended, folded away so that the list does not keep growing: open after deleting one. -->
         <details th:unless="${endedLinks.isEmpty()}" th:open="${deletedLabel != null}">

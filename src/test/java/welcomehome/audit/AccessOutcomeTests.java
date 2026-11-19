@@ -41,7 +41,7 @@ class AccessOutcomeTests {
                         "nuki-error|ERROR|FAILED", "lock-failed|ERROR|FAILED", "night-mode|ERROR|FAILED",
                         "missing-permission|ERROR|FAILED", "confirm-location|DENIED|NONE", "too-far|DENIED|DENIED",
                         "pin-required|DENIED|NONE", "wrong-pin|DENIED|DENIED", "pin-locked|DENIED|DENIED",
-                        "location-required|DENIED|DENIED");
+                        "location-required|DENIED|DENIED", "paused|DENIED|DENIED");
     }
 
     @Test
@@ -55,6 +55,7 @@ class AccessOutcomeTests {
         assertThat(AccessOutcome.values()).extracting(AccessOutcome::code).containsExactly(
                 "opened", "not-confirmed", "invalid", "too-many-attempts", "revoked", "not-yet-valid", "expired",
                 "outside-schedule", "unavailable", "nuki-error", "lock-failed", "night-mode", "missing-permission",
-                "confirm-location", "too-far", "pin-required", "wrong-pin", "pin-locked", "location-required");
+                "confirm-location", "too-far", "pin-required", "wrong-pin", "pin-locked", "location-required",
+                "paused");
     }
 }

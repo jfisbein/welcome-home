@@ -84,6 +84,9 @@ class AdminPanelTests {
                 .hasStatus(HttpStatus.FORBIDDEN);
         assertThat(mvc.delete().uri("/admin/owners").with(owner()).with(csrf()).param("email", ADMIN_EMAIL))
                 .hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(mvc.post().uri("/admin/admins").with(owner()).with(csrf()).param("email", OWNER_EMAIL))
+                .as("an owner does not make an admin of themselves").hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(admins()).containsExactly(ADMIN_EMAIL);
         assertThat(migrator.sql("SELECT count(*) FROM owner").query(Long.class).single()).isEqualTo(2);
         assertThat(jdbc.sql("SELECT count(*) FROM invitation").query(Long.class).single()).isZero();
     }
@@ -179,6 +182,52 @@ class AdminPanelTests {
                 .bodyText().doesNotContain(created.url().toString());
     }
 
+    /** It lets whoever holds it into another owner's account: not one tap. */
+    @Test
+    void creatingARecoveryLinkAsksFirstWhatItDoes() {
+        assertThat(body(mvc.get().uri("/admin/owners").with(admin()).exchange())).contains(
+                "data-confirm=\"Se creará un enlace con el que quien lo tenga podrá entrar en la cuenta de "
+                        + OWNER_EMAIL + ", y se le avisará por email. ¿Crearlo?\"", "/js/confirm.js");
+    }
+
+    /** Until now only a new invitation gave the role, so the only admin could not leave without inviting again. */
+    @Test
+    void adminSeesWhoIsAnAdminAndMakesOneOfAnOwner() {
+        var page = body(mvc.get().uri("/admin/owners").with(admin()).exchange());
+        assertThat(page).containsSubsequence(ADMIN_EMAIL, "<span>Administrador</span>", OWNER_EMAIL)
+                .containsOnlyOnce("<span>Administrador</span>").containsOnlyOnce("action=\"/admin/admins\"")
+                .contains("data-confirm=\"" + OWNER_EMAIL + " podrá invitar y dar de baja a propietarios, y crear "
+                        + "enlaces de nueva passkey, que dan acceso a cualquier cuenta. No se puede deshacer. "
+                        + "¿Hacerle administrador?\"");
+
+        var result = mvc.post().uri("/admin/admins").with(admin()).with(csrf()).param("email", OWNER_EMAIL).exchange();
+
+        assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/admin/owners");
+        assertThat(result.getMvcResult().getFlashMap().get("madeAdmin")).isEqualTo(OWNER_EMAIL);
+        assertThat(admins()).containsExactly(ADMIN_EMAIL, OWNER_EMAIL);
+        assertThat(body(mvc.get().uri("/admin/owners").with(admin()).flashAttr("madeAdmin", OWNER_EMAIL).exchange()))
+                .contains(OWNER_EMAIL + " ya es administrador: lo verá la próxima vez que entre.")
+                .as("nobody is left to make an admin of").doesNotContain("action=\"/admin/admins\"");
+    }
+
+    @Test
+    void makingAnAdminOfAnAdminOrOfNobodyChangesNothing() {
+        var again = mvc.post().uri("/admin/admins").with(admin()).with(csrf()).param("email", ADMIN_EMAIL).exchange();
+
+        assertThat(again).hasStatus(HttpStatus.FOUND);
+        assertThat(again.getMvcResult().getFlashMap().get("madeAdmin")).isNull();
+        assertThat(mvc.post().uri("/admin/admins").with(admin()).with(csrf()).param("email", "nobody@example.com"))
+                .hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(admins()).containsExactly(ADMIN_EMAIL);
+    }
+
+    @Test
+    void makingAnAdminRequiresTheCsrfToken() {
+        assertThat(mvc.post().uri("/admin/admins").with(admin()).param("email", OWNER_EMAIL))
+                .hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(admins()).containsExactly(ADMIN_EMAIL);
+    }
+
     @Test
     void recoveryLinkForAnUnknownEmailIsNotCreated() {
         assertThat(mvc.post().uri("/admin/recoveries").with(admin()).with(csrf()).param("email", "nobody@example.com"))
@@ -246,7 +295,9 @@ class AdminPanelTests {
         invitations.createInvitation(adminId, "Zoe, ático", false);
 
         assertThat(mvc.get().uri("/admin/invitations").with(admin())).hasStatusOk().bodyText()
-                .contains("Crear invitación").doesNotContain("Enlaces sin usar", "Zoe, ático");
+                .contains("Crear invitación").doesNotContain("Enlaces sin usar", "Zoe, ático")
+                .as("what the tick gives, all of it").contains("Será administrador: podrá invitar y dar de baja a "
+                        + "propietarios, y crear enlaces de nueva passkey, que dan acceso a cualquier cuenta");
         var owners = body(mvc.get().uri("/admin/owners").with(admin()).exchange());
         assertThat(owners.split("href=\"/admin/invitations", -1)).as("one link to the invitation page").hasSize(2);
     }
@@ -302,7 +353,8 @@ class AdminPanelTests {
     @Test
     void anAdminCannotDeleteThemselves() {
         assertThat(mvc.get().uri("/admin/owners").with(admin())).bodyText()
-                .contains("la cuenta de bob@example.com").doesNotContain("la cuenta de admin@example.com");
+                .contains("Se borrarán para siempre la cuenta de bob@example.com")
+                .doesNotContain("Se borrarán para siempre la cuenta de admin@example.com");
 
         assertThat(mvc.delete().uri("/admin/owners").with(admin()).with(csrf()).param("email", ADMIN_EMAIL))
                 .hasStatus(HttpStatus.CONFLICT);
@@ -320,6 +372,10 @@ class AdminPanelTests {
         assertThat(mvc.delete().uri("/admin/owners").with(admin()).param("email", OWNER_EMAIL))
                 .hasStatus(HttpStatus.FORBIDDEN);
         assertThat(migrator.sql("SELECT count(*) FROM owner").query(Long.class).single()).isEqualTo(2);
+    }
+
+    private List<String> admins() {
+        return migrator.sql("SELECT email FROM owner WHERE is_admin ORDER BY email").query(String.class).list();
     }
 
     private void insertPasskey(String userId, String email, String credentialId) {

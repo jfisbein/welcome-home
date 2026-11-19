@@ -22,16 +22,24 @@
                 <small th:if="${link.hasPin}" th:text="#{links.pin-set}">Pide un PIN</small>
                 <small th:if="${link.pinLocked}"><strong th:text="#{links.pin-locked}">Bloqueado por PIN
                     incorrectos</strong></small>
+                <!-- Whether the guest got in, without opening the link's history. -->
+                <small th:if="${link.lastOpened}"
+                       th:text="#{links.last-opened(${#temporals.format(link.lastOpened, #messages.msg('format.datetime'))})}">
+                    Última apertura: 2/11/2030 19:23</small>
+                <small th:unless="${link.lastOpened}" th:text="#{links.never-opened}">Todavía no ha abierto la
+                    puerta</small>
             </td>
             <td class="state" th:switch="${link.status.name()}">
                 <span th:case="'PENDING'" th:text="#{links.status.pending}">Pendiente</span>
                 <span th:case="'ACTIVE'"><strong th:text="#{links.status.active}">Activo</strong></span>
                 <span th:case="'EXPIRED'" th:text="#{links.status.expired}">Caducado</span>
                 <span th:case="'REVOKED'" th:text="#{links.status.revoked}">Anulado</span>
+                <span th:case="'PAUSED'"><strong th:text="#{links.status.paused}">En pausa</strong></span>
             </td>
             <td class="buttons">
                 <div class="actions">
-                    <a th:if="${link.status.name() != 'REVOKED'}" th:href="@{/links/{id}(id=${link.id})}"
+                    <a th:if="${link.status.name() != 'REVOKED' and link.status.name() != 'PAUSED'}"
+                       th:href="@{/links/{id}(id=${link.id})}"
                        role="button" class="outline secondary" th:text="#{common.edit}">Editar</a>
                     <a th:href="@{/locks/{lockId}/history(lockId=${lock.id},link=${link.id})}"
                        role="button" class="outline secondary" th:text="#{common.history}">Historial</a>
@@ -43,15 +51,23 @@
                         <form th:action="@{/links/{id}/regenerate(id=${link.id})}" method="post"
                               th:data-confirm="#{links.regenerate.confirm(${link.label})}">
                             <button type="submit" class="outline secondary" th:title="#{links.regenerate.title}"
-                                    th:text="#{links.regenerate}">Cambiar enlace</button>
+                                    th:text="#{links.regenerate}">Sustituir enlace</button>
                         </form>
-                        <form th:action="@{/links/{id}/revoke(id=${link.id})}" method="post"
-                              th:data-confirm="#{links.revoke.confirm(${link.label})}">
-                            <button type="submit" class="outline contrast"
-                                    th:text="#{links.revoke}">Anular</button>
+                        <form th:action="@{/links/{id}/pause(id=${link.id})}" method="post">
+                            <button type="submit" class="outline secondary" th:title="#{links.pause.title}"
+                                    th:text="#{links.pause}">Pausar</button>
                         </form>
                     </th:block>
-                    <form th:unless="${link.status.usable}" th:action="@{/links/{id}(id=${link.id})}"
+                    <!-- A paused link opens nothing and keeps everything: resuming it is the only way on. -->
+                    <form th:if="${link.status.name() == 'PAUSED'}" th:action="@{/links/{id}/resume(id=${link.id})}"
+                          method="post" th:data-confirm="#{links.resume.confirm(${link.label})}">
+                        <button type="submit" th:text="#{links.resume}">Reanudar</button>
+                    </form>
+                    <form th:unless="${link.status.ended}" th:action="@{/links/{id}/revoke(id=${link.id})}" method="post"
+                          th:data-confirm="#{links.revoke.confirm(${link.label})}">
+                        <button type="submit" class="outline contrast" th:text="#{links.revoke}">Anular</button>
+                    </form>
+                    <form th:if="${link.status.ended}" th:action="@{/links/{id}(id=${link.id})}"
                           th:method="delete" th:data-confirm="#{links.delete.confirm(${link.label})}">
                         <button type="submit" class="outline contrast"
                                 th:text="#{links.delete}">Borrar</button>
@@ -67,7 +83,7 @@
 <th:block th:fragment="send(link, lock, outline)">
     <th:block th:with="words=#{links.share-text(${lock.name}, ${#temporals.format(link.validFrom, #messages.msg('format.datetime'))}, ${#temporals.format(link.validUntil, #messages.msg('format.datetime'))}, ${@timeZoneNames.of(lock.timeZone, #locale)})} + (${link.hasPin} ? ' ' + #{links.share-pin} : '')">
         <button type="button" th:classappend="${outline} ? 'outline'" th:data-copy-text="${words}"
-                th:data-copy-url="${link.url}" th:data-copied="#{common.copied}"
+                th:data-copy-url="${link.url}" th:data-copied="#{common.copied}" th:data-copy-failed="#{common.copy-failed}"
                 th:text="#{common.copy}">Copiar</button>
         <button type="button" class="secondary" th:classappend="${outline} ? 'outline'" hidden
                 th:data-share-text="${words}" th:data-share-url="${link.url}"

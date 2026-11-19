@@ -12,6 +12,8 @@
         <p th:text="#{login.text}">Entra con la passkey de tu dispositivo.</p>
         <button id="passkey-login" type="button" th:text="#{login.button}">Entrar con passkey</button>
         <p id="login-error" role="alert" hidden th:text="#{login.error}">No se ha podido entrar con la passkey.</p>
+        <p><small th:text="#{login.lost}">¿Has perdido tu passkey? Pide a quien te invitó un enlace de nueva
+            passkey.</small></p>
     </article>
 </main>
 <script th:src="@{/js/webauthn.js}"></script>

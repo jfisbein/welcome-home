@@ -62,7 +62,9 @@ public enum AccessOutcome {
      * The door opens only for a guest whose position is known and near, and this one's was unknown or too vague to
      * tell.
      */
-    LOCATION_REQUIRED("location-required", AccessResult.DENIED, News.DENIED);
+    LOCATION_REQUIRED("location-required", AccessResult.DENIED, News.DENIED),
+    /** The link's owner paused it: it opens nothing until they resume it. */
+    PAUSED("paused", AccessResult.DENIED, News.DENIED);
 
     /**
      * What an attempt is to the link's owner, which is what an email about it says. Another question than

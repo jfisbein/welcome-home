@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        A paused link is a revoked one that can be resumed: pausing sets revoked_at too, and resuming clears both.
+        So everything that refuses a revoked link refuses a paused one without knowing of this column, a release
+        before this one included: rolled back to, it shows a paused link as revoked and never opens with it.
+    -->
+    <changeSet id="036-access-link-paused" author="welcome-home">
+        <comment>
+            When the owner paused a link, which opens nothing until they resume it; NULL for one that is not paused.
+        </comment>
+        <addColumn tableName="access_link">
+            <column name="paused_at" type="timestamptz"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

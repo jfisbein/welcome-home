@@ -10,11 +10,14 @@ document.getElementById("registration").addEventListener("submit", async event =
     error.hidden = true;
     // A passkey recovery link has no email field: the link names its owner.
     const form = new FormData(event.target);
+    const button = event.target.querySelector("button[type=submit]");
+    WebAuthn.busy(button, true);
     try {
         window.location.href = await WebAuthn.register(window.location.pathname, form.get("email"), form.get("label"));
     } catch (e) {
         console.error(e);
         error.textContent = MESSAGES[e.code] || MESSAGES["passkey"];
         error.hidden = false;
+        WebAuthn.busy(button, false);
     }
 });

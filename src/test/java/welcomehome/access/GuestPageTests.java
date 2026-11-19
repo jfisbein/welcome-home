@@ -291,6 +291,17 @@ class GuestPageTests {
         assertThat(body(guestPage(signer.sign(revoked, 1)))).contains(REVOKED).doesNotContain("Este enlace abre la puerta");
     }
 
+    /** Not the words of a revoked link, which send the guest to ask for a new one: this one may open again. */
+    @Test
+    void aPausedLinkSaysSoAndOffersNoButton() {
+        var paused = insertLink("now() - interval '1 day'", "now() + interval '1 day'", false);
+        data.pause(paused);
+
+        assertThat(body(guestPage(signer.sign(paused, 1))))
+                .contains("Este enlace está en pausa: ahora no abre la puerta. Pregunta a quien te lo envió.")
+                .doesNotContain(OPEN_BUTTON, REVOKED, "Este enlace abre la puerta");
+    }
+
     @Test
     void expiredOrRevokedLinksOfferNoButton() {
         var expired = insertLink("now() - interval '2 days'", "now() - interval '1 day'", false);

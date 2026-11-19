@@ -7,6 +7,7 @@ import java.time.LocalDate;
  *
  * @param email        the owner's email
  * @param registeredOn the day they registered
+ * @param admin        whether they are an admin
  */
-public record OwnerSummary(String email, LocalDate registeredOn) {
+public record OwnerSummary(String email, LocalDate registeredOn, boolean admin) {
 }

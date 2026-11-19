@@ -14,7 +14,7 @@
         <fieldset role="group">
             <input id="invitation-url" type="text" readonly th:value="${invitation.url}"
                    th:aria-label="#{admin.invitation.url}">
-            <button type="button" data-copy="invitation-url" th:data-copied="#{common.copied}"
+            <button type="button" data-copy="invitation-url" th:data-copied="#{common.copied}" th:data-copy-failed="#{common.copy-failed}"
                     th:text="#{common.copy}">Copiar</button>
         </fieldset>
     </article>

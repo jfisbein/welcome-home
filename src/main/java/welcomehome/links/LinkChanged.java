@@ -40,7 +40,9 @@ public record LinkChanged(UUID ownerId, UUID lockId, UUID linkId, Change change,
         /** It asks for another PIN. */
         PIN_CHANGED,
         /** It was locked by wrong PINs, and the edit let it open again. */
-        UNLOCKED
+        UNLOCKED,
+        /** It was paused, and its owner resumed it. */
+        RESUMED
     }
 
     /**

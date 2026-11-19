@@ -111,5 +111,15 @@ const WebAuthn = (() => {
         return result.redirectUrl;
     }
 
-    return {add, authenticate, register};
+    // A button that started a ceremony cannot start another until it ends, and says so to a screen reader.
+    function busy(button, isBusy) {
+        button.disabled = isBusy;
+        if (isBusy) {
+            button.setAttribute("aria-busy", "true");
+        } else {
+            button.removeAttribute("aria-busy");
+        }
+    }
+
+    return {add, authenticate, busy, register};
 })();

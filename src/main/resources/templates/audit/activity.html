@@ -12,7 +12,7 @@
 
     <p th:if="${rows.isEmpty()}" th:text="#{activity.empty}">Todavía no hay actividad.</p>
     <div th:unless="${rows.isEmpty()}" class="overflow-auto">
-        <table>
+        <table class="cards">
             <thead>
             <tr>
                 <th scope="col" th:text="#{history.column.date}">Fecha</th>
@@ -23,9 +23,9 @@
             </thead>
             <tbody>
             <tr th:each="row : ${rows}">
-                <td th:text="${#temporals.format(row.occurredAt, #messages.msg('format.datetime-seconds'))}">
+                <td class="main" th:text="${#temporals.format(row.occurredAt, #messages.msg('format.datetime-seconds'))}">
                     01/11/2030 15:02:13</td>
-                <td th:text="${row.what}">Enlace creado</td>
+                <td class="aside" th:text="${row.what}">Enlace creado</td>
                 <td th:text="${row.detail}">Ana (Casa)</td>
                 <td th:replace="~{fragments/attempts :: origin(${row.origin})}"></td>
             </tr>

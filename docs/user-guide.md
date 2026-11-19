@@ -38,7 +38,7 @@ On the home page, press **Crear enlace** next to the lock. Fill in:
 
 - **Para quién es:** a reminder for you, such as "Ana, fin de semana". Guests do not see it.
 - **Desde** and **Hasta:** when it works, at the lock's time.
-- **PIN (opcional)**, if you want: 4 to 8 digits. The guest must type it right after sliding, so that someone who only has the link, because it was forwarded or leaked, cannot open the door. Tell the guest the PIN yourself, apart from the link. The eye beside the field shows or hides it, and you can read it again whenever you edit the link; take it off by emptying the field. The list says "Pide un PIN" under the links that ask for one. After a few wrong PINs (5 by default) the link refuses every attempt, the right PIN too, until they come back, one every 3 minutes, and you get the usual email about a refused attempt, at most one an hour per link. After 20 wrong PINs in a row, however far apart, the link is locked: it opens for nobody, the list says "Bloqueado por PIN incorrectos", and you get an email whatever your preferences, as someone who has the link may be guessing the PIN. To let it open again, edit it, with another PIN, or give it a new link with **Cambiar enlace** if the link reached someone it should not have; either starts the count again, and so does a right PIN, so a guest's own slips never add up to locking them out.
+- **PIN (opcional)**, if you want: 4 to 8 digits. The guest must type it right after sliding, so that someone who only has the link, because it was forwarded or leaked, cannot open the door. Tell the guest the PIN yourself, apart from the link. The eye beside the field shows or hides it, and you can read it again whenever you edit the link; take it off by emptying the field. The list says "Pide un PIN" under the links that ask for one. After a few wrong PINs (5 by default) the link refuses every attempt, the right PIN too, until they come back, one every 3 minutes, and you get the usual email about a refused attempt, at most one an hour per link. After 20 wrong PINs in a row, however far apart, the link is locked: it opens for nobody, the list says "Bloqueado por PIN incorrectos", and you get an email whatever your preferences, as someone who has the link may be guessing the PIN. To let it open again, edit it, with another PIN, or give it a new link with **Sustituir enlace** if the link reached someone it should not have; either starts the count again, and so does a right PIN, so a guest's own slips never add up to locking them out.
 - **Limitar a ciertos días y horas**, if you want: for instance, a cleaner on Mondays from 9:00 to 13:00. A closing time before the opening time means the next day, and **Todo el día** takes the whole day.
 
 Press **Crear enlace**, and then **Copiar** or **Compartir** to send it. Both give your guest a few words with the link: when it opens, to open it in front of the door, and not to try it before, as it really opens the door; and, if the link has a PIN, that you will send it apart. WhatsApp or Telegram showing a preview of it opens nothing: only sliding does. To see what your guest will, press **Ver como invitado** on the link: it opens their page, marked as a preview, where sliding says what it would do and opens nothing. Do not try the link itself: it opens your door.
@@ -54,8 +54,11 @@ In the lock's **Enlaces**:
 | You want to | Press | What happens |
 |---|---|---|
 | Change the dates, hours or who it is for | **Editar** | The link stays the same, so there is nothing to resend |
+| Stop it for a while | **Pausar** | It stops opening at once and shows as **En pausa**. **Reanudar** makes it open again within its dates, with the same link, so there is nothing to resend. While paused it cannot be edited |
 | Stop it for good | **Anular** | It stops opening at once, and this cannot be undone |
-| Replace a link that reached the wrong person | **Cambiar enlace** | The old link stops working at once, and you send the new one. The dates stay the same |
+| Replace a link that reached the wrong person | **Sustituir enlace** | The old link stops working at once, and you send the new one. The dates stay the same |
+
+Each link says when it last opened the door (**Última apertura**), or that it has not yet, so you can tell whether your guest got in without opening its history.
 
 A link that expired or was cancelled moves under **Caducados y anulados**, folded below the others. It is deleted a year after it ended, with its history; **Borrar** deletes it now.
 
@@ -73,7 +76,7 @@ The home page and **Cerraduras** warn you in red about a lock that Nuki reports 
 
 **Auto Lock off** means that the door stays unlocked after a guest opens it. Turn it on in the Nuki app. If you relock some other way, tick **El bloqueo lo gestiono de otra forma**, and the warning goes.
 
-**Who has come in.** The home page shows the latest attempts, and each lock's **Historial** all of them: when, with which link, what happened and from where. Attempts are kept for a year, and their IP address for 90 days: after that only the country remains. Your guests' page tells them so.
+**Who has come in.** The home page shows the latest attempts, and each lock's **Historial** all of them: when, with which link, what happened and from where. The history can be narrowed to openings, failures or refusals, and started at a day (**Hasta el día**), to answer "who opened on Saturday night?" without paging. Attempts are kept for a year, and their IP address for 90 days: after that only the country remains. Your guests' page tells them so.
 
 **Emails.** In **Configuración → Avisos**, choose whether you hear of openings, failures, refused attempts, problems with Nuki and a lock's problems: a critical battery, no connection or a blocked motor, once a day at most and only when they start. Use **Enviarme un email de prueba** to check that they arrive. Emails about your account always come: a passkey added, and a link created, edited or given a new address, so that you hear of one you did not make. They never carry the link's address.
 
@@ -85,12 +88,13 @@ The home page and **Cerraduras** warn you in red about a lock that Nuki reports 
 | "A esta hora este enlace no abre la puerta" | Outside its hours | Wait, or change the hours with **Editar** |
 | "Este enlace ha caducado" | Its end has passed | **Editar** can extend it, and the link stays the same |
 | "Este enlace se ha anulado" | You cancelled it | Create a new link |
-| "Enlace no válido" | Mistyped, replaced by **Cambiar enlace**, or deleted a year after it ended | Send the current link, or create one |
+| "Este enlace está en pausa" | You paused it | **Reanudar** it, and the same link opens again |
+| "Enlace no válido" | Mistyped, replaced by **Sustituir enlace**, or deleted a year after it ended | Send the current link, or create one |
 | "Esta puerta no está disponible" | The lock left your Nuki account, or Nuki is disconnected | Look at your home page, which says which: **Volver a conectar Nuki** if it offers that |
 | "La cerradura no responde" | Nuki or the lock failed | Try again in a few seconds. Check the lock's connection and battery |
 | "Hemos pedido a la cerradura que abra, pero no lo ha confirmado" | The lock was asked to open and did not say that it did | Try pushing the door before sliding again |
 | "El PIN no es correcto" | They typed another PIN | Check it with **Editar**, where you can read it, and tell them |
-| "Este enlace se ha bloqueado por demasiados PIN incorrectos" | The link was given 20 wrong PINs in a row | **Editar** it, with another PIN, or **Cambiar enlace** if someone else may have it |
+| "Este enlace se ha bloqueado por demasiados PIN incorrectos" | The link was given 20 wrong PINs in a row | **Editar** it, with another PIN, or **Sustituir enlace** if someone else may have it |
 | "La cerradura está en modo nocturno" | The lock refuses in night mode | Change it in the Nuki app |
 
 If the door really must open now, you can always use the Nuki app yourself.
@@ -103,6 +107,6 @@ If the door really must open now, you can always use the Nuki app yourself.
 
 ## Leaving
 
-Press **Darme de baja** in **Configuración → Cuenta** to delete your account, with your locks, links and history: your links stop opening at once. Whoever runs welcome-home can also do it for you, and the only admin cannot leave until there is another. Copies in backups go within 30 days.
+Press **Darme de baja** in **Configuración → Cuenta** to delete your account, with your locks, links and history: your links stop opening at once. Whoever runs welcome-home can also do it for you, and the only admin cannot leave until there is another: in **Administración**, **Hacer administrador** makes one of an owner, for good. Copies in backups go within 30 days.
 
 To disconnect Nuki yourself, press **Desconectar Nuki** in **Configuración → Nuki**. Your locks and links stay, but do not open until you connect again. If you pasted an API token, also delete it in Nuki Web.

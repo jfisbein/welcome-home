@@ -68,7 +68,7 @@ class LinkRevocationTests {
                 .param(linkId).query(ResolvedDates.class).single();
         assertThat(resolved.revokedAt()).as("the guest flow sees the revocation").isNotNull();
         assertThat(LinkStatus.of(resolved.validFrom().toInstant(), resolved.validUntil().toInstant(),
-                resolved.revokedAt().toInstant(), Instant.now()))
+                resolved.revokedAt().toInstant(), false, Instant.now()))
                 .isEqualTo(LinkStatus.REVOKED);
     }
 
@@ -78,7 +78,7 @@ class LinkRevocationTests {
 
         assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(owner(ALICE)).flashAttr("revokedLabel", "Ana"))
                 .bodyText().contains("Enlace de Ana anulado", "Anulado")
-                .doesNotContain("Copiar", "/links/" + linkId + "/revoke", "Cambiar enlace");
+                .doesNotContain("Copiar", "/links/" + linkId + "/revoke", "Sustituir enlace");
     }
 
     @Test
