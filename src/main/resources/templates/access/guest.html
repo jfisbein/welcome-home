@@ -74,7 +74,7 @@
                 Esta puerta no está disponible.</p>
         </section>
         <!-- Every slide is recorded in the owner's history, so the guest is told what is kept and for how long. -->
-        <p th:if="${canOpen and !preview}"><small th:text="#{guest.privacy(${ipRetentionDays}, ${retentionDays})}">
+        <p th:if="${canOpen and !preview}"><small th:text="#{guest.privacy(${ipRetentionDays}, ${retentionDays}, ${backupRetentionDays})}">
             Al deslizar, quien te dio este enlace podrá ver la hora, tu país y tu dirección IP. La IP se borra a los
             90 días; lo demás, a los 365.</small>
             <small th:if="${checksLocation}" th:text="#{guest.location-privacy}">También se comprueba a qué

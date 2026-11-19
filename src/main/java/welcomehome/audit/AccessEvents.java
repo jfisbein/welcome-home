@@ -46,6 +46,15 @@ public class AccessEvents {
     }
 
     /**
+     * How long the server's backups keep what the app has deleted, for the guest's page to say.
+     *
+     * @return the retention of backups
+     */
+    public Duration backupRetention() {
+        return properties.backupRetention();
+    }
+
+    /**
      * Records an attempt in its owner's history.
      *
      * @param event the attempt

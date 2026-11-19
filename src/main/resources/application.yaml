@@ -105,6 +105,9 @@ welcomehome:
     # both purged daily, in the server's time zone.
     retention: P365D
     ip-retention: P90D
+    # How long the server's backups keep what was deleted here, which the guest's page says: the stack's
+    # BACKUP_RETENTION_DAYS. The app deletes no backup.
+    backup-retention: P30D
     purge-cron: "0 30 3 * * *"
   admin:
     # Invitations and passkey recovery links are deleted 30 days after they expire, daily, in the server's time

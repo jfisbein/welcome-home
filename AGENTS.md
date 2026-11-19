@@ -34,7 +34,7 @@ Functional:
 Non-functional:
 
 - Owners are isolated from each other in the database itself (Row-Level Security), not only in code.
-- Secrets at rest: Nuki tokens are encrypted (AEAD, bound to their owner and kind); links store no token at all (HMAC).
+- Secrets at rest: Nuki tokens and links' PINs are encrypted (AEAD, bound to their owner and kind, a PIN to its link); links store no token at all (HMAC).
 - Never two unlatches for one press: one action per lock at a time, and the unlatch is never retried once Nuki may have run it.
 - Single instance: rate limits, the per-lock mutex and scheduled jobs live in memory in one process.
 - GDPR: guests' IP addresses expire after 90 days, their browsers are not kept, guests are told on their page, and so does a link a year after it ended, with the guest's name in its label; a deleted owner's data is gone from backups after their 30-day retention.
@@ -50,7 +50,7 @@ Out of scope so far: geofencing, push notifications, exceptions to a link's sche
 | Framework            | Spring Boot 4.1, Spring Security 7.1 (WebAuthn passkeys), Spring Modulith 2.1       |
 | Web                  | Spring MVC, Thymeleaf, Pico CSS, a few small vanilla JS files (no build step)        |
 | Data                 | PostgreSQL 18 (Alpine image), `JdbcClient` with records, Liquibase (XML changelogs) |
-| Crypto               | Google Tink: AEAD AES-256-GCM (Nuki tokens), MAC HMAC-SHA256/128 (links)            |
+| Crypto               | Google Tink: AEAD AES-256-GCM (Nuki tokens, PINs), MAC HMAC-SHA256/128 (links)            |
 | Nuki                 | Nuki Web API over `RestClient`, with timeouts and backoff                           |
 | Rate limiting, cache | Bucket4j and Caffeine, in memory                                                    |
 | Static analysis      | Error Prone + NullAway (JSpecify mode), javadoc doclint as errors                   |

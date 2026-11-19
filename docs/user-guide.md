@@ -78,7 +78,7 @@ The home page and **Cerraduras** warn you in red about a lock that Nuki reports 
 
 **Who has come in.** The home page shows the latest attempts, and each lock's **Historial** all of them: when, with which link, what happened and from where. The history can be narrowed to openings, failures or refusals, and started at a day (**Hasta el día**), to answer "who opened on Saturday night?" without paging. Attempts are kept for a year, and their IP address for 90 days: after that only the country remains. Your guests' page tells them so.
 
-**Emails.** In **Configuración → Avisos**, choose whether you hear of openings, failures, refused attempts, problems with Nuki and a lock's problems: a critical battery, no connection or a blocked motor, once a day at most and only when they start. Use **Enviarme un email de prueba** to check that they arrive. Emails about your account always come: a passkey added, and a link created, edited or given a new address, so that you hear of one you did not make. They never carry the link's address.
+**Emails.** In **Configuración → Avisos**, choose whether you hear of openings, failures, refused attempts, problems with Nuki and a lock's problems: a critical battery, no connection or a blocked motor, once a day at most and only when they start. Use **Enviarme un email de prueba** to check that they arrive. Emails about your account always come, so that you hear of what you did not do: a passkey added, a link for a new passkey created for you, your email changed (to the previous address), a link created, replaced, resumed or edited so that it opens more, a link locked by wrong PINs, and a door opened by a guest who seemed far and confirmed being there. They never carry the link's address.
 
 ## If a guest cannot get in
 
@@ -95,6 +95,11 @@ The home page and **Cerraduras** warn you in red about a lock that Nuki reports 
 | "Hemos pedido a la cerradura que abra, pero no lo ha confirmado" | The lock was asked to open and did not say that it did | Try pushing the door before sliding again |
 | "El PIN no es correcto" | They typed another PIN | Check it with **Editar**, where you can read it, and tell them |
 | "Este enlace se ha bloqueado por demasiados PIN incorrectos" | The link was given 20 wrong PINs in a row | **Editar** it, with another PIN, or **Sustituir enlace** if someone else may have it |
+| "La cerradura no ha podido abrir" | The lock tried and could not: a blocked motor, or a door that is not shut | Ask them to pull or push the door and slide again; check the lock in the Nuki app |
+| "Demasiados intentos. Espera unos minutos" | Too many slides, or wrong PINs, in a short while | Wait a few minutes; nothing needs changing |
+| "Estás a unos … de la puerta, y este enlace solo la abre estando delante" | The lock refuses a guest who is clearly far | They slide again in front of the door. If they are there, check the lock's position in **Estado y ajustes** |
+| "No hemos podido saber dónde estás" | The lock opens only for a guest it can place near, and their phone did not say where it is | They allow the page to use their location and slide again |
+| "No hay conexión a internet" | Their phone has no connection: nothing reached the lock | They check their connection and slide again |
 | "La cerradura está en modo nocturno" | The lock refuses in night mode | Change it in the Nuki app |
 
 If the door really must open now, you can always use the Nuki app yourself.
@@ -103,7 +108,7 @@ If the door really must open now, you can always use the Nuki app yourself.
 
 **Configuración → Cuenta** shows the email we write to. If you change it, we send a link to the new one to confirm it, and tell the old one: until you open the link, you get no emails. Your passkeys still work, though your phone may keep showing the old email next to them.
 
-**Configuración → Actividad** lists your latest sign-ins, with the passkey each used, and every change to your links, with where it came from: a flag, and the IP address for 90 days. If something there was not you, delete the passkey you do not recognise in **Configuración → Passkeys**, which signs out its sessions, and disable the links you did not create.
+**Configuración → Actividad** lists your latest sign-ins, with the passkey each used, and every change to your links, with where it came from: a flag, and the IP address for 90 days (the server's backups keep what is deleted for up to 30 days more, which your guests' page tells them too). If something there was not you, delete the passkey you do not recognise in **Configuración → Passkeys**, which signs out its sessions, and disable the links you did not create.
 
 ## Leaving
 

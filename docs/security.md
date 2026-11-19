@@ -10,7 +10,7 @@ How owners' data is kept apart and secrets are kept. For why, see the Decisions 
 - `app_user`: the application's user; no ownership and no `BYPASSRLS`, only the grants that migrations give it.
 - `backup_reader`, only when its password is given (`BACKUP_READER_PASSWORD` or `BACKUP_READER_PASSWORD_FILE`): an off-site backup tool's, with `BYPASSRLS` and `pg_read_all_data`, so it reads every row and writes nothing.
 
-Liquibase runs the changesets in `src/main/resources/db/changelog/` at startup as `migrator` (`spring.liquibase.user` / `spring.liquibase.password`), while the app connects as `app_user` (`spring.datasource.username` / `spring.datasource.password`). Outside the dev profile, set them with the `SPRING_LIQUIBASE_*` and `SPRING_DATASOURCE_*` environment variables.
+Liquibase runs the changesets in `src/main/resources/db/changelog/` at startup as `migrator` (`spring.liquibase.user` / `spring.liquibase.password`), while the app connects as `app_user` (`spring.datasource.username` / `spring.datasource.password`). Outside the dev profile, set the users with the `SPRING_LIQUIBASE_USER` and `SPRING_DATASOURCE_USERNAME` environment variables; the passwords are never in the environment, where `docker inspect` shows them: production's stack mounts them as files that Spring reads as properties (`spring.config.import=configtree:`, see [deployment](deployment.md)).
 
 Owner data is isolated with Row-Level Security. `OwnerTransactions` runs each owner's work in a transaction that sets `app.owner_id` with `set_config(..., true)`, so the setting ends with the transaction. It joins a transaction already under way only for the same owner: the setting would last to the end of it, so joining one bound to another owner throws.
 

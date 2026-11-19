@@ -9,8 +9,9 @@ import com.google.crypto.tink.aead.AeadKey;
 import com.google.crypto.tink.util.Bytes;
 
 /**
- * The AEAD keyset that encrypts Nuki tokens: its primitive, which encrypts with the primary key and decrypts with
- * any key in the keyset, and the primary key, which tells the tokens that another key encrypted.
+ * The AEAD keyset that encrypts what the app must read back: owners' Nuki tokens (access and refresh) and links'
+ * PINs. Its primitive, which encrypts with the primary key and decrypts with any key in the keyset, and the primary
+ * key, which tells what another key encrypted.
  *
  * @param aead          the keyset's primitive
  * @param primaryKeyId  the primary key's id, as Tink stores it: an unsigned 32-bit number

@@ -44,7 +44,8 @@ class GuestPageTests {
     static final String OUTSIDE_SCHEDULE_NOTICE = "<p role=\"alert\">A esta hora este enlace no abre la puerta.";
     static final ZoneId NEW_YORK = ZoneId.of("America/New_York");
     static final String PRIVACY_NOTICE = "Al deslizar, quien te dio este enlace podrá ver la hora, tu país y tu "
-            + "dirección IP. La IP se borra a los 90 días; lo demás, a los 365.";
+            + "dirección IP. La IP se borra a los 90 días; lo demás, a los 365. Las copias de seguridad los conservan hasta 30 "
+            + "días más.";
 
     /** Stopped by the tests that reason about today, so that they and the app cannot read two sides of midnight. */
     @Autowired

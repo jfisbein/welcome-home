@@ -84,7 +84,7 @@ class EventPurgeJobTests {
         insertEvent(link, "31 days", "198.51.100.1");
         insertEvent(link, "29 days", "198.51.100.2");
 
-        new EventPurgeJob(accessEvents, activity, ownerTransactions, owners, new AuditProperties(Duration.ofDays(30), Duration.ofDays(30)), Clock.systemUTC()).purgeAll();
+        new EventPurgeJob(accessEvents, activity, ownerTransactions, owners, new AuditProperties(Duration.ofDays(30), Duration.ofDays(30), Duration.ofDays(30)), Clock.systemUTC()).purgeAll();
 
         assertThat(remainingIps(link)).containsExactly("198.51.100.2");
     }
@@ -131,7 +131,7 @@ class EventPurgeJobTests {
         insertEvent(link, "31 days", "198.51.100.1");
         insertEvent(link, "29 days", "198.51.100.2");
 
-        new EventPurgeJob(accessEvents, activity, ownerTransactions, owners, new AuditProperties(Duration.ofDays(365), Duration.ofDays(30)), Clock.systemUTC())
+        new EventPurgeJob(accessEvents, activity, ownerTransactions, owners, new AuditProperties(Duration.ofDays(365), Duration.ofDays(30), Duration.ofDays(30)), Clock.systemUTC())
                 .purgeAll();
 
         assertThat(attempts(link)).containsExactly("opened|-|-|-", "opened|-|198.51.100.2|-");

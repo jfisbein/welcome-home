@@ -11,11 +11,11 @@ import com.google.crypto.tink.aead.PredefinedAeadParameters;
 import com.google.crypto.tink.mac.PredefinedMacParameters;
 
 /**
- * Generates the two keysets the application needs: AES-256-GCM for Nuki tokens and HMAC-SHA256 with a
- * 128-bit tag for access links. Run it with {@code ./gradlew generateKeysets}.
+ * Generates the two keysets the application needs: AES-256-GCM for Nuki tokens and links' PINs, and HMAC-SHA256
+ * with a 128-bit tag for access links. Run it with {@code ./gradlew generateKeysets}.
  * <p>
- * Existing files are never overwritten: losing a keyset means connecting every owner's Nuki again and
- * regenerating every access link.
+ * Existing files are never overwritten: losing a keyset means connecting every owner's Nuki again, setting every
+ * link's PIN again and regenerating every access link.
  */
 public final class KeysetGenerator {
 

@@ -126,6 +126,7 @@ class GuestController {
         model.addAttribute("checksLocation", doors.stream().anyMatch(door -> door.available() && door.checksLocation()));
         // What sliding keeps, for the notice under the doors; as text, so that no language groups the digits.
         model.addAttribute("ipRetentionDays", String.valueOf(accessEvents.ipRetention().toDays()));
+        model.addAttribute("backupRetentionDays", String.valueOf(accessEvents.backupRetention().toDays()));
         model.addAttribute("retentionDays", String.valueOf(accessEvents.retention().toDays()));
         return "access/guest";
     }

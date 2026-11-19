@@ -13,8 +13,9 @@ import com.google.crypto.tink.RegistryConfiguration;
 import com.google.crypto.tink.aead.PredefinedAeadParameters;
 
 /**
- * Rotates the AEAD keyset: adds a new AES-256-GCM key and makes it the primary one. Nuki tokens stored from
- * then on are encrypted with it, while the earlier keys stay in the keyset to decrypt the tokens stored before.
+ * Rotates the AEAD keyset: adds a new AES-256-GCM key and makes it the primary one. Nuki tokens and links' PINs
+ * stored from then on are encrypted with it, while the earlier keys stay in the keyset to decrypt what was stored
+ * before, which the app encrypts again with the new key when it starts.
  * Run it with {@code ./gradlew rotateAeadKeyset --args=<keyset file>}.
  */
 public final class KeysetRotator {
