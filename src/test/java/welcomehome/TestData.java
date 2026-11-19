@@ -119,6 +119,11 @@ public final class TestData {
         db.sql("UPDATE access_link SET pin_encrypted = ? WHERE id = ?").params(encrypted, link).update();
     }
 
+    /** How many wrong PINs a link has been given since its owner last edited it. */
+    public void pinFailures(UUID link, int failures) {
+        db.sql("UPDATE access_link SET pin_failures = ? WHERE id = ?").params(failures, link).update();
+    }
+
     /** The hours at which a link opens on a day, local to its lock: 00:00 to 00:00 is the whole day. */
     public void schedule(UUID link, DayOfWeek day, String opens, String closes) {
         db.sql("""

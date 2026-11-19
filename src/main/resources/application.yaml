@@ -65,6 +65,9 @@ welcomehome:
     # How long a link is kept after it ended: its label usually holds a guest's name.
     retention: P365D
     purge-cron: "0 32 3 * * *"
+    # Wrong PINs a link takes in total before it refuses every attempt, until its owner edits it or gives it a new
+    # URL: 20 guesses at 4 digits are 1 in 500. The limit under access.pin only slows them down.
+    pin-max-failures: 20
   locks:
     # Daily sync of every owner's locks with their Nuki account, in the server's time zone.
     sync-cron: "0 15 8 * * *"

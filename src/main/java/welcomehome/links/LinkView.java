@@ -16,7 +16,9 @@ import java.util.UUID;
  * @param status     its state now
  * @param url        its guest URL, computed for the current token version
  * @param hasPin     whether it asks the guest for a PIN
+ * @param pinLocked  whether it has been given so many wrong PINs that it opens no more, until its owner edits it or
+ *                   gives it a new URL
  */
 record LinkView(UUID id, String label, ZonedDateTime validFrom, ZonedDateTime validUntil, List<String> schedule,
-                LinkStatus status, URI url, boolean hasPin) {
+                LinkStatus status, URI url, boolean hasPin, boolean pinLocked) {
 }

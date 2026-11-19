@@ -113,7 +113,7 @@ class AccessLinks {
 
     /**
      * Changes a link's label, dates, schedule and PIN. Its URL stays the same, since it depends only on the link's id and
-     * token version.
+     * token version. A link locked by wrong PINs opens again, with whatever PIN it is left with.
      *
      * @param label a label already checked with {@link LinkForm}
      * @param pin   the PIN, checked with {@link LinkForm}, or null to take it off
@@ -126,6 +126,7 @@ class AccessLinks {
             lockId.ifPresent(lock -> {
                 links.replaceSchedule(ownerId, linkId, schedule);
                 pins.set(ownerId, linkId, pin);
+                pins.unlock(ownerId, linkId);
                 events.publishEvent(new LinkChanged(ownerId, lock, linkId, Change.EDITED));
             });
             return lockId.isPresent();
@@ -134,15 +135,18 @@ class AccessLinks {
 
     /**
      * Gives a link a new URL, for when the old one leaked: incrementing its token version makes every earlier
-     * URL invalid. Its dates, schedule, label and state stay the same.
+     * URL invalid. Its dates, schedule, label and state stay the same, and one locked by wrong PINs opens again.
      *
      * @return the link's lock, label and new URL, or empty if the owner has no such link or it is revoked
      */
     Optional<RegeneratedUrl> regenerate(UUID ownerId, UUID linkId) {
         return ownerTransactions.execute(ownerId, () -> {
                     var regenerated = links.incrementTokenVersion(ownerId, linkId);
-                    regenerated.ifPresent(link ->
-                            events.publishEvent(new LinkChanged(ownerId, link.lockId(), linkId, Change.NEW_URL)));
+                    regenerated.ifPresent(link -> {
+                        // Whoever was guessing its PIN held the URL that has just stopped working.
+                        pins.unlock(ownerId, linkId);
+                        events.publishEvent(new LinkChanged(ownerId, link.lockId(), linkId, Change.NEW_URL));
+                    });
                     return regenerated;
                 })
                 .map(link -> new RegeneratedUrl(link.lockId(), link.label(), urls.url(link.id(), link.tokenVersion())));
@@ -164,7 +168,8 @@ class AccessLinks {
                         LinkStatus.of(link.validFrom().toInstant(), link.validUntil().toInstant(),
                                 link.revokedAt() == null ? null : link.revokedAt().toInstant(), now),
                         urls.url(link.id(), link.tokenVersion()),
-                        link.hasPin()))
+                        link.hasPin(),
+                        link.hasPin() && pins.isLocked(link.pinFailures())))
                 .sorted(Comparator.comparing((LinkView link) -> !link.status().isUsable()))
                 .toList();
     }

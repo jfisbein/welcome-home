@@ -135,6 +135,56 @@ class LinkPinTests {
         assertThat(hasStoredPin()).isFalse();
     }
 
+    /** A right PIN does not, or guesses could go on between a guest's openings. */
+    @Test
+    void wrongPinsAreCountedWithTheLinkAndARightOneDoesNotStartTheCountAgain() {
+        create("4821");
+        var link = linkId();
+
+        assertThat(pins.check(aliceId, link, "0000")).isEqualTo(LinkPins.Check.DOES_NOT_MATCH);
+        assertThat(pins.check(aliceId, link, null)).isEqualTo(LinkPins.Check.DOES_NOT_MATCH);
+        assertThat(pins.check(aliceId, link, "4821")).isEqualTo(LinkPins.Check.MATCHES);
+
+        assertThat(pinFailures()).isEqualTo(2);
+    }
+
+    @Test
+    void theWrongPinThatSpendsTheLinksTotalLocksItAndTheListSaysSo() {
+        create("4821");
+        var link = linkId();
+        data.pinFailures(link, 19);
+        assertThat(links()).doesNotContain("Bloqueado por PIN incorrectos");
+
+        assertThat(pins.check(aliceId, link, "0000")).isEqualTo(LinkPins.Check.LOCKED);
+
+        assertThat(pins.check(aliceId, link, "4821")).as("the right one too").isEqualTo(LinkPins.Check.LOCKED);
+        assertThat(pinFailures()).isEqualTo(20);
+        assertThat(links()).contains("Bloqueado por PIN incorrectos: no abre hasta que lo edites o lo cambies");
+    }
+
+    /** Whoever was guessing knows neither the new PIN nor the new URL. */
+    @Test
+    void editingALockedLinkOrGivingItANewUrlLetsItOpenAgain() {
+        create("4821");
+        var link = linkId();
+
+        data.pinFailures(link, 20);
+        assertThat(update(ALICE, link, "5930")).hasStatus(HttpStatus.FOUND);
+        assertThat(pinFailures()).isZero();
+        assertThat(pins.check(aliceId, link, "5930")).isEqualTo(LinkPins.Check.MATCHES);
+        assertThat(links()).doesNotContain("Bloqueado por PIN incorrectos");
+
+        data.pinFailures(link, 20);
+        assertThat(mvc.post().uri("/links/" + link + "/regenerate").with(owner(ALICE)).with(csrf()))
+                .hasStatus(HttpStatus.FOUND);
+        assertThat(pinFailures()).isZero();
+        assertThat(pins.check(aliceId, link, "5930")).isEqualTo(LinkPins.Check.MATCHES);
+
+        data.pinFailures(link, 20);
+        assertThat(update(BOB, link, "0000")).hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(pinFailures()).as("only its owner").isEqualTo(20);
+    }
+
     @Test
     void anotherOwnerCannotChangeThePin() {
         create("4821");
@@ -181,6 +231,16 @@ class LinkPinTests {
 
     private UUID linkId() {
         return migrator.sql("SELECT id FROM access_link").query(UUID.class).single();
+    }
+
+    private int pinFailures() {
+        return migrator.sql("SELECT pin_failures FROM access_link").query(Integer.class).single();
+    }
+
+    private String links() {
+        var result = mvc.get().uri("/locks/" + lockId + "/links").with(owner(ALICE)).exchange();
+        assertThat(result).hasStatusOk();
+        return new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8);
     }
 
     private boolean hasStoredPin() {

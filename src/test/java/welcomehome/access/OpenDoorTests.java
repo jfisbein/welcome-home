@@ -49,6 +49,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestClock;
 import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.crypto.CryptoService;
@@ -81,7 +82,7 @@ class OpenDoorTests {
     CryptoService crypto;
 
     @Autowired
-    RateLimiter rateLimiter;
+    TestClock clock;
 
     JdbcClient migrator;
     TestData data;
@@ -709,16 +710,104 @@ class OpenDoorTests {
                 .bodyJson().extractingPath("$.result").isEqualTo("opened");
     }
 
+    /**
+     * Through the endpoint, as someone guessing would. A link takes 5 attempts a minute of any kind and 5 wrong PINs
+     * in 15 minutes, so the second limit shows only once the first is back, a minute later.
+     */
     @Test
-    void aLinkThatSpentItsWrongPinsRefusesEvenTheRightOne() {
-        var link = linkWithPin("4821");
-        for (var i = 0; i < 5; i++) {
-            rateLimiter.pinFailed(link);
+    void aLinkThatSpentItsWrongPinsRefusesEvenTheRightOneUntilOneComesBack() {
+        nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));
+        lockLogShowsUnlatch(0);
+        var token = signer.sign(linkWithPin("4821"), 1);
+        for (int guess = 0; guess < 5; guess++) {
+            assertThat(openWithPin(token, "000" + guess)).as("guess " + guess)
+                    .bodyJson().extractingPath("$.result").isEqualTo("wrong-pin");
         }
 
-        assertThat(openWithPin(signer.sign(link, 1), "4821")).hasStatus(HttpStatus.TOO_MANY_REQUESTS)
+        clock.advance(Duration.ofMinutes(1));
+        assertThat(openWithPin(token, "4821")).hasStatus(HttpStatus.TOO_MANY_REQUESTS)
                 .bodyJson().extractingPath("$.result").isEqualTo("too-many-attempts");
+        assertThat(lastEvent()).startsWith("DENIED|too-many-attempts|");
+        nuki.verify(0, anyRequestedFor(anyUrl()));
 
+        clock.advance(Duration.ofMinutes(3));
+        assertThat(openWithPin(token, "4821")).as("a wrong PIN comes back every 3 minutes").hasStatusOk()
+                .bodyJson().extractingPath("$.result").isEqualTo("opened");
+    }
+
+    /** Only wrong PINs count: a guest who types theirs right opens as often as any guest. */
+    @Test
+    void theRightPinDoesNotCountAgainstTheLink() {
+        nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));
+        lockLogShowsUnlatch(0);
+        var token = signer.sign(linkWithPin("4821"), 1);
+
+        for (int opening = 0; opening < 12; opening++) {
+            if (opening % 5 == 0) {
+                clock.advance(Duration.ofMinutes(1));
+            }
+            assertThat(openWithPin(token, "4821")).as("opening " + opening)
+                    .bodyJson().extractingPath("$.result").isEqualTo("opened");
+        }
+    }
+
+    /**
+     * With one wrong PIN left, guesses sent at once must not all be compared on it: the attempt is taken before the
+     * PIN is compared.
+     */
+    @Test
+    void guessesSentAtOnceAreComparedNoMoreThanTheWrongPinsLeft() throws Exception {
+        var link = linkWithPin("4821");
+        var token = signer.sign(link, 1);
+        for (int guess = 0; guess < 4; guess++) {
+            assertThat(openWithPin(token, "000" + guess)).bodyJson().extractingPath("$.result").isEqualTo("wrong-pin");
+        }
+        clock.advance(Duration.ofMinutes(1));
+
+        var results = pinsAtOnce(token, "1111", "2222", "3333", "4444", "5555");
+
+        assertThat(results).containsExactlyInAnyOrder("wrong-pin", "too-many-attempts", "too-many-attempts",
+                "too-many-attempts", "too-many-attempts");
+        assertThat(pinFailures(link)).isEqualTo(5);
+    }
+
+    /**
+     * What the limit above only slows down: a link takes 20 wrong PINs in all, kept with it, so that neither waiting
+     * nor a restart gives more guesses.
+     */
+    @Test
+    void wrongPinsAddUpOverTheWhilesTheyComeBackInUntilTheLinkIsLocked() {
+        var link = linkWithPin("4821");
+        var token = signer.sign(link, 1);
+
+        for (int guess = 0; guess < 19; guess++) {
+            if (guess % 5 == 0) {
+                clock.advance(Duration.ofMinutes(15));
+            }
+            assertThat(openWithPin(token, "9%03d".formatted(guess))).as("guess " + guess)
+                    .hasStatus(HttpStatus.UNAUTHORIZED).bodyJson().extractingPath("$.result").isEqualTo("wrong-pin");
+        }
+        assertThat(openWithPin(token, "9999")).as("the twentieth").hasStatus(HttpStatus.LOCKED)
+                .bodyJson().extractingPath("$.result").isEqualTo("pin-locked");
+
+        assertThat(lastEvent()).startsWith("DENIED|pin-locked|");
+        assertThat(pinFailures(link)).isEqualTo(20);
+    }
+
+    @Test
+    void aLockedLinkRefusesTheRightPinHoweverLongItWaitsAndComparesNothing() {
+        nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));
+        lockLogShowsUnlatch(0);
+        var link = linkWithPin("4821");
+        data.pinFailures(link, 20);
+        var token = signer.sign(link, 1);
+
+        clock.advance(Duration.ofDays(1));
+        assertThat(openWithPin(token, "4821")).hasStatus(HttpStatus.LOCKED)
+                .bodyJson().extractingPath("$.result").isEqualTo("pin-locked");
+        assertThat(openWithPin(token, "0000")).hasStatus(HttpStatus.LOCKED);
+
+        assertThat(pinFailures(link)).as("nothing was compared, so nothing more is counted").isEqualTo(20);
         nuki.verify(0, anyRequestedFor(anyUrl()));
     }
 
@@ -753,6 +842,32 @@ class OpenDoorTests {
     }
 
     /** A link valid now, with this PIN. */
+    private int pinFailures(UUID link) {
+        return migrator.sql("SELECT pin_failures FROM access_link WHERE id = ?").param(link).query(Integer.class).single();
+    }
+
+    /** Sends every PIN with the link's token at the same time, each from its own IP address. */
+    private List<String> pinsAtOnce(String token, String... pins) throws Exception {
+        var start = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(pins.length)) {
+            var results = new ArrayList<Future<String>>();
+            for (var pin : pins) {
+                var from = "10.251.%d.%d".formatted(rand(), rand());
+                results.add(executor.submit(() -> {
+                    start.await();
+                    return JsonPath.<String>read(body(send(from,
+                            "{\"token\": \"" + token + "\", \"pin\": \"" + pin + "\"}")), "$.result");
+                }));
+            }
+            start.countDown();
+            var codes = new ArrayList<String>();
+            for (var result : results) {
+                codes.add(result.get(10, TimeUnit.SECONDS));
+            }
+            return codes;
+        }
+    }
+
     private UUID linkWithPin(String pin) {
         var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
         var owner = migrator.sql("SELECT owner_id FROM access_link WHERE id = ?").param(link).query(UUID.class).single();

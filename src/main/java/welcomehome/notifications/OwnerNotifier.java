@@ -30,6 +30,7 @@ import welcomehome.config.TimeZoneNames;
 import welcomehome.config.WelcomeHomeProperties;
 import welcomehome.db.OwnerTransactions;
 import welcomehome.links.LinkChanged;
+import welcomehome.links.LinkPinLocked;
 import welcomehome.locks.LockProblemsFound;
 import welcomehome.notifications.RecipientDao.AttemptDetails;
 import welcomehome.notifications.RecipientDao.Recipient;
@@ -239,6 +240,27 @@ class OwnerNotifier {
         });
     }
 
+    /**
+     * A link locked by wrong PINs: someone who holds its URL may be guessing, and its guest can no longer get in.
+     * Whatever the preferences, as the owner is the only one who can make it open again.
+     */
+    @Async
+    @TransactionalEventListener
+    void on(LinkPinLocked locked) {
+        if (!mailer.isConfigured()) {
+            return;
+        }
+        var found = ownerTransactions.execute(locked.ownerId(),
+                () -> recipients.findLinkDetails(locked.ownerId(), locked.linkId()));
+        found.ifPresent(link -> {
+            var to = link.recipient();
+            send(to.email(), message(to, "account.pin-locked.subject", link.lockName(), link.label()),
+                    message(to, "account.pin-locked.body", link.lockName(), link.label(), locked.failures(),
+                            app.link("/locks/" + locked.lockId() + "/links"))
+                            + accountFooter(to));
+        });
+    }
+
     /** Also without a transaction, when the owner asks for the link again. */
     @Async
     @TransactionalEventListener(fallbackExecution = true)
@@ -311,7 +333,7 @@ class OwnerNotifier {
                 case UNAVAILABLE, NUKI_ERROR, LOCK_FAILED, NIGHT_MODE, MISSING_PERMISSION ->
                         new EmailKeys("notification.failed", reason);
                 case INVALID, TOO_MANY_ATTEMPTS, REVOKED, NOT_YET_VALID, EXPIRED, OUTSIDE_SCHEDULE, TOO_FAR,
-                     CONFIRM_LOCATION, PIN_REQUIRED, WRONG_PIN -> new EmailKeys("notification.denied", reason);
+                     CONFIRM_LOCATION, PIN_REQUIRED, WRONG_PIN, PIN_LOCKED -> new EmailKeys("notification.denied", reason);
             };
         }
     }

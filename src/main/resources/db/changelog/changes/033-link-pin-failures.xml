@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="033-link-pin-failures" author="welcome-home">
+        <comment>
+            How many wrong PINs a link has been given since its owner last edited it or gave it a new URL. A 4 to 8
+            digit PIN can be guessed, and the limit kept in memory comes back by itself and is lost on a restart: past
+            a total, the link refuses every attempt until its owner acts. A release before this one ignores it.
+        </comment>
+        <addColumn tableName="access_link">
+            <column name="pin_failures" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

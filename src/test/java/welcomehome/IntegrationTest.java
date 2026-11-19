@@ -11,12 +11,13 @@ import org.springframework.context.annotation.Import;
 import org.springframework.core.annotation.AliasFor;
 
 /**
- * A Spring Boot test with the test infrastructure: Postgres in a container and freshly generated keysets.
+ * A Spring Boot test with the test infrastructure: Postgres in a container, freshly generated keysets, and a clock
+ * for the rate limits that tests move forward.
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @SpringBootTest(properties = "welcomehome.base-url=" + IntegrationTest.BASE_URL)
-@Import({TestDatabaseConfiguration.class, TestKeysetsConfiguration.class})
+@Import({TestDatabaseConfiguration.class, TestKeysetsConfiguration.class, TestClockConfiguration.class})
 public @interface IntegrationTest {
 
     /** The public URL of the app in tests. */

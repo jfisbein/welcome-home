@@ -8,6 +8,7 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import welcomehome.crypto.CryptoService;
 import welcomehome.db.OwnerTransactions;
@@ -17,6 +18,11 @@ import welcomehome.db.OwnerTransactions;
  * URL alone does not open the door. It is stored encrypted (AEAD, bound to its owner and link) so that the owner
  * can read it back, and only decrypted to compare or to show it to its owner. Reading it for a guest is only for a
  * link whose token was verified.
+ * <p>
+ * Four digits can be guessed, so wrong PINs are counted on the link's row, where a restart does not lose them: past
+ * {@code welcomehome.links.pin-max-failures} the link is locked and refuses every attempt, a right PIN too, until
+ * its owner edits it or gives it a new URL, which starts the count again. A right PIN does not, or guesses could go
+ * on between a guest's openings.
  */
 @Service
 public class LinkPins {
@@ -34,17 +40,24 @@ public class LinkPins {
         /** The guest typed the link's PIN. */
         MATCHES,
         /** The guest typed none, or another one. */
-        DOES_NOT_MATCH
+        DOES_NOT_MATCH,
+        /** The link has been given too many wrong PINs, this one perhaps the last: it compares no more. */
+        LOCKED
     }
 
     private final LinkDao links;
     private final CryptoService crypto;
     private final OwnerTransactions ownerTransactions;
+    private final ApplicationEventPublisher events;
+    private final int maxFailures;
 
-    LinkPins(LinkDao links, CryptoService crypto, OwnerTransactions ownerTransactions) {
+    LinkPins(LinkDao links, CryptoService crypto, OwnerTransactions ownerTransactions,
+             ApplicationEventPublisher events, LinksProperties properties) {
         this.links = links;
         this.crypto = crypto;
         this.ownerTransactions = ownerTransactions;
+        this.events = events;
+        this.maxFailures = properties.pinMaxFailures();
     }
 
     /**
@@ -71,23 +84,49 @@ public class LinkPins {
 
     /**
      * Compares what a guest typed with the link's PIN, in constant time, in the owner's context: only for a link
-     * whose token was verified.
+     * whose token was verified. A wrong PIN is counted, and the one that spends the link's total locks it, which
+     * {@link LinkPinLocked} tells. The link's row is locked meanwhile, so that guesses sent at once are counted one
+     * after another and none is compared once the total is spent.
      *
      * @param ownerId the link's owner
      * @param linkId  the link
      * @param typed   what the guest typed, or null if nothing
-     * @return whether the link has a PIN, and if so whether the guest typed it
+     * @return whether the link has a PIN, and if so whether the guest typed it, or that it compares no more
      */
     public Check check(UUID ownerId, UUID linkId, @Nullable String typed) {
-        var stored = ownerTransactions.execute(ownerId, () -> links.findPin(ownerId, linkId));
-        if (stored.isEmpty()) {
-            return Check.NOT_SET;
-        }
-        var pin = crypto.decryptLinkPin(ownerId, linkId, stored.get());
-        // Compared as bytes, whatever the guest sent, and whatever its length.
-        var same = typed != null && MessageDigest.isEqual(pin.getBytes(StandardCharsets.UTF_8),
-                typed.strip().getBytes(StandardCharsets.UTF_8));
-        return same ? Check.MATCHES : Check.DOES_NOT_MATCH;
+        return ownerTransactions.execute(ownerId, () -> {
+            var found = links.findPinForUpdate(ownerId, linkId);
+            if (found.isEmpty()) {
+                return Check.NOT_SET;
+            }
+            var stored = found.get();
+            if (isLocked(stored.failures())) {
+                return Check.LOCKED;
+            }
+            var pin = crypto.decryptLinkPin(ownerId, linkId, stored.encrypted());
+            // Compared as bytes, whatever the guest sent, and whatever its length.
+            var same = typed != null && MessageDigest.isEqual(pin.getBytes(StandardCharsets.UTF_8),
+                    typed.strip().getBytes(StandardCharsets.UTF_8));
+            if (same) {
+                return Check.MATCHES;
+            }
+            var failures = links.addPinFailure(ownerId, linkId);
+            if (isLocked(failures)) {
+                events.publishEvent(new LinkPinLocked(ownerId, stored.lockId(), linkId, failures));
+                return Check.LOCKED;
+            }
+            return Check.DOES_NOT_MATCH;
+        });
+    }
+
+    /** @return whether a link given that many wrong PINs refuses every attempt */
+    boolean isLocked(int failures) {
+        return failures >= maxFailures;
+    }
+
+    /** Starts the count of wrong PINs again: the owner edited the link or gave it a new URL; in their transaction. */
+    void unlock(UUID ownerId, UUID linkId) {
+        links.resetPinFailures(ownerId, linkId);
     }
 
     /** The link's PIN, for its owner to read back. */

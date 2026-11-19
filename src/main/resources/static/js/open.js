@@ -3,7 +3,7 @@
 // Outcomes worth trying again at once: the lock or Nuki failed, or the opening was not confirmed.
 const RETRY_NOW = ["nuki-error", "too-many-attempts", "not-confirmed", "lock-failed"];
 // Outcomes that cannot change while the page is open: the slider stays off.
-const FINAL = ["expired", "revoked", "invalid"];
+const FINAL = ["expired", "revoked", "invalid", "pin-locked"];
 // After any other outcome, an opening above all, the slider works again after a while, for a guest who keeps
 // the page open to come back later. An Opener opens the entrance only for a few seconds: a guest who did not
 // push in time may slide again sooner.

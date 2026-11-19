@@ -60,6 +60,7 @@ class OpenController {
             case NOT_YET_VALID, OUTSIDE_SCHEDULE, TOO_FAR -> HttpStatus.FORBIDDEN;
             case CONFIRM_LOCATION, PIN_REQUIRED -> HttpStatus.PRECONDITION_REQUIRED;
             case WRONG_PIN -> HttpStatus.UNAUTHORIZED;
+            case PIN_LOCKED -> HttpStatus.LOCKED;
             case UNAVAILABLE, NUKI_ERROR, LOCK_FAILED, NIGHT_MODE, MISSING_PERMISSION -> HttpStatus.SERVICE_UNAVAILABLE;
         };
     }

@@ -75,6 +75,38 @@ class LinkDao {
                 .optional();
     }
 
+    /**
+     * The link's PIN and how many wrong ones it has been given, with its row locked until the transaction ends, so
+     * that guesses sent at once are counted one after another.
+     */
+    Optional<CountedPin> findPinForUpdate(UUID ownerId, UUID linkId) {
+        return jdbc.sql("SELECT lock_id, pin_encrypted, pin_failures FROM access_link "
+                        + "WHERE owner_id = :ownerId AND id = :linkId AND pin_encrypted IS NOT NULL FOR UPDATE")
+                .param("ownerId", ownerId)
+                .param("linkId", linkId)
+                .query((rs, row) -> new CountedPin(rs.getObject("lock_id", UUID.class),
+                        rs.getBytes("pin_encrypted"), rs.getInt("pin_failures")))
+                .optional();
+    }
+
+    /** @return how many wrong PINs the link has been given, this one counted */
+    int addPinFailure(UUID ownerId, UUID linkId) {
+        return jdbc.sql("UPDATE access_link SET pin_failures = pin_failures + 1 "
+                        + "WHERE owner_id = :ownerId AND id = :linkId RETURNING pin_failures")
+                .param("ownerId", ownerId)
+                .param("linkId", linkId)
+                .query(Integer.class)
+                .single();
+    }
+
+    /** Forgets the wrong PINs the link was given: its owner edited it or gave it a new URL. */
+    void resetPinFailures(UUID ownerId, UUID linkId) {
+        jdbc.sql("UPDATE access_link SET pin_failures = 0 WHERE owner_id = :ownerId AND id = :linkId")
+                .param("ownerId", ownerId)
+                .param("linkId", linkId)
+                .update();
+    }
+
     /** Sets the link's PIN. */
     void setPin(UUID ownerId, UUID linkId, byte[] pinEncrypted) {
         jdbc.sql("UPDATE access_link SET pin_encrypted = :pin WHERE owner_id = :ownerId AND id = :linkId")
@@ -112,7 +144,8 @@ class LinkDao {
 
     List<StoredLink> findByLock(UUID ownerId, UUID lockId) {
         return jdbc.sql("""
-                        SELECT id, label, token_version, valid_from, valid_until, revoked_at, pin_encrypted IS NOT NULL AS has_pin
+                        SELECT id, label, token_version, valid_from, valid_until, revoked_at, pin_encrypted IS NOT NULL AS has_pin,
+                               pin_failures
                         FROM access_link
                         WHERE owner_id = :ownerId AND lock_id = :lockId
                         ORDER BY valid_from DESC
@@ -276,6 +309,11 @@ class LinkDao {
     }
 
     record StoredLink(UUID id, String label, int tokenVersion, OffsetDateTime validFrom, OffsetDateTime validUntil,
-                      @Nullable OffsetDateTime revokedAt, boolean hasPin) {
+                      @Nullable OffsetDateTime revokedAt, boolean hasPin, int pinFailures) {
+    }
+
+    /** A link's PIN as it is stored, its lock, and how many wrong PINs the link has been given. */
+    @SuppressWarnings("ArrayRecordComponent")
+    record CountedPin(UUID lockId, byte[] encrypted, int failures) {
     }
 }

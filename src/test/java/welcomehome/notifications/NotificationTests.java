@@ -39,6 +39,7 @@ import welcomehome.audit.AccessEvents;
 import welcomehome.audit.AccessOutcome;
 import welcomehome.crypto.CryptoService;
 import welcomehome.db.OwnerTransactions;
+import welcomehome.links.LinkPins;
 import welcomehome.nuki.LockProvider;
 import welcomehome.nuki.LockProviderException;
 import welcomehome.nuki.NukiReconnected;
@@ -70,6 +71,9 @@ class NotificationTests {
 
     @Autowired
     AccessEvents accessEvents;
+
+    @Autowired
+    LinkPins linkPins;
 
     @Autowired
     LockProvider lockProvider;
@@ -191,6 +195,25 @@ class NotificationTests {
         var email = theOnlyEmail();
         assertThat(email.getSubject()).isEqualTo("Casa: intento denegado con el enlace de Luis");
         assertThat(text(email)).contains("se ha denegado: el PIN escrito era incorrecto.");
+    }
+
+    /** Only its owner can make it open again, and someone may be guessing: whatever the preferences, and once. */
+    @Test
+    void aLinkLockedByWrongPinsIsEmailedAlwaysWhenItIsLocked() throws Exception {
+        assertThat(mvc.put().uri("/settings/notifications").with(owner()).with(csrf())).hasStatus3xxRedirection();
+        data.pin(linkId, crypto.encryptLinkPin(aliceId, linkId, "4821"));
+        data.pinFailures(linkId, 18);
+
+        assertThat(linkPins.check(aliceId, linkId, "0000")).isEqualTo(LinkPins.Check.DOES_NOT_MATCH);
+        assertThat(linkPins.check(aliceId, linkId, "0001")).isEqualTo(LinkPins.Check.LOCKED);
+        assertThat(linkPins.check(aliceId, linkId, "0002")).isEqualTo(LinkPins.Check.LOCKED);
+
+        var email = theOnlyEmail();
+        assertThat(email.getSubject()).isEqualTo("Casa: enlace «Ana» bloqueado por PIN incorrectos");
+        assertThat(text(email)).contains("Con el enlace «Ana» de Casa se han escrito 20 PIN incorrectos",
+                "edítalo y ponle otro PIN", IntegrationTest.BASE_URL + "/locks/" + lockId + "/links",
+                "Este aviso se envía siempre");
+        assertNoMoreThan(1);
     }
 
     /** The guest may not have been there, and a door unlatched from afar may stay ajar: whatever the preferences. */

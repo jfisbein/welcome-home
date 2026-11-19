@@ -12,7 +12,6 @@ import welcomehome.access.GuestLinks.GuestLink;
 import welcomehome.audit.AccessEvent;
 import welcomehome.audit.AccessEvents;
 import welcomehome.audit.AccessOutcome;
-import welcomehome.links.LinkPins;
 import welcomehome.links.LinkStatus;
 import welcomehome.locks.LocationCheck;
 import welcomehome.locks.LockReachability;
@@ -31,8 +30,8 @@ import welcomehome.nuki.PendingAction;
  *     <li>the link exists, its MAC is valid and it is not revoked;</li>
  *     <li>rate limit per link;</li>
  *     <li>within the link's dates, and within its schedule if it has one;</li>
- *     <li>the link's PIN, if it has one: a link that has spent its wrong PINs refuses every attempt, and a wrong one
- *     counts against the link;</li>
+ *     <li>the link's PIN, if it has one: a link that has spent its wrong PINs refuses every attempt, for a while or,
+ *     past their total, until its owner acts, and a wrong one counts against the link;</li>
  *     <li>the door is available: its lock is active and the owner's Nuki connection is OK; for the building
  *     entrance, the link's lock has one, an Opener, and it is active;</li>
  *     <li>for a door that checks where its guests are, the guest is in front of it, or confirms being so
@@ -171,8 +170,11 @@ class OpenDoor {
     }
 
     /**
-     * The PIN, if the link has one. A link that spent its wrong PINs refuses before comparing anything, so that
-     * guessing gets nowhere even when it hits.
+     * The PIN, if the link has one. Two limits stand against guessing it: a few wrong PINs in a while, kept in
+     * memory, after which the link refuses before comparing anything, so that guessing gets nowhere even when it
+     * hits; and a total of them, kept with the link, after which it is locked until its owner acts. The attempt is
+     * taken before the PIN is compared and given back if it is right, so that PINs sent at once are not all compared
+     * on the last attempt left.
      *
      * @return why the guest cannot go on, or null if the link has no PIN or the guest typed it
      */
@@ -180,17 +182,20 @@ class OpenDoor {
         if (!guestLinks.pinRequired(link)) {
             return null;
         }
-        if (rateLimiter.pinLocked(link.linkId())) {
-            return AccessOutcome.TOO_MANY_ATTEMPTS;
-        }
         if (typed == null || typed.isBlank()) {
             return AccessOutcome.PIN_REQUIRED;
         }
-        if (guestLinks.checkPin(link, typed) == LinkPins.Check.MATCHES) {
-            return null;
+        if (!rateLimiter.tryPin(link.linkId())) {
+            return AccessOutcome.TOO_MANY_ATTEMPTS;
         }
-        rateLimiter.pinFailed(link.linkId());
-        return AccessOutcome.WRONG_PIN;
+        return switch (guestLinks.checkPin(link, typed)) {
+            case MATCHES, NOT_SET -> {
+                rateLimiter.pinWasRight(link.linkId());
+                yield null;
+            }
+            case DOES_NOT_MATCH -> AccessOutcome.WRONG_PIN;
+            case LOCKED -> AccessOutcome.PIN_LOCKED;
+        };
     }
 
     /**

@@ -20,7 +20,7 @@ public enum AccessOutcome {
     NOT_CONFIRMED("not-confirmed", AccessResult.OK),
     /** No such link, or its MAC is wrong. Never recorded: there is no owner to record it for. */
     INVALID("invalid", AccessResult.DENIED),
-    /** Rate limited, by IP address or by link. */
+    /** Rate limited, by IP address or by link, or the link's wrong PINs are spent for a while. */
     TOO_MANY_ATTEMPTS("too-many-attempts", AccessResult.DENIED),
     /** The owner revoked the link. */
     REVOKED("revoked", AccessResult.DENIED),
@@ -50,7 +50,12 @@ public enum AccessOutcome {
     /** The link has a PIN and none came with the slide. The page asks for it first, so only other clients get here. */
     PIN_REQUIRED("pin-required", AccessResult.DENIED),
     /** The link has a PIN and this was not it. */
-    WRONG_PIN("wrong-pin", AccessResult.DENIED);
+    WRONG_PIN("wrong-pin", AccessResult.DENIED),
+    /**
+     * The link has been given so many wrong PINs, this one perhaps the last, that it opens no more until its owner
+     * edits it or gives it a new URL.
+     */
+    PIN_LOCKED("pin-locked", AccessResult.DENIED);
 
     private final String code;
     private final AccessResult result;
