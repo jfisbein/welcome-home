@@ -390,9 +390,55 @@ main:focus {
     text-align: center;
 }
 
-/* A wrong PIN is told in the color of the field's own mark, so that a guest about to type again sees why. */
-.open-result[data-outcome="wrong-pin"],
-.open-result[data-outcome="pin-locked"],
-.open-result[data-outcome="pin-required"] {
+/* What came of a slide, which must be told apart at a glance: an opened door larger, in the color of what was added,
+   with a mark that does not depend on telling colors apart; anything that kept the door closed in the color of an
+   error, as a wrong PIN is, like the field's own mark. Being asked to confirm, and a preview, are neither. */
+.open-result[data-outcome] {
     color: var(--pico-del-color);
+    font-weight: bold;
+}
+
+.open-result[data-outcome="opened"] {
+    color: var(--pico-ins-color);
+    font-size: 1.25rem;
+}
+
+.open-result[data-outcome="opened"]::before {
+    content: "\2713\00a0";
+}
+
+.open-result[data-outcome="confirm-location"],
+.open-result[data-outcome="preview"] {
+    color: inherit;
+    font-weight: normal;
+}
+
+/* Said only if open.js has not shown the slider a few seconds in: it hides this as soon as it runs. */
+.needs-script {
+    animation: appear 0s 4s forwards;
+    visibility: hidden;
+}
+
+@keyframes appear {
+    to {
+        visibility: visible;
+    }
+}
+
+/* The languages a guest may read the page in, under it: small, yet each a target a finger can hit. */
+.languages {
+    display: block;
+    font-size: 0.875rem;
+    text-align: center;
+}
+
+.languages a,
+.languages strong {
+    display: inline-block;
+    padding: 0.5rem;
+}
+
+/* In the text's own color, underlined as links are: the link color is too faint here in the dark theme. */
+.languages a {
+    color: var(--pico-color);
 }

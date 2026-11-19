@@ -165,7 +165,7 @@ class OwnerActivityTests {
         assertThat(created.getSubject()).isEqualTo("Casa: enlace «Ana» creado");
         assertThat(created.getAllRecipients()).extracting(Object::toString).containsExactly(ALICE);
         assertThat(text(created)).contains(
-                        "Se ha creado el enlace «Ana» para Casa, válido del 01/11/2030 15:00 al 03/11/2030 11:00 "
+                        "Se ha creado el enlace «Ana» para Casa, válido del vie 1 nov 2030, 15:00 al dom 3 nov 2030, 11:00 "
                                 + "(hora de España peninsular).",
                         "anúlalo en " + IntegrationTest.BASE_URL + "/locks/" + lockId + "/links",
                         "actividad de tu cuenta en " + IntegrationTest.BASE_URL + "/settings/activity",
@@ -178,7 +178,7 @@ class OwnerActivityTests {
                 .param("validFrom", "2030-11-02T10:00").param("validUntil", "2030-11-05T12:00"));
         var edited = theOnlyEmail();
         assertThat(edited.getSubject()).isEqualTo("Casa: enlace «Luis» editado");
-        assertThat(text(edited)).contains("ahora es válido del 02/11/2030 10:00 al 05/11/2030 12:00",
+        assertThat(text(edited)).contains("ahora es válido del sáb 2 nov 2030, 10:00 al mar 5 nov 2030, 12:00",
                 "- Sus fechas abarcan más que antes.").doesNotContain("PIN", "horario");
 
         mail.purgeEmailFromAllMailboxes();
@@ -248,7 +248,7 @@ class OwnerActivityTests {
 
         var email = theOnlyEmail();
         assertThat(email.getSubject()).isEqualTo("Casa: link \"Ana\" created");
-        assertThat(text(email)).contains("valid from 01/11/2030 15:00 to 03/11/2030 11:00 (mainland Spain time)",
+        assertThat(text(email)).contains("valid from Fri 1 Nov 2030, 15:00 to Sun 3 Nov 2030, 11:00 (mainland Spain time)",
                 "This notification is always sent");
     }
 

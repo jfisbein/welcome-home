@@ -138,7 +138,58 @@ class GuestSlideTests extends BrowserTest {
         assertThat(slider).hasValue("0", new LocatorAssertions.HasValueOptions().setTimeout(5_000));
 
         assertThat(slider).isDisabled();
+        // So that a slide that does nothing is not taken for a broken page.
+        assertThat(page.locator(".slide-label"))
+                .hasText(java.util.regex.Pattern.compile("Podrás deslizar en \\d+ s"));
         assertUnlatches(1);
+    }
+
+    /** The slider is the script's to show: one that moved and opened nothing would be worse than none. */
+    @Test
+    void theSliderShowsOnceItsScriptRunsAndTheNoticeOfAPageNotLoadedGoes() {
+        assertThat(page.locator(".slide-to-open")).isVisible();
+        assertThat(page.locator(".needs-script")).isHidden();
+    }
+
+    /** Nothing left the phone, so nothing is said of a door that may have opened. */
+    @Test
+    void withoutAConnectionNothingIsSentAndTheGuestIsToldSo() {
+        context.setOffline(true);
+
+        slideTo(1.0);
+
+        assertThat(page.locator(".open-result")).hasText("No hay conexión a internet. Comprueba la conexión y vuelve a deslizar.");
+        assertThat(slider).isEnabled();
+        assertUnlatches(0);
+
+        context.setOffline(false);
+        slideTo(1.0);
+        assertThat(page.locator(".open-result")).containsText(OPENED);
+    }
+
+    /** The request left and no answer came, as on a connection that dropped: the door may have opened. */
+    @Test
+    void aSlideThatGetsNoAnswerIsToldAsAnOpeningThatWasNotConfirmed() {
+        page.route("**/api/open", route -> route.abort());
+
+        slideTo(1.0);
+
+        assertThat(page.locator(".open-result")).containsText("no lo ha confirmado");
+        assertThat(slider).isEnabled();
+    }
+
+    /** Trying again at once only adds to them. */
+    @Test
+    void afterTooManyAttemptsTheSliderStaysOffAndCountsDown() {
+        page.route("**/api/open", route -> route.fulfill(new com.microsoft.playwright.Route.FulfillOptions()
+                .setStatus(429).setContentType("application/json").setBody("{\"result\": \"too-many-attempts\"}")));
+
+        slideTo(1.0);
+
+        assertThat(page.locator(".open-result")).hasText("Demasiados intentos. Espera unos minutos y vuelve a probar.");
+        assertThat(slider).isDisabled();
+        assertThat(page.locator(".slide-label")).hasText(java.util.regex.Pattern.compile("Podrás deslizar en \\d+ s"),
+                new LocatorAssertions.HasTextOptions().setTimeout(5_000));
     }
 
     @Test

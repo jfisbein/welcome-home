@@ -1,7 +1,8 @@
 "use strict";
 
-// Outcomes worth trying again at once: the lock or Nuki failed, or the opening was not confirmed.
-const RETRY_NOW = ["nuki-error", "too-many-attempts", "not-confirmed", "lock-failed"];
+// Outcomes worth trying again at once: the lock or Nuki failed, the opening was not confirmed, or the request never
+// left the phone. Not after too many attempts, which trying again at once only adds to.
+const RETRY_NOW = ["nuki-error", "not-confirmed", "lock-failed", "offline"];
 // Outcomes that cannot change while the page is open: the slider stays off.
 const FINAL = ["expired", "revoked", "invalid", "pin-locked"];
 // After any other outcome, an opening above all, the slider works again after a while, for a guest who keeps
@@ -30,6 +31,9 @@ const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 const LOCATION_WAIT_S = 10;
 const POSITION_TIMEOUT_MS = 8 * 1000;
 const POSITION_MAX_AGE_MS = 60 * 1000;
+// How long the app may take to answer a slide before the page stops waiting. It waits up to 15 s for the lock to
+// confirm; past this, on a connection that went quiet, the page says what it says of an unconfirmed opening.
+const ANSWER_TIMEOUT_MS = 30 * 1000;
 
 // Where the browser says the guest is, {latitude, longitude, accuracy}, or {error} when it does not say. Asked for
 // on loading only when the browser already allows it, so that it is ready when the guest slides, and otherwise when
@@ -78,6 +82,11 @@ for (const door of document.querySelectorAll(".door")) {
 }
 
 function setUp(door, slider) {
+    // Shown only now that this script runs: a slider that moves and opens nothing is worse than none.
+    door.querySelector(".slide-to-open").hidden = false;
+    for (const notice of door.querySelectorAll(".needs-script")) {
+        notice.hidden = true;
+    }
     // What the guest reads after sliding to open, by outcome: the page carries it, in the guest's language.
     const messages = Object.fromEntries([...door.querySelectorAll(".open-messages [data-outcome]")]
         .map(element => [element.dataset.outcome, element.textContent]));
@@ -171,9 +180,10 @@ function setUp(door, slider) {
         slider.disabled = false;
     }
 
-    // A guest asked to confirm, or refused as far, waits before sliding again, the track counting down the seconds.
-    function waitThenEnable(then) {
-        let left = LOCATION_WAIT_S;
+    // A guest who must wait before sliding again reads on the track how long: asked to confirm or refused as far, to
+    // read why; after an opening, so that a slide that does nothing is not taken for a page that broke.
+    function waitThenEnable(then, seconds = LOCATION_WAIT_S) {
+        let left = seconds;
         const tick = () => {
             if (left === 0) {
                 label.textContent = then;
@@ -258,21 +268,31 @@ function setUp(door, slider) {
         }
         label.textContent = label.dataset.busyText;
         // Without an answer from the app, the request may still have reached the lock: the guest is told to push
-        // the door before trying again, as after an unconfirmed opening.
+        // the door before trying again, as after an unconfirmed opening. Unless the phone says it has no connection
+        // at all: then nothing is sent, and the guest is told that, not that the door may have opened.
         let result = "not-confirmed";
         let distance = null;
-        try {
-            const response = await fetch("/api/open", {
-                method: "POST",
-                // No CSRF token: the link's token is the credential, and the page keeps no session to hold one.
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify(request)
-            });
-            const answer = await response.json();
-            result = answer.result || result;
-            distance = answer.distance ?? null;
-        } catch (e) {
-            console.error(e);
+        if (navigator.onLine === false) {
+            result = "offline";
+        } else {
+            const patience = new AbortController();
+            const giveUp = setTimeout(() => patience.abort(), ANSWER_TIMEOUT_MS);
+            try {
+                const response = await fetch("/api/open", {
+                    method: "POST",
+                    // No CSRF token: the link's token is the credential, and the page keeps no session to hold one.
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify(request),
+                    signal: patience.signal
+                });
+                const answer = await response.json();
+                result = answer.result || result;
+                distance = answer.distance ?? null;
+            } catch (e) {
+                console.error(e);
+            } finally {
+                clearTimeout(giveUp);
+            }
         }
         confirming = false;
         if (needsPin) {
@@ -311,7 +331,9 @@ function setUp(door, slider) {
             waitThenEnable(confirming ? label.dataset.anywayText : slide);
             return;
         }
-        message.textContent = messages[result] || messages["not-confirmed"];
+        // Too many attempts with a link that asks for a PIN: the guest who does not know it is told whom to ask.
+        const text = result === "too-many-attempts" && needsPin ? messages["too-many-attempts-pin"] : messages[result];
+        message.textContent = text || messages["not-confirmed"];
         message.dataset.outcome = result;
         message.hidden = false;
         label.removeAttribute("aria-busy");
@@ -319,8 +341,12 @@ function setUp(door, slider) {
         if (RETRY_NOW.includes(result)) {
             enable();
         } else if (!FINAL.includes(result)) {
-            setTimeout(slideBack, SLIDE_BACK_AFTER_MS);
-            setTimeout(enable, enableAgainAfter);
+            // The thumb goes back once the guest has seen it at the end, and the track then counts down until the
+            // slider works again.
+            setTimeout(() => {
+                slideBack();
+                waitThenEnable(slide, Math.round((enableAgainAfter - SLIDE_BACK_AFTER_MS) / 1000));
+            }, SLIDE_BACK_AFTER_MS);
         }
     }
 }

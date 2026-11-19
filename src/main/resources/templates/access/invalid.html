@@ -7,6 +7,14 @@
         <header><h1 th:text="#{guest-invalid.title}">Enlace no válido</h1></header>
         <p th:text="#{guest-invalid.text}">Este enlace no abre ninguna puerta.</p>
     </article>
+    <nav class="languages" th:aria-label="#{guest.language}">
+        <th:block th:each="language : ${languages}">
+            <a th:unless="${language.tag == #locale.language}" th:lang="${language.tag}"
+               th:href="|?lang=${language.tag}|" th:text="${language.name}">English</a>
+            <strong th:if="${language.tag == #locale.language}" th:lang="${language.tag}" aria-current="true"
+                    th:text="${language.name}">Español</strong>
+        </th:block>
+    </nav>
 </main>
 </body>
 </html>

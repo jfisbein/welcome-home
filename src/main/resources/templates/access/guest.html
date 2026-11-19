@@ -8,7 +8,7 @@
         <!-- An owner trying their link: nothing here reaches the lock. -->
         <p th:if="${preview}" role="status"><mark th:text="#{guest.preview}">Vista de prueba: esto es lo que verá tu
             invitado. Aquí deslizar no abre la puerta.</mark></p>
-        <p th:if="${status.usable}" th:text="#{guest.validity(${#temporals.format(validFrom, #messages.msg('format.datetime'))}, ${#temporals.format(validUntil, #messages.msg('format.datetime'))}, ${timeZone})}">
+        <p th:if="${status.usable}" th:text="#{guest.validity(${#temporals.format(validFrom, #messages.msg('format.datetime-long'))}, ${#temporals.format(validUntil, #messages.msg('format.datetime-long'))}, ${timeZone})}">
             Este enlace abre la puerta del 1/11/2030 15:00 al 3/11/2030 11:00 (hora de Europa central).
         </p>
         <th:block th:unless="${#lists.isEmpty(schedule)}">
@@ -32,7 +32,11 @@
             <h2 th:if="${doors.size() > 1}" th:text="${door.opener} ? #{guest.entrance.heading} : #{guest.door.heading}">
                 Portal</h2>
             <th:block th:if="${door.available}">
-                <div class="slide-to-open">
+                <!-- Until open.js shows the slider. If it never runs, on a connection that dropped it or in a browser
+                     without scripts, the guest is told to load the page again, a few seconds in (app.css). -->
+                <p class="needs-script" role="status" th:text="#{guest.needs-script}">Para abrir hace falta que esta
+                    página termine de cargar: vuelve a cargarla.</p>
+                <div class="slide-to-open" hidden>
                     <!-- The same short text on every track, which the heading above names; screen readers hear
                          which door from the range's own label. -->
                     <span class="slide-label" aria-hidden="true" th:data-busy-text="#{guest.opening}"
@@ -77,12 +81,12 @@
                 distancia estás de la puerta: se guarda esa distancia, nunca dónde estás.</small></p>
 
         <p th:if="${status.name() == 'PENDING'}" role="alert"
-           th:text="#{guest.pending(${#temporals.format(opensAt ?: validFrom, #messages.msg('format.datetime'))})}">
+           th:text="#{guest.pending(${#temporals.format(opensAt ?: validFrom, #messages.msg('format.datetime-long'))})}">
             Este enlace todavía no es válido.
         </p>
         <th:block th:if="${closed}">
             <p th:if="${opensAt}" role="alert"
-               th:text="#{guest.closed(${#temporals.format(opensAt, #messages.msg('format.datetime'))})}">
+               th:text="#{guest.closed(${#temporals.format(opensAt, #messages.msg('format.datetime-long'))})}">
                 A esta hora este enlace no abre la puerta.
             </p>
             <p th:unless="${opensAt}" role="alert" th:text="#{guest.closed.over}">
@@ -92,6 +96,15 @@
         <p th:if="${status.name() == 'EXPIRED'}" role="alert" th:text="#{guest.expired}">Este enlace ha caducado.</p>
         <p th:if="${status.name() == 'REVOKED'}" role="alert" th:text="#{guest.revoked}">Este enlace se ha anulado.</p>
     </article>
+    <!-- A guest whose browser asked for a language the app lacks gets Spanish: any guest may choose another. -->
+    <nav class="languages" th:aria-label="#{guest.language}">
+        <th:block th:each="language : ${languages}">
+            <a th:unless="${language.tag == #locale.language}" th:lang="${language.tag}"
+               th:href="|?lang=${language.tag}${preview ? '&preview=1' : ''}|" th:text="${language.name}">English</a>
+            <strong th:if="${language.tag == #locale.language}" th:lang="${language.tag}" aria-current="true"
+                    th:text="${language.name}">Español</strong>
+        </th:block>
+    </nav>
 </main>
 <script th:if="${canOpen}" th:src="@{/js/open.js}"></script>
 </body>

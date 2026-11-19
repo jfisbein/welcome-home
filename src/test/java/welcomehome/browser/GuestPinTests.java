@@ -130,6 +130,9 @@ class GuestPinTests extends BrowserTest {
                 continue;
             }
             page.emulateMedia(new com.microsoft.playwright.Page.EmulateMediaOptions().setColorScheme(scheme));
+            // Links change color over a moment when the theme does: measured once they have.
+            org.awaitility.Awaitility.await().atMost(java.time.Duration.ofSeconds(5)).until(
+                    () -> ((Number) page.evaluate("() => document.getAnimations().length")).intValue() == 0);
             var violations = new com.deque.html.axecore.playwright.AxeBuilder(page)
                     .withTags(java.util.List.of("wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"))
                     .analyze().getViolations();

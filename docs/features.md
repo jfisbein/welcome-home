@@ -171,6 +171,9 @@ flowchart TD
 
 - **As a preview.** `GET /o/{token}?preview=1`, which "Ver como invitado" on a link opens in another tab, is the same page marked "Vista de prueba": its slider says what the link would do (ask for the PIN, open the door) and sends nothing (`open.js`, `data-preview`), and the notice of what sliding keeps is left out, as nothing is kept. Whoever holds the link may ask for it: it does less than the link.
 - **What it never does.** A GET never opens the door, nor calls the lock provider to act: messaging apps fetch links to preview them. Opening is a POST once the guest slides to open. The page asks search engines not to index it (`X-Robots-Tag` and `<meta name="robots">`).
+- **Its language.** The guest's browser's, or Spanish if the app lacks it; under the page are the other languages, each by its own name, which load it again with `?lang=`. A language chosen so lasts while the address has it.
+- **Its dates.** With the day of the week and the month by name (`format.datetime-long`, "vie 1 nov 2030, 15:00"), which no guest reads the wrong way round; the emails about a link say them so too.
+- **Opened early.** A page that cannot open yet loads itself again when its link can (a `refresh` in its head, at most six hours ahead), so that a guest who waits with it open finds the slider.
 - **A bad link.** A malformed token, an unknown link and a wrong or outdated MAC all get the same "Enlace no válido" page (404), so that guests cannot tell which links exist.
 - **What it shows.** The lock's name and, unless the link is expired or revoked, its validity in the lock's time zone, which it names in the guest's language ("hora de Europa central", not `Europe/Madrid`), never the owner's label. A slider appears only while the link is active and its door is available: the lock is active and the owner's Nuki connection is OK.
 - **When it cannot open.** The page and `POST /api/open` share that check, which reads only the database, and show the same messages: not yet valid (with when it can first open), expired, revoked, or door unavailable.
@@ -185,7 +188,9 @@ Opening is a slider, "Desliza para abrir", rather than a button, so that a touch
 - A slide that ends short goes back, and a touch on the track away from the thumb does not move it.
 - After a failure or an unconfirmed opening, it works again at once.
 - After expired, revoked or invalid, it never does.
-- After anything else, an opening above all, it works again after a minute, for a guest who keeps the page open to come back. Meanwhile its thumb goes back to the start after 2 seconds, but it stays off until the minute has passed.
+- After anything else, an opening above all, it works again after a minute, for a guest who keeps the page open to come back. Meanwhile its thumb goes back to the start after 2 seconds, and its track counts the seconds down ("Podrás deslizar en 57 s"), so that a slide that does nothing is not taken for a page that broke. Too many attempts is among these: trying again at once only adds to them.
+- The slider is shown by `open.js` itself: until it runs the page has none, and a few seconds in says to load the page again (`guest.needs-script`), for a connection that dropped the script or a browser without scripts.
+- What came of a slide is told apart at a glance: an opened door larger, in green and with a check mark; anything that kept it closed in the color of an error.
 
 ### Opening
 
@@ -207,7 +212,7 @@ Nuki runs actions asynchronously, so after it accepts the unlatch, or gives no a
 - **Nuki's webhook** reporting the outcome, for owners connected with OAuth2 (see Nuki). It reports success or Nuki's error code: 0x4F is night mode, and any other, such as 0x42 (motor blocked) or 0xFF (the device could not be reached), a lock that failed.
 - **The lock's log**, read until an unlatch from after the request shows up, with the trigger the Nuki Web API's unlatches carry (0, system, in practice; 4, web, in Nuki's documentation), so that one by hand, with the lock's button or by an accessory in those seconds is not taken for the guest's. Nuki logs the Nuki app's unlatches with trigger 0 as well, so those cannot be told apart. The log stays as the way that always works: Nuki documents no retries of its webhooks, and sends none to owners connected with an API token or before its webhook URL is set.
 
-So the guest learns whether the door opened, whether the lock failed (for example, motor blocked) or refused it in night mode, or that the lock did not confirm in time. When the guest page gets no answer from the app, it says what it says for an unconfirmed opening: push the door before trying again.
+So the guest learns whether the door opened, whether the lock failed (for example, motor blocked) or refused it in night mode, or that the lock did not confirm in time. When the guest page gets no answer from the app, or none in 30 seconds, it says what it says for an unconfirmed opening: push the door before trying again. When the phone says it has no connection at all, nothing is sent, and the page says that instead (`guest.result.offline`).
 
 Every attempt with a valid link is recorded in the owner's history (`access_event`), with the guest's IP address and country, but not their browser, which nothing shows. Under the doors the page tells the guest so, and how long each is kept (`guest.privacy`): only where they can slide, as only sliding records anything. Requests, emails and jobs run on virtual threads (`spring.threads.virtual.enabled`), so that wait, like Nuki's backoff, holds no platform thread.
 

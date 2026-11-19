@@ -10,6 +10,7 @@ import java.time.DayOfWeek;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import java.util.UUID;
 
 import org.junit.jupiter.api.AfterEach;
@@ -95,9 +96,52 @@ class GuestPageTests {
         assertThat(result).hasStatusOk()
                 .headers().hasValue("X-Robots-Tag", "noindex, nofollow");
         assertThat(body(result))
-                .contains("Casa de Alice", "del 01/07/2020 15:00 al 03/07/2040 11:00 (hora oriental)",
+                .contains("Casa de Alice", "del mié 1 jul 2020, 15:00 al mar 3 jul 2040, 11:00 (hora oriental)",
                         OPEN_BUTTON, "<meta name=\"robots\" content=\"noindex, nofollow\">")
                 .doesNotContain("Etiqueta privada");
+    }
+
+    /** A browser that asks for a language the app lacks gets Spanish: the guest may choose one they read. */
+    @Test
+    void theGuestMayChooseAnotherLanguageWhateverTheirBrowserAsksFor() {
+        var token = signer.sign(insertLink("now() - interval '1 day'", "now() + interval '1 day'", false), 1);
+
+        assertThat(body(mvc.get().uri("/o/" + token).header("Accept-Language", "nl").exchange()))
+                .as("Dutch, which the app lacks").contains("Desliza para abrir", "aria-current=\"true\">Español</strong>",
+                        "href=\"?lang=en\">English</a>", "href=\"?lang=de\">Deutsch</a>");
+        assertThat(body(mvc.get().uri("/o/" + token + "?lang=en").header("Accept-Language", "nl").exchange()))
+                .contains("Slide to open", "aria-current=\"true\">English</strong>", "href=\"?lang=es\">Español</a>");
+        assertThat(body(mvc.get().uri("/o/" + token + "?lang=xx").exchange())).as("no such language")
+                .contains("Desliza para abrir");
+        assertThat(body(mvc.get().uri("/o/" + token + "?preview=1").exchange())).as("a preview stays one")
+                .contains("href=\"?lang=en&amp;preview=1\"");
+        assertThat(mvc.get().uri("/o/nonsense?lang=en")).hasStatus(HttpStatus.NOT_FOUND).bodyText()
+                .contains("href=\"?lang=es\">Español</a>");
+    }
+
+    /** A guest who opens the page early and waits with it open gets the slider when the link can open. */
+    @Test
+    void aPageThatCannotOpenYetLoadsItselfAgainWhenItCan() {
+        var soon = signer.sign(insertLink("now() + interval '10 minutes'", "now() + interval '1 day'", false), 1);
+        var later = signer.sign(insertLink("now() + interval '30 days'", "now() + interval '31 days'", false), 1);
+        var active = signer.sign(insertLink("now() - interval '1 day'", "now() + interval '1 day'", false), 1);
+
+        assertThat(body(guestPage(soon))).containsPattern("<meta http-equiv=\"refresh\" content=\"(5[6-9]\\d|60[01])\">");
+        assertThat(body(guestPage(later))).as("at most six hours ahead, and then again")
+                .contains("<meta http-equiv=\"refresh\" content=\"21600\">");
+        assertThat(body(guestPage(active))).doesNotContain("http-equiv=\"refresh\"");
+    }
+
+    /** The slider is hidden until its script shows it, and the page says what to do if it never does. */
+    @Test
+    void theSliderWaitsForItsScriptAndThePageCarriesWhatItSaysByItself() {
+        var token = signer.sign(insertLink("now() - interval '1 day'", "now() + interval '1 day'", false), 1);
+
+        assertThat(body(guestPage(token))).contains("<div class=\"slide-to-open\" hidden>",
+                "Para abrir hace falta que esta página termine de cargar: vuelve a cargarla.",
+                "data-outcome=\"offline\">No hay conexión a internet.",
+                "data-outcome=\"too-many-attempts-pin\">Demasiados intentos. Espera unos minutos y vuelve a probar; "
+                        + "si no sabes el PIN, pídeselo a quien te envió el enlace.");
     }
 
     /** Sliding is not a way into a page: said before any slider, and only where there is one. */
@@ -173,7 +217,7 @@ class GuestPageTests {
         var link = insertLink("'2040-11-01T19:00:00Z'", "'2040-11-03T16:00:00Z'", false);
 
         assertThat(body(guestPage(signer.sign(link, 1))))
-                .contains(NOT_YET_VALID, "a partir del 01/11/2040 15:00")
+                .contains(NOT_YET_VALID, "a partir del jue 1 nov 2040, 15:00")
                 .doesNotContain(OPEN_BUTTON);
     }
 
@@ -184,7 +228,7 @@ class GuestPageTests {
         insertSchedule(link, DayOfWeek.FRIDAY, "09:00", "17:00");
 
         assertThat(body(guestPage(signer.sign(link, 1))))
-                .contains(NOT_YET_VALID, "a partir del 02/11/2040 09:00", "<li>Viernes: 09:00–17:00</li>")
+                .contains(NOT_YET_VALID, "a partir del vie 2 nov 2040, 09:00", "<li>Viernes: 09:00–17:00</li>")
                 .doesNotContain(OPEN_BUTTON);
     }
 
@@ -208,7 +252,7 @@ class GuestPageTests {
 
         assertThat(body(guestPage(signer.sign(link, 1))))
                 .contains(OUTSIDE_SCHEDULE_NOTICE + " Podrás abrir a partir del "
-                        + DateTimeFormatter.ofPattern("dd/MM/yyyy").format(tomorrow) + " 00:00")
+                        + DateTimeFormatter.ofPattern("EEE d MMM yyyy", Locale.of("es")).format(tomorrow) + ", 00:00")
                 .doesNotContain(OPEN_BUTTON, "id=\"open-entrance\"", "/js/open.js");
     }
 

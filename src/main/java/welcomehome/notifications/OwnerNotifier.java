@@ -231,8 +231,8 @@ class OwnerNotifier {
             var keys = "account.link." + changed.change().name();
             send(to.email(), message(to, keys + ".subject", link.lockName(), link.label()),
                     message(to, keys + ".body", link.lockName(), link.label(),
-                            format(to, "format.datetime", link.validFrom().atZone(zone)),
-                            format(to, "format.datetime", link.validUntil().atZone(zone)),
+                            format(to, "format.datetime-long", link.validFrom().atZone(zone)),
+                            format(to, "format.datetime-long", link.validUntil().atZone(zone)),
                             timeZoneNames.of(link.timeZone(), to.language()))
                             // What an edit let the link do that it did not: its dates alone do not say.
                             + changed.opensMore().stream().sorted()

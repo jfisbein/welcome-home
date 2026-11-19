@@ -11,6 +11,8 @@ import java.util.Objects;
 
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.Clock;
+import java.time.Duration;
+import java.time.ZonedDateTime;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.MessageSource;
 import org.springframework.http.HttpStatus;
@@ -22,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import welcomehome.access.GuestLinks.VerifiedLink;
 import welcomehome.audit.AccessEvents;
 import welcomehome.audit.AccessOutcome;
+import welcomehome.config.Languages;
 import welcomehome.config.TimeZoneNames;
 import welcomehome.links.LinkSchedules;
 import welcomehome.links.LinkStatus;
@@ -36,6 +39,22 @@ import welcomehome.locks.LocationCheck;
  */
 @Controller
 class GuestController {
+
+    /** A page that waits for its link to open looks again at least this often. */
+    private static final Duration MAX_REFRESH = Duration.ofHours(6);
+
+    /** The languages a guest may read the page in, each by its own name. */
+    private static final List<Language> LANGUAGES = Languages.SUPPORTED.stream()
+            .map(language -> new Language(language.toLanguageTag(), Languages.nameOf(language))).toList();
+
+    /**
+     * A language on offer.
+     *
+     * @param tag  its tag, as {@code ?lang=} takes it
+     * @param name its name in itself
+     */
+    record Language(String tag, String name) {
+    }
 
     /** Every outcome's code, for the page to carry what the guest reads after sliding to open. */
     private static final List<String> OUTCOMES = Arrays.stream(AccessOutcome.values()).map(AccessOutcome::code).toList();
@@ -66,6 +85,7 @@ class GuestController {
         model.addAttribute("preview", preview != null);
         model.addAttribute("noindex", true);
         model.addAttribute("sessionless", true);
+        model.addAttribute("languages", LANGUAGES);
         var now = clock.instant();
         var found = guestLinks.find(token, now);
         if (found.isEmpty()) {
@@ -91,6 +111,13 @@ class GuestController {
                     zone).orElse(null));
         }
         model.addAttribute("closed", !withinSchedule);
+        // A page opened early loads itself again when its link can open, so that a guest who waits with it open
+        // finds the slider without knowing to reload; at most some hours ahead, and then again.
+        if (model.getAttribute("opensAt") instanceof ZonedDateTime opensAt
+                && (link.status() == LinkStatus.PENDING || !withinSchedule)) {
+            var wait = Duration.between(now, opensAt.toInstant()).plusSeconds(1);
+            model.addAttribute("refreshSeconds", Math.max(1, Math.min(wait.toSeconds(), MAX_REFRESH.toSeconds())));
+        }
         var doors = link.status() == LinkStatus.ACTIVE && withinSchedule ? doors(link, locale) : List.<GuestDoor>of();
         model.addAttribute("doors", doors);
         model.addAttribute("canOpen", doors.stream().anyMatch(GuestDoor::available));
@@ -133,6 +160,11 @@ class GuestController {
             }
             outcomeMessages.put(outcome, message);
         }
+        // What the page says by itself: that the phone has no connection, and, of too many attempts with a link that
+        // asks for a PIN, whom to ask for it.
+        outcomeMessages.put("offline", messages.getMessage("guest.result.offline", null, locale));
+        outcomeMessages.put("too-many-attempts-pin",
+                messages.getMessage("guest.result.too-many-attempts.pin", null, locale));
         // Asked to confirm without a position, which the guest reads instead of the distance.
         outcomeMessages.put("confirm-location-unknown",
                 messages.getMessage("guest.result.confirm-location-unknown", null, locale));
