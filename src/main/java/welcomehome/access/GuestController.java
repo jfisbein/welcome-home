@@ -1,7 +1,6 @@
 package welcomehome.access;
 
 import java.time.Instant;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -19,13 +18,13 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
+import welcomehome.access.GuestLinks.VerifiedLink;
 import welcomehome.audit.AccessEvents;
 import welcomehome.audit.AccessOutcome;
 import welcomehome.config.TimeZoneNames;
 import welcomehome.links.LinkSchedules;
 import welcomehome.links.LinkStatus;
 import welcomehome.locks.LocationCheck;
-import welcomehome.locks.OwnerLock;
 
 /**
  * The page a guest's URL opens. It only informs: messaging apps fetch links to preview them, so a GET never
@@ -70,31 +69,30 @@ class GuestController {
             response.setStatus(HttpStatus.NOT_FOUND.value());
             return "access/invalid";
         }
-        var guestLink = found.get();
-        var link = guestLink.link();
-        var zone = ZoneId.of(link.lockTimeZone());
+        var link = found.get();
+        var zone = link.zone();
         model.addAttribute("lockName", link.lockName());
-        model.addAttribute("timeZone", timeZoneNames.of(link.lockTimeZone(), locale));
-        model.addAttribute("validFrom", link.validFrom().atZoneSameInstant(zone));
-        model.addAttribute("validUntil", link.validUntil().atZoneSameInstant(zone));
-        model.addAttribute("status", guestLink.status());
+        model.addAttribute("timeZone", timeZoneNames.of(link.timeZone(), locale));
+        model.addAttribute("validFrom", link.validFrom().atZone(zone));
+        model.addAttribute("validUntil", link.validUntil().atZone(zone));
+        model.addAttribute("status", link.status());
         var withinSchedule = true;
-        if (guestLink.status().isUsable()) {
-            var schedule = guestLinks.schedule(link);
-            var pending = guestLink.status() == LinkStatus.PENDING;
+        if (link.status().isUsable()) {
+            var schedule = link.schedule();
+            var pending = link.status() == LinkStatus.PENDING;
             withinSchedule = pending || schedule.allows(now, zone);
             model.addAttribute("schedule", schedules.describe(schedule, locale));
             // Only while the link can open: they may say where the door is, or where a key is.
-            model.addAttribute("instructions", guestLinks.lock(link).map(OwnerLock::guestInstructions).orElse(null));
-            model.addAttribute("opensAt", schedule.firstOpening(pending ? link.validFrom().toInstant() : now,
-                    link.validUntil().toInstant(), zone).orElse(null));
+            model.addAttribute("instructions", link.lock() == null ? null : link.lock().guestInstructions());
+            model.addAttribute("opensAt", schedule.firstOpening(pending ? link.validFrom() : now, link.validUntil(),
+                    zone).orElse(null));
         }
         model.addAttribute("closed", !withinSchedule);
-        var doors = guestLink.status() == LinkStatus.ACTIVE && withinSchedule ? doors(link, locale) : List.<GuestDoor>of();
+        var doors = link.status() == LinkStatus.ACTIVE && withinSchedule ? doors(link, locale) : List.<GuestDoor>of();
         model.addAttribute("doors", doors);
         model.addAttribute("canOpen", doors.stream().anyMatch(GuestDoor::available));
         // Whether the page asks for a PIN once the guest has slid: only the link's owner and holders of its URL know.
-        model.addAttribute("pinRequired", !doors.isEmpty() && guestLinks.pinRequired(link));
+        model.addAttribute("pinRequired", !doors.isEmpty() && link.pinRequired());
         model.addAttribute("checksLocation", doors.stream().anyMatch(door -> door.available() && door.checksLocation()));
         // What sliding keeps, for the notice under the doors; as text, so that no language groups the digits.
         model.addAttribute("ipRetentionDays", String.valueOf(accessEvents.ipRetention().toDays()));
@@ -102,20 +100,19 @@ class GuestController {
         return "access/guest";
     }
 
-    /**
-     * The doors a link opens, in the order the guest reaches them: its lock's building entrance first, if any. An
-     * entrance without a position of its own checks against its link's lock's, as OpenDoor does.
-     */
-    private List<GuestDoor> doors(ResolvedLink link, Locale locale) {
+    /** The doors a link opens, in the order the guest reaches them: its lock's building entrance first, if any. */
+    private List<GuestDoor> doors(VerifiedLink link, Locale locale) {
         var doors = new ArrayList<GuestDoor>();
-        var lock = guestLinks.lock(link);
-        guestLinks.entrance(link).ifPresent(entrance -> doors.add(new GuestDoor("open-entrance", Door.ENTRANCE.code(),
-                true, guestLinks.entranceAvailable(link, entrance), outcomeMessages(true, locale),
-                entrance.locationCheck() != LocationCheck.OFF && (entrance.coordinates() != null
-                        || lock.map(OwnerLock::coordinates).isPresent()))));
-        var opener = lock.map(OwnerLock::opener).orElse(false);
-        doors.add(new GuestDoor("open", Door.LOCK.code(), opener, guestLinks.doorAvailable(link),
-                outcomeMessages(opener, locale), lock.map(OwnerLock::checksLocation).orElse(false)));
+        var lock = link.lock();
+        var entrance = link.entrance();
+        if (entrance != null) {
+            doors.add(new GuestDoor("open-entrance", Door.ENTRANCE.code(), true, link.entranceAvailable(),
+                    outcomeMessages(true, locale),
+                    entrance.locationCheck() != LocationCheck.OFF && link.entrancePlace() != null));
+        }
+        var opener = lock != null && lock.opener();
+        doors.add(new GuestDoor("open", Door.LOCK.code(), opener, link.doorAvailable(),
+                outcomeMessages(opener, locale), lock != null && lock.checksLocation()));
         return doors;
     }
 

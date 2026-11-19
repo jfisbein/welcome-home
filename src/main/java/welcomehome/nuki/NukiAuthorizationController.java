@@ -3,8 +3,6 @@ package welcomehome.nuki;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.security.SecureRandom;
-import java.util.Base64;
 import java.util.UUID;
 
 import jakarta.servlet.http.HttpSession;
@@ -19,6 +17,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import welcomehome.auth.CurrentOwner;
 import welcomehome.config.WelcomeHomeProperties;
+import welcomehome.crypto.SecretTokens;
 
 /**
  * Connecting Nuki with OAuth2: the owner is sent to Nuki to authorize welcome-home, and Nuki sends them back to
@@ -39,9 +38,6 @@ class NukiAuthorizationController {
     static final String PENDING = NukiAuthorizationController.class.getName() + ".pending";
 
     private static final Logger log = LoggerFactory.getLogger(NukiAuthorizationController.class);
-    private static final SecureRandom RANDOM = new SecureRandom();
-    /** 32 bytes are 43 characters in base64url, the shortest code verifier that RFC 7636 allows. */
-    private static final int RANDOM_BYTES = 32;
 
     private final NukiConnections connections;
     private final NukiOAuthClient nuki;
@@ -98,8 +94,8 @@ class NukiAuthorizationController {
 
     /** Starts an authorization in the owner's session and sends them to Nuki with it. */
     private String toNuki(CurrentOwner owner, HttpSession session, boolean withWebhooks) {
-        var state = randomString();
-        var codeVerifier = randomString();
+        var state = SecretTokens.newToken();
+        var codeVerifier = SecretTokens.newToken();
         session.setAttribute(PENDING, new PendingAuthorization(owner.id(), state, codeVerifier, withWebhooks));
         return "redirect:" + nuki.authorizationUri(app.link(CALLBACK_PATH), state, codeVerifier, withWebhooks);
     }
@@ -113,12 +109,6 @@ class NukiAuthorizationController {
     private static String backToTheConnection(RedirectAttributes redirect, String error) {
         redirect.addFlashAttribute("authorizationError", error);
         return "redirect:/settings/nuki";
-    }
-
-    private static String randomString() {
-        var bytes = new byte[RANDOM_BYTES];
-        RANDOM.nextBytes(bytes);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
     /**

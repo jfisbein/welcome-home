@@ -4,13 +4,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import welcomehome.db.Owners;
 import welcomehome.nuki.LockProviderException;
 import welcomehome.nuki.LockProviderException.Reason;
 
 /**
  * Brings every owner's locks in line with their Nuki account once a day, so that a lock removed from it shows as
  * such on the owner's pages without their pressing anything, and then looks for problems at them that the owner
- * should hear of.
+ * should hear of. Reading the locks is also the daily check of each owner's Nuki connection: a token that Nuki
+ * rejects is found here, before a guest finds the door closed, and an OAuth2 token is refreshed, which keeps its
+ * refresh token from expiring while the app runs.
  */
 @Component
 class LockSyncJob {
@@ -19,17 +22,17 @@ class LockSyncJob {
 
     private final LockSync lockSync;
     private final LockProblems problems;
-    private final LockDao locks;
+    private final Owners owners;
 
-    LockSyncJob(LockSync lockSync, LockProblems problems, LockDao locks) {
+    LockSyncJob(LockSync lockSync, LockProblems problems, Owners owners) {
         this.lockSync = lockSync;
         this.problems = problems;
-        this.locks = locks;
+        this.owners = owners;
     }
 
     @Scheduled(cron = "${welcomehome.locks.sync-cron}")
     void syncAll() {
-        for (var ownerId : locks.allOwnerIds()) {
+        for (var ownerId : owners.ids()) {
             try {
                 var result = lockSync.syncDaily(ownerId);
                 if (result.added() > 0 || result.deactivated() > 0) {
@@ -37,7 +40,8 @@ class LockSyncJob {
                             result.deactivated());
                 }
             } catch (LockProviderException e) {
-                if (e.reason() != Reason.NOT_CONNECTED) {
+                // Without a connection there is nothing to sync, and a rejected one has just been disconnected.
+                if (e.reason() != Reason.NOT_CONNECTED && e.reason() != Reason.ACCESS_DENIED) {
                     log.warn("Could not sync the locks of owner {}: {}", ownerId, e.getMessage());
                 }
             } catch (RuntimeException e) {

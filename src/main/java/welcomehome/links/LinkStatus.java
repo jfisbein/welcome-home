@@ -1,6 +1,7 @@
 package welcomehome.links;
 
 import java.time.Instant;
+import java.time.OffsetDateTime;
 
 import org.jspecify.annotations.Nullable;
 
@@ -36,6 +37,20 @@ public enum LinkStatus {
             return PENDING;
         }
         return now.isBefore(validUntil) ? ACTIVE : EXPIRED;
+    }
+
+    /**
+     * Computes a link's state from its dates as the database gives them.
+     *
+     * @param validFrom  when the link starts to open the door
+     * @param validUntil when it stops
+     * @param revokedAt  when the owner revoked it, or {@code null}
+     * @param now        the instant to compute the state at
+     * @return the link's state at {@code now}
+     */
+    public static LinkStatus of(OffsetDateTime validFrom, OffsetDateTime validUntil,
+                                @Nullable OffsetDateTime revokedAt, Instant now) {
+        return of(validFrom.toInstant(), validUntil.toInstant(), revokedAt == null ? null : revokedAt.toInstant(), now);
     }
 
     /**

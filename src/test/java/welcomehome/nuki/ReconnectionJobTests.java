@@ -24,13 +24,14 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
 import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
+import welcomehome.db.Owners;
 
 /** Same configuration as NukiConnectionTests, so both share one application context. */
 @IntegrationTest
 @AutoConfigureMockMvc
 @Import(NukiStandInConfiguration.class)
 @RecordApplicationEvents
-class ConnectionCheckJobTests {
+class ReconnectionJobTests {
 
     static final String LONG_AGO = "2000-01-01 00:00:00+00";
 
@@ -38,7 +39,13 @@ class ConnectionCheckJobTests {
     ApplicationEvents events;
 
     @Autowired
-    ConnectionCheckJob job;
+    ReconnectionJob job;
+
+    @Autowired
+    LockProvider locks;
+
+    @Autowired
+    Owners owners;
 
     @Autowired
     NukiConnections connections;
@@ -61,7 +68,7 @@ class ConnectionCheckJobTests {
     }
 
     @Test
-    void dailyCheckDisconnectsOnlyOwnersWhoseTokenNukiRejects() {
+    void theDailyReadOfTheirLocksDisconnectsOnlyOwnersWhoseTokenNukiRejects() {
         var valid = connectedOwner("valid", okJson("[]"));
         var revoked = connectedOwner("revoked", status(401));
         var nukiDown = connectedOwner("down", status(503));
@@ -72,7 +79,7 @@ class ConnectionCheckJobTests {
         migrator.sql("UPDATE nuki_connection SET last_checked_at = '" + LONG_AGO + "'").update();
         nuki.resetRequests();
 
-        job.checkAll();
+        everyOwnersLocksAreRead();
 
         assertThat(connectionStatus(valid)).isEqualTo("OK");
         assertThat(checkedRecently(valid)).isTrue();
@@ -94,7 +101,7 @@ class ConnectionCheckJobTests {
         nuki.stubFor(get("/smartlock").withHeader("Authorization", equalTo("Bearer token-glitch"))
                 .inScenario("glitch").whenScenarioStateIs("recovered").willReturn(okJson("[]")));
 
-        job.checkAll();
+        everyOwnersLocksAreRead();
 
         assertThat(connectionStatus(owner)).isEqualTo("OK");
     }
@@ -129,6 +136,17 @@ class ConnectionCheckJobTests {
 
         assertThat(connectionStatus(owner)).isEqualTo("DISCONNECTED");
         nuki.verify(0, getRequestedFor(urlPathEqualTo("/smartlock")));
+    }
+
+    /** As the daily sync of every owner's locks does, which is what checks their connections. */
+    private void everyOwnersLocksAreRead() {
+        for (var ownerId : owners.ids()) {
+            try {
+                locks.listLocks(ownerId);
+            } catch (LockProviderException e) {
+                // Not connected, rejected or unanswered: the job goes on to the next owner.
+            }
+        }
     }
 
     /** An owner connected with the token "token-{name}", for which Nuki then answers with {@code response}. */

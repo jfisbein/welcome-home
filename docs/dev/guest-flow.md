@@ -6,7 +6,7 @@ See also: [links](links.md) (PINs and schedules), [nuki](nuki.md) (the unlatch),
 
 ## OpenDoor
 
-**Guest flow** (`access.OpenDoor`): the order of its checks, and how an opening is confirmed, are in [docs/features.md](../features.md#guest-page), with a diagram. What must not change: a GET never acts on the lock, the MAC is checked before anything is read in the owner's context, and one action runs per lock at a time.
+**Guest flow** (`access.OpenDoor`): the order of its checks, and how an opening is confirmed, are in [docs/features.md](../features.md#guest-page), with a diagram. What must not change: a GET never acts on the lock, the MAC is checked before anything is read in the owner's context, and one action runs per lock at a time. The second is in the types: `GuestLinks.find` verifies the token and then reads, in one transaction of the owner's, the link's schedule, whether it asks for a PIN, its lock, its entrance and its owner's connection into a `VerifiedLink`, which only it can make and which the page and `OpenDoor` work on (review items SIM-09 and SEC-08, 2026-11-19; before, each check read its own rows again, some ten transactions an opening, through methods that took the unverified link). Only the PIN is checked apart, as a wrong one is counted under a lock on the link's row.
 
 ## Decisions
 

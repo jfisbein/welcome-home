@@ -17,9 +17,8 @@ import org.springframework.stereotype.Service;
 import welcomehome.db.OwnerTransactions;
 import welcomehome.links.LinkChanged.Change;
 import welcomehome.links.LinkChanged.OpensMore;
-import welcomehome.links.LinkDao.DeletedLink;
+import welcomehome.links.LinkDao.EndedLink;
 import welcomehome.links.LinkDao.EditableLink;
-import welcomehome.links.LinkDao.RevokedLink;
 import welcomehome.locks.OwnerLock;
 
 /**
@@ -77,7 +76,7 @@ class AccessLinks {
      *
      * @return the revoked link's lock and label, or empty if the owner has no such link
      */
-    Optional<RevokedLink> revoke(UUID ownerId, UUID linkId) {
+    Optional<EndedLink> revoke(UUID ownerId, UUID linkId) {
         return ownerTransactions.execute(ownerId, () -> {
             var revoked = links.revoke(ownerId, linkId);
             revoked.ifPresent(link -> events.publishEvent(new LinkChanged(ownerId, link.lockId(), linkId, Change.REVOKED)));
@@ -91,7 +90,7 @@ class AccessLinks {
      *
      * @return the deleted link's lock and label, or empty if the owner has no such link or it can still open
      */
-    Optional<DeletedLink> deleteEnded(UUID ownerId, UUID linkId) {
+    Optional<EndedLink> deleteEnded(UUID ownerId, UUID linkId) {
         return ownerTransactions.execute(ownerId, () -> {
             var deleted = links.deleteEnded(ownerId, linkId);
             deleted.ifPresent(link -> events.publishEvent(new LinkChanged(ownerId, link.lockId(), linkId, Change.DELETED)));
@@ -200,8 +199,7 @@ class AccessLinks {
                         link.validFrom().atZoneSameInstant(zone),
                         link.validUntil().atZoneSameInstant(zone),
                         schedules.describe(linkSchedules.getOrDefault(link.id(), LinkSchedule.ANY_TIME), locale),
-                        LinkStatus.of(link.validFrom().toInstant(), link.validUntil().toInstant(),
-                                link.revokedAt() == null ? null : link.revokedAt().toInstant(), now),
+                        LinkStatus.of(link.validFrom(), link.validUntil(), link.revokedAt(), now),
                         urls.url(link.id(), link.tokenVersion()),
                         link.hasPin(),
                         link.hasPin() && pins.isLocked(link.pinFailures())))

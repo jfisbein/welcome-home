@@ -33,18 +33,18 @@ class LinkDao {
     }
 
     /** The composite foreign key on (owner_id, lock_id) rejects another owner's lock. */
-    InsertedLink insert(UUID ownerId, UUID lockId, String label, Instant validFrom, Instant validUntil) {
+    SignableLink insert(UUID ownerId, UUID lockId, String label, Instant validFrom, Instant validUntil) {
         return jdbc.sql("""
                         INSERT INTO access_link (owner_id, lock_id, label, valid_from, valid_until)
                         VALUES (:ownerId, :lockId, :label, :validFrom, :validUntil)
-                        RETURNING id, token_version
+                        RETURNING id, token_version, lock_id, label
                         """)
                 .param("ownerId", ownerId)
                 .param("lockId", lockId)
                 .param("label", label)
                 .param("validFrom", OffsetDateTime.ofInstant(validFrom, ZoneOffset.UTC))
                 .param("validUntil", OffsetDateTime.ofInstant(validUntil, ZoneOffset.UTC))
-                .query(InsertedLink.class)
+                .query(SignableLink.class)
                 .single();
     }
 
@@ -144,13 +144,6 @@ class LinkDao {
         return pins;
     }
 
-    /** From owner, which has no Row-Level Security: without an owner context access_link shows no rows. */
-    List<UUID> allOwnerIds() {
-        return jdbc.sql("SELECT id FROM owner ORDER BY created_at")
-                .query((rs, row) -> rs.getObject("id", UUID.class))
-                .list();
-    }
-
     /** How many links of each lock are within their dates and not revoked, by the lock's id. */
     Map<UUID, Integer> countOpenByLock(UUID ownerId) {
         var counts = new HashMap<UUID, Integer>();
@@ -181,7 +174,7 @@ class LinkDao {
     }
 
     /** Revokes the link now, or keeps the first revocation if it already was revoked. */
-    Optional<RevokedLink> revoke(UUID ownerId, UUID linkId) {
+    Optional<EndedLink> revoke(UUID ownerId, UUID linkId) {
         return jdbc.sql("""
                         UPDATE access_link SET revoked_at = coalesce(revoked_at, now())
                         WHERE owner_id = :ownerId AND id = :linkId
@@ -189,7 +182,7 @@ class LinkDao {
                         """)
                 .param("ownerId", ownerId)
                 .param("linkId", linkId)
-                .query(RevokedLink.class)
+                .query(EndedLink.class)
                 .optional();
     }
 
@@ -198,7 +191,7 @@ class LinkDao {
      *
      * @return its lock and label, or empty if the owner has no such link or it can still open
      */
-    Optional<DeletedLink> deleteEnded(UUID ownerId, UUID linkId) {
+    Optional<EndedLink> deleteEnded(UUID ownerId, UUID linkId) {
         return jdbc.sql("""
                         DELETE FROM access_link
                         WHERE owner_id = :ownerId AND id = :linkId AND (revoked_at IS NOT NULL OR valid_until <= now())
@@ -206,7 +199,7 @@ class LinkDao {
                         """)
                 .param("ownerId", ownerId)
                 .param("linkId", linkId)
-                .query(DeletedLink.class)
+                .query(EndedLink.class)
                 .optional();
     }
 
@@ -219,7 +212,7 @@ class LinkDao {
     }
 
     /** Invalidates every earlier URL of a link that is not revoked. */
-    Optional<RegeneratedLink> incrementTokenVersion(UUID ownerId, UUID linkId) {
+    Optional<SignableLink> incrementTokenVersion(UUID ownerId, UUID linkId) {
         return jdbc.sql("""
                         UPDATE access_link SET token_version = token_version + 1
                         WHERE owner_id = :ownerId AND id = :linkId AND revoked_at IS NULL
@@ -227,7 +220,7 @@ class LinkDao {
                         """)
                 .param("ownerId", ownerId)
                 .param("linkId", linkId)
-                .query(RegeneratedLink.class)
+                .query(SignableLink.class)
                 .optional();
     }
 
@@ -316,20 +309,16 @@ class LinkDao {
                 rs.getObject("closes_at", LocalTime.class));
     }
 
-    record InsertedLink(UUID id, int tokenVersion) {
+    /** What signs a link's URL, its id and token version, with what the page that shows the URL says of it. */
+    record SignableLink(UUID id, int tokenVersion, UUID lockId, String label) {
     }
 
     record EditableLink(UUID id, UUID lockId, String lockName, String timeZone, String label, OffsetDateTime validFrom,
                         OffsetDateTime validUntil) {
     }
 
-    record RegeneratedLink(UUID id, int tokenVersion, UUID lockId, String label) {
-    }
-
-    record RevokedLink(UUID lockId, String label) {
-    }
-
-    record DeletedLink(UUID lockId, String label) {
+    /** A link that was revoked or deleted: what the page that says so names. */
+    record EndedLink(UUID lockId, String label) {
     }
 
     record StoredLink(UUID id, String label, int tokenVersion, OffsetDateTime validFrom, OffsetDateTime validUntil,

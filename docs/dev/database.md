@@ -14,7 +14,7 @@ See also: [conventions](conventions.md) (compatibility: what a migration may do 
 
 | Table | Owner | Also used in SQL by |
 |-------|-------|---------------------|
-| `owner` | `auth` (registration inserts it) | `admin`: lists owners; `preferences`: the owner's language, read for every page and saved; `audit`, `links`, `locks`, `nuki`: owner ids for their daily jobs; `notifications`: the owner's email |
+| `owner` | `auth` (registration inserts it) | `admin`: lists owners; `preferences`: the owner's language, read for every page and saved; `db`: every owner's id (`Owners`), for the other modules' daily jobs and what runs on start; `notifications`: the owner's email |
 | `user_entities`, `user_credentials` | `auth` (Spring Security's passkey store) | none (deleting an owner cascades to them) |
 | `invitation` | `auth` | none (`admin` goes through `InvitationService`) |
 | `nuki_connection` | `nuki` | none |

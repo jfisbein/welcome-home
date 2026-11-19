@@ -35,7 +35,9 @@ class NukiWebLockProvider implements LockProvider {
 
     @Override
     public List<NukiDevice> listLocks(UUID ownerId) {
-        return connections.callNuki(ownerId, nuki::listLocks);
+        var locks = connections.callNuki(ownerId, nuki::listLocks);
+        connections.accepted(ownerId);
+        return locks;
     }
 
     @Override

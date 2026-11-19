@@ -32,13 +32,6 @@ class LockDao {
         this.jdbc = jdbc;
     }
 
-    /** From owner, which has no Row-Level Security: without an owner context lock shows no rows. */
-    List<UUID> allOwnerIds() {
-        return jdbc.sql("SELECT id FROM owner ORDER BY created_at")
-                .query((rs, row) -> rs.getObject("id", UUID.class))
-                .list();
-    }
-
     /** @return the problems the lock was last emailed about, comma-separated, or {@code null} for none */
     @Nullable String findNotifiedProblems(UUID ownerId, UUID lockId) {
         return jdbc.sql("SELECT notified_problems FROM lock WHERE owner_id = :ownerId AND id = :lockId")

@@ -93,6 +93,31 @@ class LockSyncJobTests {
         assertThat(locks(alice)).containsExactly("17|Casa|true");
     }
 
+    /** Reading every owner's locks is the daily check of their connections: there is no other. */
+    @Test
+    void theDailySyncIsAlsoTheCheckOfEveryOwnersNukiConnection() {
+        var alice = connectedOwner("alice");
+        nukiLists("alice", ONLY_CASA);
+        var revoked = connectedOwner("revoked");
+        insertLock(revoked, 18, "Garaje");
+        nuki.stubFor(get("/smartlock").withHeader("Authorization", equalTo("Bearer token-revoked"))
+                .willReturn(status(401)));
+        migrator.sql("UPDATE nuki_connection SET last_checked_at = '2000-01-01 00:00:00+00'").update();
+
+        job.syncAll();
+
+        assertThat(connection(alice)).as("accepted, and noted as checked").isEqualTo("OK|true");
+        assertThat(connection(revoked)).as("rejected, and again when asked once more").isEqualTo("DISCONNECTED|true");
+        assertThat(locks(revoked)).as("its locks stay as they are").containsExactly("18|Garaje|true");
+    }
+
+    /** An owner's connection as "status|checked in the last minute". */
+    private String connection(UUID ownerId) {
+        return migrator.sql("SELECT status || '|' || (last_checked_at > now() - interval '1 minute') "
+                        + "FROM nuki_connection WHERE owner_id = ?")
+                .param(ownerId).query(String.class).single();
+    }
+
     @Test
     void anOwnerWithoutAConnectionIsLeftAlone() {
         var bob = data.owner("bob@example.com");

@@ -57,7 +57,8 @@ class NukiTokenRefreshTests {
     LockProvider locks;
 
     @Autowired
-    ConnectionCheckJob job;
+    ReconnectionJob job;
+
 
     @Autowired
     WireMockServer nuki;
@@ -174,11 +175,11 @@ class NukiTokenRefreshTests {
     }
 
     @Test
-    void dailyCheckDoesNotDisconnectAnOwnerBecauseOfTheClient() {
+    void theDailyReadDoesNotDisconnectAnOwnerBecauseOfTheClient() {
         insertAuthorization("access-1", "refresh-1", "-1 minute");
         nuki.stubFor(post("/oauth/token").willReturn(status(401)));
 
-        job.checkAll();
+        assertFailsWith(Reason.NUKI_ERROR, () -> locks.listLocks(aliceId));
 
         assertThat(connectionStatus()).isEqualTo("OK");
     }
@@ -259,12 +260,12 @@ class NukiTokenRefreshTests {
     }
 
     @Test
-    void dailyCheckRefreshesTheAccessToken() {
+    void theDailyReadRefreshesTheAccessToken() {
         insertAuthorization("access-1", "refresh-1", "-1 day");
         nukiRefreshes("refresh-1", "access-2", "refresh-2");
         nukiListsCasaFor("access-2");
 
-        job.checkAll();
+        locks.listLocks(aliceId);
 
         assertThat(connectionStatus()).isEqualTo("OK");
         assertThat(crypto.decryptRefreshToken(aliceId, column("refresh_token_encrypted"))).isEqualTo("refresh-2");

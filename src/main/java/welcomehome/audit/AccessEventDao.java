@@ -148,11 +148,4 @@ class AccessEventDao {
                 .param("cutoff", OffsetDateTime.ofInstant(cutoff, ZoneOffset.UTC))
                 .update();
     }
-
-    /** From owner, which has no Row-Level Security: without an owner context access_event shows no rows. */
-    List<UUID> allOwnerIds() {
-        return jdbc.sql("SELECT id FROM owner")
-                .query((rs, row) -> rs.getObject("id", UUID.class))
-                .list();
-    }
 }

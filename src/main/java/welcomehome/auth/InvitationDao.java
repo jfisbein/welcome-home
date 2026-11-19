@@ -22,21 +22,24 @@ class InvitationDao {
         this.jdbc = jdbc;
     }
 
-    InsertedInvitation insert(byte[] tokenHash, String note, @Nullable UUID createdBy, boolean grantsAdmin,
-                              @Nullable UUID recoversOwnerId, Duration validity) {
+    /** @return when the invitation expires */
+    Instant insert(UUID id, byte[] tokenHash, String note, @Nullable UUID createdBy, boolean grantsAdmin,
+                   @Nullable UUID recoversOwnerId, Duration validity) {
         return jdbc.sql("""
-                        INSERT INTO invitation (token_hash, note, created_by, grants_admin, recovers_owner_id, expires_at)
-                        VALUES (:tokenHash, :note, :createdBy, :grantsAdmin, :recoversOwnerId,
+                        INSERT INTO invitation (id, token_hash, note, created_by, grants_admin, recovers_owner_id,
+                                                expires_at)
+                        VALUES (:id, :tokenHash, :note, :createdBy, :grantsAdmin, :recoversOwnerId,
                                 now() + make_interval(secs => :validitySeconds))
-                        RETURNING id, expires_at
+                        RETURNING expires_at
                         """)
+                .param("id", id)
                 .param("tokenHash", tokenHash)
                 .param("note", note)
                 .param("createdBy", createdBy)
                 .param("grantsAdmin", grantsAdmin)
                 .param("recoversOwnerId", recoversOwnerId)
                 .param("validitySeconds", validity.toSeconds())
-                .query(InsertedInvitation.class)
+                .query((rs, row) -> rs.getObject("expires_at", OffsetDateTime.class).toInstant())
                 .single();
     }
 
@@ -100,8 +103,5 @@ class InvitationDao {
                 .param("id", id)
                 .query(String.class)
                 .optional();
-    }
-
-    record InsertedInvitation(UUID id, OffsetDateTime expiresAt) {
     }
 }

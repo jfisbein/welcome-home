@@ -7,7 +7,6 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -88,26 +87,31 @@ class NukiConnectionDao {
     }
 
     /**
-     * Stores the tokens that a refresh returned, if the connection still holds the access token that was
-     * refreshed: one stored in the meantime, by connecting Nuki again, stays.
+     * Stores the tokens that a refresh returned, if the connection still holds the access token it had and is in
+     * the state it was in: one stored in the meantime, by connecting Nuki again, stays. A disconnected connection
+     * whose refresh Nuki accepted is connected again.
      *
+     * @param status the connection's status when the refresh began
      * @return whether the tokens were stored
      */
-    boolean saveRefreshed(UUID ownerId, byte[] refreshedAccessTokenEncrypted, byte[] accessTokenEncrypted,
-                          byte[] refreshTokenEncrypted, Instant accessTokenExpiresAt) {
+    boolean saveRefreshed(UUID ownerId, ConnectionStatus status, byte[] previousAccessTokenEncrypted,
+                          TokenRefresher.Refreshed refreshed) {
         return jdbc.sql("""
                         UPDATE nuki_connection
                         SET access_token_encrypted = :accessTokenEncrypted,
                             refresh_token_encrypted = :refreshTokenEncrypted,
-                            access_token_expires_at = :accessTokenExpiresAt
+                            access_token_expires_at = :accessTokenExpiresAt,
+                            status = 'OK',
+                            last_checked_at = CASE WHEN status = 'OK' THEN last_checked_at ELSE now() END
                         WHERE owner_id = :ownerId AND credential = 'OAUTH2'
-                          AND access_token_encrypted = :refreshed AND status = 'OK'
+                          AND access_token_encrypted = :previous AND status = :status
                         """)
                 .param("ownerId", ownerId)
-                .param("refreshed", refreshedAccessTokenEncrypted)
-                .param("accessTokenEncrypted", accessTokenEncrypted)
-                .param("refreshTokenEncrypted", refreshTokenEncrypted)
-                .param("accessTokenExpiresAt", timestamp(accessTokenExpiresAt))
+                .param("status", status.name())
+                .param("previous", previousAccessTokenEncrypted)
+                .param("accessTokenEncrypted", refreshed.accessTokenEncrypted())
+                .param("refreshTokenEncrypted", refreshed.refreshTokenEncrypted())
+                .param("accessTokenExpiresAt", timestamp(refreshed.accessTokenExpiresAt()))
                 .update() == 1;
     }
 
@@ -139,31 +143,6 @@ class NukiConnectionDao {
                         """)
                 .param("ownerId", ownerId)
                 .param("accepted", acceptedAccessTokenEncrypted)
-                .update() == 1;
-    }
-
-    /**
-     * Stores the tokens that a refresh of a disconnected connection returned, and connects it again, if it still
-     * holds the access token it had.
-     *
-     * @return whether the connection went from disconnected to OK
-     */
-    boolean saveReconnected(UUID ownerId, byte[] previousAccessTokenEncrypted, byte[] accessTokenEncrypted,
-                            byte[] refreshTokenEncrypted, Instant accessTokenExpiresAt) {
-        return jdbc.sql("""
-                        UPDATE nuki_connection
-                        SET access_token_encrypted = :accessTokenEncrypted,
-                            refresh_token_encrypted = :refreshTokenEncrypted,
-                            access_token_expires_at = :accessTokenExpiresAt,
-                            status = 'OK', last_checked_at = now()
-                        WHERE owner_id = :ownerId AND credential = 'OAUTH2'
-                          AND access_token_encrypted = :previous AND status = 'DISCONNECTED'
-                        """)
-                .param("ownerId", ownerId)
-                .param("previous", previousAccessTokenEncrypted)
-                .param("accessTokenEncrypted", accessTokenEncrypted)
-                .param("refreshTokenEncrypted", refreshTokenEncrypted)
-                .param("accessTokenExpiresAt", timestamp(accessTokenExpiresAt))
                 .update() == 1;
     }
 
@@ -206,13 +185,6 @@ class NukiConnectionDao {
         jdbc.sql("UPDATE nuki_connection SET last_checked_at = now() WHERE owner_id = :ownerId AND status = 'OK'")
                 .param("ownerId", ownerId)
                 .update();
-    }
-
-    /** From owner, which has no Row-Level Security: without an owner context nuki_connection shows no rows. */
-    List<UUID> allOwnerIds() {
-        return jdbc.sql("SELECT id FROM owner ORDER BY created_at")
-                .query((rs, row) -> rs.getObject("id", UUID.class))
-                .list();
     }
 
     private static @Nullable OffsetDateTime timestamp(@Nullable Instant instant) {

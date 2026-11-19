@@ -20,6 +20,7 @@ import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.db.OwnerTransactions;
 import welcomehome.nuki.NukiStandInConfiguration;
+import welcomehome.db.Owners;
 
 /** Same configuration as the locks tests, so they share one application context. */
 @IntegrationTest
@@ -38,6 +39,9 @@ class EventPurgeJobTests {
 
     @Autowired
     OwnerTransactions ownerTransactions;
+
+    @Autowired
+    Owners owners;
 
     @Autowired
     PostgreSQLContainer postgres;
@@ -79,7 +83,7 @@ class EventPurgeJobTests {
         insertEvent(link, "31 days", "198.51.100.1");
         insertEvent(link, "29 days", "198.51.100.2");
 
-        new EventPurgeJob(accessEvents, activity, ownerTransactions, new AuditProperties(Duration.ofDays(30), Duration.ofDays(30))).purgeAll();
+        new EventPurgeJob(accessEvents, activity, ownerTransactions, owners, new AuditProperties(Duration.ofDays(30), Duration.ofDays(30))).purgeAll();
 
         assertThat(remainingIps(link)).containsExactly("198.51.100.2");
     }
@@ -126,7 +130,7 @@ class EventPurgeJobTests {
         insertEvent(link, "31 days", "198.51.100.1");
         insertEvent(link, "29 days", "198.51.100.2");
 
-        new EventPurgeJob(accessEvents, activity, ownerTransactions, new AuditProperties(Duration.ofDays(365), Duration.ofDays(30)))
+        new EventPurgeJob(accessEvents, activity, ownerTransactions, owners, new AuditProperties(Duration.ofDays(365), Duration.ofDays(30)))
                 .purgeAll();
 
         assertThat(attempts(link)).containsExactly("opened|-|-|-", "opened|-|198.51.100.2|-");

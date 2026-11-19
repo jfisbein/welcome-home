@@ -89,7 +89,6 @@ class PasskeyRecoveryTests {
         assertSignsInAsAlice(oldDevice);
     }
 
-    /** So that the owner can tell the lost device's passkey from the new one, and delete it. */
     /**
      * The recovery read her entry in the passkey store when it began: saving it again would name her by the email
      * she had then, and the store finds a passkey's owner by that name.
@@ -111,6 +110,7 @@ class PasskeyRecoveryTests {
                 .hasStatusOk().bodyText().contains("alicia@example.com");
     }
 
+    /** So that the owner can tell the lost device's passkey from the new one, and delete it. */
     @Test
     void theNewPasskeyHasTheNameGivenAndTheOldOneKeepsItsOwn() {
         var recovery = recoveryPath();

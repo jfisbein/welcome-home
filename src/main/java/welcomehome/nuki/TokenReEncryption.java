@@ -8,6 +8,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import welcomehome.crypto.CryptoService;
 import welcomehome.crypto.DecryptionFailedException;
+import welcomehome.db.Owners;
 
 /**
  * Encrypts every owner's Nuki tokens again with the AEAD keyset's primary key, where an earlier key encrypted them,
@@ -21,11 +22,13 @@ class TokenReEncryption {
 
     private static final Logger log = LoggerFactory.getLogger(TokenReEncryption.class);
 
-    private final NukiConnections connections;
+    private final TokenRefresher tokens;
     private final CryptoService crypto;
+    private final Owners owners;
 
-    TokenReEncryption(NukiConnections connections, CryptoService crypto) {
-        this.connections = connections;
+    TokenReEncryption(TokenRefresher tokens, CryptoService crypto, Owners owners) {
+        this.owners = owners;
+        this.tokens = tokens;
         this.crypto = crypto;
     }
 
@@ -35,9 +38,9 @@ class TokenReEncryption {
         try {
             var reEncrypted = 0;
             var failed = 0;
-            for (var ownerId : connections.ownersToCheck()) {
+            for (var ownerId : owners.ids()) {
                 try {
-                    reEncrypted += connections.reEncrypt(ownerId);
+                    reEncrypted += tokens.reEncrypt(ownerId);
                 } catch (DecryptionFailedException e) {
                     // Its key left the keyset: the owner has to connect Nuki again, whatever is done here.
                     failed++;

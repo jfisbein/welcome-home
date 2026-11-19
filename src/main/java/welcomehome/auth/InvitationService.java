@@ -9,6 +9,7 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import welcomehome.config.WelcomeHomeProperties;
+import welcomehome.crypto.SecretTokens;
 
 /**
  * Creates single-use invitations, the only way to register as an owner, and passkey recovery links, which
@@ -60,13 +61,11 @@ public class InvitationService {
 
     private CreatedInvitation create(@Nullable UUID createdBy, String note, boolean grantsAdmin,
                                      @Nullable UUID recoversOwnerId) {
-        var token = InvitationTokens.newToken();
-        var inserted = invitations.insert(InvitationTokens.hash(token), note, createdBy, grantsAdmin,
+        var token = SecretTokens.newToken();
+        var id = UUID.randomUUID();
+        var expiresAt = invitations.insert(id, SecretTokens.hash(token), note, createdBy, grantsAdmin,
                 recoversOwnerId, VALIDITY);
-        return new CreatedInvitation(
-                inserted.id(),
-                app.link("/invite/" + token),
-                inserted.expiresAt().toInstant());
+        return new CreatedInvitation(id, app.link("/invite/" + token), expiresAt);
     }
 
     /**
@@ -76,7 +75,7 @@ public class InvitationService {
      * @return the invitation, or empty if the token is unknown, used or expired
      */
     public Optional<RedeemableInvitation> findRedeemable(String token) {
-        return isPlausible(token) ? invitations.findRedeemable(InvitationTokens.hash(token)) : Optional.empty();
+        return SecretTokens.isPlausible(token) ? invitations.findRedeemable(SecretTokens.hash(token)) : Optional.empty();
     }
 
     /**
@@ -88,7 +87,7 @@ public class InvitationService {
      * @return the invitation just used, or empty if the token is unknown, used or expired
      */
     public Optional<RedeemableInvitation> redeem(String token) {
-        return isPlausible(token) ? invitations.markUsed(InvitationTokens.hash(token)) : Optional.empty();
+        return SecretTokens.isPlausible(token) ? invitations.markUsed(SecretTokens.hash(token)) : Optional.empty();
     }
 
     /**
@@ -108,9 +107,5 @@ public class InvitationService {
      */
     public Optional<String> cancel(UUID id) {
         return invitations.deletePending(id);
-    }
-
-    private static boolean isPlausible(String token) {
-        return token != null && !token.isEmpty() && token.length() <= InvitationTokens.MAX_LENGTH;
     }
 }

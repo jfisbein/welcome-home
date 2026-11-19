@@ -3,22 +3,27 @@ package welcomehome.access;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import welcomehome.crypto.LinkTokenSigner;
+import welcomehome.db.OwnerTransactions;
 import welcomehome.links.LinkPins;
 import welcomehome.links.LinkSchedule;
 import welcomehome.links.LinkSchedules;
 import welcomehome.links.LinkStatus;
 import welcomehome.locks.Locks;
 import welcomehome.locks.OwnerLock;
+import welcomehome.nuki.Coordinates;
 import welcomehome.nuki.LockConnection;
 import welcomehome.nuki.LockProvider;
 
 /**
  * Turns the token of a guest's URL into a link the app can trust: it resolves the link and accepts it only
- * if the token's MAC is valid for the link's current token version.
+ * if the token's MAC is valid for the link's current token version. Only then is anything read in the owner's
+ * context, all of it at once: {@link VerifiedLink} is what the guest's page and an opening work on, and nothing but
+ * {@link #find} makes one.
  */
 @Service
 class GuestLinks {
@@ -29,104 +34,161 @@ class GuestLinks {
     private final Locks locks;
     private final LinkSchedules schedules;
     private final LinkPins pins;
+    private final OwnerTransactions ownerTransactions;
 
     GuestLinks(LinkTokenSigner signer, ResolvedLinkDao resolvedLinks, LockProvider lockProvider, Locks locks,
-               LinkSchedules schedules, LinkPins pins) {
+               LinkSchedules schedules, LinkPins pins, OwnerTransactions ownerTransactions) {
         this.signer = signer;
         this.resolvedLinks = resolvedLinks;
         this.lockProvider = lockProvider;
         this.locks = locks;
         this.schedules = schedules;
         this.pins = pins;
+        this.ownerTransactions = ownerTransactions;
     }
 
     /**
-     * @return the link with its state at {@code now}, or empty if the token is malformed, its link does not
-     * exist, or its MAC is invalid, for example after the link was regenerated. The three cases look the
-     * same, so that a guest cannot tell which links exist.
+     * @return the link with its state at {@code now} and what its owner keeps about it, or empty if the token is
+     * malformed, its link does not exist, or its MAC is invalid, for example after the link was regenerated. The
+     * three cases look the same, so that a guest cannot tell which links exist.
      */
-    Optional<GuestLink> find(String token, Instant now) {
+    Optional<VerifiedLink> find(String token, Instant now) {
         return signer.parseLinkId(token)
                 .flatMap(resolvedLinks::resolve)
                 .filter(link -> signer.verify(token, link.tokenVersion()))
-                .map(link -> new GuestLink(link, LinkStatus.of(link.validFrom().toInstant(),
-                        link.validUntil().toInstant(), link.revokedAt() == null ? null : link.revokedAt().toInstant(),
-                        now)));
+                .map(link -> read(link, now));
+    }
+
+    /** In one transaction of the owner's, which the verified MAC vouches for: the same rows, read once. */
+    private VerifiedLink read(ResolvedLink link, Instant now) {
+        var ownerId = link.ownerId();
+        return ownerTransactions.execute(ownerId, () -> {
+            var lock = locks.find(ownerId, link.lockId()).orElse(null);
+            var entranceId = lock == null ? null : lock.entranceLockId();
+            var entrance = entranceId == null ? null : locks.find(ownerId, entranceId).orElse(null);
+            var status = LinkStatus.of(link.validFrom(), link.validUntil(), link.revokedAt(), now);
+            return new VerifiedLink(link, status, schedules.of(ownerId, link.linkId()),
+                    pins.isSet(ownerId, link.linkId()), lock, entrance,
+                    lockProvider.findConnection(ownerId).filter(LockConnection::works).isPresent());
+        });
     }
 
     /**
-     * The days and hours at which a link opens, read in the owner's context: only for a link whose token was verified.
-     *
-     * @return its schedule, which allows any time if it has no hours
+     * Compares what a guest typed with the link's PIN, counting a wrong one against the link: the one thing that is
+     * not read with the rest, as it is decided, and written, under a lock on the link's row.
      */
-    LinkSchedule schedule(ResolvedLink link) {
-        return schedules.of(link.ownerId(), link.linkId());
-    }
-
-    /** Tells whether a link's schedule lets it open at an instant: only for a link whose token was verified. */
-    boolean withinSchedule(ResolvedLink link, Instant now) {
-        return schedule(link).allows(now, ZoneId.of(link.lockTimeZone()));
-    }
-
-    /** Tells whether a link asks for a PIN: only for a link whose token was verified. */
-    boolean pinRequired(ResolvedLink link) {
-        return pins.isSet(link.ownerId(), link.linkId());
-    }
-
-    /** Compares what a guest typed with the link's PIN: only for a link whose token was verified. */
-    LinkPins.Check checkPin(ResolvedLink link, @Nullable String typed) {
+    LinkPins.Check checkPin(VerifiedLink link, @Nullable String typed) {
         return pins.check(link.ownerId(), link.linkId(), typed);
     }
 
     /**
-     * Tells whether a link's door can be opened at all, whatever the link's dates: its lock is active and its
-     * owner's Nuki connection is OK. It reads only the database, so the guest page can ask too.
+     * A link whose token was verified, with what a guest's page or an opening needs of it, as it was when read.
      */
-    boolean doorAvailable(ResolvedLink link) {
-        return link.lockActive() && connected(link);
-    }
+    static final class VerifiedLink {
 
-    /**
-     * Tells whether a link's entrance can be opened at all, as {@link #doorAvailable} does for its lock.
-     *
-     * @param entrance the link's entrance, as {@link #entrance} found it
-     */
-    boolean entranceAvailable(ResolvedLink link, OwnerLock entrance) {
-        return entrance.active() && connected(link);
-    }
+        private final ResolvedLink link;
+        private final LinkStatus status;
+        private final LinkSchedule schedule;
+        private final boolean pinRequired;
+        private final @Nullable OwnerLock lock;
+        private final @Nullable OwnerLock entrance;
+        private final boolean connected;
 
-    /**
-     * The link's lock as its owner sees it, read in the owner's context: only for a link whose token was verified.
-     *
-     * @return the lock, or empty if it is gone
-     */
-    Optional<OwnerLock> lock(ResolvedLink link) {
-        return locks.find(link.ownerId(), link.lockId());
-    }
+        private VerifiedLink(ResolvedLink link, LinkStatus status, LinkSchedule schedule, boolean pinRequired,
+                             @Nullable OwnerLock lock, @Nullable OwnerLock entrance, boolean connected) {
+            this.link = link;
+            this.status = status;
+            this.schedule = schedule;
+            this.pinRequired = pinRequired;
+            this.lock = lock;
+            this.entrance = entrance;
+            this.connected = connected;
+        }
 
-    /**
-     * The Opener at the building entrance of a link's lock, read in the owner's context: only for a link whose token
-     * was verified.
-     *
-     * @return the Opener, or empty if the lock has no entrance
-     */
-    Optional<OwnerLock> entrance(ResolvedLink link) {
-        return lock(link).flatMap(lock -> {
-            var entranceId = lock.entranceLockId();
-            return entranceId == null ? Optional.empty() : locks.find(link.ownerId(), entranceId);
-        });
-    }
+        UUID ownerId() {
+            return link.ownerId();
+        }
 
-    private boolean connected(ResolvedLink link) {
-        return lockProvider.findConnection(link.ownerId()).filter(LockConnection::works).isPresent();
-    }
+        UUID linkId() {
+            return link.linkId();
+        }
 
-    /**
-     * A link whose token was verified.
-     *
-     * @param link   the link and its lock
-     * @param status the link's state
-     */
-    record GuestLink(ResolvedLink link, LinkStatus status) {
+        UUID lockId() {
+            return link.lockId();
+        }
+
+        String lockName() {
+            return link.lockName();
+        }
+
+        ZoneId zone() {
+            return ZoneId.of(link.lockTimeZone());
+        }
+
+        String timeZone() {
+            return link.lockTimeZone();
+        }
+
+        Instant validFrom() {
+            return link.validFrom().toInstant();
+        }
+
+        Instant validUntil() {
+            return link.validUntil().toInstant();
+        }
+
+        /** The link's state by its dates, at the instant it was read. */
+        LinkStatus status() {
+            return status;
+        }
+
+        /** The days and hours at which it opens, which allow any time if it has none. */
+        LinkSchedule schedule() {
+            return schedule;
+        }
+
+        /** Whether its schedule lets it open at an instant, in its lock's time zone. */
+        boolean withinSchedule(Instant at) {
+            return schedule.allows(at, zone());
+        }
+
+        /** Whether it asks its guest for a PIN. */
+        boolean pinRequired() {
+            return pinRequired;
+        }
+
+        /** Its lock as its owner keeps it, or null if it is gone. */
+        @Nullable OwnerLock lock() {
+            return lock;
+        }
+
+        /** The Opener at the building entrance of its lock, or null if the lock has none. */
+        @Nullable OwnerLock entrance() {
+            return entrance;
+        }
+
+        /**
+         * Whether its door can be opened at all, whatever its dates: its lock is active and its owner's Nuki
+         * connection is OK.
+         */
+        boolean doorAvailable() {
+            return lock != null && lock.active() && connected;
+        }
+
+        /** Whether its entrance can be opened at all, as {@link #doorAvailable} says of its lock. */
+        boolean entranceAvailable() {
+            return entrance != null && entrance.active() && connected;
+        }
+
+        /**
+         * Where its entrance is, for the check of where a guest is: an Opener without a position of its own is taken
+         * to be where its link's lock is, as an entrance is rarely more than some tens of metres from the door.
+         */
+        @Nullable Coordinates entrancePlace() {
+            if (entrance == null) {
+                return null;
+            }
+            return entrance.coordinates() != null || lock == null ? entrance.coordinates() : lock.coordinates();
+        }
     }
 }

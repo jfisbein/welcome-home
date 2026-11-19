@@ -8,6 +8,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import welcomehome.crypto.CryptoService;
 import welcomehome.crypto.DecryptionFailedException;
+import welcomehome.db.Owners;
 
 /**
  * Encrypts every link's PIN again with the AEAD keyset's primary key, where an earlier key encrypted it, once the
@@ -22,8 +23,10 @@ class LinkPinReEncryption {
 
     private final LinkPins pins;
     private final CryptoService crypto;
+    private final Owners owners;
 
-    LinkPinReEncryption(LinkPins pins, CryptoService crypto) {
+    LinkPinReEncryption(LinkPins pins, CryptoService crypto, Owners owners) {
+        this.owners = owners;
         this.pins = pins;
         this.crypto = crypto;
     }
@@ -34,7 +37,7 @@ class LinkPinReEncryption {
         try {
             var reEncrypted = 0;
             var failed = 0;
-            for (var ownerId : pins.owners()) {
+            for (var ownerId : owners.ids()) {
                 try {
                     reEncrypted += pins.reEncrypt(ownerId);
                 } catch (DecryptionFailedException e) {

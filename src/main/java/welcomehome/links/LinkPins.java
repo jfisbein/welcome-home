@@ -2,7 +2,6 @@ package welcomehome.links;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -166,10 +165,5 @@ public class LinkPins {
             }
             return count;
         });
-    }
-
-    /** Every owner's id, for the encrypting again at start. */
-    List<UUID> owners() {
-        return links.allOwnerIds();
     }
 }

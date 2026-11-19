@@ -8,14 +8,13 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import welcomehome.access.GuestLinks.GuestLink;
+import welcomehome.access.GuestLinks.VerifiedLink;
 import welcomehome.audit.AccessEvent;
 import welcomehome.audit.AccessEvents;
 import welcomehome.audit.AccessOutcome;
 import welcomehome.links.LinkStatus;
 import welcomehome.locks.LocationCheck;
 import welcomehome.locks.LockReachability;
-import welcomehome.locks.Locks;
 import welcomehome.locks.OwnerLock;
 import welcomehome.nuki.Coordinates;
 import welcomehome.nuki.LockProvider;
@@ -37,9 +36,11 @@ import welcomehome.nuki.PendingAction;
  *     <li>for a door that checks where its guests are, the guest is in front of it, or confirms being so
  *     ({@link DoorDistance}).</li>
  * </ol>
- * Only then is the door unlatched, or the entrance's electric strike actuated, in the context of the owner that
- * resolve_link returned, which the verified MAC vouches for, and once per lock at a time: concurrent guests share
- * one action and its result.
+ * What the checks read of the link, its lock and its owner's connection is read once, when the token is verified
+ * ({@link GuestLinks#find}); only the PIN is checked apart, as a wrong one is counted. Only then is the door
+ * unlatched, or the entrance's electric strike actuated, in the context of the owner that resolve_link returned,
+ * which the verified MAC vouches for, and once per lock at a time: concurrent guests share one action and its
+ * result.
  * The result waits for Nuki to report the unlatch or the lock's log to confirm it, also when Nuki did not answer
  * the unlatch, as it may have run it. Every attempt with a valid link is recorded in the owner's history; once the
  * lock may have been asked, nothing that fails afterwards, recording included, changes what the guest is told.
@@ -51,19 +52,17 @@ class OpenDoor {
 
     private final RateLimiter rateLimiter;
     private final GuestLinks guestLinks;
-    private final Locks locks;
     private final LockProvider lockProvider;
     private final LockMutex lockActions;
     private final UnlatchConfirmation confirmation;
     private final AccessEvents accessEvents;
     private final LockReachability reachability;
 
-    OpenDoor(RateLimiter rateLimiter, GuestLinks guestLinks, Locks locks, LockProvider lockProvider,
+    OpenDoor(RateLimiter rateLimiter, GuestLinks guestLinks, LockProvider lockProvider,
              LockMutex lockActions, UnlatchConfirmation confirmation, AccessEvents accessEvents,
              LockReachability reachability) {
         this.rateLimiter = rateLimiter;
         this.guestLinks = guestLinks;
-        this.locks = locks;
         this.lockProvider = lockProvider;
         this.lockActions = lockActions;
         this.confirmation = confirmation;
@@ -102,11 +101,10 @@ class OpenDoor {
         if (found.isEmpty()) {
             return new Opening(AccessOutcome.INVALID, null);
         }
-        var guestLink = found.get();
-        var link = guestLink.link();
-        // The token is verified: the entrance may be read, and the attempt is recorded with it.
-        var entrance = door == Door.ENTRANCE ? guestLinks.entrance(link).orElse(null) : null;
-        var attempt = checkAndUnlatch(guestLink, door, entrance, position, confirmed, pin);
+        var link = found.get();
+        // The token is verified: the attempt is recorded, with the entrance if that is the door asked for.
+        var entrance = door == Door.ENTRANCE ? link.entrance() : null;
+        var attempt = checkAndUnlatch(link, door, position, confirmed, pin);
         var location = attempt.location();
         try {
             accessEvents.record(new AccessEvent(link.ownerId(), link.linkId(), link.lockId(),
@@ -122,59 +120,40 @@ class OpenDoor {
         return new Opening(attempt.outcome(), location == null ? null : location.distanceM());
     }
 
-    /** @param entrance the link's entrance, for {@link Door#ENTRANCE}, or null if it has none */
-    private Attempt checkAndUnlatch(GuestLink guestLink, Door door, @Nullable OwnerLock entrance,
-                                    @Nullable GuestPosition position, boolean confirmed, @Nullable String pin) {
-        var link = guestLink.link();
-        if (guestLink.status() == LinkStatus.REVOKED) {
+    private Attempt checkAndUnlatch(VerifiedLink link, Door door, @Nullable GuestPosition position, boolean confirmed,
+                                    @Nullable String pin) {
+        if (link.status() == LinkStatus.REVOKED) {
             return Attempt.of(AccessOutcome.REVOKED);
         }
         if (!rateLimiter.tryAttemptWithLink(link.linkId())) {
             return Attempt.of(AccessOutcome.TOO_MANY_ATTEMPTS);
         }
-        if (guestLink.status() == LinkStatus.PENDING) {
+        if (link.status() == LinkStatus.PENDING) {
             return Attempt.of(AccessOutcome.NOT_YET_VALID);
         }
-        if (guestLink.status() == LinkStatus.EXPIRED) {
+        if (link.status() == LinkStatus.EXPIRED) {
             return Attempt.of(AccessOutcome.EXPIRED);
         }
-        if (!guestLinks.withinSchedule(link, Instant.now())) {
+        if (!link.withinSchedule(Instant.now())) {
             return Attempt.of(AccessOutcome.OUTSIDE_SCHEDULE);
         }
         var pinOutcome = checkPin(link, pin);
         if (pinOutcome != null) {
             return Attempt.of(pinOutcome);
         }
-        if (door == Door.ENTRANCE) {
-            if (entrance == null || !guestLinks.entranceAvailable(link, entrance)) {
-                return Attempt.of(AccessOutcome.UNAVAILABLE);
-            }
-            // An Opener without a position of its own is taken to be where its link's lock is: an entrance is rarely
-            // more than some tens of metres from the door.
-            var place = entrance.coordinates() != null ? entrance.coordinates()
-                    : guestLinks.lock(link).map(OwnerLock::coordinates).orElse(null);
-            var location = checkLocation(entrance, place, position, confirmed);
-            if (location != null && location.verdict() != DoorDistance.Verdict.OPEN) {
-                return refused(location);
-            }
-            var openerSmartlockId = entrance.nukiSmartlockId();
-            return new Attempt(lockActions.runOnce(entrance.id(),
-                    () -> unlatchAndConfirm(link.ownerId(), entrance.id(), openerSmartlockId)), location);
-        }
-        if (!guestLinks.doorAvailable(link)) {
+        var entrance = door == Door.ENTRANCE;
+        var lock = entrance ? link.entrance() : link.lock();
+        if (lock == null || !(entrance ? link.entranceAvailable() : link.doorAvailable())) {
             return Attempt.of(AccessOutcome.UNAVAILABLE);
         }
-        var lock = locks.find(link.ownerId(), link.lockId());
-        if (lock.isEmpty()) {
-            return Attempt.of(AccessOutcome.UNAVAILABLE);
-        }
-        var location = checkLocation(lock.get(), lock.get().coordinates(), position, confirmed);
+        var location = checkLocation(lock, entrance ? link.entrancePlace() : lock.coordinates(), position, confirmed);
         if (location != null && location.verdict() != DoorDistance.Verdict.OPEN) {
             return refused(location);
         }
-        var nukiSmartlockId = lock.get().nukiSmartlockId();
-        return new Attempt(lockActions.runOnce(link.lockId(),
-                () -> unlatchAndConfirm(link.ownerId(), link.lockId(), nukiSmartlockId)), location);
+        var lockId = lock.id();
+        var nukiSmartlockId = lock.nukiSmartlockId();
+        return new Attempt(lockActions.runOnce(lockId, () -> unlatchAndConfirm(link.ownerId(), lockId, nukiSmartlockId)),
+                location);
     }
 
     /**
@@ -186,8 +165,8 @@ class OpenDoor {
      *
      * @return why the guest cannot go on, or null if the link has no PIN or the guest typed it
      */
-    private @Nullable AccessOutcome checkPin(ResolvedLink link, @Nullable String typed) {
-        if (!guestLinks.pinRequired(link)) {
+    private @Nullable AccessOutcome checkPin(VerifiedLink link, @Nullable String typed) {
+        if (!link.pinRequired()) {
             return null;
         }
         if (typed == null || typed.isBlank()) {
