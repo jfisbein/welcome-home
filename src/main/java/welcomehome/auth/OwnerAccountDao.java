@@ -1,9 +1,11 @@
 package welcomehome.auth;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.jdbc.core.SimplePropertyRowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,6 +55,19 @@ class OwnerAccountDao {
             throw new LastAdminException();
         }
         return jdbc.sql("DELETE FROM owner WHERE id = :id").param("id", id).update() == 1;
+    }
+
+    boolean adminExists() {
+        return jdbc.sql("SELECT EXISTS (SELECT 1 FROM owner WHERE is_admin)")
+                .query(Boolean.class)
+                .single();
+    }
+
+    /** Only what the admin panel shows. */
+    List<OwnerSummary> findAll() {
+        return jdbc.sql("SELECT email, created_at::date AS registered_on FROM owner ORDER BY created_at")
+                .query(new SimplePropertyRowMapper<>(OwnerSummary.class))
+                .list();
     }
 
     /** @return whether the owner is an admin and no other owner is */

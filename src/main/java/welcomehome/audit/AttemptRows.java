@@ -37,7 +37,7 @@ class AttemptRows {
     AttemptRow row(StoredAttempt attempt, ZoneId zone, Locale locale) {
         return new AttemptRow(attempt.occurredAt().atZoneSameInstant(zone), attempt.lockId(), attempt.lockName(),
                 attempt.linkId(), attempt.linkLabel(), attempt.entranceName(), attempt.result(),
-                outcome(attempt.reason(), Boolean.TRUE.equals(attempt.locationConfirmed()), locale),
+                outcome(attempt.reason(), Boolean.TRUE.equals(attempt.byConfirmation()), locale),
                 origin(attempt.ip(), attempt.country(), attempt.distanceM(), locale));
     }
 

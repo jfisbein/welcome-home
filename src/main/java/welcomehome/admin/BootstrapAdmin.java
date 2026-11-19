@@ -9,6 +9,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 import welcomehome.auth.CreatedInvitation;
 import welcomehome.auth.InvitationService;
+import welcomehome.auth.OwnerAccounts;
 
 /**
  * The {@code --bootstrap-admin} command: creates the first admin's invitation, prints its link and exits.
@@ -20,10 +21,10 @@ class BootstrapAdmin implements ApplicationRunner {
     static final String OPTION = "bootstrap-admin";
 
     private final InvitationService invitations;
-    private final OwnerDao owners;
+    private final OwnerAccounts owners;
     private final ApplicationContext context;
 
-    BootstrapAdmin(InvitationService invitations, OwnerDao owners, ApplicationContext context) {
+    BootstrapAdmin(InvitationService invitations, OwnerAccounts owners, ApplicationContext context) {
         this.invitations = invitations;
         this.owners = owners;
         this.context = context;

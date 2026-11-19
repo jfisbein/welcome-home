@@ -10,6 +10,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 import welcomehome.auth.CreatedInvitation;
 import welcomehome.auth.InvitationService;
+import welcomehome.auth.OwnerAccounts;
 
 /**
  * The {@code --recover-owner=<email>} command: creates a passkey recovery link for that owner, prints it and
@@ -22,10 +23,10 @@ class PasskeyRecoveryCommand implements ApplicationRunner {
     static final String OPTION = "recover-owner";
 
     private final InvitationService invitations;
-    private final OwnerDao owners;
+    private final OwnerAccounts owners;
     private final ApplicationContext context;
 
-    PasskeyRecoveryCommand(InvitationService invitations, OwnerDao owners, ApplicationContext context) {
+    PasskeyRecoveryCommand(InvitationService invitations, OwnerAccounts owners, ApplicationContext context) {
         this.invitations = invitations;
         this.owners = owners;
         this.context = context;

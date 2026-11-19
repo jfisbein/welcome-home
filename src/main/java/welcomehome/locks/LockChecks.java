@@ -83,7 +83,11 @@ public class LockChecks {
         return new LockWarnings(byLock, false);
     }
 
-    private static List<LockWarning> warningsOf(OwnerLock lock, LockSnapshot state, Connection connection) {
+    /**
+     * What is wrong with a lock, from what Nuki last knew of it: the one place that says, for the pages that list
+     * locks and for the daily email about those of its warnings that are problems ({@link LockProblems}).
+     */
+    static List<LockWarning> warningsOf(OwnerLock lock, LockSnapshot state, Connection connection) {
         var warnings = new ArrayList<LockWarning>();
         if (connection == Connection.OFFLINE) {
             warnings.add(LockWarning.OFFLINE);

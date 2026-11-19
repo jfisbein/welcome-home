@@ -29,19 +29,17 @@ class AdminController {
 
     private static final int MAX_NOTE_LENGTH = 100;
 
-    private final OwnerDao owners;
     private final InvitationService invitations;
     private final OwnerAccounts ownerAccounts;
 
-    AdminController(OwnerDao owners, InvitationService invitations, OwnerAccounts ownerAccounts) {
-        this.owners = owners;
+    AdminController(InvitationService invitations, OwnerAccounts ownerAccounts) {
         this.invitations = invitations;
         this.ownerAccounts = ownerAccounts;
     }
 
     @GetMapping("/owners")
     String owners(CurrentOwner admin, Model model) {
-        model.addAttribute("owners", owners.findAll());
+        model.addAttribute("owners", ownerAccounts.list());
         model.addAttribute("adminEmail", admin.email());
         model.addAttribute("pending", invitations.findPending());
         return "admin/owners";
@@ -56,7 +54,7 @@ class AdminController {
         if (email.equals(admin.email())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "An admin cannot delete themselves");
         }
-        if (!owners.findIdByEmail(email).map(ownerAccounts::delete).orElse(false)) {
+        if (!ownerAccounts.findIdByEmail(email).map(ownerAccounts::delete).orElse(false)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
         redirect.addFlashAttribute("deletedEmail", email);
@@ -106,7 +104,7 @@ class AdminController {
      */
     @PostMapping("/recoveries")
     String createRecovery(@RequestParam String email, CurrentOwner admin, RedirectAttributes redirect) {
-        var ownerId = owners.findIdByEmail(email)
+        var ownerId = ownerAccounts.findIdByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         redirect.addFlashAttribute("recovery", invitations.createPasskeyRecovery(admin.id(), ownerId));
         redirect.addFlashAttribute("recoveredEmail", email);

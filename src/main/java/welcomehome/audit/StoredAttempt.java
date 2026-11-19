@@ -21,11 +21,11 @@ import org.jspecify.annotations.Nullable;
  * @param ip           the guest's IP address, if still kept
  * @param country      the guest's country code, if known
  * @param distanceM    for a door that checks where its guests are, how far from it the guest was, if still kept
- * @param locationConfirmed whether the door opened only because the guest confirmed being in front of it, while
+ * @param byConfirmation whether the door opened only because the guest confirmed being in front of it, while
  *                     they seemed far or their position was unknown; null for a door that does not check
  */
 record StoredAttempt(UUID id, OffsetDateTime occurredAt, String timeZone, UUID lockId, String lockName, UUID linkId,
                      String linkLabel, @Nullable String entranceName, AccessResult result, @Nullable String reason,
                      @Nullable String ip, @Nullable String country, @Nullable Integer distanceM,
-                     @Nullable Boolean locationConfirmed) {
+                     @Nullable Boolean byConfirmation) {
 }

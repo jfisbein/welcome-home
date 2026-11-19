@@ -95,7 +95,7 @@ public class InvitationService {
      *
      * @return the invitations and recovery links not used and not expired
      */
-    public List<PendingLink> findPending() {
+    public List<PendingInvitation> findPending() {
         return invitations.findPending();
     }
 

@@ -80,7 +80,7 @@ class OwnerNotifier {
         if (!mailer.isConfigured()) {
             return;
         }
-        if (attempt.openedByConfirmation() && attempt.outcome().result() == AccessResult.OK) {
+        if (attempt.byConfirmation() && attempt.outcome().result() == AccessResult.OK) {
             openedAway(attempt);
             return;
         }

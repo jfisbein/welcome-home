@@ -15,7 +15,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import welcomehome.db.OwnerTransactions;
 import welcomehome.locks.LockReachability.Connection;
-import welcomehome.nuki.LockPosition;
 import welcomehome.nuki.LockProvider;
 import welcomehome.nuki.LockSnapshot;
 
@@ -66,7 +65,7 @@ class LockProblems {
                 var snapshot = snapshots.get(lock.nukiSmartlockId());
                 if (snapshot != null) {
                     var connection = reachability.observe(ownerId, lock.id(), snapshot.online());
-                    record(ownerId, lock, problemsOf(snapshot, connection));
+                    record(ownerId, lock, problemsOf(lock, snapshot, connection));
                 }
             }
         });
@@ -88,17 +87,10 @@ class LockProblems {
         }
     }
 
-    private static Set<LockWarning> problemsOf(LockSnapshot snapshot, Connection connection) {
+    /** Those of a lock's warnings that its owner is emailed about: not that Auto Lock is off, which is a setting. */
+    private static Set<LockWarning> problemsOf(OwnerLock lock, LockSnapshot snapshot, Connection connection) {
         var problems = EnumSet.noneOf(LockWarning.class);
-        if (connection == Connection.OFFLINE) {
-            problems.add(LockWarning.OFFLINE);
-        }
-        if (snapshot.batteryCritical()) {
-            problems.add(LockWarning.BATTERY_CRITICAL);
-        }
-        if (snapshot.position() == LockPosition.MOTOR_BLOCKED) {
-            problems.add(LockWarning.MOTOR_BLOCKED);
-        }
+        LockChecks.warningsOf(lock, snapshot, connection).stream().filter(PROBLEMS::contains).forEach(problems::add);
         return problems;
     }
 

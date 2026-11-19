@@ -10,7 +10,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Deletes invitations and passkey recovery links once a day, when they expired more than
- * {@link #KEPT_AFTER_EXPIRY} ago, used or not. Until then a recovery link still tells which admin created it.
+ * {@link #KEPT_AFTER_EXPIRY} ago, used or not: long enough to look into one that was misused, with the database
+ * at hand, as nothing shows them once they can no longer be used.
  */
 @Component
 class InvitationPurgeJob {

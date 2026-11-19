@@ -16,7 +16,7 @@ import welcomehome.audit.AccessOutcome;
 
 class LockMutexTests {
 
-    final LockMutex lockActions = new LockMutex();
+    final LockMutex lockMutex = new LockMutex();
 
     @Test
     void guestsWhoArriveDuringAnActionWaitForItAndShareItsResult() throws Exception {
@@ -26,7 +26,7 @@ class LockMutexTests {
         var release = new CountDownLatch(1);
 
         try (var executor = Executors.newFixedThreadPool(5)) {
-            var first = executor.submit(() -> lockActions.runOnce(lockId, () -> {
+            var first = executor.submit(() -> lockMutex.runOnce(lockId, () -> {
                 actions.incrementAndGet();
                 started.countDown();
                 await(release);
@@ -35,7 +35,7 @@ class LockMutexTests {
             started.await(5, TimeUnit.SECONDS);
             var others = new ArrayList<Future<AccessOutcome>>();
             for (int i = 0; i < 4; i++) {
-                others.add(executor.submit(() -> lockActions.runOnce(lockId, () -> {
+                others.add(executor.submit(() -> lockMutex.runOnce(lockId, () -> {
                     actions.incrementAndGet();
                     return AccessOutcome.OPENED;
                 })));
@@ -56,11 +56,11 @@ class LockMutexTests {
         var lockId = UUID.randomUUID();
         var actions = new AtomicInteger();
 
-        lockActions.runOnce(lockId, () -> {
+        lockMutex.runOnce(lockId, () -> {
             actions.incrementAndGet();
             return AccessOutcome.OPENED;
         });
-        lockActions.runOnce(lockId, () -> {
+        lockMutex.runOnce(lockId, () -> {
             actions.incrementAndGet();
             return AccessOutcome.OPENED;
         });
@@ -72,12 +72,12 @@ class LockMutexTests {
     void differentLocksDoNotWaitForEachOther() throws Exception {
         var release = new CountDownLatch(1);
         try (var executor = Executors.newSingleThreadExecutor()) {
-            var blocked = executor.submit(() -> lockActions.runOnce(UUID.randomUUID(), () -> {
+            var blocked = executor.submit(() -> lockMutex.runOnce(UUID.randomUUID(), () -> {
                 await(release);
                 return AccessOutcome.OPENED;
             }));
 
-            assertThat(lockActions.runOnce(UUID.randomUUID(), () -> AccessOutcome.EXPIRED)).isEqualTo(AccessOutcome.EXPIRED);
+            assertThat(lockMutex.runOnce(UUID.randomUUID(), () -> AccessOutcome.EXPIRED)).isEqualTo(AccessOutcome.EXPIRED);
 
             release.countDown();
             assertThat(blocked.get(5, TimeUnit.SECONDS)).isEqualTo(AccessOutcome.OPENED);
@@ -88,11 +88,11 @@ class LockMutexTests {
     void aFailedActionDoesNotBlockTheLock() {
         var lockId = UUID.randomUUID();
 
-        assertThatThrownBy(() -> lockActions.runOnce(lockId, () -> {
+        assertThatThrownBy(() -> lockMutex.runOnce(lockId, () -> {
             throw new IllegalStateException("boom");
         })).isInstanceOf(IllegalStateException.class);
 
-        assertThat(lockActions.runOnce(lockId, () -> AccessOutcome.OPENED)).isEqualTo(AccessOutcome.OPENED);
+        assertThat(lockMutex.runOnce(lockId, () -> AccessOutcome.OPENED)).isEqualTo(AccessOutcome.OPENED);
     }
 
     private static void await(CountDownLatch latch) {

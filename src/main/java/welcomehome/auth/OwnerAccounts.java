@@ -1,5 +1,7 @@
 package welcomehome.auth;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.context.ApplicationEventPublisher;
@@ -47,6 +49,34 @@ public class OwnerAccounts {
         }
         events.publishEvent(new OwnerDeleting(ownerId));
         return owners.delete(ownerId);
+    }
+
+    /**
+     * Lists every owner, for the admin panel.
+     *
+     * @return their emails and when they registered, the earliest first
+     */
+    public List<OwnerSummary> list() {
+        return owners.findAll();
+    }
+
+    /**
+     * Finds an owner by their email.
+     *
+     * @param email an email
+     * @return the owner's id, or empty if nobody has that email
+     */
+    public Optional<UUID> findIdByEmail(String email) {
+        return owners.findByEmail(email).map(OwnerAccountDao.OwnerAccount::id);
+    }
+
+    /**
+     * Tells whether anyone can administer the app yet.
+     *
+     * @return whether some owner is an admin
+     */
+    public boolean adminExists() {
+        return owners.adminExists();
     }
 
     /** Tells whether the owner is an admin and no other owner is, so that leaving would leave no admin. */

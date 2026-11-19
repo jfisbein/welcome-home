@@ -74,7 +74,7 @@ class InvitationDao {
     }
 
     /** The links that could still be used, the soonest to expire first. */
-    List<PendingLink> findPending() {
+    List<PendingInvitation> findPending() {
         return jdbc.sql("""
                         SELECT i.id, coalesce(o.email, i.note, '') AS recipient, i.grants_admin,
                                i.recovers_owner_id IS NOT NULL AS recovery, i.expires_at::timestamp AS expires_at
@@ -82,7 +82,7 @@ class InvitationDao {
                         WHERE i.used_at IS NULL AND i.expires_at > now()
                         ORDER BY i.expires_at, i.id
                         """)
-                .query(new SimplePropertyRowMapper<>(PendingLink.class))
+                .query(new SimplePropertyRowMapper<>(PendingInvitation.class))
                 .list();
     }
 

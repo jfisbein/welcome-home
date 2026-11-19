@@ -12,5 +12,5 @@ import java.util.UUID;
  * @param recovery    whether it is a passkey recovery link rather than an invitation
  * @param expiresAt   when it expires, in the server's time zone
  */
-public record PendingLink(UUID id, String recipient, boolean grantsAdmin, boolean recovery, LocalDateTime expiresAt) {
+public record PendingInvitation(UUID id, String recipient, boolean grantsAdmin, boolean recovery, LocalDateTime expiresAt) {
 }

@@ -53,18 +53,18 @@ class OpenDoor {
     private final RateLimiter rateLimiter;
     private final GuestLinks guestLinks;
     private final LockProvider lockProvider;
-    private final LockMutex lockActions;
+    private final LockMutex lockMutex;
     private final UnlatchConfirmation confirmation;
     private final AccessEvents accessEvents;
     private final LockReachability reachability;
 
     OpenDoor(RateLimiter rateLimiter, GuestLinks guestLinks, LockProvider lockProvider,
-             LockMutex lockActions, UnlatchConfirmation confirmation, AccessEvents accessEvents,
+             LockMutex lockMutex, UnlatchConfirmation confirmation, AccessEvents accessEvents,
              LockReachability reachability) {
         this.rateLimiter = rateLimiter;
         this.guestLinks = guestLinks;
         this.lockProvider = lockProvider;
-        this.lockActions = lockActions;
+        this.lockMutex = lockMutex;
         this.confirmation = confirmation;
         this.accessEvents = accessEvents;
         this.reachability = reachability;
@@ -152,7 +152,7 @@ class OpenDoor {
         }
         var lockId = lock.id();
         var nukiSmartlockId = lock.nukiSmartlockId();
-        return new Attempt(lockActions.runOnce(lockId, () -> unlatchAndConfirm(link.ownerId(), lockId, nukiSmartlockId)),
+        return new Attempt(lockMutex.runOnce(lockId, () -> unlatchAndConfirm(link.ownerId(), lockId, nukiSmartlockId)),
                 location);
     }
 
