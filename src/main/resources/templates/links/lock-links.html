@@ -20,10 +20,9 @@
         </ul>
         <fieldset role="group">
             <input id="link-url" type="text" readonly th:value="${createdUrl}" th:aria-label="#{links.url}">
-            <button type="button" data-copy="link-url" th:data-copied="#{common.copied}"
-                    th:text="#{common.copy}">Copiar</button>
-            <button type="button" class="secondary" hidden th:data-share-url="${createdUrl}"
-                    th:data-share-title="#{links.share-title(${lock.name})}" th:text="#{common.share}">Compartir</button>
+            <th:block th:if="${sentLink}">
+                <th:block th:replace="~{links/table :: send(${sentLink}, ${lock}, false)}"></th:block>
+            </th:block>
         </fieldset>
     </article>
 
@@ -33,10 +32,9 @@
         <fieldset role="group">
             <input id="regenerated-url" type="text" readonly th:value="${regeneratedUrl}"
                    th:aria-label="#{links.regenerated.url}">
-            <button type="button" data-copy="regenerated-url" th:data-copied="#{common.copied}"
-                    th:text="#{common.copy}">Copiar</button>
-            <button type="button" class="secondary" hidden th:data-share-url="${regeneratedUrl}"
-                    th:data-share-title="#{links.share-title(${lock.name})}" th:text="#{common.share}">Compartir</button>
+            <th:block th:if="${sentLink}">
+                <th:block th:replace="~{links/table :: send(${sentLink}, ${lock}, false)}"></th:block>
+            </th:block>
         </fieldset>
     </article>
 

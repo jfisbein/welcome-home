@@ -121,6 +121,33 @@ class LockSyncTests {
         }
     }
 
+    /** No owner has to know of the check for a slide at home not to open their door. */
+    @Test
+    void aLockImportedWithAPositionChecksWhereItsGuestsAreAndOneAlreadyThereKeepsItsOwnersChoice() {
+        connectNuki(ALICE, """
+                [
+                  {"smartlockId": 17, "type": 4, "name": "Casa", "serverState": 0,
+                   "config": {"latitude": 40.41678, "longitude": -3.70379}},
+                  {"smartlockId": 18, "type": 4, "name": "Garaje", "serverState": 0}
+                ]
+                """);
+        assertThat(locationChecks()).containsExactly("17|CONFIRM_WHEN_FAR", "18|OFF");
+
+        migrator.sql("UPDATE lock SET location_check = 'OFF' WHERE nuki_smartlock_id = 17").update();
+        nukiLists("""
+                [
+                  {"smartlockId": 17, "type": 4, "name": "Casa", "serverState": 0,
+                   "config": {"latitude": 40.41678, "longitude": -3.70379}},
+                  {"smartlockId": 18, "type": 4, "name": "Garaje", "serverState": 0,
+                   "config": {"latitude": 41.38879, "longitude": 2.15899}}
+                ]
+                """);
+        sync(ALICE);
+
+        assertThat(locationChecks()).as("the owner turned one off, and the other was not new when its position came")
+                .containsExactly("17|OFF", "18|OFF");
+    }
+
     /** The owner's position stays: Nuki's fills only a lock without one. */
     @Test
     void importTakesNukisPositionsAndSyncsFillOnlyAMissingOne() {
@@ -287,6 +314,15 @@ class LockSyncTests {
 
     private MvcTestResult sync(String email) {
         return mvc.post().uri("/locks/sync").with(owner(email)).with(csrf()).exchange();
+    }
+
+    /** How Alice's locks check where their guests are, as "nukiId|check". */
+    private List<String> locationChecks() {
+        return migrator.sql("SELECT nuki_smartlock_id || '|' || location_check FROM lock WHERE owner_id = ? "
+                        + "ORDER BY nuki_smartlock_id")
+                .param(aliceId)
+                .query(String.class)
+                .list();
     }
 
     /** Where Alice's locks are, as "nukiId|latitude|longitude", with "-" for none. */

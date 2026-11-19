@@ -66,6 +66,8 @@ class LockWarningsTests {
     TestData data;
     UUID aliceId;
 
+    static final String UNCHECKED = "No comprueba dónde están los invitados: sus enlaces abren la puerta desde cualquier lugar.";
+
     @BeforeEach
     void insertAliceWithALock() {
         nuki.resetAll();
@@ -166,12 +168,29 @@ class LockWarningsTests {
         assertThat(body("/locks")).doesNotContain(AUTO_LOCK);
     }
 
+    /** Not Nuki's to tell, so it is said with or without a connection: this lock's links open from anywhere. */
+    @ParameterizedTest
+    @ValueSource(strings = {"/", "/locks"})
+    void aLockThatDoesNotCheckWhereItsGuestsAreSaysSoUntilItDoes(String page) {
+        var lockId = migrator.sql("SELECT id FROM lock").query(UUID.class).single();
+        assertThat(body(page)).contains(UNCHECKED, ">Activar la comprobación</a>");
+
+        data.locationCheck(lockId, 40.416775, -3.703790, "OFF", 150);
+        assertThat(body(page)).as("a position alone checks nothing").contains(UNCHECKED);
+
+        data.locationCheck(lockId, 40.416775, -3.703790, "CONFIRM_WHEN_FAR", 150);
+        assertThat(body(page)).doesNotContain(UNCHECKED);
+    }
+
     @Test
     void anInactiveLockHasNoWarningsNorIsNukiAskedForItsState() {
         migrator.sql("UPDATE lock SET active = false").update();
         connectNuki();
         nuki.resetRequests();
 
+        assertThat(body("/")).doesNotContain(UNKNOWN, UNCHECKED);
+        assertThat(body("/locks")).doesNotContain(UNCHECKED);
+        nuki.resetRequests();
         assertThat(body("/")).doesNotContain(UNKNOWN);
         nuki.verify(0, anyRequestedFor(anyUrl()));
     }

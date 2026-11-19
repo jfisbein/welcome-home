@@ -76,7 +76,7 @@ class LinkListTests {
         var body = page();
 
         var url = IntegrationTest.BASE_URL + "/o/" + signer.sign(active, 3);
-        assertThat(body).contains("data-copy-text=\"" + url + "\"", "data-share-url=\"" + url + "\"")
+        assertThat(body).contains("data-copy-url=\"" + url + "\"", "data-share-url=\"" + url + "\"")
                 .doesNotContain(signer.sign(active, 1))
                 .as("an expired link can be edited, to extend it, but not copied")
                 .doesNotContain("/o/" + expired)
@@ -84,6 +84,22 @@ class LinkListTests {
                 .as("a revoked link is offered for nothing but its history and deleting")
                 .doesNotContain("href=\"/links/" + revoked, "/links/" + revoked + "/", signer.sign(revoked, 1))
                 .contains("/history?link=" + revoked + "\"", "action=\"/links/" + revoked + "\"");
+    }
+
+    /** A bare link says nothing of what it does: its guest is told where to open it, and not to try it before. */
+    @Test
+    void aLinkIsCopiedAndSharedWithWordsForItsGuestAndThatAPinFollowsIfItAsksForOne() {
+        var link = insertLink(lockId, "Bea", "'2030-11-01T14:00:00Z'", "'2030-11-03T10:00:00Z'", false);
+        var words = "Para entrar en Casa del 01/11/2030 15:00 al 03/11/2030 11:00 (hora de España peninsular), abre este "
+                + "enlace cuando estés delante de la puerta y desliza para abrir. No lo pruebes antes: abre la puerta de "
+                + "verdad.";
+
+        assertThat(page()).contains("data-copy-text=\"" + words + "\"", "data-share-text=\"" + words + "\"");
+
+        data.pin(link, new byte[] {1});
+
+        assertThat(page()).contains("data-copy-text=\"" + words + " Te envío el PIN aparte.\"",
+                "data-share-text=\"" + words + " Te envío el PIN aparte.\"");
     }
 
     @Test

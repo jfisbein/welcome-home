@@ -109,13 +109,17 @@ class LinkCreationTests {
 
     @Test
     void pageShowsTheCreatedLinkToCopy() {
-        var url = URI.create(IntegrationTest.BASE_URL + "/o/some-token");
-        assertThat(mvc.get().uri("/locks/" + madridLock + "/links").with(owner(ALICE))
-                .flashAttr("createdUrl", url).flashAttr("createdLabel", "Ana")
-                .flashAttr("createdFrom", Instant.parse("2030-11-01T14:00:00Z").atZone(ZoneId.of("Europe/Madrid")))
-                .flashAttr("createdUntil", Instant.parse("2030-11-03T10:00:00Z").atZone(ZoneId.of("Europe/Madrid"))))
-                .hasStatusOk()
-                .bodyText().contains("Enlace creado para Ana", "01/11/2030 15:00", "03/11/2030 11:00", url.toString(), "Copiar");
+        var flash = create(madridLock, "Ana", "2030-11-01T15:00", "2030-11-03T11:00").getMvcResult().getFlashMap();
+        var url = (URI) flash.get("createdUrl");
+
+        var page = mvc.get().uri("/locks/" + madridLock + "/links").with(owner(ALICE)).flashAttrs(flash).exchange();
+
+        assertThat(page).hasStatusOk()
+                .bodyText().contains("Enlace creado para Ana", "01/11/2030 15:00", "03/11/2030 11:00",
+                        "value=\"" + url + "\"", "Copiar");
+        assertThat(page).bodyText().as("copied and shared with its words there too, as from its row")
+                .containsSubsequence("id=\"link-url\"", "data-copy-text=\"Para entrar en Casa del 01/11/2030 15:00",
+                        "data-copy-url=\"" + url + "\"", "data-share-url=\"" + url + "\"", "<table");
     }
 
     @Test

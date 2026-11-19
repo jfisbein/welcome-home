@@ -36,6 +36,32 @@ class DoorDistanceTests {
         assertThat(check(LocationCheck.REFUSE_WHEN_FAR, 300, 100, false).verdict()).isEqualTo(Verdict.REFUSE);
     }
 
+    /** A computer at home, placed by its IP address: its accuracy would reach any door. */
+    @Test
+    void aPositionTooVagueToTellIsUnknownInEitherMode() {
+        for (var mode : new LocationCheck[] {LocationCheck.CONFIRM_WHEN_FAR, LocationCheck.REFUSE_WHEN_FAR}) {
+            assertThat(check(mode, 3000, 5000, false)).as(mode.name())
+                    .isEqualTo(new Check(Verdict.CONFIRM, null, 5000, false));
+            assertThat(check(mode, 3000, 5000, true)).as(mode.name())
+                    .isEqualTo(new Check(Verdict.OPEN, null, 5000, true));
+            assertThat(check(mode, 50, 501, false).verdict()).as(mode.name()).isEqualTo(Verdict.CONFIRM);
+            assertThat(check(mode, 50, 500, false).verdict()).as(mode.name()).isEqualTo(Verdict.OPEN);
+        }
+        assertThat(check(LocationCheck.CONFIRM_WHEN_FAR, 50, 1e300, false))
+                .isEqualTo(new Check(Verdict.CONFIRM, null, Integer.MAX_VALUE, false));
+    }
+
+    /** An owner who set a wide radius accepts positions as vague as it. */
+    @Test
+    void aRadiusWiderThanTheLimitAcceptsPositionsAsVagueAsItself() {
+        var north = DOOR.latitude() + 100 / (Math.PI * 6_371_000 / 180);
+        var guest = new GuestPosition(north, DOOR.longitude(), 2000);
+        assertThat(DoorDistance.check(LocationCheck.CONFIRM_WHEN_FAR, 2000, DOOR, guest, false).verdict())
+                .isEqualTo(Verdict.OPEN);
+        assertThat(DoorDistance.check(LocationCheck.CONFIRM_WHEN_FAR, 1999, DOOR, guest, false).verdict())
+                .isEqualTo(Verdict.CONFIRM);
+    }
+
     @Test
     void theStricterModeRefusesAFarGuestEvenConfirmed() {
         assertThat(check(LocationCheck.REFUSE_WHEN_FAR, 3000, 20, true)).isEqualTo(new Check(Verdict.REFUSE, 3000, 20, false));

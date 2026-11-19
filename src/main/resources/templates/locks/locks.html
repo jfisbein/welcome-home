@@ -31,9 +31,11 @@
         Todavía no tienes cerraduras.</p>
     <p th:if="${lockWarnings.unknown}"><small th:text="#{locks.warnings.unknown}">Nuki no responde ahora mismo.</small></p>
     <!-- Above the table, which scrolls sideways on a narrow screen and would cut them. -->
-    <article th:each="lock : ${locks}" th:unless="${lockWarnings.of(lock.id).isEmpty()}">
+    <article th:each="lock : ${locks}"
+             th:unless="${lockWarnings.of(lock.id).isEmpty() and (!lock.active or lock.checksLocation)}">
         <strong th:text="${lock.name}">Casa</strong>
         <th:block th:replace="~{fragments/lock-warnings :: warnings(${lockWarnings.of(lock.id)})}"></th:block>
+        <th:block th:replace="~{fragments/lock-warnings :: unchecked(${lock})}"></th:block>
     </article>
     <div class="overflow-auto" th:if="${!locks.isEmpty()}">
         <table>

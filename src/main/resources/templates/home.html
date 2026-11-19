@@ -42,6 +42,7 @@
                     <small th:unless="${lock.active}"><br><span th:text="#{locks.inactive}">Ya no está en tu cuenta de
                         Nuki</span></small>
                     <th:block th:replace="~{fragments/lock-warnings :: warnings(${lockWarnings.of(lock.id)})}"></th:block>
+                    <th:block th:replace="~{fragments/lock-warnings :: unchecked(${lock})}"></th:block>
                 </td>
                 <td>
                     <p th:if="${lock.active}">

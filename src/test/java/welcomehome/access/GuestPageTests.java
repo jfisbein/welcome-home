@@ -96,6 +96,20 @@ class GuestPageTests {
                 .doesNotContain("Etiqueta privada");
     }
 
+    /** Sliding is not a way into a page: said before any slider, and only where there is one. */
+    @Test
+    void theGuestIsToldBeforeAnySliderThatSlidingOpensARealDoor() {
+        var active = insertLink("now() - interval '1 day'", "now() + interval '1 day'", false);
+        var expired = insertLink("now() - interval '2 days'", "now() - interval '1 day'", false);
+
+        assertThat(body(guestPage(signer.sign(active, 1)))).containsSubsequence(
+                "<strong>Deslizar abre la puerta de verdad, en ese mismo momento. Hazlo solo cuando estés delante de ella.</strong>",
+                "type=\"range\"");
+        assertThat(body(guestPage(signer.sign(expired, 1)))).doesNotContain("Deslizar abre");
+        migrator.sql("DELETE FROM nuki_connection").update();
+        assertThat(body(guestPage(signer.sign(active, 1)))).as("unavailable").doesNotContain("Deslizar abre");
+    }
+
     /** Only where the guest can slide, as only sliding records anything. */
     @Test
     void theGuestIsToldWhatSlidingKeepsAndForHowLong() {

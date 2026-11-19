@@ -170,14 +170,17 @@ class LockDao {
     /**
      * Inserts a lock found in Nuki, or marks an existing one as present again. An existing lock keeps the
      * name, time zone and position the owner chose, except that a position Nuki gives fills one it does not have.
+     * A new lock that comes with a position checks where its guests are from the start, asking one who seems far
+     * to confirm, so that no owner has to know of the check for a slide at home not to open their door; an existing
+     * lock keeps what its owner chose.
      */
     void upsert(UUID ownerId, UUID connectionId, long nukiSmartlockId, DeviceType deviceType, String name,
                 String timeZone, @Nullable Coordinates coordinates) {
         jdbc.sql("""
                         INSERT INTO lock (owner_id, connection_id, nuki_smartlock_id, device_type, name, time_zone,
-                                          latitude, longitude)
+                                          latitude, longitude, location_check)
                         VALUES (:ownerId, :connectionId, :nukiSmartlockId, :deviceType, :name, :timeZone,
-                                :latitude, :longitude)
+                                :latitude, :longitude, :locationCheck)
                         ON CONFLICT (owner_id, nuki_smartlock_id) DO UPDATE
                         SET connection_id = excluded.connection_id, device_type = excluded.device_type, active = true,
                             latitude = coalesce(lock.latitude, excluded.latitude),
@@ -191,6 +194,7 @@ class LockDao {
                 .param("timeZone", timeZone)
                 .param("latitude", coordinates == null ? null : coordinates.latitude())
                 .param("longitude", coordinates == null ? null : coordinates.longitude())
+                .param("locationCheck", (coordinates == null ? LocationCheck.OFF : LocationCheck.CONFIRM_WHEN_FAR).name())
                 .update();
     }
 

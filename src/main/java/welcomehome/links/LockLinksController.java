@@ -82,6 +82,11 @@ class LockLinksController {
     private String view(CurrentOwner owner, OwnerLock lock, Locale locale, Model model) {
         var links = accessLinks.list(owner.id(), lock, locale);
         model.addAttribute("lock", lock);
+        // The link just created or given a new URL, which the page offers to copy or share as its row does.
+        var sentUrl = model.getAttribute("createdUrl") != null ? model.getAttribute("createdUrl")
+                : model.getAttribute("regeneratedUrl");
+        model.addAttribute("sentLink", links.stream().filter(link -> link.url().equals(sentUrl)).findFirst()
+                .orElse(null));
         model.addAttribute("links", links.stream().filter(link -> link.status().isUsable()).toList());
         model.addAttribute("endedLinks", links.stream().filter(link -> !link.status().isUsable()).toList());
         return VIEW;

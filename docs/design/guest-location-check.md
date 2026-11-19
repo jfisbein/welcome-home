@@ -69,6 +69,7 @@ The page carries only whether the check is on (`data-location-check`), never the
   - with `REFUSE_WHEN_FAR`, answer the new outcome `too-far` with the distance, `confirmed` or not.
 - **Unknown**, without a position: answer `confirm-location`, unless `confirmed`.
 - **Otherwise**, open. With a poor accuracy (a few hundred metres indoors) the rule cannot tell, and does not bother the guest: the mistake to catch is being kilometres away.
+- **Too vague to tell**, since 2026-11-19: an accuracy beyond 500 m, and beyond the radius, counts as unknown. The rule above made a computer at home, placed by its IP address within kilometres, near every door: it opened unasked, and the owner got the ordinary email (review item MIS-03). No distance is kept for it, only the accuracy. 500 m is a first guess, to tune with the radius on real phones.
 
 The distance is great-circle (haversine), rounded to 10 m. The position is never logged: `OpenRequest.toString` leaves it out, as it leaves out the token.
 
@@ -101,6 +102,8 @@ Within v2. The migrations only add nullable columns, columns with a default, and
 ## Rolling it out
 
 Off for every lock. The owner turns the stricter mode on for their own, with a test link, and goes through the phones above; then decides whether new locks start with a mode on, which one, and the radius.
+
+Decided on 2026-11-19 (the user's choice, review item MIS-01): a lock imported with a position from Nuki starts with `CONFIRM_WHEN_FAR` and the default radius, as with the check off a slide anywhere opens the door and an owner had to know of the check to turn it on. Locks already imported are not changed: the home page and `/locks` say of each lock that does not check that its links open from anywhere, with a link to its settings.
 
 ## Work
 

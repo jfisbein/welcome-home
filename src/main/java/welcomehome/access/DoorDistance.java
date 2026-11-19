@@ -8,12 +8,20 @@ import welcomehome.nuki.Coordinates;
  * Whether a guest is in front of the door they slid to open, for a door that checks it. Against mistakes, such as
  * sliding at home to try the link, not against someone determined: a position can be faked. So only a guest
  * clearly far counts as far, their distance less the browser's accuracy beyond the radius; with a poor accuracy
- * the check gives the benefit of the doubt.
+ * the check gives the benefit of the doubt. A position too vague to say anything, as a computer placed by its IP
+ * address has, with an accuracy of kilometres, is no position: it would put a guest at home within reach of any
+ * door.
  */
 final class DoorDistance {
 
     /** Earth's mean radius, in metres, which the great-circle distance takes the Earth to be a sphere of. */
     private static final double EARTH_RADIUS_M = 6_371_000;
+
+    /**
+     * An accuracy beyond this, and beyond the door's radius, makes a position unknown. A phone indoors is within
+     * some tens of metres, or a few hundred by its cell alone; a computer placed by its IP address, kilometres.
+     */
+    static final double VAGUE_ACCURACY_M = 500;
 
     /** What the check decides. */
     enum Verdict {
@@ -28,7 +36,8 @@ final class DoorDistance {
     /**
      * What the check decided, and what the history keeps of it.
      *
-     * @param distanceM from the guest to the door in metres, rounded to 10, or null without a position
+     * @param distanceM from the guest to the door in metres, rounded to 10, or null without a position, or with
+     *                  one too vague to tell
      * @param accuracyM the browser's accuracy in metres, or null without a position
      * @param byConfirmation whether the door opens only because the guest confirmed being in front of it, while
      *                  they seemed far or their position was unknown
@@ -51,13 +60,22 @@ final class DoorDistance {
         if (guest == null) {
             return new Check(confirmed ? Verdict.OPEN : Verdict.CONFIRM, null, null, confirmed);
         }
+        if (guest.accuracy() > Math.max(radiusM, VAGUE_ACCURACY_M)) {
+            return new Check(confirmed ? Verdict.OPEN : Verdict.CONFIRM, null, wholeMetres(guest.accuracy()),
+                    confirmed);
+        }
         var distance = metres(door, guest);
         var far = distance - guest.accuracy() > radiusM;
         var verdict = !far ? Verdict.OPEN
                 : check == LocationCheck.REFUSE_WHEN_FAR ? Verdict.REFUSE
                 : confirmed ? Verdict.OPEN : Verdict.CONFIRM;
-        return new Check(verdict, (int) Math.round(distance / 10) * 10, (int) Math.round(guest.accuracy()),
+        return new Check(verdict, (int) Math.round(distance / 10) * 10, wholeMetres(guest.accuracy()),
                 far && verdict == Verdict.OPEN);
+    }
+
+    /** A browser may give any accuracy, far beyond what an int holds. */
+    private static int wholeMetres(double metres) {
+        return (int) Math.min(Math.round(metres), Integer.MAX_VALUE);
     }
 
     /** The great-circle distance, by the haversine formula: within a few metres over a town. */

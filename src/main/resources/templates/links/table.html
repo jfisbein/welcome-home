@@ -34,11 +34,7 @@
                     <a th:href="@{/locks/{lockId}/history(lockId=${lock.id},link=${link.id})}"
                        role="button" class="outline secondary" th:text="#{common.history}">Historial</a>
                     <th:block th:if="${link.status.usable}">
-                        <button type="button" class="outline" th:data-copy-text="${link.url}"
-                                th:data-copied="#{common.copied}" th:text="#{common.copy}">Copiar</button>
-                        <button type="button" class="outline secondary" hidden th:data-share-url="${link.url}"
-                                th:data-share-title="#{links.share-title(${lock.name})}"
-                                th:text="#{common.share}">Compartir</button>
+                        <th:block th:replace="~{links/table :: send(${link}, ${lock}, true)}"></th:block>
                         <form th:action="@{/links/{id}/regenerate(id=${link.id})}" method="post"
                               th:data-confirm="#{links.regenerate.confirm(${link.label})}">
                             <button type="submit" class="outline secondary" th:title="#{links.regenerate.title}"
@@ -61,5 +57,18 @@
         </tbody>
     </table>
 </div>
+<!-- The buttons that copy or share a link. Its guest gets words with it, not a bare link: when it opens, to open it
+     in front of the door and not to try it before, and that a PIN follows if it asks for one (copy.js, share.js). -->
+<th:block th:fragment="send(link, lock, outline)">
+    <th:block th:with="words=#{links.share-text(${lock.name}, ${#temporals.format(link.validFrom, #messages.msg('format.datetime'))}, ${#temporals.format(link.validUntil, #messages.msg('format.datetime'))}, ${@timeZoneNames.of(lock.timeZone, #locale)})} + (${link.hasPin} ? ' ' + #{links.share-pin} : '')">
+        <button type="button" th:classappend="${outline} ? 'outline'" th:data-copy-text="${words}"
+                th:data-copy-url="${link.url}" th:data-copied="#{common.copied}"
+                th:text="#{common.copy}">Copiar</button>
+        <button type="button" class="secondary" th:classappend="${outline} ? 'outline'" hidden
+                th:data-share-text="${words}" th:data-share-url="${link.url}"
+                th:data-share-title="#{links.share-title(${lock.name})}"
+                th:text="#{common.share}">Compartir</button>
+    </th:block>
+</th:block>
 </body>
 </html>

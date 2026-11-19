@@ -123,6 +123,22 @@ class LocationCheckTests {
                 .bodyJson().extractingPath("$.result").isEqualTo("opened");
     }
 
+    /** Sliding at home on a computer, which its IP address places within kilometres. */
+    @Test
+    void aPositionTooVagueToTellAsksToConfirmWithoutADistanceAndOpensOnlyByConfirmation() {
+        data.locationCheck(lockId, DOOR_LATITUDE, DOOR_LONGITUDE, "REFUSE_WHEN_FAR", 150);
+
+        assertThat(open("lock", metresAway(3000, 5000), false)).hasStatus(HttpStatus.PRECONDITION_REQUIRED)
+                .bodyJson().isEqualTo("{\"result\": \"confirm-location\"}");
+        assertThat(lastEvent()).isEqualTo("confirm-location|-|5000|false");
+        nuki.verify(0, anyRequestedFor(anyUrl()));
+
+        assertThat(open("lock", metresAway(3000, 5000), true)).hasStatusOk()
+                .bodyJson().isEqualTo("{\"result\": \"opened\"}");
+        assertThat(lastEvent()).isEqualTo("opened|-|5000|true");
+        assertUnlatches(1);
+    }
+
     @Test
     void theStricterModeRefusesAFarGuestEvenWhenTheyConfirm() {
         data.locationCheck(lockId, DOOR_LATITUDE, DOOR_LONGITUDE, "REFUSE_WHEN_FAR", 150);

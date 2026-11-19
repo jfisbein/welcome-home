@@ -10,5 +10,14 @@
         <span th:case="'AUTO_LOCK_OFF'" th:text="#{locks.warning.auto-lock-off}">Auto Lock desactivado</span>
     </small>
 </th:block>
+<!-- A lock whose links open from anywhere: it does not check where its guests are, or has no position to check
+     against. Not Nuki's to tell, so it shows whether or not Nuki answers. -->
+<th:block th:fragment="unchecked(lock)">
+    <small class="lock-warning" th:if="${lock.active and !lock.checksLocation}">
+        <span th:text="#{locks.warning.location-unchecked}">No comprueba dónde están los invitados.</span>
+        <a th:href="@{/locks/{id}(id=${lock.id})}" th:text="#{locks.warning.location-unchecked.fix}">Activar la
+            comprobación</a>
+    </small>
+</th:block>
 </body>
 </html>
