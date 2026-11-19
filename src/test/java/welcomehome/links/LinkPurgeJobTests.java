@@ -33,7 +33,7 @@ class LinkPurgeJobTests {
     void insertAliceWithALock() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         alice = insertOwner("alice@example.com");
         casa = insertLock(alice);
     }

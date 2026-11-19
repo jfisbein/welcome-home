@@ -47,7 +47,7 @@ class NukiConnectionWithoutAuthorizationTests {
     void insertAlice() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         aliceId = data.owner(ALICE);
     }
 

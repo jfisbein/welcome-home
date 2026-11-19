@@ -23,6 +23,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
 import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
+import welcomehome.TestTime;
 import welcomehome.crypto.LinkTokenSigner;
 import welcomehome.nuki.NukiStandInConfiguration;
 
@@ -34,6 +35,9 @@ class LinkCreationTests {
 
     static final String ALICE = "alice@example.com";
     static final String BOB = "bob@example.com";
+
+    @Autowired
+    TestTime time;
 
     @Autowired
     MockMvcTester mvc;
@@ -53,11 +57,20 @@ class LinkCreationTests {
     UUID newYorkLock;
     UUID bobsLock;
 
+    /**
+     * The dates these tests send are in 2030: the app's clock stays before them, whenever the tests run. Nothing here
+     * depends on rows dated by the database being before or after it.
+     */
+    @BeforeEach
+    void stopTheClockBeforeTheDatesSent() {
+        time.setTo(Instant.parse("2026-11-19T12:00:00Z"));
+    }
+
     @BeforeEach
     void insertLocks() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         var alice = insertOwner(ALICE);
         madridLock = insertLock(alice, 17, "Casa", "Europe/Madrid");
         newYorkLock = insertLock(alice, 18, "Loft", "America/New_York");
@@ -105,6 +118,20 @@ class LinkCreationTests {
 
         assertThat(validity("Madrid")).isEqualTo("2030-11-01T14:00:00Z|2030-11-03T10:00:00Z");
         assertThat(validity("New York")).isEqualTo("2030-11-01T19:00:00Z|2030-11-03T16:00:00Z");
+    }
+
+    /**
+     * In Madrid 02:30 does not exist on 31 March 2030, when the clocks go from 02:00 to 03:00, and comes twice on 27
+     * October, when they go back from 03:00 to 02:00: a start typed in the gap moves forward by it, and an end typed
+     * in the hour that comes twice is the first of the two.
+     */
+    @Test
+    void aTimeTheClocksSkipMovesForwardAndOneThatComesTwiceIsTheFirst() {
+        create(madridLock, "Gap", "2030-03-31T02:30", "2030-03-31T12:00");
+        create(madridLock, "Overlap", "2030-10-26T12:00", "2030-10-27T02:30");
+
+        assertThat(validity("Gap")).as("03:30 summer time, and noon").isEqualTo("2030-03-31T01:30:00Z|2030-03-31T10:00:00Z");
+        assertThat(validity("Overlap")).as("noon, and 02:30 summer time").isEqualTo("2030-10-26T10:00:00Z|2030-10-27T00:30:00Z");
     }
 
     @Test
@@ -163,7 +190,7 @@ class LinkCreationTests {
 
     @Test
     void inactiveLockGetsNoNewLinks() {
-        migrator.sql("UPDATE lock SET active = false WHERE id = ?").param(madridLock).update();
+        data.deactivate(madridLock);
 
         assertThat(create(madridLock, "Ana", "2030-11-01T15:00", "2030-11-03T11:00"))
                 .hasStatus(HttpStatus.CONFLICT)

@@ -8,6 +8,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 import jakarta.servlet.http.HttpServletResponse;
+import java.time.Clock;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -34,8 +35,10 @@ class LockLinksController {
     private final Locks locks;
     private final AccessLinks accessLinks;
     private final LinkSchedules schedules;
+    private final Clock clock;
 
-    LockLinksController(Locks locks, AccessLinks accessLinks, LinkSchedules schedules) {
+    LockLinksController(Locks locks, AccessLinks accessLinks, LinkSchedules schedules, Clock clock) {
+        this.clock = clock;
         this.locks = locks;
         this.accessLinks = accessLinks;
         this.schedules = schedules;
@@ -44,7 +47,7 @@ class LockLinksController {
     @GetMapping
     String links(CurrentOwner owner, @PathVariable UUID lockId, Locale locale, Model model) {
         var lock = findLock(owner, lockId);
-        LinkForm.startingNow(ZoneId.of(lock.timeZone())).addTo(model, null);
+        LinkForm.startingNow(ZoneId.of(lock.timeZone()), clock).addTo(model, null);
         return view(owner, lock, locale, model);
     }
 
@@ -60,7 +63,7 @@ class LockLinksController {
         }
         var zone = ZoneId.of(lock.timeZone());
         var form = new LinkForm(label, validFrom, validUntil, ScheduleForm.of(params), pin);
-        var validation = form.validate(zone, Instant.now());
+        var validation = form.validate(zone, clock.instant());
         if (!validation.isValid()) {
             response.setStatus(HttpStatus.BAD_REQUEST.value());
             form.addTo(model, validation);
@@ -74,7 +77,7 @@ class LockLinksController {
         redirect.addFlashAttribute("createdLabel", validation.label());
         redirect.addFlashAttribute("createdFrom", from.atZone(zone));
         redirect.addFlashAttribute("createdUntil", until.atZone(zone));
-        var days = LinkForm.daysIfLong(from, until, Instant.now());
+        var days = LinkForm.daysIfLong(from, until, clock.instant());
         if (days != null) {
             redirect.addFlashAttribute("createdDays", days);
         }

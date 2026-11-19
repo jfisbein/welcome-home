@@ -1,5 +1,6 @@
 package welcomehome.locks;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -34,9 +35,11 @@ class LockSync {
     private final LockProvider lockProvider;
     private final LockDao locks;
     private final OwnerTransactions ownerTransactions;
+    private final Clock clock;
 
     LockSync(LockProvider lockProvider, LockDao locks,
-             OwnerTransactions ownerTransactions) {
+             OwnerTransactions ownerTransactions, Clock clock) {
+        this.clock = clock;
         this.lockProvider = lockProvider;
         this.locks = locks;
         this.ownerTransactions = ownerTransactions;
@@ -82,7 +85,7 @@ class LockSync {
             return new SyncResult(0, 0);
         }
         var serverTimeZone = ZoneId.systemDefault();
-        var now = Instant.now();
+        var now = clock.instant();
         return ownerTransactions.execute(ownerId, () -> {
             var known = locks.findAll(ownerId).stream()
                     .collect(Collectors.toMap(OwnerLock::nukiSmartlockId, lock -> lock));

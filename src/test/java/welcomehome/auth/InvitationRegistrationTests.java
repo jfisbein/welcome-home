@@ -1,9 +1,11 @@
 package welcomehome.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -207,7 +209,8 @@ class InvitationRegistrationTests {
             }
             var registering = CompletableFuture.supplyAsync(() -> post(invitation + "/register", passkey));
             var migrator = TestDatabaseConfiguration.asMigrator(postgres);
-            await(() -> migrator.sql("SELECT count(*) FROM pg_locks WHERE NOT granted").query(Long.class).single() > 0);
+            await().atMost(Duration.ofSeconds(10)).until(
+                    () -> migrator.sql("SELECT count(*) FROM pg_locks WHERE NOT granted").query(Long.class).single() > 0);
             other.commit();
 
             assertThat(registering.get(10, TimeUnit.SECONDS))
@@ -246,14 +249,6 @@ class InvitationRegistrationTests {
         assertThat(post(invitationPath(false) + "/register", "{}"))
                 .hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().extractingPath("$.error").isEqualTo("expired");
-    }
-
-    private static void await(BooleanSupplier condition) throws InterruptedException {
-        var deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
-        while (!condition.getAsBoolean()) {
-            assertThat(System.nanoTime()).as("waited 10 s").isLessThan(deadline);
-            Thread.sleep(20);
-        }
     }
 
     private String invitationPath(boolean grantsAdmin) {

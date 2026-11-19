@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Objects;
 
 import jakarta.servlet.http.HttpServletResponse;
+import java.time.Clock;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.MessageSource;
 import org.springframework.http.HttpStatus;
@@ -44,9 +45,11 @@ class GuestController {
     private final MessageSource messages;
     private final TimeZoneNames timeZoneNames;
     private final AccessEvents accessEvents;
+    private final Clock clock;
 
     GuestController(GuestLinks guestLinks, LinkSchedules schedules, MessageSource messages,
-                    TimeZoneNames timeZoneNames, AccessEvents accessEvents) {
+                    TimeZoneNames timeZoneNames, AccessEvents accessEvents, Clock clock) {
+        this.clock = clock;
         this.guestLinks = guestLinks;
         this.schedules = schedules;
         this.messages = messages;
@@ -63,7 +66,7 @@ class GuestController {
         model.addAttribute("preview", preview != null);
         model.addAttribute("noindex", true);
         model.addAttribute("sessionless", true);
-        var now = Instant.now();
+        var now = clock.instant();
         var found = guestLinks.find(token, now);
         if (found.isEmpty()) {
             response.setStatus(HttpStatus.NOT_FOUND.value());

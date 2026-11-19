@@ -73,6 +73,46 @@ class LinkScheduleTests {
         assertThat(schedule.allows(Instant.parse("2030-03-31T07:30:00Z"), MADRID)).as("09:30, the same UTC time").isTrue();
     }
 
+    /** Sunday, 31 March 2030: in Madrid 02:00 to 03:00 does not exist, and the day has 23 hours. */
+    @Test
+    void hoursAcrossTheNightTheClocksGoForwardCoverWhatThereIsOfThem() {
+        var schedule = schedule(hours(DayOfWeek.SUNDAY, "01:00", "04:00"));
+
+        assertThat(schedule.allows(Instant.parse("2030-03-30T23:59:00Z"), MADRID)).as("00:59").isFalse();
+        assertThat(schedule.allows(Instant.parse("2030-03-31T00:00:00Z"), MADRID)).as("01:00").isTrue();
+        assertThat(schedule.allows(Instant.parse("2030-03-31T00:59:00Z"), MADRID)).as("01:59, the last minute before 03:00")
+                .isTrue();
+        assertThat(schedule.allows(Instant.parse("2030-03-31T01:00:00Z"), MADRID)).as("03:00").isTrue();
+        assertThat(schedule.allows(Instant.parse("2030-03-31T01:59:00Z"), MADRID)).as("03:59").isTrue();
+        assertThat(schedule.allows(Instant.parse("2030-03-31T02:00:00Z"), MADRID)).as("04:00").isFalse();
+    }
+
+    /** Sunday, 27 October 2030: in Madrid 02:00 to 03:00 comes twice, and the day has 25 hours. */
+    @Test
+    void hoursAcrossTheNightTheClocksGoBackCoverTheHourThatComesTwiceBothTimes() {
+        var schedule = schedule(hours(DayOfWeek.SUNDAY, "02:00", "03:00"));
+
+        assertThat(schedule.allows(Instant.parse("2030-10-26T23:59:00Z"), MADRID)).as("01:59").isFalse();
+        assertThat(schedule.allows(Instant.parse("2030-10-27T00:30:00Z"), MADRID)).as("02:30, summer time").isTrue();
+        assertThat(schedule.allows(Instant.parse("2030-10-27T01:30:00Z"), MADRID)).as("02:30 again, winter time").isTrue();
+        assertThat(schedule.allows(Instant.parse("2030-10-27T02:00:00Z"), MADRID)).as("03:00").isFalse();
+    }
+
+    /** Hours that open at a time the clocks skip open when the clocks get past it. */
+    @Test
+    void firstOpeningAtATimeTheClocksSkipIsWhenTheyGetPastIt() {
+        var schedule = schedule(hours(DayOfWeek.SUNDAY, "02:30", "05:00"));
+
+        var opening = schedule.firstOpening(Instant.parse("2030-03-30T12:00:00Z"), Instant.parse("2030-04-07T00:00:00Z"),
+                MADRID);
+
+        var instant = opening.orElseThrow().toInstant();
+        assertThat(schedule.allows(instant, MADRID)).as("it opens then").isTrue();
+        assertThat(schedule.allows(instant.minusSeconds(1), MADRID)).as("and not a second before").isFalse();
+        assertThat(instant).as("03:00 summer time, the first instant after the 02:30 that the clocks skipped")
+                .isEqualTo(Instant.parse("2030-03-31T01:00:00Z"));
+    }
+
     @Test
     void firstOpeningIsTheStartIfAllowedOrElseTheEarliestHoursToCome() {
         var schedule = schedule(hours(DayOfWeek.WEDNESDAY, "10:00", "12:00"), hours(DayOfWeek.MONDAY, "09:00", "17:00"));

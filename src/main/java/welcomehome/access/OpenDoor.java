@@ -1,5 +1,6 @@
 package welcomehome.access;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -57,10 +58,12 @@ class OpenDoor {
     private final UnlatchConfirmation confirmation;
     private final AccessEvents accessEvents;
     private final LockReachability reachability;
+    private final Clock clock;
 
     OpenDoor(RateLimiter rateLimiter, GuestLinks guestLinks, LockProvider lockProvider,
              LockMutex lockMutex, UnlatchConfirmation confirmation, AccessEvents accessEvents,
-             LockReachability reachability) {
+             LockReachability reachability, Clock clock) {
+        this.clock = clock;
         this.rateLimiter = rateLimiter;
         this.guestLinks = guestLinks;
         this.lockProvider = lockProvider;
@@ -97,14 +100,15 @@ class OpenDoor {
         if (!rateLimiter.tryAttemptFromIp(ip)) {
             return new Opening(AccessOutcome.TOO_MANY_ATTEMPTS, null);
         }
-        var found = guestLinks.find(token, Instant.now());
+        var now = clock.instant();
+        var found = guestLinks.find(token, now);
         if (found.isEmpty()) {
             return new Opening(AccessOutcome.INVALID, null);
         }
         var link = found.get();
         // The token is verified: the attempt is recorded, with the entrance if that is the door asked for.
         var entrance = door == Door.ENTRANCE ? link.entrance() : null;
-        var attempt = checkAndUnlatch(link, door, position, confirmed, pin);
+        var attempt = checkAndUnlatch(link, door, now, position, confirmed, pin);
         var location = attempt.location();
         try {
             accessEvents.record(new AccessEvent(link.ownerId(), link.linkId(), link.lockId(),
@@ -120,8 +124,8 @@ class OpenDoor {
         return new Opening(attempt.outcome(), location == null ? null : location.distanceM());
     }
 
-    private Attempt checkAndUnlatch(VerifiedLink link, Door door, @Nullable GuestPosition position, boolean confirmed,
-                                    @Nullable String pin) {
+    private Attempt checkAndUnlatch(VerifiedLink link, Door door, Instant now, @Nullable GuestPosition position,
+                                    boolean confirmed, @Nullable String pin) {
         if (link.status() == LinkStatus.REVOKED) {
             return Attempt.of(AccessOutcome.REVOKED);
         }
@@ -134,7 +138,7 @@ class OpenDoor {
         if (link.status() == LinkStatus.EXPIRED) {
             return Attempt.of(AccessOutcome.EXPIRED);
         }
-        if (!link.withinSchedule(Instant.now())) {
+        if (!link.withinSchedule(now)) {
             return Attempt.of(AccessOutcome.OUTSIDE_SCHEDULE);
         }
         var pinOutcome = checkPin(link, pin);
@@ -241,6 +245,7 @@ class OpenDoor {
     }
 
     private AccessOutcome unlatchAndAwait(UUID ownerId, long nukiSmartlockId) {
+        // By the real clock, as the lock's log, which this is compared with, tells the real time.
         var requestedAt = Instant.now();
         var unlatch = PendingAction.UNREPORTED;
         try {

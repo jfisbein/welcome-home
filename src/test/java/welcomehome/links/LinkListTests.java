@@ -47,7 +47,7 @@ class LinkListTests {
     void insertALock() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         ownerId = data.owner(ALICE);
         lockId = insertLock(17, "Casa");
     }

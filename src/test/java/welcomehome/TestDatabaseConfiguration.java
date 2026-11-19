@@ -20,16 +20,29 @@ public class TestDatabaseConfiguration {
     static final String APP_USER_PASSWORD = "app_user";
     static final String MIGRATOR_PASSWORD = "migrator";
 
-    @Bean
+    /**
+     * One container for the whole run, whatever the application contexts: the tests take turns, each starting from
+     * the rows it deletes and inserts, and a context that is not running a test does nothing to the database, as no
+     * job runs by the clock ({@link IntegrationTest}). Testcontainers stops it when the JVM ends.
+     */
+    private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:18-alpine")
+            .withCopyFileToContainer(
+                    MountableFile.forHostPath("deploy/db-init/01-create-roles.sh"),
+                    "/docker-entrypoint-initdb.d/01-create-roles.sh")
+            // As production's stack: text compared by PostgreSQL's own rules, not the C library's.
+            .withEnv("POSTGRES_INITDB_ARGS", "--locale-provider=builtin --builtin-locale=C.UTF-8")
+            .withEnv("APP_USER_PASSWORD", APP_USER_PASSWORD)
+            .withEnv("MIGRATOR_PASSWORD", MIGRATOR_PASSWORD);
+
+    /** Not stopped with a context, as the next one uses it too. */
+    @Bean(destroyMethod = "")
     PostgreSQLContainer postgres() {
-        return new PostgreSQLContainer("postgres:18-alpine")
-                .withCopyFileToContainer(
-                        MountableFile.forHostPath("deploy/db-init/01-create-roles.sh"),
-                        "/docker-entrypoint-initdb.d/01-create-roles.sh")
-                // As production's stack: text compared by PostgreSQL's own rules, not the C library's.
-                .withEnv("POSTGRES_INITDB_ARGS", "--locale-provider=builtin --builtin-locale=C.UTF-8")
-                .withEnv("APP_USER_PASSWORD", APP_USER_PASSWORD)
-                .withEnv("MIGRATOR_PASSWORD", MIGRATOR_PASSWORD);
+        synchronized (POSTGRES) {
+            if (!POSTGRES.isRunning()) {
+                POSTGRES.start();
+            }
+        }
+        return POSTGRES;
     }
 
     @Bean

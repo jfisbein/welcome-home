@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -49,6 +50,9 @@ class OwnerIsolationTests {
             "POST /email/verify/{token}");
 
     @Autowired
+    TestTime time;
+
+    @Autowired
     MockMvcTester mvc;
 
     @Autowired
@@ -64,11 +68,20 @@ class OwnerIsolationTests {
     UUID bobsLock;
     UUID bobsLink;
 
+    /**
+     * The dates these tests send are in 2030: the app's clock stays before them, whenever the tests run. Nothing here
+     * depends on rows dated by the database being before or after it.
+     */
+    @BeforeEach
+    void stopTheClockBeforeTheDatesSent() {
+        time.setTo(Instant.parse("2026-11-19T12:00:00Z"));
+    }
+
     @BeforeEach
     void insertAliceAndBob() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         migrator.sql("DELETE FROM user_credentials").update();
         migrator.sql("DELETE FROM user_entities").update();
         alicesLock = insertLock(insertOwner(ALICE), 17, "Casa de Alice");

@@ -56,7 +56,7 @@ class LockSettingsTests {
     void insertALockForAliceAndBob() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         alicesLock = insertLock(ALICE, "Casa");
         bobsLock = insertLock(BOB, "Apartamento de Bob");
     }

@@ -109,7 +109,7 @@ class PagesInEveryLanguageTests {
                 assertPage(page, tag, request -> request);
             }
             // An owner's pages are in the owner's language, whatever the browser asks for.
-            migrator.sql("UPDATE owner SET language = ?").param(tag).update();
+            data.language(tag);
             for (var page : ownerPages) {
                 assertPage(page, tag, user(ALICE).roles("OWNER", "ADMIN"));
             }

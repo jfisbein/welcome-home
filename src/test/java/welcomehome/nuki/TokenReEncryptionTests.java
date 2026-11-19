@@ -7,6 +7,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
@@ -86,7 +87,7 @@ class TokenReEncryptionTests {
         nuki.resetAll();
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         earlierKey = TestCryptoServices.withAeadKeyset(
                 aeadKeysetFile.resolveSibling(TestKeysetsConfiguration.AEAD_KEYSET_BEFORE_ROTATION));
     }
@@ -162,12 +163,9 @@ class TokenReEncryptionTests {
         assertThat(keyIdOf(refreshToken(ana))).isEqualTo(crypto.primaryKeyId());
     }
 
-    private void untilNukiIsAskedToRefresh() throws InterruptedException {
-        var deadline = Instant.now().plusSeconds(5);
-        while (nuki.findAll(postRequestedFor(urlPathEqualTo("/oauth/token"))).isEmpty()) {
-            assertThat(Instant.now()).as("Nuki was asked to refresh").isBefore(deadline);
-            Thread.sleep(10);
-        }
+    private void untilNukiIsAskedToRefresh() {
+        await().atMost(Duration.ofSeconds(5))
+                .until(() -> !nuki.findAll(postRequestedFor(urlPathEqualTo("/oauth/token"))).isEmpty());
     }
 
     /** Tink's ciphertext starts with a version byte and the id of the key that encrypted it. */

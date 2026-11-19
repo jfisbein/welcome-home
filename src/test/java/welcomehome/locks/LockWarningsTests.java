@@ -73,7 +73,7 @@ class LockWarningsTests {
         nuki.resetAll();
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         aliceId = data.owner(ALICE);
         insertLock(17, "Casa", "SMART_LOCK");
     }
@@ -184,7 +184,7 @@ class LockWarningsTests {
 
     @Test
     void anInactiveLockHasNoWarningsNorIsNukiAskedForItsState() {
-        migrator.sql("UPDATE lock SET active = false").update();
+        data.deactivateLocks();
         connectNuki();
         nuki.resetRequests();
 

@@ -13,6 +13,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.status;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.awaitility.Awaitility.await;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
@@ -28,7 +29,6 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -52,6 +52,7 @@ import welcomehome.IntegrationTest;
 import welcomehome.TestClock;
 import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
+import welcomehome.TestTime;
 import welcomehome.crypto.CryptoService;
 import welcomehome.crypto.LinkTokenSigner;
 import welcomehome.nuki.NukiStandInConfiguration;
@@ -65,6 +66,10 @@ class OpenDoorTests {
     static final String ALICE = "alice@example.com";
     static final String ALICES_NUKI_TOKEN = "alices-nuki-token";
     static final ZoneId MADRID = ZoneId.of("Europe/Madrid");
+
+    /** Stopped by the tests that reason about today, so that they and the app cannot read two sides of midnight. */
+    @Autowired
+    TestTime time;
 
     @Autowired
     MockMvcTester mvc;
@@ -87,7 +92,7 @@ class OpenDoorTests {
     JdbcClient migrator;
     TestData data;
     UUID lockId;
-    /** Rate limits live in memory for the whole context: each test comes from its own IP address. */
+    /** The guest's address. Rate limits live in memory for the whole context, and are full again after each test. */
     String ip;
 
     @BeforeEach
@@ -95,7 +100,7 @@ class OpenDoorTests {
         nuki.resetAll();
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         var aliceId = data.owner(ALICE);
         lockId = data.lock(aliceId, 17, "Casa");
         nuki.stubFor(get("/smartlock").willReturn(okJson("[]")));
@@ -104,7 +109,7 @@ class OpenDoorTests {
                 .param("apiToken", ALICES_NUKI_TOKEN))
                 .hasStatus(HttpStatus.FOUND);
         nuki.resetRequests();
-        ip = "10.%d.%d.%d".formatted(rand(), rand(), rand());
+        ip = "203.0.113.10";
     }
 
     @Test
@@ -150,11 +155,8 @@ class OpenDoorTests {
 
         try (var executor = Executors.newSingleThreadExecutor()) {
             var reported = executor.submit(() -> {
-                var deadline = Instant.now().plusSeconds(5);
-                while (nuki.findAll(postRequestedFor(urlPathEqualTo("/smartlock/17/action/advanced"))).isEmpty()
-                       && Instant.now().isBefore(deadline)) {
-                    Thread.sleep(10);
-                }
+                await().atMost(Duration.ofSeconds(5)).until(() -> !nuki.findAll(
+                        postRequestedFor(urlPathEqualTo("/smartlock/17/action/advanced"))).isEmpty());
                 nukiReports(requestId, true, null);
                 return null;
             });
@@ -355,7 +357,7 @@ class OpenDoorTests {
     @Test
     void revokedPendingOrExpiredLinksAreDeniedWithoutAskingNuki() {
         var revoked = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
-        migrator.sql("UPDATE access_link SET revoked_at = now() WHERE id = ?").param(revoked).update();
+        data.revoke(revoked);
         var pending = insertLink("now() + interval '1 hour'", "now() + interval '1 day'");
         var expired = insertLink("now() - interval '2 days'", "now() - interval '1 day'");
 
@@ -369,7 +371,7 @@ class OpenDoorTests {
     void outsideItsScheduleALinkOpensNeitherDoorAndTheAttemptIsRecorded() {
         insertOpenerAsEntrance();
         var link = insertLink("now() - interval '1 hour'", "now() + interval '30 days'");
-        insertSchedule(link, ZonedDateTime.now(MADRID).getDayOfWeek().plus(1), "00:00", "00:00");
+        insertSchedule(link, time.freeze().atZone(MADRID).getDayOfWeek().plus(1), "00:00", "00:00");
 
         assertDenied(link, HttpStatus.FORBIDDEN, "outside-schedule");
         assertThat(lastEvent()).startsWith("DENIED|outside-schedule|");
@@ -383,7 +385,7 @@ class OpenDoorTests {
         nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));
         lockLogShowsUnlatch(0);
         var link = insertLink("now() - interval '1 hour'", "now() + interval '30 days'");
-        insertSchedule(link, ZonedDateTime.now(MADRID).getDayOfWeek(), "00:00", "00:00");
+        insertSchedule(link, time.freeze().atZone(MADRID).getDayOfWeek(), "00:00", "00:00");
 
         assertThat(open(signer.sign(link, 1))).hasStatusOk().bodyJson().extractingPath("$.result").isEqualTo("opened");
     }
@@ -392,14 +394,14 @@ class OpenDoorTests {
     void inactiveLockOrMissingNukiConnectionIsUnavailable() {
         var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
 
-        migrator.sql("UPDATE lock SET active = false").update();
+        data.deactivateLocks();
         assertDenied(link, HttpStatus.SERVICE_UNAVAILABLE, "unavailable");
 
-        migrator.sql("UPDATE lock SET active = true").update();
-        migrator.sql("UPDATE nuki_connection SET status = 'DISCONNECTED'").update();
+        data.activateLocks();
+        data.disconnectNuki();
         assertDenied(link, HttpStatus.SERVICE_UNAVAILABLE, "unavailable");
 
-        migrator.sql("DELETE FROM nuki_connection").update();
+        data.forgetNuki();
         assertDenied(link, HttpStatus.SERVICE_UNAVAILABLE, "unavailable");
         nuki.verify(0, anyRequestedFor(anyUrl()));
     }
@@ -445,7 +447,7 @@ class OpenDoorTests {
         assertThat(lastEventsDoors()).isEqualTo(lockId.toString());
 
         var portal = insertOpenerAsEntrance();
-        migrator.sql("UPDATE lock SET active = false WHERE id = ?").param(portal).update();
+        data.deactivate(portal);
         assertThat(openDoor(signer.sign(link, 1), "entrance")).hasStatus(HttpStatus.SERVICE_UNAVAILABLE)
                 .bodyJson().extractingPath("$.result").isEqualTo("unavailable");
         assertThat(lastEventsDoors()).isEqualTo(lockId + "|" + portal);
@@ -456,7 +458,7 @@ class OpenDoorTests {
     void revokedLinkOpensNoEntrance() {
         insertOpenerAsEntrance();
         var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
-        migrator.sql("UPDATE access_link SET revoked_at = now() WHERE id = ?").param(link).update();
+        data.revoke(link);
 
         assertThat(openDoor(signer.sign(link, 1), "entrance")).hasStatus(HttpStatus.GONE)
                 .bodyJson().extractingPath("$.result").isEqualTo("revoked");
@@ -576,7 +578,7 @@ class OpenDoorTests {
         assertThat(open("nonsense")).hasStatus(HttpStatus.TOO_MANY_REQUESTS)
                 .bodyJson().extractingPath("$.result").isEqualTo("too-many-attempts");
         var otherIp = ip;
-        ip = "10.255.%d.%d".formatted(rand(), rand());
+        ip = "203.0.113.11";
         assertThat(open("nonsense")).as("from " + ip + " after " + otherIp).hasStatus(HttpStatus.NOT_FOUND);
     }
 
@@ -585,11 +587,11 @@ class OpenDoorTests {
         var link = insertLink("now() + interval '1 hour'", "now() + interval '1 day'");
 
         for (int attempt = 1; attempt <= 5; attempt++) {
-            ip = "10.254.%d.%d".formatted(rand(), rand());
+            ip = "198.51.100." + attempt;
             assertThat(open(signer.sign(link, 1))).as("attempt " + attempt).hasStatus(HttpStatus.FORBIDDEN);
         }
 
-        ip = "10.253.%d.%d".formatted(rand(), rand());
+        ip = "198.51.100.99";
         assertThat(open(signer.sign(link, 1))).hasStatus(HttpStatus.TOO_MANY_REQUESTS);
         assertThat(lastEvent()).startsWith("DENIED|too-many-attempts|");
     }
@@ -623,11 +625,8 @@ class OpenDoorTests {
 
         try (var executor = Executors.newSingleThreadExecutor()) {
             var opening = executor.submit(() -> open(token));
-            var deadline = Instant.now().plusSeconds(5);
-            while (nuki.findAll(postRequestedFor(urlPathEqualTo("/smartlock/17/action"))).isEmpty()
-                   && Instant.now().isBefore(deadline)) {
-                Thread.sleep(10);
-            }
+            await().atMost(Duration.ofSeconds(5)).until(
+                    () -> !nuki.findAll(postRequestedFor(urlPathEqualTo("/smartlock/17/action"))).isEmpty());
             migrator.sql("REVOKE SELECT ON nuki_connection FROM app_user").update();
             try {
                 assertThat(opening.get(20, TimeUnit.SECONDS)).hasStatus(HttpStatus.ACCEPTED)
@@ -688,19 +687,21 @@ class OpenDoorTests {
         assertThat(result.getRequest().getSession(false)).as("no session is created either").isNull();
     }
 
-    /** Opens with every token at the same time, each from its own IP address, and returns the results. */
+    /**
+     * Opens with every token, each from its own IP address, and returns the results. The first is let reach Nuki,
+     * which takes its time to answer; only then do the others arrive, so that they find its action under way.
+     */
     private List<String> openAtOnce(String... tokens) throws Exception {
-        var start = new CountDownLatch(1);
         try (var executor = Executors.newFixedThreadPool(tokens.length)) {
             var results = new ArrayList<Future<String>>();
             for (var token : tokens) {
-                var from = "10.252.%d.%d".formatted(rand(), rand());
-                results.add(executor.submit(() -> {
-                    start.await();
-                    return JsonPath.read(body(open(token, from)), "$.result");
-                }));
+                var from = "192.0.2." + (results.size() + 1);
+                results.add(executor.submit(() -> JsonPath.<String>read(body(open(token, from)), "$.result")));
+                if (results.size() == 1) {
+                    await().atMost(Duration.ofSeconds(5)).until(
+                            () -> !nuki.findAll(postRequestedFor(urlPathEqualTo("/smartlock/17/action"))).isEmpty());
+                }
             }
-            start.countDown();
             var codes = new ArrayList<String>();
             for (var result : results) {
                 codes.add(result.get(10, TimeUnit.SECONDS));
@@ -899,7 +900,7 @@ class OpenDoorTests {
         try (var executor = Executors.newFixedThreadPool(pins.length)) {
             var results = new ArrayList<Future<String>>();
             for (var pin : pins) {
-                var from = "10.251.%d.%d".formatted(rand(), rand());
+                var from = "192.0.2." + (100 + results.size());
                 results.add(executor.submit(() -> {
                     start.await();
                     return JsonPath.<String>read(body(send(from,
@@ -1021,9 +1022,5 @@ class OpenDoorTests {
 
     private UUID insertLink(String validFrom, String validUntil) {
         return data.link(lockId, "Ana", validFrom, validUntil);
-    }
-
-    private static int rand() {
-        return ThreadLocalRandom.current().nextInt(1, 255);
     }
 }

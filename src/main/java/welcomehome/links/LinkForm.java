@@ -1,5 +1,6 @@
 package welcomehome.links;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -40,8 +41,8 @@ record LinkForm(String label, String validFrom, String validUntil, ScheduleForm 
     }
 
     /** A new link's form: from now, for one day. */
-    static LinkForm startingNow(ZoneId zone) {
-        var now = LocalDateTime.now(zone).truncatedTo(ChronoUnit.MINUTES);
+    static LinkForm startingNow(ZoneId zone, Clock clock) {
+        var now = LocalDateTime.now(clock.withZone(zone)).truncatedTo(ChronoUnit.MINUTES);
         return new LinkForm("", INPUT_FORMAT.format(now), INPUT_FORMAT.format(now.plusDays(1)), ScheduleForm.empty(),
                 "");
     }

@@ -55,7 +55,7 @@ class LinkRegenerationTests {
     void insertAnActiveLinkForAliceAndBob() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         lockId = insertLock(ALICE);
         linkId = insertActiveLink(lockId, "Ana");
         bobsLinkId = insertActiveLink(insertLock(BOB), "Invitado de Bob");
@@ -111,7 +111,7 @@ class LinkRegenerationTests {
 
     @Test
     void revokedLinkIsNotRegenerated() {
-        migrator.sql("UPDATE access_link SET revoked_at = now() WHERE id = ?").param(linkId).update();
+        data.revoke(linkId);
 
         assertThat(regenerate(ALICE, linkId)).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(tokenVersion(linkId)).isEqualTo(1);

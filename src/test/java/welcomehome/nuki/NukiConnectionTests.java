@@ -66,7 +66,7 @@ class NukiConnectionTests {
         nuki.resetAll();
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         aliceId = insertOwner(ALICE);
         insertOwner("bob@example.com");
     }
@@ -209,7 +209,7 @@ class NukiConnectionTests {
     void newTokenReplacesTheOldOneAndReconnects() {
         nukiAccepts(TOKEN);
         connect(ALICE, TOKEN);
-        migrator.sql("UPDATE nuki_connection SET status = 'DISCONNECTED'").update();
+        data.disconnectNuki();
         assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE))).bodyText().contains("Nuki ha rechazado");
 
         nukiAccepts(NEW_TOKEN);
@@ -250,7 +250,7 @@ class NukiConnectionTests {
         assertThat(mvc.get().uri("/").with(owner(ALICE)))
                 .bodyText().doesNotContain("Conecta tu cuenta de Nuki", "Nuki ha rechazado");
 
-        migrator.sql("UPDATE nuki_connection SET status = 'DISCONNECTED'").update();
+        data.disconnectNuki();
 
         assertThat(mvc.get().uri("/").with(owner(ALICE))).bodyText().contains("Nuki ha rechazado la conexión");
     }

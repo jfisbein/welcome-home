@@ -1,5 +1,6 @@
 package welcomehome.audit;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -26,10 +27,12 @@ class EventPurgeJob {
     private final OwnerTransactions ownerTransactions;
     private final Owners owners;
     private final Duration retention;
+    private final Clock clock;
     private final Duration ipRetention;
 
     EventPurgeJob(AccessEventDao accessEvents, OwnerActivityDao activity, OwnerTransactions ownerTransactions,
-                  Owners owners, AuditProperties properties) {
+                  Owners owners, AuditProperties properties, Clock clock) {
+        this.clock = clock;
         this.owners = owners;
         this.accessEvents = accessEvents;
         this.activity = activity;
@@ -40,7 +43,7 @@ class EventPurgeJob {
 
     @Scheduled(cron = "${welcomehome.audit.purge-cron}")
     void purgeAll() {
-        var now = Instant.now();
+        var now = clock.instant();
         var cutoff = now.minus(retention);
         var ipCutoff = now.minus(ipRetention);
         var purged = new AtomicInteger();

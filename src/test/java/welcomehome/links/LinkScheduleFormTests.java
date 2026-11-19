@@ -5,6 +5,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.time.DayOfWeek;
+import java.time.Instant;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Locale;
@@ -24,6 +25,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
 import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
+import welcomehome.TestTime;
 import welcomehome.nuki.NukiStandInConfiguration;
 
 /** Same configuration as the locks tests, so they share one application context. */
@@ -39,6 +41,9 @@ class LinkScheduleFormTests {
     static final String UNTIL = "2030-12-04T00:00";
 
     @Autowired
+    TestTime time;
+
+    @Autowired
     MockMvcTester mvc;
 
     @Autowired
@@ -51,11 +56,20 @@ class LinkScheduleFormTests {
     TestData data;
     UUID lockId;
 
+    /**
+     * The dates these tests send are in 2030: the app's clock stays before them, whenever the tests run. Nothing here
+     * depends on rows dated by the database being before or after it.
+     */
+    @BeforeEach
+    void stopTheClockBeforeTheDatesSent() {
+        time.setTo(Instant.parse("2026-11-19T12:00:00Z"));
+    }
+
     @BeforeEach
     void insertALock() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         lockId = insertLock(ALICE);
         insertLock(BOB);
     }

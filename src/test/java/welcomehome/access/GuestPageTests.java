@@ -1,11 +1,10 @@
 package welcomehome.access;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.anyRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.anyUrl;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.atLeast;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
 import java.nio.charset.StandardCharsets;
 import java.time.DayOfWeek;
 import java.time.ZoneId;
@@ -18,20 +17,22 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
 import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
+import welcomehome.TestTime;
 import welcomehome.crypto.LinkTokenSigner;
-import welcomehome.nuki.LockProvider;
+import welcomehome.nuki.NukiStandInConfiguration;
 
 @IntegrationTest
 @AutoConfigureMockMvc
+@Import(NukiStandInConfiguration.class)
 class GuestPageTests {
 
     static final String OPEN_BUTTON = "id=\"open\"";
@@ -43,6 +44,10 @@ class GuestPageTests {
     static final ZoneId NEW_YORK = ZoneId.of("America/New_York");
     static final String PRIVACY_NOTICE = "Al deslizar, quien te dio este enlace podrá ver la hora, tu país y tu "
             + "dirección IP. La IP se borra a los 90 días; lo demás, a los 365.";
+
+    /** Stopped by the tests that reason about today, so that they and the app cannot read two sides of midnight. */
+    @Autowired
+    TestTime time;
 
     @Autowired
     MockMvcTester mvc;
@@ -56,9 +61,9 @@ class GuestPageTests {
     @Autowired
     welcomehome.crypto.CryptoService crypto;
 
-    /** Every GET below must leave it untouched: the guest page never acts on a lock. */
-    @MockitoSpyBean
-    LockProvider lockProvider;
+    /** Every GET below must leave it untouched: the guest page never asks Nuki for anything. */
+    @Autowired
+    WireMockServer nuki;
 
     JdbcClient migrator;
     TestData data;
@@ -68,18 +73,17 @@ class GuestPageTests {
     void insertAConnectedLock() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         var ownerId = data.owner("alice@example.com");
         lockId = data.lock(ownerId, 17, "Casa de Alice", "America/New_York");
-        // The page reads only the connection's status: the token is never decrypted.
-        data.apiToken(ownerId, new byte[] {0});
+        // A token that works, so that anything asked of the lock provider would reach Nuki, and be seen below.
+        data.apiToken(ownerId, crypto.encryptAccessToken(ownerId, "alices-nuki-token"));
+        nuki.resetAll();
     }
 
     @AfterEach
-    void getNeverCallsTheLockProvider() {
-        // Reading the connection is the app's own: only asking the provider to do anything would count.
-        verify(lockProvider, atLeast(0)).findConnection(any());
-        verifyNoMoreInteractions(lockProvider);
+    void getNeverReachesNuki() {
+        nuki.verify(0, anyRequestedFor(anyUrl()));
     }
 
     @Test
@@ -106,7 +110,7 @@ class GuestPageTests {
                 "<strong>Deslizar abre la puerta de verdad, en ese mismo momento. Hazlo solo cuando estés delante de ella.</strong>",
                 "type=\"range\"");
         assertThat(body(guestPage(signer.sign(expired, 1)))).doesNotContain("Deslizar abre");
-        migrator.sql("DELETE FROM nuki_connection").update();
+        data.forgetNuki();
         assertThat(body(guestPage(signer.sign(active, 1)))).as("unavailable").doesNotContain("Deslizar abre");
     }
 
@@ -133,7 +137,7 @@ class GuestPageTests {
 
         assertThat(body(guestPage(signer.sign(active, 1)))).contains(PRIVACY_NOTICE);
         assertThat(body(guestPage(signer.sign(expired, 1)))).doesNotContain("Al deslizar");
-        migrator.sql("DELETE FROM nuki_connection").update();
+        data.forgetNuki();
         assertThat(body(guestPage(signer.sign(active, 1)))).as("unavailable").doesNotContain("Al deslizar");
     }
 
@@ -187,7 +191,7 @@ class GuestPageTests {
     @Test
     void withinItsScheduleALinkOffersToOpenAndShowsTheSchedule() {
         var link = insertLink("now() - interval '1 day'", "now() + interval '30 days'", false);
-        var today = ZonedDateTime.now(NEW_YORK).getDayOfWeek();
+        var today = time.freeze().atZone(NEW_YORK).getDayOfWeek();
         insertSchedule(link, today, "00:00", "00:00");
 
         assertThat(body(guestPage(signer.sign(link, 1))))
@@ -199,7 +203,7 @@ class GuestPageTests {
     void outsideItsScheduleALinkOffersNothingAndSaysWhenItOpens() {
         insertOpenerAsEntrance();
         var link = insertLink("now() - interval '1 day'", "now() + interval '30 days'", false);
-        var tomorrow = ZonedDateTime.now(NEW_YORK).plusDays(1);
+        var tomorrow = time.freeze().atZone(NEW_YORK).plusDays(1);
         insertSchedule(link, tomorrow.getDayOfWeek(), "00:00", "00:00");
 
         assertThat(body(guestPage(signer.sign(link, 1))))
@@ -211,7 +215,7 @@ class GuestPageTests {
     @Test
     void outsideItsScheduleWithNoHoursLeftALinkSaysItWillNotOpenAgain() {
         var link = insertLink("now() - interval '1 day'", "now() + interval '1 hour'", false);
-        insertSchedule(link, ZonedDateTime.now(NEW_YORK).plusDays(3).getDayOfWeek(), "00:00", "00:00");
+        insertSchedule(link, time.freeze().atZone(NEW_YORK).plusDays(3).getDayOfWeek(), "00:00", "00:00");
 
         assertThat(body(guestPage(signer.sign(link, 1))))
                 .contains("Este enlace ya no volverá a abrir la puerta antes de caducar.")
@@ -256,20 +260,20 @@ class GuestPageTests {
     void inactiveLockOrMissingNukiConnectionIsUnavailableBeforeTheGuestTries() {
         var token = signer.sign(insertLink("now() - interval '1 day'", "now() + interval '1 day'", false), 1);
 
-        migrator.sql("UPDATE lock SET active = false").update();
+        data.deactivateLocks();
         assertUnavailable(token);
 
-        migrator.sql("UPDATE lock SET active = true").update();
-        migrator.sql("UPDATE nuki_connection SET status = 'DISCONNECTED'").update();
+        data.activateLocks();
+        data.disconnectNuki();
         assertUnavailable(token);
 
-        migrator.sql("DELETE FROM nuki_connection").update();
+        data.forgetNuki();
         assertUnavailable(token);
     }
 
     @Test
     void unavailabilityDoesNotHideTheLinksOwnState() {
-        migrator.sql("DELETE FROM nuki_connection").update();
+        data.forgetNuki();
         var expired = insertLink("now() - interval '2 days'", "now() - interval '1 day'", false);
 
         assertThat(body(guestPage(signer.sign(expired, 1)))).contains(EXPIRED).doesNotContain(UNAVAILABLE);
@@ -305,7 +309,7 @@ class GuestPageTests {
     @Test
     void inactiveEntranceLeavesTheDoorToOpen() {
         var portal = insertOpenerAsEntrance();
-        migrator.sql("UPDATE lock SET active = false WHERE id = ?").param(portal).update();
+        data.deactivate(portal);
         var link = insertLink("now() - interval '1 day'", "now() + interval '1 day'", false);
 
         assertThat(body(guestPage(signer.sign(link, 1))))

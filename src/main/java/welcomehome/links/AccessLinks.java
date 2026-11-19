@@ -1,6 +1,7 @@
 package welcomehome.links;
 
 import java.net.URI;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Comparator;
@@ -34,10 +35,12 @@ class AccessLinks {
     private final OwnerTransactions ownerTransactions;
     private final LinkSchedules schedules;
     private final LinkPins pins;
+    private final Clock clock;
     private final ApplicationEventPublisher events;
 
     AccessLinks(LinkDao links, LinkUrls urls, OwnerTransactions ownerTransactions, LinkSchedules schedules,
-                LinkPins pins, ApplicationEventPublisher events) {
+                LinkPins pins, ApplicationEventPublisher events, Clock clock) {
+        this.clock = clock;
         this.links = links;
         this.urls = urls;
         this.ownerTransactions = ownerTransactions;
@@ -189,7 +192,7 @@ class AccessLinks {
     /** The lock's links, usable ones first, each group with the latest start first. */
     List<LinkView> list(UUID ownerId, OwnerLock lock, Locale locale) {
         var zone = ZoneId.of(lock.timeZone());
-        var now = Instant.now();
+        var now = clock.instant();
         var stored = ownerTransactions.execute(ownerId, () -> links.findByLock(ownerId, lock.id()));
         var linkSchedules = ownerTransactions.execute(ownerId, () -> links.findSchedulesByLock(ownerId, lock.id()));
         return stored.stream()

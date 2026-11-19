@@ -47,7 +47,7 @@ class GuestPinTests extends BrowserTest {
         nuki.resetAll();
         var migrator = TestDatabaseConfiguration.asMigrator(postgres);
         var data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         var owner = data.owner("alice@example.com");
         data.apiToken(owner, crypto.encryptAccessToken(owner, "alices-token"));
         var link = data.link(data.lock(owner, 17, "Casa"), "Ana");

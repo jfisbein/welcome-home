@@ -109,7 +109,7 @@ class AccessibilityTests extends BrowserTest {
                 "/settings/activity", "/settings/account", "/no-such-page");
         var found = new ArrayList<String>();
         for (var language : Languages.SUPPORTED) {
-            migrator.sql("UPDATE owner SET language = ?").param(language.getLanguage()).update();
+            data.language(language.getLanguage());
             for (var path : paths) {
                 scan(path, language.getLanguage(), found);
             }

@@ -1,5 +1,6 @@
 package welcomehome.nuki;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
@@ -40,9 +41,11 @@ class TokenRefresher {
 
     /** One at a time per owner. Kept in memory, which is enough for a single instance. */
     private final ConcurrentMap<UUID, ReentrantLock> turns = new ConcurrentHashMap<>();
+    private final Clock clock;
 
     TokenRefresher(NukiOAuthClient oauth, NukiConnectionDao connections, CryptoService crypto,
-                   OwnerTransactions ownerTransactions) {
+                   OwnerTransactions ownerTransactions, Clock clock) {
+        this.clock = clock;
         this.oauth = oauth;
         this.connections = connections;
         this.crypto = crypto;
@@ -120,14 +123,14 @@ class TokenRefresher {
         });
     }
 
-    static boolean expiresSoon(StoredConnection stored) {
+    boolean expiresSoon(StoredConnection stored) {
         var expiresAt = stored.accessTokenExpiresAt();
-        return expiresAt == null || !Instant.now().plus(REFRESH_MARGIN).isBefore(expiresAt);
+        return expiresAt == null || !clock.instant().plus(REFRESH_MARGIN).isBefore(expiresAt);
     }
 
     /** From when the tokens arrived, by this server's clock, which may differ from Nuki's. */
-    static Instant expiresAt(NukiTokens tokens) {
-        return Instant.now().plus(tokens.expiresIn());
+    Instant expiresAt(NukiTokens tokens) {
+        return clock.instant().plus(tokens.expiresIn());
     }
 
     /**

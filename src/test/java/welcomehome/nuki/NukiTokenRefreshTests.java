@@ -78,7 +78,7 @@ class NukiTokenRefreshTests {
         nuki.resetAll();
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         aliceId = data.owner("alice@example.com");
     }
 

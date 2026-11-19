@@ -66,7 +66,7 @@ class NukiWebLockProviderTests {
         nuki.resetAll();
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         alice = insertOwner("alice@example.com");
         bob = insertOwner("bob@example.com");
     }
@@ -93,7 +93,7 @@ class NukiWebLockProviderTests {
     @Test
     void disconnectedOwnerIsNotConnected() {
         connectWith(alice, ALICES_TOKEN);
-        migrator.sql("UPDATE nuki_connection SET status = 'DISCONNECTED'").update();
+        data.disconnectNuki();
         nuki.resetRequests();
 
         assertNotConnected(alice);

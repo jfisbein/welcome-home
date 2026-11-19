@@ -54,7 +54,7 @@ class AccessHistoryTests {
     void insertLocksAndLinks() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         var alice = insertOwner(ALICE);
         casa = insertLock(alice, 17, "Casa", "Europe/Madrid");
         garaje = insertLock(alice, 18, "Garaje", "Europe/Madrid");

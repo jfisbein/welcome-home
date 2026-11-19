@@ -52,7 +52,7 @@ class LinkRevocationTests {
     void insertAnActiveLinkForAliceAndBob() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         lockId = insertLock(ALICE);
         linkId = insertActiveLink(lockId, "Ana");
         bobsLinkId = insertActiveLink(insertLock(BOB), "Invitado de Bob");

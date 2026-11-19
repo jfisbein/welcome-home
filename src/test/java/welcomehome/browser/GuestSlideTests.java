@@ -52,7 +52,7 @@ class GuestSlideTests extends BrowserTest {
         nuki.resetAll();
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         var owner = data.owner("alice@example.com");
         data.apiToken(owner, crypto.encryptAccessToken(owner, "alices-token"));
         linkId = data.link(data.lock(owner, 17, "Casa"), "Ana");
@@ -158,7 +158,7 @@ class GuestSlideTests extends BrowserTest {
 
     @Test
     void aLinkCancelledWithThePageOpenSaysSoAndNeverWorksAgain() {
-        migrator.sql("UPDATE access_link SET revoked_at = now() WHERE id = ?").param(linkId).update();
+        data.revoke(linkId);
 
         slideTo(1.0);
 

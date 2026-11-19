@@ -126,6 +126,35 @@ class KeysetRotatorTests {
         assertThat(Files.readString(properties.macKeysetFile())).isEqualTo(original);
     }
 
+    /** What ./gradlew rotateAeadKeyset runs: the file it is given, and nothing without one. */
+    @Test
+    void theCommandRotatesTheFileItIsGivenAndRefusesToGuessOne() throws Exception {
+        var before = Files.readString(properties.aeadKeysetFile());
+
+        KeysetRotator.main(new String[] {properties.aeadKeysetFile().toString()});
+
+        assertThat(Files.readString(properties.aeadKeysetFile())).isNotEqualTo(before);
+        assertThatThrownBy(() -> KeysetRotator.main(new String[0])).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("rotateAeadKeyset --args=<keyset file>");
+        assertThatThrownBy(() -> KeysetRotator.main(new String[] {"one", "two"}))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    /** The app does not start on a keyset it cannot read, and says which file and which setting. */
+    @Test
+    void aKeysetThatIsMissingBlankOrNotAKeysetIsRefusedByName() throws Exception {
+        var notAKeyset = Files.writeString(directory.resolve("not-a-keyset.json"), "{\"hello\": 1}");
+
+        assertThatThrownBy(() -> Keysets.read(notAKeyset, "AEAD_KEYSET_FILE")).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Invalid keyset").hasMessageContaining("not-a-keyset.json");
+        assertThatThrownBy(() -> Keysets.read(directory.resolve("missing.json"), "AEAD_KEYSET_FILE"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("not found or not readable").hasMessageContaining("AEAD_KEYSET_FILE");
+        assertThatThrownBy(() -> Keysets.read(Path.of(""), "MAC_KEYSET_FILE")).isInstanceOf(IllegalStateException.class)
+                .hasMessage("No keyset configured: set MAC_KEYSET_FILE");
+        assertThatThrownBy(() -> Keysets.read(null, "MAC_KEYSET_FILE")).isInstanceOf(IllegalStateException.class);
+    }
+
     /** Tink's ciphertext starts with a version byte and the id of the key that encrypted it. */
     private static int keyIdOf(byte[] ciphertext) {
         return ByteBuffer.wrap(ciphertext, 1, 4).getInt();

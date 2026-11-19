@@ -3,6 +3,7 @@ import net.ltgt.gradle.errorprone.errorprone
 
 plugins {
     java
+    jacoco
     id("org.springframework.boot") version "4.1.2"
     id("io.spring.dependency-management") version "1.1.7"
     id("net.ltgt.errorprone") version "5.2.0"
@@ -94,6 +95,44 @@ tasks.withType<Test> {
     jvmArgumentProviders.add(CommandLineArgumentProvider {
         listOf("-javaagent:${mockitoAgent.singleFile}", "-Xshare:off")
     })
+}
+
+// How much of the code the tests run, measured on every run: build/reports/jacoco/test/html/index.html, and a
+// summary by module printed after the tests. No threshold fails the build: the number is to look at, above all
+// where it is lowest, not to chase.
+jacoco {
+    toolVersion = "0.8.14"
+}
+
+tasks.test {
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = true
+    }
+    doLast {
+        val csv = reports.csv.outputLocation.get().asFile
+        if (csv.exists()) {
+            val lines = csv.readLines().drop(1).map { it.split(",") }
+            val byPackage = lines.groupBy { it[1] }.toSortedMap()
+            println("Line coverage by package:")
+            var missed = 0
+            var covered = 0
+            byPackage.forEach { (name, classes) ->
+                val m = classes.sumOf { it[7].toInt() }
+                val c = classes.sumOf { it[8].toInt() }
+                missed += m
+                covered += c
+                println("  %-28s %5.1f %%".format(name, if (m + c == 0) 100.0 else 100.0 * c / (m + c)))
+            }
+            println("  %-28s %5.1f %%".format("all", 100.0 * covered / (missed + covered)))
+        }
+    }
 }
 
 // Public API must be documented: missing or broken javadoc fails `check`.

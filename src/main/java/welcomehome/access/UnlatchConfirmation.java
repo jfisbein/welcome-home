@@ -48,6 +48,7 @@ class UnlatchConfirmation {
      * {@link AccessOutcome#NOT_CONFIRMED} if neither a report nor the log told in time
      */
     AccessOutcome await(UUID ownerId, long nukiSmartlockId, Instant requestedAt, PendingAction unlatch) {
+        // How long to wait, not what time it is: the real clock, whatever the app's says.
         var deadline = Instant.now().plus(settings.timeout());
         List<LockLogEntry> since = List.of();
         while (true) {

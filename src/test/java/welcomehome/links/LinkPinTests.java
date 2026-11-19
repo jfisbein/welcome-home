@@ -7,6 +7,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -25,6 +26,7 @@ import welcomehome.IntegrationTest;
 import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.TestKeysetsConfiguration;
+import welcomehome.TestTime;
 import welcomehome.crypto.CryptoService;
 import welcomehome.crypto.TestCryptoServices;
 import welcomehome.nuki.NukiStandInConfiguration;
@@ -39,6 +41,9 @@ class LinkPinTests {
     static final String BOB = "bob@example.com";
     static final String FROM = "2030-11-04T00:00";
     static final String UNTIL = "2030-12-04T00:00";
+
+    @Autowired
+    TestTime time;
 
     @Autowired
     MockMvcTester mvc;
@@ -63,11 +68,20 @@ class LinkPinTests {
     UUID aliceId;
     UUID lockId;
 
+    /**
+     * The dates these tests send are in 2030: the app's clock stays before them, whenever the tests run. Nothing here
+     * depends on rows dated by the database being before or after it.
+     */
+    @BeforeEach
+    void stopTheClockBeforeTheDatesSent() {
+        time.setTo(Instant.parse("2026-11-19T12:00:00Z"));
+    }
+
     @BeforeEach
     void insertALock() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         aliceId = data.owner(ALICE);
         lockId = data.lock(aliceId, 17, "Casa");
         data.lock(data.owner(BOB), 18, "Piso");

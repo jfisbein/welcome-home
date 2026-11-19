@@ -1,6 +1,7 @@
 package welcomehome.links;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Comparator;
@@ -58,8 +59,18 @@ public record LinkSchedule(List<DayHours> days) {
         }
         var local = from.atZone(zone).toLocalDateTime();
         return days.stream()
-                .map(hours -> hours.nextOpeningAfter(local).atZone(zone))
+                .map(hours -> startOf(hours.nextOpeningAfter(local), zone))
                 .min(Comparator.comparing(ZonedDateTime::toInstant))
                 .filter(opening -> opening.toInstant().isBefore(until));
+    }
+
+    /**
+     * The instant at which hours that open at a local time do open. A time the clocks skip, the night they go
+     * forward, is the instant they get past it: from then on the local time is within the hours, which is what
+     * {@link #allows} goes by. A time that comes twice, the night they go back, is its first.
+     */
+    private static ZonedDateTime startOf(LocalDateTime opening, ZoneId zone) {
+        var transition = zone.getRules().getTransition(opening);
+        return transition != null && transition.isGap() ? transition.getInstant().atZone(zone) : opening.atZone(zone);
     }
 }

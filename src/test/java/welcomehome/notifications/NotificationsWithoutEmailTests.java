@@ -32,7 +32,7 @@ class NotificationsWithoutEmailTests {
     void insertAlice() {
         var migrator = TestDatabaseConfiguration.asMigrator(postgres);
         var data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         data.owner(ALICE);
     }
 

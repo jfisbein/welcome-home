@@ -1,6 +1,7 @@
 package welcomehome;
 
 import java.time.DayOfWeek;
+import java.util.List;
 import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
@@ -31,6 +32,51 @@ public final class TestData {
     /** Deletes every owner, and with them everything of theirs. */
     public void deleteOwners() {
         db.sql("DELETE FROM owner").update();
+    }
+
+    /** Makes an owner an admin. */
+    public void makeAdmin(UUID owner) {
+        db.sql("UPDATE owner SET is_admin = true WHERE id = ?").param(owner).update();
+    }
+
+    /** Counts an owner's email as verified, so that emails go to it. */
+    public void verifyEmail(UUID owner) {
+        db.sql("UPDATE owner SET email_verified_at = now() WHERE id = ?").param(owner).update();
+    }
+
+    /** Gives every owner a language for their pages and emails. */
+    public void language(String tag) {
+        db.sql("UPDATE owner SET language = ?").param(tag).update();
+    }
+
+    /** Marks every Nuki connection as rejected by Nuki, as the app does when a token stops working. */
+    public void disconnectNuki() {
+        db.sql("UPDATE nuki_connection SET status = 'DISCONNECTED'").update();
+    }
+
+    /** Deletes every Nuki connection, as for owners who never connected Nuki. */
+    public void forgetNuki() {
+        db.sql("DELETE FROM nuki_connection").update();
+    }
+
+    /** Marks a lock as no longer in its owner's Nuki account. */
+    public void deactivate(UUID lock) {
+        db.sql("UPDATE lock SET active = false WHERE id = ?").param(lock).update();
+    }
+
+    /** Marks every lock as no longer in its owner's Nuki account. */
+    public void deactivateLocks() {
+        db.sql("UPDATE lock SET active = false").update();
+    }
+
+    /** Marks every lock as in its owner's Nuki account again. */
+    public void activateLocks() {
+        db.sql("UPDATE lock SET active = true").update();
+    }
+
+    /** Revokes a link now. */
+    public void revoke(UUID link) {
+        db.sql("UPDATE access_link SET revoked_at = now() WHERE id = ?").param(link).update();
     }
 
     public UUID owner(String email) {
@@ -209,5 +255,68 @@ public final class TestData {
                         VALUES (?, ?, '\\x01', false, false, ?, now())
                         """)
                 .params(credentialId, userId, label).update();
+    }
+
+    /**
+     * A lock and a link of an owner's, as {@link #aRowInEveryTable} made them.
+     *
+     * @param lockId the lock
+     * @param linkId the link
+     */
+    public record OwnerRows(UUID lockId, UUID linkId) {
+    }
+
+    /**
+     * Gives an owner a row in every table that holds owners' data, for the tests of what keeps owners apart and of
+     * what deleting one takes away: a connection, a lock, a link with a schedule and an attempt, their preferences
+     * and an entry of their activity. A new table with an {@code owner_id} gets its row here, which those tests
+     * then find missing until it does ({@link #ownerTables}).
+     *
+     * @param owner           the owner
+     * @param nukiSmartlockId the id in Nuki of the lock to give them
+     * @return the lock and the link
+     */
+    public OwnerRows aRowInEveryTable(UUID owner, long nukiSmartlockId) {
+        db.sql("INSERT INTO nuki_connection (owner_id, access_token_encrypted, status) VALUES (?, ?, 'OK') "
+                        + "ON CONFLICT (owner_id) DO NOTHING")
+                .params(owner, new byte[] {1}).update();
+        var lock = lock(owner, nukiSmartlockId, "Home");
+        var link = link(lock, "Guest");
+        schedule(link, DayOfWeek.MONDAY, "09:00", "17:00");
+        attempt(link, "now()", "OK", "opened", null);
+        db.sql("INSERT INTO notification_preference (owner_id) VALUES (?) ON CONFLICT (owner_id) DO NOTHING")
+                .param(owner).update();
+        db.sql("INSERT INTO owner_activity (owner_id, kind) VALUES (?, 'SIGNED_IN')").param(owner).update();
+        return new OwnerRows(lock, link);
+    }
+
+    /**
+     * The tables that hold owners' data, read from the schema: every one with an {@code owner_id}, so that a new one
+     * is tried without anyone adding it to a list.
+     *
+     * @return their names, in order
+     */
+    public List<String> ownerTables() {
+        return db.sql("""
+                        SELECT c.relname FROM pg_class c
+                        WHERE c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r', 'p')
+                          AND EXISTS (SELECT 1 FROM pg_attribute a
+                                      WHERE a.attrelid = c.oid AND a.attname = 'owner_id' AND NOT a.attisdropped)
+                        ORDER BY c.relname
+                        """)
+                .query(String.class).list();
+    }
+
+    /**
+     * How many rows an owner has in each of {@link #ownerTables}.
+     *
+     * @param owner the owner
+     * @return the count by table, as "table: count"
+     */
+    public List<String> rowsByTable(UUID owner) {
+        return ownerTables().stream()
+                .map(table -> table + ": " + db.sql("SELECT count(*) FROM " + table + " WHERE owner_id = ?")
+                        .param(owner).query(Long.class).single())
+                .toList();
     }
 }

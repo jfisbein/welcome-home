@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
+import java.time.Instant;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -20,6 +21,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
 import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
+import welcomehome.TestTime;
 import welcomehome.crypto.LinkTokenSigner;
 import welcomehome.nuki.NukiStandInConfiguration;
 
@@ -31,6 +33,9 @@ class LinkEditTests {
 
     static final String ALICE = "alice@example.com";
     static final String BOB = "bob@example.com";
+
+    @Autowired
+    TestTime time;
 
     @Autowired
     MockMvcTester mvc;
@@ -50,11 +55,20 @@ class LinkEditTests {
     UUID linkId;
     UUID bobsLinkId;
 
+    /**
+     * The dates these tests send are in 2030: the app's clock stays before them, whenever the tests run. Nothing here
+     * depends on rows dated by the database being before or after it.
+     */
+    @BeforeEach
+    void stopTheClockBeforeTheDatesSent() {
+        time.setTo(Instant.parse("2026-11-19T12:00:00Z"));
+    }
+
     @BeforeEach
     void insertALinkForAliceAndBob() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         lockId = insertLock(ALICE, "America/New_York");
         linkId = insertLink(lockId, "Ana", "'2030-11-01T19:00:00Z'", "'2030-11-03T16:00:00Z'");
         bobsLinkId = insertLink(insertLock(BOB, "Europe/Madrid"), "Invitado de Bob", "now()", "now() + interval '1 day'");
@@ -105,8 +119,8 @@ class LinkEditTests {
 
         assertThat(update(ALICE, linkId, "Ana", "2020-01-01T00:00", "2030-11-05T12:00")).hasStatus(HttpStatus.FOUND);
 
-        assertThat(migrator.sql("SELECT valid_until > now() FROM access_link WHERE id = ?").param(linkId)
-                .query(Boolean.class).single()).isTrue();
+        assertThat(migrator.sql("SELECT valid_until = '2030-11-05T12:00-05:00' FROM access_link WHERE id = ?")
+                .param(linkId).query(Boolean.class).single()).as("until noon in New York, where the lock is").isTrue();
     }
 
     @Test
@@ -129,7 +143,7 @@ class LinkEditTests {
 
     @Test
     void revokedLinkCannotBeEdited() {
-        migrator.sql("UPDATE access_link SET revoked_at = now() WHERE id = ?").param(linkId).update();
+        data.revoke(linkId);
         var before = row(linkId);
 
         assertThat(mvc.get().uri("/links/" + linkId).with(owner(ALICE))).hasStatus(HttpStatus.NOT_FOUND);

@@ -14,7 +14,6 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 
 import java.time.Instant;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import org.jspecify.annotations.Nullable;
@@ -66,7 +65,7 @@ class LocationCheckTests {
     TestData data;
     UUID lockId;
     String token;
-    /** Rate limits live in memory for the whole context: each test comes from its own IP address. */
+    /** The guest's address. Rate limits live in memory for the whole context, and are full again after each test. */
     String ip;
 
     @BeforeEach
@@ -74,7 +73,7 @@ class LocationCheckTests {
         nuki.resetAll();
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         data.owner(ALICE);
         var aliceId = migrator.sql("SELECT id FROM owner").query(UUID.class).single();
         lockId = data.lock(aliceId, 17, "Casa");
@@ -85,8 +84,7 @@ class LocationCheckTests {
         nuki.resetAll();
         nukiOpens(17);
         token = signer.sign(data.link(lockId, "Ana"), 1);
-        var random = ThreadLocalRandom.current();
-        ip = "10.%d.%d.%d".formatted(random.nextInt(1, 255), random.nextInt(1, 255), random.nextInt(1, 255));
+        ip = "203.0.113.20";
     }
 
     @Test

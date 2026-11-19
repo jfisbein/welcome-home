@@ -12,6 +12,7 @@ import java.util.UUID;
 
 import com.icegreen.greenmail.util.GreenMail;
 import jakarta.mail.internet.MimeMessage;
+import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +30,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
 import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
+import welcomehome.TestTime;
 import welcomehome.auth.InvitationService;
 import welcomehome.auth.PasskeyEmulator;
 import welcomehome.notifications.MailStandInConfiguration;
@@ -50,6 +52,9 @@ class OwnerActivityTests {
     static final String IP = "203.0.113.9";
 
     @Autowired
+    TestTime time;
+
+    @Autowired
     MockMvcTester mvc;
 
     @Autowired
@@ -66,6 +71,15 @@ class OwnerActivityTests {
     UUID aliceId;
     UUID lockId;
 
+    /**
+     * The dates these tests send are in 2030: the app's clock stays before them, whenever the tests run. Nothing here
+     * depends on rows dated by the database being before or after it.
+     */
+    @BeforeEach
+    void stopTheClockBeforeTheDatesSent() {
+        time.setTo(Instant.parse("2026-11-19T12:00:00Z"));
+    }
+
     @BeforeEach
     void aliceWithAVerifiedAddressAndALock() throws Exception {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
@@ -74,7 +88,7 @@ class OwnerActivityTests {
             migrator.sql("DELETE FROM " + table).update();
         }
         aliceId = data.owner(ALICE);
-        migrator.sql("UPDATE owner SET email_verified_at = now() WHERE id = ?").param(aliceId).update();
+        data.verifyEmail(aliceId);
         lockId = data.lock(aliceId, 17, "Casa");
         mail.purgeEmailFromAllMailboxes();
     }
@@ -228,7 +242,7 @@ class OwnerActivityTests {
     @Test
     void theEmailIsSentWhateverTheOwnersPreferencesInTheirLanguage() throws Exception {
         assertThat(asAlice(mvc.put().uri("/settings/notifications"))).hasStatus3xxRedirection();
-        migrator.sql("UPDATE owner SET language = 'en'").update();
+        data.language("en");
 
         create("Ana", "2030-11-01T15:00", "2030-11-03T11:00");
 

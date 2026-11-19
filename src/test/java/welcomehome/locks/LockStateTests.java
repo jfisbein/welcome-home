@@ -60,7 +60,7 @@ class LockStateTests {
         nuki.resetAll();
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         aliceId = data.owner(ALICE);
         lockId = data.lock(aliceId, 17, "Casa");
     }
@@ -151,7 +151,7 @@ class LockStateTests {
     @Test
     void inactiveLockIsNotAskedForItsState() {
         connectNuki();
-        migrator.sql("UPDATE lock SET active = false").update();
+        data.deactivateLocks();
         nuki.resetRequests();
 
         assertThat(lockPage()).hasStatusOk().bodyText().contains("ya no está en tu cuenta de Nuki", "Guardar");

@@ -68,7 +68,7 @@ class LockSyncTests {
         nuki.resetAll();
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         aliceId = insertOwner(ALICE);
         insertOwner(BOB);
     }

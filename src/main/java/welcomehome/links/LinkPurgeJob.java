@@ -1,5 +1,6 @@
 package welcomehome.links;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -24,9 +25,12 @@ class LinkPurgeJob {
     private final LinkDao links;
     private final OwnerTransactions ownerTransactions;
     private final Owners owners;
+    private final Clock clock;
     private final Duration retention;
 
-    LinkPurgeJob(LinkDao links, OwnerTransactions ownerTransactions, Owners owners, LinksProperties properties) {
+    LinkPurgeJob(LinkDao links, OwnerTransactions ownerTransactions, Owners owners, LinksProperties properties,
+                 Clock clock) {
+        this.clock = clock;
         this.links = links;
         this.ownerTransactions = ownerTransactions;
         this.owners = owners;
@@ -35,7 +39,7 @@ class LinkPurgeJob {
 
     @Scheduled(cron = "${welcomehome.links.purge-cron}")
     void purgeAll() {
-        var cutoff = Instant.now().minus(retention);
+        var cutoff = clock.instant().minus(retention);
         var purged = new AtomicInteger();
         owners.forEach("purge the links", ownerId -> purged.addAndGet(
                 ownerTransactions.execute(ownerId, () -> links.deleteEndedBefore(ownerId, cutoff))));

@@ -45,4 +45,5 @@ See also: [conventions](conventions.md) (compatibility: what a migration may do 
 
 ## Tests
 
+- **Migrations**: `MigrationCompatibilityTests` reads the changesets since the major version began and lets through only what cannot touch what is there (new tables, columns that are nullable or have a default, indexes, grants, and anything on a table the same changeset creates); whatever else it finds must be in its `REVIEWED` list, with why the previous release still runs and real rows do not stop it. `MigrationUpgradeTests` takes a database to where the major version began, gives it an owner with everything an owner had then, migrates it to today's schema and writes to it as a release from then would: every other test migrates an empty database.
 - **Isolation**: `OwnerIsolationTests` (every id route answers 404 for another owner and changes nothing), `MigrationTests` (every `owner_id` table has RLS and its policy), `RowLevelSecurityTests` (what `app_user` sees with and without an owner context), `ModularityTests` (module boundaries), `AdminPanelTests` (admins see no locks or links).

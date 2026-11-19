@@ -7,6 +7,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 import jakarta.servlet.http.HttpServletResponse;
+import java.time.Clock;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -31,9 +32,11 @@ import welcomehome.links.LinkDao.EditableLink;
 class LinkController {
 
     private final AccessLinks accessLinks;
+    private final Clock clock;
     private final LinkSchedules schedules;
 
-    LinkController(AccessLinks accessLinks, LinkSchedules schedules) {
+    LinkController(AccessLinks accessLinks, LinkSchedules schedules, Clock clock) {
+        this.clock = clock;
         this.accessLinks = accessLinks;
         this.schedules = schedules;
     }
@@ -56,7 +59,7 @@ class LinkController {
                   RedirectAttributes redirect) {
         var link = findEditable(owner, linkId);
         var form = new LinkForm(label, validFrom, validUntil, ScheduleForm.of(params), pin);
-        var validation = form.validate(ZoneId.of(link.timeZone()), Instant.now());
+        var validation = form.validate(ZoneId.of(link.timeZone()), clock.instant());
         if (!validation.isValid()) {
             response.setStatus(HttpStatus.BAD_REQUEST.value());
             form.addTo(model, validation);
@@ -69,7 +72,7 @@ class LinkController {
             throw notFound();
         }
         redirect.addFlashAttribute("updatedLabel", validation.label());
-        var days = LinkForm.daysIfLong(validation.validFrom(), validation.validUntil(), Instant.now());
+        var days = LinkForm.daysIfLong(validation.validFrom(), validation.validUntil(), clock.instant());
         if (days != null) {
             redirect.addFlashAttribute("updatedDays", days);
         }

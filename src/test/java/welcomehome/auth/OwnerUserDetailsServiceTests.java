@@ -26,7 +26,7 @@ class OwnerUserDetailsServiceTests {
     void insertOwners() {
         var migrator = TestDatabaseConfiguration.asMigrator(postgres);
         var data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         data.owner("owner@example.com");
         data.admin("admin@example.com");
     }

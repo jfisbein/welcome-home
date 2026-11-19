@@ -63,7 +63,7 @@ class GuestLocationTests extends BrowserTest {
         nuki.resetAll();
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         var owner = data.owner("alice@example.com");
         data.apiToken(owner, crypto.encryptAccessToken(owner, "alices-token"));
         lockId = data.lock(owner, 17, "Casa");

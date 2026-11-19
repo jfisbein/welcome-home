@@ -47,7 +47,7 @@ class HomePageTests {
     void insertLocksAndLinks() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         var alice = insertOwner(ALICE);
         casa = insertLock(alice, 17, "Casa", "Europe/Madrid");
         garaje = insertLock(alice, 18, "Garaje", "America/New_York");
@@ -58,7 +58,7 @@ class HomePageTests {
 
     @Test
     void listsTheOwnersLocksWithTheirLinksAndHistory() {
-        migrator.sql("UPDATE lock SET active = false WHERE id = ?").param(garaje).update();
+        data.deactivate(garaje);
 
         assertThat(home()).containsSubsequence("Casa", "Garaje", "Ya no está en tu cuenta de Nuki")
                 .contains("href=\"/locks/" + casa + "/links\"", "href=\"/locks/" + casa + "/history\"",
@@ -85,7 +85,7 @@ class HomePageTests {
 
     @Test
     void eachActiveLockOffersToCreateALinkAtOnce() {
-        migrator.sql("UPDATE lock SET active = false WHERE id = ?").param(garaje).update();
+        data.deactivate(garaje);
 
         assertThat(home()).contains("href=\"/locks/" + casa + "/links#new\"", "Crear enlace")
                 .doesNotContain("href=\"/locks/" + garaje + "/links#new\"");

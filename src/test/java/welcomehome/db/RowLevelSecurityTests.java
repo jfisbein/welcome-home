@@ -14,13 +14,14 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
+import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
 
 @IntegrationTest
 class RowLevelSecurityTests {
 
-    static final List<String> OWNER_TABLES = List.of("nuki_connection", "lock", "access_link", "access_link_schedule",
-            "access_event");
+    /** Every table with an owner_id but Spring Security's passkey store, which is read before anyone is signed in. */
+    List<String> ownerTables;
 
     @Autowired
     OwnerTransactions ownerTransactions;
@@ -37,14 +38,23 @@ class RowLevelSecurityTests {
     @BeforeEach
     void insertTwoOwners() {
         var migrator = TestDatabaseConfiguration.asMigrator(postgres);
-        migrator.sql("DELETE FROM owner").update();
-        alice = OwnerRows.insert(migrator, "alice@example.com", 1L);
-        bob = OwnerRows.insert(migrator, "bob@example.com", 2L);
+        var data = new TestData(migrator);
+        data.deleteOwners();
+        ownerTables = data.ownerTables().stream().filter(table -> !table.equals("user_entities")).toList();
+        alice = OwnerRows.insert(data, "alice@example.com", 1L);
+        bob = OwnerRows.insert(data, "bob@example.com", 2L);
+    }
+
+    /** So that a table added later is tried here without anyone remembering to: its rows come from TestData. */
+    @Test
+    void theTablesTriedAreEveryTableThatHoldsOwnersData() {
+        assertThat(ownerTables).contains("nuki_connection", "lock", "access_link", "access_link_schedule",
+                "access_event", "notification_preference", "owner_activity");
     }
 
     @Test
     void withoutOwnerContextAppUserSeesNoRows() {
-        for (var table : OWNER_TABLES) {
+        for (var table : ownerTables) {
             assertThat(ownerIds(table)).as(table).isEmpty();
         }
     }
@@ -52,12 +62,12 @@ class RowLevelSecurityTests {
     @Test
     void insideOwnerTransactionAppUserSeesOnlyOwnRows() {
         ownerTransactions.run(alice.ownerId(), () -> {
-            for (var table : OWNER_TABLES) {
+            for (var table : ownerTables) {
                 assertThat(ownerIds(table)).as(table).containsExactly(alice.ownerId());
             }
         });
 
-        for (var table : OWNER_TABLES) {
+        for (var table : ownerTables) {
             assertThat(ownerIds(table)).as(table + " after the transaction").isEmpty();
         }
     }
@@ -129,38 +139,12 @@ class RowLevelSecurityTests {
     }
 
     /** One owner with one row in every table that has owner_id, inserted as migrator. */
-    record OwnerRows(UUID ownerId, UUID connectionId, UUID lockId, UUID linkId) {
+    record OwnerRows(UUID ownerId, UUID lockId, UUID linkId) {
 
-        static OwnerRows insert(JdbcClient migrator, String email, long nukiSmartlockId) {
-            var rows = new OwnerRows(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
-            migrator.sql("INSERT INTO owner (id, email) VALUES (?, ?)")
-                    .params(rows.ownerId(), email)
-                    .update();
-            migrator.sql("INSERT INTO nuki_connection (id, owner_id, access_token_encrypted, status) VALUES (?, ?, ?, 'OK')")
-                    .params(rows.connectionId(), rows.ownerId(), new byte[] {1})
-                    .update();
-            migrator.sql("""
-                            INSERT INTO lock (id, owner_id, connection_id, nuki_smartlock_id, name, time_zone)
-                            VALUES (?, ?, ?, ?, 'Home', 'Europe/Madrid')
-                            """)
-                    .params(rows.lockId(), rows.ownerId(), rows.connectionId(), nukiSmartlockId)
-                    .update();
-            migrator.sql("""
-                            INSERT INTO access_link (id, owner_id, lock_id, label, valid_from, valid_until)
-                            VALUES (?, ?, ?, 'Guest', now(), now() + interval '1 day')
-                            """)
-                    .params(rows.linkId(), rows.ownerId(), rows.lockId())
-                    .update();
-            migrator.sql("""
-                            INSERT INTO access_link_schedule (owner_id, link_id, day_of_week, opens_at, closes_at)
-                            VALUES (?, ?, 1, '09:00', '17:00')
-                            """)
-                    .params(rows.ownerId(), rows.linkId())
-                    .update();
-            migrator.sql("INSERT INTO access_event (owner_id, link_id, lock_id, result) VALUES (?, ?, ?, 'OK')")
-                    .params(rows.ownerId(), rows.linkId(), rows.lockId())
-                    .update();
-            return rows;
+        static OwnerRows insert(TestData data, String email, long nukiSmartlockId) {
+            var owner = data.owner(email);
+            var rows = data.aRowInEveryTable(owner, nukiSmartlockId);
+            return new OwnerRows(owner, rows.lockId(), rows.linkId());
         }
     }
 }

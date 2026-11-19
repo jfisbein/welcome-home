@@ -87,7 +87,7 @@ class AccountTests {
         aliceId = migrator.sql("SELECT id FROM owner WHERE email = ?").param(ALICE).query(UUID.class).single();
         // A new owner's first email is the link that verifies their address; these tests start after it.
         await().atMost(Duration.ofSeconds(5)).until(() -> mail.getReceivedMessages().length == 1);
-        migrator.sql("UPDATE owner SET email_verified_at = now() WHERE id = ?").param(aliceId).update();
+        data.verifyEmail(aliceId);
         mail.purgeEmailFromAllMailboxes();
     }
 
@@ -186,11 +186,16 @@ class AccountTests {
     @Test
     void anOwnerClosesTheirAccountAndIsSignedOut() {
         var session = signIn();
+        data.aRowInEveryTable(aliceId, 17);
+        assertThat(data.rowsByTable(aliceId)).as("before: a row of hers in every table that holds owners' data")
+                .noneMatch(count -> count.endsWith(": 0"));
 
         assertThat(mvc.delete().uri("/settings/account").session(session).with(csrf()))
                 .hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/login?deleted");
 
         assertThat(migrator.sql("SELECT email FROM owner").query(String.class).list()).isEqualTo(List.of());
+        assertThat(data.rowsByTable(aliceId)).as("nothing of hers is left in any table that holds owners' data")
+                .allMatch(count -> count.endsWith(": 0"));
         assertThat(session.isInvalid()).isTrue();
         assertThat(mvc.get().uri("/login?deleted")).bodyText()
                 .contains("Tu cuenta se ha dado de baja, con todos sus datos.");
@@ -202,7 +207,7 @@ class AccountTests {
     /** So that an admin is always left, as the admin panel lets no admin delete themselves either. */
     @Test
     void theOnlyAdminCannotCloseTheirAccount() {
-        migrator.sql("UPDATE owner SET is_admin = true WHERE id = ?").param(aliceId).update();
+        data.makeAdmin(aliceId);
         var session = signIn();
 
         assertThat(mvc.get().uri("/settings/account").session(session)).bodyText()
@@ -219,7 +224,7 @@ class AccountTests {
     /** Whatever the pages offer: a request sent anyway, by anyone, never deletes the only admin, nor touches them. */
     @Test
     void theOnlyAdminIsNeverDeletedAndTwoAdminsDeletedAtOnceLeaveOne() throws Exception {
-        migrator.sql("UPDATE owner SET is_admin = true WHERE id = ?").param(aliceId).update();
+        data.makeAdmin(aliceId);
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> accounts.delete(aliceId))
                 .isInstanceOf(LastAdminException.class);
         assertThat(migrator.sql("SELECT email FROM owner").query(String.class).list()).isEqualTo(List.of(ALICE));
@@ -245,7 +250,7 @@ class AccountTests {
     /** What makes the two deletions above take their turn: deleting any owner waits for whoever holds an admin's row. */
     @Test
     void aDeletionWaitsForAnotherThatHoldsTheAdminsRows() throws Exception {
-        migrator.sql("UPDATE owner SET is_admin = true WHERE id = ?").param(aliceId).update();
+        data.makeAdmin(aliceId);
         var bobId = data.admin(BOB);
 
         try (var other = TestDatabaseConfiguration.newSessionsAsAppUser(postgres).getConnection();

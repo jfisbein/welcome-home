@@ -194,11 +194,9 @@ class AdminPanelTests {
 
     @Test
     void adminDeletesAnOwnerWithEverythingOfTheirs() {
-        data.apiToken(bobId, new byte[] {0});
-        migrator.sql("""
-                        INSERT INTO access_event (owner_id, link_id, lock_id, result)
-                        SELECT owner_id, id, lock_id, 'OK' FROM access_link
-                        """).update();
+        data.aRowInEveryTable(bobId, 77);
+        assertThat(data.rowsByTable(bobId)).as("before: a row of Bob's in every table that holds owners' data")
+                .noneMatch(count -> count.endsWith(": 0") && !count.startsWith("user_entities"));
         insertPasskey("YWRtaW4", ADMIN_EMAIL, "YWRtaW4tcGFzc2tleQ");
         insertPasskey("Ym9i", OWNER_EMAIL, "Ym9iLXBhc3NrZXk");
         invitations.createPasskeyRecovery(adminId, bobId);
@@ -213,9 +211,8 @@ class AdminPanelTests {
 
         assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/admin/owners");
         assertThat(result.getMvcResult().getFlashMap().get("deletedEmail")).isEqualTo(OWNER_EMAIL);
-        for (var table : new String[] {"nuki_connection", "lock", "access_link", "access_event"}) {
-            assertThat(migrator.sql("SELECT count(*) FROM " + table).query(Long.class).single()).as(table).isZero();
-        }
+        assertThat(data.rowsByTable(bobId)).as("nothing of Bob's is left in any table that holds owners' data")
+                .allMatch(count -> count.endsWith(": 0"));
         assertThat(migrator.sql("SELECT email FROM owner").query(String.class).list()).containsExactly(ADMIN_EMAIL);
         assertThat(migrator.sql("SELECT name FROM user_entities").query(String.class).list())
                 .containsExactly(ADMIN_EMAIL);

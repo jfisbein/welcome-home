@@ -113,7 +113,7 @@ class NukiConnections {
         var locks = checkAccess(tokens.accessToken());
         var accessTokenEncrypted = crypto.encryptAccessToken(ownerId, tokens.accessToken());
         var refreshTokenEncrypted = crypto.encryptRefreshToken(ownerId, refreshToken);
-        var expiresAt = TokenRefresher.expiresAt(tokens);
+        var expiresAt = refresher.expiresAt(tokens);
         ownerTransactions.run(ownerId, () -> connections.save(ownerId, NukiCredential.OAUTH2, accessTokenEncrypted,
                 refreshTokenEncrypted, expiresAt));
         events.publishEvent(new NukiConnected(ownerId, locks));
@@ -184,7 +184,7 @@ class NukiConnections {
      */
     <T extends @Nullable Object> T callNukiWithCredential(UUID ownerId, BiFunction<NukiCredential, String, T> call) {
         var stored = connected(ownerId);
-        if (stored.credential() == NukiCredential.OAUTH2 && TokenRefresher.expiresSoon(stored)) {
+        if (stored.credential() == NukiCredential.OAUTH2 && refresher.expiresSoon(stored)) {
             stored = refresh(ownerId);
         }
         var accessTokenEncrypted = stored.accessTokenEncrypted();
@@ -228,7 +228,7 @@ class NukiConnections {
             var stored = connected(ownerId);
             var refreshTokenEncrypted = stored.refreshTokenEncrypted();
             if (stored.credential() != NukiCredential.OAUTH2 || refreshTokenEncrypted == null
-                    || !TokenRefresher.expiresSoon(stored)) {
+                    || !refresher.expiresSoon(stored)) {
                 return stored;
             }
             TokenRefresher.Refreshed refreshed;
@@ -279,7 +279,7 @@ class NukiConnections {
                     return false;
                 }
                 var stored = disconnected.get();
-                return (stored.credential() == NukiCredential.OAUTH2 && TokenRefresher.expiresSoon(stored))
+                return (stored.credential() == NukiCredential.OAUTH2 && refresher.expiresSoon(stored))
                         ? reconnectByRefreshing(ownerId, stored)
                         : reconnectIfAccepted(ownerId, stored);
             } catch (LockProviderException e) {

@@ -97,7 +97,7 @@ class NotificationTests {
     void insertAlicesLockAndLink() throws Exception {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        migrator.sql("DELETE FROM owner").update();
+        data.deleteOwners();
         aliceId = data.owner(ALICE);
         lockId = data.lock(aliceId, 17, "Casa", "America/New_York");
         linkId = insertLink("Ana");
@@ -253,7 +253,7 @@ class NotificationTests {
 
     @Test
     void anOwnerIsWrittenToInTheirLanguage() throws Exception {
-        migrator.sql("UPDATE owner SET language = 'en'").update();
+        data.language("en");
 
         record(linkId, AccessOutcome.OPENED);
 
