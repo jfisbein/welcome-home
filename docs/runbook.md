@@ -131,9 +131,9 @@ ls -lt backups/                                   # the newest dumps first
 
 Run it as root: `backups/` is readable only by root and the `backup` service's user. The script stops `app` and `backup`, replaces the database with the dump and starts both again. Whatever happened after the dump is lost: owners, links and history alike.
 
-A dump taken before `backup_reader` existed brings the database back without its `CONNECT` grant, and Databasus then fails to connect: run that `GRANT CONNECT` from "First start" again. Not while Databasus is dumping: `pg_restore` cannot drop a database that someone is connected to, and stops before changing anything. To start from Databasus's copy in B2, such as on a new server, download the backup in Databasus (Download, a `pg_dump` custom archive) and pass its path to `restore.sh`.
+The script creates the database itself, as the migrator's and with who may connect to it (`app_user`, and `backup_reader` if the role exists), and then restores the dump into it, so a dump from before `backup_reader` existed needs nothing more. The database it creates compares text by PostgreSQL's own rules, whatever the dump's did (see "Move the database to PostgreSQL's own collation"). Not while Databasus is dumping: a database that someone is connected to cannot be dropped, and the script stops before changing anything. To start from Databasus's copy in B2, such as on a new server, download the backup in Databasus (Download, a `pg_dump` custom archive) and pass its path to `restore.sh`.
 
-**On a new server:** follow "First start" with the keysets from your password manager (new passwords and a new tunnel token are fine), but do not deploy the whole stack yet: start only `db` (`docker compose up -d db`), so that it creates the roles, then run `restore.sh`, then deploy the rest. `backup_reader` must be among those roles, as the dumps carry its `CONNECT` grant and `pg_restore --create` stops without it; with a new password, change it in Databasus too. Without the keysets the dump still restores, but every owner has to paste their Nuki API token again and every access link has to be regenerated.
+**On a new server:** follow "First start" with the keysets from your password manager (new passwords and a new tunnel token are fine), but do not deploy the whole stack yet: start only `db` (`docker compose up -d db`), so that it creates the roles, then run `restore.sh`, then deploy the rest. `backup_reader` must be among those roles, as the dumps carry its grants and `pg_restore` stops without it; with a new password, change it in Databasus too. Without the keysets the dump still restores, but every owner has to paste their Nuki API token again and every access link has to be regenerated.
 
 CI tries `backup.sh` and `restore.sh` on every change, on a copy of the stack with test data (`.github/scripts/test_backup_restore.sh`). That says that the scripts work, not that your dumps do, so still rehearse a restore of a real dump now and then, on a copy of the stack under another project name (`COMPOSE_PROJECT_NAME=welcome-home-test`) on any Docker host.
 
@@ -168,6 +168,18 @@ Until 2026-11 the stack ran Postgres's Debian image (`postgres:18`); `deploy/com
 7. `docker image rm postgres:18` and `docker image prune`, now that no stack uses them.
 
 Going back is the same steps with `postgres:18`, the REINDEX included. Lists ordered by name, such as the locks, now put capitals before lower case and accented letters after `z`. Development's database (`compose.yaml`) moves the same way: `docker compose up -d`, then step 5 against it.
+
+## Move the database to PostgreSQL's own collation
+
+A database created before 2026-11-19 compares text by the image's C library, which is why moving to Alpine needed its indexes rebuilt (above), and why any later change of image, or of its C library's version, could again leave indexes that miss rows without an error. A database created since compares text by PostgreSQL's own rules (the built-in provider, `C.UTF-8`: by code point, as musl already does, so nothing changes in what owners see), which no image changes. A database's collation is set when it is created, so an existing one moves by a dump and a restore, which `restore.sh` does since that day. Nothing is urgent while the image stays as it is; do it before the next change of image, or let the next upgrade of Postgres do it, as that restores a dump anyway. As root, in the stack's folder:
+
+1. Copy `deploy/restore.sh` over the stack's `restore.sh`.
+2. `docker compose exec db psql -U postgres -tAc "SELECT datlocprovider FROM pg_database WHERE datname = 'welcome_home'"`: `c` is the C library, `b` PostgreSQL's own, and then there is nothing to do.
+3. `docker compose exec backup /backup/backup.sh now`, and note the dump it prints.
+4. `./restore.sh backups/<the dump>`: it stops `app` and `backup`, creates the database anew, restores the dump into it and starts both. Whatever happened between the dump and the restore is lost, so do the two together, when nobody is expected at a door.
+5. Step 2 again, which now says `b`; check that `app` is healthy and that you can sign in.
+
+The server's other databases (`postgres`, the templates) stay as they were, which does not matter: nothing of the app's is in them. A volume created from `deploy/compose.yaml` since that day has every database so (`POSTGRES_INITDB_ARGS`). Development's database moves by `docker compose down -v` and starting again.
 
 ## Rotate the AEAD keyset
 

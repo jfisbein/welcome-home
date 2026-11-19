@@ -51,10 +51,14 @@ for name in tunnel_token smtp_username smtp_password nuki-oauth-client-id nuki-o
     : > "secrets/$name"
 done
 chmod 444 secrets/*
+# The database starts as one created before 2026-11-19 was: compared by the C library, which restoring must change.
 cat > compose.override.yaml <<EOF
 services:
   app:
     image: $image
+  db:
+    environment:
+      POSTGRES_INITDB_ARGS: ""
 EOF
 
 docker compose up --detach --wait db app backup
@@ -64,6 +68,9 @@ lock="$(sql "INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone)
              VALUES ('$owner', 17, 'Casa', 'Europe/Madrid') RETURNING id" | head -1)"
 sql "INSERT INTO access_link (owner_id, lock_id, label, valid_from, valid_until)
      VALUES ('$owner', '$lock', 'Ana', now(), now() + interval '1 day')" > /dev/null
+
+expect "the database compares text by the C library before restoring" \
+    "$(sql "SELECT datlocprovider FROM pg_database WHERE datname = 'welcome_home'")" c
 
 docker compose exec -T backup /backup/backup.sh now
 dump="$(docker compose exec -T backup sh -c 'ls -t /backups/*.dump | head -1' | tr -d '\r')"
@@ -76,6 +83,11 @@ expect "the data is gone before restoring" "$(sql 'SELECT count(*) FROM access_l
 ./restore.sh "$work/copy.dump"
 
 expect "restored the link" "$(sql 'SELECT label FROM access_link')" Ana
+expect "the restored database compares text by PostgreSQL's own rules" \
+    "$(sql "SELECT datlocprovider::text || ' ' || datlocale FROM pg_database WHERE datname = 'welcome_home'")" "b C.UTF-8"
+expect "it is the migrator's, and not everyone may connect" \
+    "$(sql "SELECT pg_get_userbyid(datdba) || ' ' || has_database_privilege('public', datname, 'CONNECT')
+            FROM pg_database WHERE datname = 'welcome_home'")" "migrator false"
 expect "the app's role sees nothing without an owner" "$(sql_as app_user 'SELECT count(*) FROM access_link')" 0
 expect "the app's role sees its owner's rows" \
     "$(sql_as app_user "BEGIN; SELECT set_config('app.owner_id', '$owner', true); SELECT count(*) FROM access_link; COMMIT" \

@@ -5,6 +5,8 @@ services:
     environment:
       POSTGRES_DB: welcome_home
       POSTGRES_USER: postgres
+      # As production: text compared by PostgreSQL's own rules. Only for a new volume (docker compose down -v).
+      POSTGRES_INITDB_ARGS: --locale-provider=builtin --builtin-locale=C.UTF-8
       POSTGRES_PASSWORD: postgres
       MIGRATOR_PASSWORD: migrator
       APP_USER_PASSWORD: app_user

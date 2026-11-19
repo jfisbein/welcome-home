@@ -9,6 +9,10 @@ services:
     environment:
       POSTGRES_DB: welcome_home
       POSTGRES_USER: postgres
+      # Text is compared by PostgreSQL's own rules, by code point, not by the C library's: those change with the
+      # image (glibc, musl, their versions), and indexes built under other rules miss rows without an error. Only
+      # for a new volume; restore.sh gives it to a database it restores (runbook).
+      POSTGRES_INITDB_ARGS: --locale-provider=builtin --builtin-locale=C.UTF-8
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       MIGRATOR_PASSWORD_FILE: /run/secrets/migrator_password
       APP_USER_PASSWORD_FILE: /run/secrets/app_user_password

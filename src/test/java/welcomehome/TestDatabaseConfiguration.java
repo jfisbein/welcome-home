@@ -26,6 +26,8 @@ public class TestDatabaseConfiguration {
                 .withCopyFileToContainer(
                         MountableFile.forHostPath("deploy/db-init/01-create-roles.sh"),
                         "/docker-entrypoint-initdb.d/01-create-roles.sh")
+                // As production's stack: text compared by PostgreSQL's own rules, not the C library's.
+                .withEnv("POSTGRES_INITDB_ARGS", "--locale-provider=builtin --builtin-locale=C.UTF-8")
                 .withEnv("APP_USER_PASSWORD", APP_USER_PASSWORD)
                 .withEnv("MIGRATOR_PASSWORD", MIGRATOR_PASSWORD);
     }
