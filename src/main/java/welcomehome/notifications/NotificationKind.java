@@ -32,7 +32,7 @@ enum NotificationKind {
             case OPENED -> OPENED;
             case NOT_CONFIRMED, UNAVAILABLE, NUKI_ERROR, LOCK_FAILED, NIGHT_MODE, MISSING_PERMISSION -> FAILED;
             case INVALID, TOO_MANY_ATTEMPTS, REVOKED, NOT_YET_VALID, EXPIRED, OUTSIDE_SCHEDULE, TOO_FAR, WRONG_PIN,
-                 PIN_LOCKED -> DENIED;
+                 PIN_LOCKED, LOCATION_REQUIRED -> DENIED;
             case CONFIRM_LOCATION, PIN_REQUIRED -> null;
         };
     }

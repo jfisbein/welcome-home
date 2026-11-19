@@ -74,6 +74,10 @@ class LockLinksController {
         redirect.addFlashAttribute("createdLabel", validation.label());
         redirect.addFlashAttribute("createdFrom", from.atZone(zone));
         redirect.addFlashAttribute("createdUntil", until.atZone(zone));
+        var days = LinkForm.daysIfLong(from, until, Instant.now());
+        if (days != null) {
+            redirect.addFlashAttribute("createdDays", days);
+        }
         redirect.addFlashAttribute("createdSchedule", schedules.describe(validation.schedule(), locale));
         return "redirect:/locks/" + lock.id() + "/links";
     }

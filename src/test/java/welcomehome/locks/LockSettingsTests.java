@@ -247,6 +247,28 @@ class LockSettingsTests {
         assertThat(check(alicesLock)).isEqualTo("REFUSE_WHEN_FAR|300");
     }
 
+    /** Kept as the mode before it and a flag, which a release that does not know it reads as that mode. */
+    @Test
+    void ownerChoosesTheStrictestCheckWhichIsStoredSoThatAnEarlierReleaseStillReadsTheLock() {
+        assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE))).bodyText()
+                .contains("Abrir solo si su teléfono dice que está delante",
+                        "con ella no abre quien no dé su ubicación, y tendrías que abrirle tú desde la app de Nuki");
+
+        assertThat(updateCheck("40.416775, -3.70379", "REQUIRE_NEAR", "150")).hasStatus(HttpStatus.FOUND);
+
+        assertThat(storedCheck()).isEqualTo("REFUSE_WHEN_FAR|true");
+        assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE))).bodyText()
+                .containsPattern("<option value=\"REQUIRE_NEAR\"\\s+selected");
+        assertThat(update(ALICE, alicesLock, "Casa", "Europe/Madrid")).as("a form without the fields keeps them")
+                .hasStatus(HttpStatus.FOUND);
+        assertThat(storedCheck()).isEqualTo("REFUSE_WHEN_FAR|true");
+
+        assertThat(updateCheck("40.416775, -3.70379", "REFUSE_WHEN_FAR", "150")).hasStatus(HttpStatus.FOUND);
+        assertThat(storedCheck()).as("back to the mode before it").isEqualTo("REFUSE_WHEN_FAR|false");
+        assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE))).bodyText()
+                .containsPattern("<option value=\"REFUSE_WHEN_FAR\"\\s+selected");
+    }
+
     @Test
     void checkingTakesTheLocksPositionAndARadiusWithinItsLimits() {
         assertThat(updateCheck("", "CONFIRM_WHEN_FAR", "150")).hasStatus(HttpStatus.BAD_REQUEST)
@@ -325,6 +347,12 @@ class LockSettingsTests {
                 .param("name", "Casa").param("timeZone", "Europe/Berlin").param("coordinates", coordinates)
                 .param("locationCheck", locationCheck).param("locationRadius", locationRadius)
                 .exchange();
+    }
+
+    /** Alice's lock's check as the database keeps it, "mode|required". */
+    private String storedCheck() {
+        return migrator.sql("SELECT location_check || '|' || location_required FROM lock WHERE id = ?")
+                .param(alicesLock).query(String.class).single();
     }
 
     /** The lock's check as "mode|radius". */

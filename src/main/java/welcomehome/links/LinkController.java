@@ -69,6 +69,10 @@ class LinkController {
             throw notFound();
         }
         redirect.addFlashAttribute("updatedLabel", validation.label());
+        var days = LinkForm.daysIfLong(validation.validFrom(), validation.validUntil(), Instant.now());
+        if (days != null) {
+            redirect.addFlashAttribute("updatedDays", days);
+        }
         return "redirect:/locks/" + link.lockId() + "/links";
     }
 

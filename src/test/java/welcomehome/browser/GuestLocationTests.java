@@ -152,6 +152,31 @@ class GuestLocationTests extends BrowserTest {
         assertThat(lastAttempt()).isEqualTo("opened|20");
     }
 
+    /** No confirming gets past it: the guest is told to let the page use their location, and may try again. */
+    @Test
+    void theStrictestModeTellsAGuestItCannotPlaceToAllowTheirLocationAndAsksAgainOnTheNextSlide() {
+        data.locationCheck(lockId, DOOR_LATITUDE, DOOR_LONGITUDE, "REQUIRE_NEAR", 150);
+        context.clearPermissions();
+        open();
+
+        slide();
+
+        assertThat(result).containsText("No hemos podido saber dónde estás, y este enlace solo abre estando delante "
+                + "de la puerta. Permite que esta página use tu ubicación y vuelve a deslizar");
+        assertThat(slider).isDisabled();
+        page.clock().runFor(10_000);
+        assertThat(label).hasText("Desliza para abrir");
+        assertUnlatches(0);
+        assertThat(lastAttempt()).isEqualTo("location-required|-");
+
+        context.grantPermissions(List.of("geolocation"));
+        context.setGeolocation(new Geolocation(DOOR_LATITUDE + 20 * NORTH, DOOR_LONGITUDE).setAccuracy(15));
+        slide();
+
+        assertThat(result).containsText(OPENED);
+        assertThat(lastAttempt()).isEqualTo("opened|20");
+    }
+
     /** The lock checks as given, and the guest's browser places them this far north of the door, and allows it. */
     private void guestIs(int metres, String check) {
         data.locationCheck(lockId, DOOR_LATITUDE, DOOR_LONGITUDE, check, 150);

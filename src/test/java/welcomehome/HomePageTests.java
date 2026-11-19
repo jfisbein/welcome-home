@@ -66,6 +66,23 @@ class HomePageTests {
                 .doesNotContain("Casa de Bob");
     }
 
+    /** By their dates: a link made for a guest long gone still opens the door, and its owner may not remember it. */
+    @Test
+    void eachLockSaysHowManyOfItsLinksCanOpenNow() {
+        assertThat(home()).as("Ana's and Carlos's, one per lock").containsSubsequence(
+                "Casa", ">1 enlace puede abrir ahora</a>", "Garaje", ">1 enlace puede abrir ahora</a>");
+
+        data.link(casa, "Bea", "now() - interval '90 days'", "now() + interval '90 days'");
+        data.link(casa, "Dani", "now() + interval '1 day'", "now() + interval '2 days'");
+        data.link(casa, "Eva", "now() - interval '2 days'", "now() - interval '1 day'");
+        data.link(casa, "Fer", "now() - interval '1 day'", "now() + interval '1 day'", "now()");
+        migrator.sql("DELETE FROM access_link WHERE id = ?").param(carlos).update();
+
+        assertThat(home()).as("not the pending, the expired or the revoked one, nor Bob's")
+                .containsSubsequence("Casa", ">2 enlaces pueden abrir ahora</a>", "Garaje")
+                .doesNotContain("1 enlace puede abrir ahora");
+    }
+
     @Test
     void eachActiveLockOffersToCreateALinkAtOnce() {
         migrator.sql("UPDATE lock SET active = false WHERE id = ?").param(garaje).update();

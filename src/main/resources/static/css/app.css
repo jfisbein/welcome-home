@@ -307,6 +307,18 @@ nav.sections li a[aria-current="page"] {
     opacity: 0.6;
 }
 
+/* How many of a lock's links can open now, on its own line under its name, on the home page. */
+.links-open {
+    display: block;
+}
+
+/* A link in small print is under the 24 px a finger needs (WCAG 2.2, target size). */
+.links-open a,
+.lock-warning a {
+    display: inline-block;
+    padding-block: 0.25rem;
+}
+
 /* What is wrong with a lock, one line per warning, on the pages that list locks. */
 .lock-warning {
     display: block;

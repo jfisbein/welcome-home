@@ -57,7 +57,7 @@ class OpenController {
             case INVALID -> HttpStatus.NOT_FOUND;
             case TOO_MANY_ATTEMPTS -> HttpStatus.TOO_MANY_REQUESTS;
             case REVOKED, EXPIRED -> HttpStatus.GONE;
-            case NOT_YET_VALID, OUTSIDE_SCHEDULE, TOO_FAR -> HttpStatus.FORBIDDEN;
+            case NOT_YET_VALID, OUTSIDE_SCHEDULE, TOO_FAR, LOCATION_REQUIRED -> HttpStatus.FORBIDDEN;
             case CONFIRM_LOCATION, PIN_REQUIRED -> HttpStatus.PRECONDITION_REQUIRED;
             case WRONG_PIN -> HttpStatus.UNAUTHORIZED;
             case PIN_LOCKED -> HttpStatus.LOCKED;

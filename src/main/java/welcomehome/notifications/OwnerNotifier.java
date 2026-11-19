@@ -333,7 +333,8 @@ class OwnerNotifier {
                 case UNAVAILABLE, NUKI_ERROR, LOCK_FAILED, NIGHT_MODE, MISSING_PERMISSION ->
                         new EmailKeys("notification.failed", reason);
                 case INVALID, TOO_MANY_ATTEMPTS, REVOKED, NOT_YET_VALID, EXPIRED, OUTSIDE_SCHEDULE, TOO_FAR,
-                     CONFIRM_LOCATION, PIN_REQUIRED, WRONG_PIN, PIN_LOCKED -> new EmailKeys("notification.denied", reason);
+                     CONFIRM_LOCATION, PIN_REQUIRED, WRONG_PIN, PIN_LOCKED, LOCATION_REQUIRED ->
+                        new EmailKeys("notification.denied", reason);
             };
         }
     }

@@ -76,7 +76,8 @@ class LinkListTests {
         var body = page();
 
         var url = IntegrationTest.BASE_URL + "/o/" + signer.sign(active, 3);
-        assertThat(body).contains("data-copy-url=\"" + url + "\"", "data-share-url=\"" + url + "\"")
+        assertThat(body).contains("data-copy-url=\"" + url + "\"", "data-share-url=\"" + url + "\"",
+                        "href=\"" + url + "?preview=1\"")
                 .doesNotContain(signer.sign(active, 1))
                 .as("an expired link can be edited, to extend it, but not copied")
                 .doesNotContain("/o/" + expired)

@@ -213,8 +213,12 @@ class OpenDoor {
     }
 
     private static Attempt refused(DoorDistance.Check location) {
-        return new Attempt(location.verdict() == DoorDistance.Verdict.REFUSE ? AccessOutcome.TOO_FAR
-                : AccessOutcome.CONFIRM_LOCATION, location);
+        if (location.verdict() != DoorDistance.Verdict.REFUSE) {
+            return new Attempt(AccessOutcome.CONFIRM_LOCATION, location);
+        }
+        // Refused without a distance: the door opens only for a guest it can place, and this one it could not.
+        return new Attempt(location.distanceM() == null ? AccessOutcome.LOCATION_REQUIRED : AccessOutcome.TOO_FAR,
+                location);
     }
 
     private AccessOutcome unlatchAndConfirm(UUID ownerId, UUID lockId, long nukiSmartlockId) {

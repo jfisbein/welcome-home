@@ -68,6 +68,20 @@ class DoorDistanceTests {
         assertThat(check(LocationCheck.REFUSE_WHEN_FAR, 50, 20, false)).isEqualTo(new Check(Verdict.OPEN, 50, 20, false));
     }
 
+    /** The one mode that leaves a guest at the door: its owner chose that over a door opened from elsewhere. */
+    @Test
+    void theStrictestModeOpensOnlyForAGuestItCanPlaceNearTheDoor() {
+        assertThat(check(LocationCheck.REQUIRE_NEAR, 50, 20, false)).isEqualTo(new Check(Verdict.OPEN, 50, 20, false));
+        assertThat(check(LocationCheck.REQUIRE_NEAR, 3000, 20, true))
+                .isEqualTo(new Check(Verdict.REFUSE, 3000, 20, false));
+        for (var confirmed : new boolean[] {false, true}) {
+            assertThat(DoorDistance.check(LocationCheck.REQUIRE_NEAR, 150, DOOR, null, confirmed))
+                    .as("unknown, confirmed " + confirmed).isEqualTo(new Check(Verdict.REFUSE, null, null, false));
+            assertThat(check(LocationCheck.REQUIRE_NEAR, 50, 5000, confirmed))
+                    .as("too vague, confirmed " + confirmed).isEqualTo(new Check(Verdict.REFUSE, null, 5000, false));
+        }
+    }
+
     @Test
     void anUnknownPositionIsAskedToConfirmInEitherMode() {
         for (var mode : new LocationCheck[] {LocationCheck.CONFIRM_WHEN_FAR, LocationCheck.REFUSE_WHEN_FAR}) {

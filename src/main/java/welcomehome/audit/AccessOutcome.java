@@ -55,7 +55,12 @@ public enum AccessOutcome {
      * The link has been given so many wrong PINs, this one perhaps the last, that it opens no more until its owner
      * edits it or gives it a new URL.
      */
-    PIN_LOCKED("pin-locked", AccessResult.DENIED);
+    PIN_LOCKED("pin-locked", AccessResult.DENIED),
+    /**
+     * The door opens only for a guest whose position is known and near, and this one's was unknown or too vague to
+     * tell.
+     */
+    LOCATION_REQUIRED("location-required", AccessResult.DENIED);
 
     private final String code;
     private final AccessResult result;

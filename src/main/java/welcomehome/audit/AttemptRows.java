@@ -37,13 +37,18 @@ class AttemptRows {
     AttemptRow row(StoredAttempt attempt, ZoneId zone, Locale locale) {
         return new AttemptRow(attempt.occurredAt().atZoneSameInstant(zone), attempt.lockId(), attempt.lockName(),
                 attempt.linkId(), attempt.linkLabel(), attempt.entranceName(), attempt.result(),
-                outcome(attempt.reason(), locale), origin(attempt.ip(), attempt.country(), attempt.distanceM(), locale));
+                outcome(attempt.reason(), Boolean.TRUE.equals(attempt.locationConfirmed()), locale),
+                origin(attempt.ip(), attempt.country(), attempt.distanceM(), locale));
     }
 
-    /** What an event's reason code means to the owner; a code no outcome has is shown as it is. */
-    private String outcome(@Nullable String reason, Locale locale) {
+    /**
+     * What an event's reason code means to the owner; a code no outcome has is shown as it is. A door opened only
+     * because its guest confirmed being in front of it says so: they may not have been.
+     */
+    private String outcome(@Nullable String reason, boolean byConfirmation, Locale locale) {
         return AccessOutcome.ofCode(reason)
-                .map(outcome -> messages.getMessage("outcome." + outcome.code(), null, locale))
+                .map(outcome -> messages.getMessage("outcome." + outcome.code()
+                        + (byConfirmation && outcome == AccessOutcome.OPENED ? ".confirmed" : ""), null, locale))
                 .orElse(reason == null ? "" : reason);
     }
 

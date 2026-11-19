@@ -29,7 +29,7 @@ final class DoorDistance {
         OPEN,
         /** Ask the guest to confirm that they are in front of the door. */
         CONFIRM,
-        /** Refuse: the door does not open for a guest far from it. */
+        /** Refuse: the door does not open for a guest far from it, or, in the strictest mode, for one it cannot place. */
         REFUSE
     }
 
@@ -58,19 +58,29 @@ final class DoorDistance {
     static Check check(LocationCheck check, int radiusM, Coordinates door, @Nullable GuestPosition guest,
                        boolean confirmed) {
         if (guest == null) {
-            return new Check(confirmed ? Verdict.OPEN : Verdict.CONFIRM, null, null, confirmed);
+            return unknown(check, null, confirmed);
         }
         if (guest.accuracy() > Math.max(radiusM, VAGUE_ACCURACY_M)) {
-            return new Check(confirmed ? Verdict.OPEN : Verdict.CONFIRM, null, wholeMetres(guest.accuracy()),
-                    confirmed);
+            return unknown(check, wholeMetres(guest.accuracy()), confirmed);
         }
         var distance = metres(door, guest);
         var far = distance - guest.accuracy() > radiusM;
         var verdict = !far ? Verdict.OPEN
-                : check == LocationCheck.REFUSE_WHEN_FAR ? Verdict.REFUSE
-                : confirmed ? Verdict.OPEN : Verdict.CONFIRM;
+                : check == LocationCheck.CONFIRM_WHEN_FAR ? (confirmed ? Verdict.OPEN : Verdict.CONFIRM)
+                : Verdict.REFUSE;
         return new Check(verdict, (int) Math.round(distance / 10) * 10, wholeMetres(guest.accuracy()),
                 far && verdict == Verdict.OPEN);
+    }
+
+    /**
+     * A guest whose position is unknown, or too vague to tell: asked to confirm, as nobody must be left at the door
+     * for a phone that does not say, except by the one mode whose owner chose that.
+     */
+    private static Check unknown(LocationCheck check, @Nullable Integer accuracyM, boolean confirmed) {
+        if (check == LocationCheck.REQUIRE_NEAR) {
+            return new Check(Verdict.REFUSE, null, accuracyM, false);
+        }
+        return new Check(confirmed ? Verdict.OPEN : Verdict.CONFIRM, null, accuracyM, confirmed);
     }
 
     /** A browser may give any accuracy, far beyond what an int holds. */

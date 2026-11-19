@@ -15,5 +15,7 @@ See also: [guest flow](guest-flow.md) (where the PIN and the schedule are checke
 
 ## Tests
 
+- **Links an owner may forget**: `LinkCreationTests` and `LinkEditTests` (a link that can open for over 30 days says so on saving), `HomePageTests` (how many of each lock's links can open now).
+
 - **Links' PINs**: `LinkPinTests` (set, changed and removed from the forms, stored encrypted and bound to its link, read back by its owner alone, refused when not 4 to 8 digits, encrypted again with the new key), `OpenDoorTests`, through the endpoint with the tests' clock (a PIN asked for before anything reaches Nuki, a wrong one, the right one, one sent to a link without, a link that spent its wrong PINs until one comes back, right PINs not counting, guesses sent at once, the total that locks a link and a locked link refusing the right PIN), `RateLimiterTests`, `LinkPinTests` (wrong PINs counted with the link, the list saying it is locked, editing or a new URL letting it open again), `NotificationTests` (the email when a link locks, whatever the preferences, once), `GuestPinTests` in Chromium (the form after the slide, typing again after a wrong PIN, told in red, cancelling, axe on the open form), `OwnerPagesTests` (the eye).
 - **Links' schedules**: `LinkScheduleTests` (hours, midnight, the clocks changing, the first opening), `LinkScheduleFormTests` (the form, what is refused, a schedule said in each language).

@@ -18,6 +18,14 @@ import welcomehome.nuki.DeviceType;
 @Repository
 class LockDao {
 
+    /**
+     * The check as the app names it: the strictest one is stored as REFUSE_WHEN_FAR with location_required, so that
+     * a release that does not know it still reads the row (changeset 034).
+     */
+    private static final String LOCATION_CHECK = """
+            CASE WHEN location_required AND location_check = 'REFUSE_WHEN_FAR' THEN 'REQUIRE_NEAR'
+                 ELSE location_check END AS location_check""";
+
     private final JdbcClient jdbc;
 
     LockDao(JdbcClient jdbc) {
@@ -115,8 +123,9 @@ class LockDao {
     List<OwnerLock> findAll(UUID ownerId) {
         return jdbc.sql("""
                         SELECT id, nuki_smartlock_id, name, time_zone, active, relocking_handled_elsewhere, device_type,
-                               entrance_lock_id, guest_instructions, latitude, longitude, location_check,
-                               location_radius_m
+                               entrance_lock_id, guest_instructions, latitude, longitude,
+                               """ + LOCATION_CHECK + """
+                               , location_radius_m
                         FROM lock
                         WHERE owner_id = :ownerId
                         ORDER BY active DESC, name
@@ -129,8 +138,9 @@ class LockDao {
     Optional<OwnerLock> find(UUID ownerId, UUID lockId) {
         return jdbc.sql("""
                         SELECT id, nuki_smartlock_id, name, time_zone, active, relocking_handled_elsewhere, device_type,
-                               entrance_lock_id, guest_instructions, latitude, longitude, location_check,
-                               location_radius_m
+                               entrance_lock_id, guest_instructions, latitude, longitude,
+                               """ + LOCATION_CHECK + """
+                               , location_radius_m
                         FROM lock
                         WHERE owner_id = :ownerId AND id = :lockId
                         """)
@@ -150,7 +160,8 @@ class LockDao {
                                         entrance_lock_id = :entranceLockId,
                                         guest_instructions = :guestInstructions,
                                         latitude = :latitude, longitude = :longitude,
-                                        location_check = :locationCheck, location_radius_m = :locationRadiusM
+                                        location_check = :locationCheck, location_required = :locationRequired,
+                                        location_radius_m = :locationRadiusM
                         WHERE owner_id = :ownerId AND id = :lockId
                         """)
                 .param("name", name)
@@ -159,7 +170,9 @@ class LockDao {
                 .param("entranceLockId", entranceLockId)
                 .param("latitude", coordinates == null ? null : coordinates.latitude())
                 .param("longitude", coordinates == null ? null : coordinates.longitude())
-                .param("locationCheck", locationCheck.name())
+                .param("locationCheck", (locationCheck == LocationCheck.REQUIRE_NEAR ? LocationCheck.REFUSE_WHEN_FAR
+                        : locationCheck).name())
+                .param("locationRequired", locationCheck == LocationCheck.REQUIRE_NEAR)
                 .param("locationRadiusM", locationRadiusM)
                 .param("guestInstructions", guestInstructions)
                 .param("ownerId", ownerId)

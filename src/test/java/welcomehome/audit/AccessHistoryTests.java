@@ -80,6 +80,19 @@ class AccessHistoryTests {
                 .doesNotContain("Anteriores", "Más recientes");
     }
 
+    /** The guest may not have been there: until now only the email said so. */
+    @Test
+    void aDoorOpenedOnlyBecauseItsGuestConfirmedBeingThereSaysSo() {
+        data.attemptFrom(ana, "timestamptz '2030-07-01T10:00:00Z'", "OK", "opened", 3200, true);
+        data.attemptFrom(bea, "timestamptz '2030-07-02T10:00:00Z'", "OK", "opened", 40, false);
+        data.attemptFrom(ana, "timestamptz '2030-07-03T10:00:00Z'", "OK", "opened", null, true);
+
+        assertThat(body(history(casa, ""))).containsSubsequence(
+                "Ana", "<strong>Abierta tras confirmar que estaba delante</strong>",
+                "Bea", "<strong>Abierta</strong>", "a 40 m de la puerta",
+                "Ana", "<strong>Abierta tras confirmar que estaba delante</strong>", "a 3,2 km de la puerta");
+    }
+
     @Test
     void linkHistoryShowsOnlyThatLinksAttempts() {
         insertEvent(ana, "2030-07-01T10:00:00Z", "OK", "opened", "198.51.100.1");

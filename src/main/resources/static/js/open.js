@@ -20,6 +20,9 @@ const THUMB_REACH = 0.15;
 const KEY_MOVES = {ArrowRight: 25, ArrowUp: 25, PageUp: 25, ArrowLeft: -25, ArrowDown: -25, PageDown: -25,
     Home: -100, End: 100};
 
+// What a door that checks where its guests are may answer before opening: confirm, or try again with a fresh position.
+const LOCATION_OUTCOMES = ["confirm-location", "too-far", "location-required"];
+
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 // For a door that checks where its guests are: how long a guest asked to confirm, or refused as far, waits before
 // sliding again, long enough to read why; and how long the browser may take to say where the guest is, and how old
@@ -219,6 +222,15 @@ function setUp(door, slider) {
     }
 
     async function open(pin) {
+        if (slider.dataset.preview === "true") {
+            // An owner trying their link: say what the slide would do, and send nothing.
+            slider.disabled = true;
+            message.textContent = label.dataset.previewText;
+            message.dataset.outcome = "preview";
+            message.hidden = false;
+            setTimeout(enable, SLIDE_BACK_AFTER_MS);
+            return;
+        }
         if (needsPin && pin === undefined) {
             if (rememberedPin === null) {
                 askForPin();
@@ -282,16 +294,18 @@ function setUp(door, slider) {
             }
             stopAskingForPin();
             // The PIN passed: a guest asked to confirm where they are does not type it again.
-            rememberedPin = result === "confirm-location" || result === "too-far" ? pin : null;
+            rememberedPin = LOCATION_OUTCOMES.includes(result) ? pin : null;
         }
-        if (result === "confirm-location" || result === "too-far") {
+        if (LOCATION_OUTCOMES.includes(result)) {
             label.removeAttribute("aria-busy");
-            message.textContent = distance === null ? messages["confirm-location-unknown"]
+            // Refused for want of a position, the door's strictest check, which no confirming gets past.
+            message.textContent = result === "location-required" ? messages[result]
+                : distance === null ? messages["confirm-location-unknown"]
                 : messages[result].replace("{0}", distanceText(distance));
             message.dataset.outcome = result;
             message.hidden = false;
             confirming = result === "confirm-location";
-            askAfresh = result === "too-far";
+            askAfresh = !confirming;
             slider.value = 0;
             lastValue = 0;
             waitThenEnable(confirming ? label.dataset.anywayText : slide);

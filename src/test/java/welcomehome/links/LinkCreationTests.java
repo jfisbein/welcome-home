@@ -122,6 +122,20 @@ class LinkCreationTests {
                         "data-copy-url=\"" + url + "\"", "data-share-url=\"" + url + "\"", "<table");
     }
 
+    /** For an owner who may forget it: said once, on saving, for a link that can open for over 30 days. */
+    @Test
+    void aLinkThatCanOpenForOverThirtyDaysIsSaidSoOnCreatingIt() {
+        var oneMonth = create(madridLock, "Ana", "2030-11-01T15:00", "2030-12-01T15:00").getMvcResult().getFlashMap();
+        assertThat(oneMonth.get("createdDays")).as("30 days, to the minute").isNull();
+        assertThat(mvc.get().uri("/locks/" + madridLock + "/links").with(owner(ALICE)).flashAttrs(oneMonth))
+                .bodyText().doesNotContain("Anúlalo cuando deje de hacer falta");
+
+        var longer = create(madridLock, "Bea", "2030-11-01T15:00", "2031-01-30T15:00").getMvcResult().getFlashMap();
+        assertThat(longer.get("createdDays")).isEqualTo("90");
+        assertThat(mvc.get().uri("/locks/" + madridLock + "/links").with(owner(ALICE)).flashAttrs(longer))
+                .bodyText().contains("Este enlace puede abrir la puerta durante 90 días. Anúlalo cuando deje de hacer falta.");
+    }
+
     @Test
     void formIsPrefilledInTheLocksTimeZone() {
         assertThat(mvc.get().uri("/locks/" + newYorkLock + "/links").with(owner(ALICE)))

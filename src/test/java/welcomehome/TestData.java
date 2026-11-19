@@ -148,14 +148,26 @@ public final class TestData {
                 .params(result, reason, ip, link).update();
     }
 
+    /** An attempt at a door that checks where its guests are: how far the guest was, and whether they confirmed. */
+    public void attemptFrom(UUID link, String occurredAt, String result, String reason, @Nullable Integer distanceM,
+                            boolean confirmed) {
+        db.sql("INSERT INTO access_event (owner_id, link_id, lock_id, occurred_at, result, reason, distance_m, "
+                        + "location_confirmed) SELECT owner_id, id, lock_id, " + occurredAt + ", ?, ?, ?, ? "
+                        + "FROM access_link WHERE id = ?")
+                .params(result, reason, distanceM, confirmed, link).update();
+    }
+
     /**
      * Where a lock is, and how it checks where its guests are.
      *
      * @param check {@code OFF}, {@code CONFIRM_WHEN_FAR} or {@code REFUSE_WHEN_FAR}
      */
     public void locationCheck(UUID lock, double latitude, double longitude, String check, int radiusM) {
-        db.sql("UPDATE lock SET latitude = ?, longitude = ?, location_check = ?, location_radius_m = ? WHERE id = ?")
-                .params(latitude, longitude, check, radiusM, lock).update();
+        // The strictest check is stored as the one before it, with location_required (changeset 034).
+        var required = "REQUIRE_NEAR".equals(check);
+        db.sql("UPDATE lock SET latitude = ?, longitude = ?, location_check = ?, location_required = ?, "
+                        + "location_radius_m = ? WHERE id = ?")
+                .params(latitude, longitude, required ? "REFUSE_WHEN_FAR" : check, required, radiusM, lock).update();
     }
 
         /** A connection with a pasted API token, already encrypted for its owner. */

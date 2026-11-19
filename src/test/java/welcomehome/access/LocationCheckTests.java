@@ -162,6 +162,28 @@ class LocationCheckTests {
         assertThat(lastEvent()).isEqualTo("opened|-|-|true");
     }
 
+    /** Its owner chose it knowing that such a guest stays outside until they open for them. */
+    @Test
+    void theStrictestModeRefusesAGuestItCannotPlaceWhateverTheyConfirm() {
+        data.locationCheck(lockId, DOOR_LATITUDE, DOOR_LONGITUDE, "REQUIRE_NEAR", 150);
+
+        assertThat(open("lock", null, false)).hasStatus(HttpStatus.FORBIDDEN)
+                .bodyJson().isEqualTo("{\"result\": \"location-required\"}");
+        assertThat(lastEvent()).isEqualTo("location-required|-|-|false");
+        assertThat(open("lock", null, true)).as("confirming").hasStatus(HttpStatus.FORBIDDEN)
+                .bodyJson().isEqualTo("{\"result\": \"location-required\"}");
+        assertThat(open("lock", metresAway(50, 5000), true)).as("too vague to tell").hasStatus(HttpStatus.FORBIDDEN)
+                .bodyJson().isEqualTo("{\"result\": \"location-required\"}");
+        assertThat(lastEvent()).isEqualTo("location-required|-|5000|false");
+        assertThat(open("lock", metresAway(3000, 20), true)).as("far").hasStatus(HttpStatus.FORBIDDEN)
+                .bodyJson().isEqualTo("{\"result\": \"too-far\", \"distance\": 3000}");
+        nuki.verify(0, anyRequestedFor(anyUrl()));
+
+        assertThat(open("lock", metresAway(50, 20), false)).hasStatusOk()
+                .bodyJson().isEqualTo("{\"result\": \"opened\", \"distance\": 50}");
+        assertUnlatches(1);
+    }
+
     @Test
     void aDoorThatDoesNotCheckIgnoresAnyPosition() {
         data.locationCheck(lockId, DOOR_LATITUDE, DOOR_LONGITUDE, "OFF", 150);

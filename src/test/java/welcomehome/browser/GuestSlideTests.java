@@ -70,6 +70,26 @@ class GuestSlideTests extends BrowserTest {
         assertUnlatches(1);
     }
 
+    /** An owner trying their link: the slide says what it would do, and no request leaves the page. */
+    @Test
+    void inAPreviewASlideToTheEndSaysWhatItWouldDoAndSendsNothing() {
+        var requests = new java.util.ArrayList<String>();
+        page.onRequest(request -> requests.add(request.method() + " " + request.url()));
+        page.navigate(url("/o/" + signer.sign(linkId, 1) + "?preview=1"));
+        slider = page.locator("input[type=range]");
+
+        slideTo(1.0);
+
+        assertThat(page.locator(".open-result")).hasText("Con el enlace de verdad, la puerta se abriría ahora.");
+        assertThat(slider).isDisabled();
+        page.waitForCondition(() -> slider.isEnabled());
+        assertThat(slider).hasValue("0");
+        org.assertj.core.api.Assertions.assertThat(requests).noneMatch(request -> request.startsWith("POST"));
+        assertUnlatches(0);
+        org.assertj.core.api.Assertions.assertThat(migrator.sql("SELECT count(*) FROM access_event")
+                .query(Integer.class).single()).isZero();
+    }
+
     @Test
     void aSlideThatStopsShortGoesBackAndOpensNothing() {
         slideTo(0.7);

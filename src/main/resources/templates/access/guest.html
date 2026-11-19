@@ -5,6 +5,9 @@
 <main id="main" tabindex="-1" class="container">
     <article>
         <header><h1 th:text="${lockName}">Casa</h1></header>
+        <!-- An owner trying their link: nothing here reaches the lock. -->
+        <p th:if="${preview}" role="status"><mark th:text="#{guest.preview}">Vista de prueba: esto es lo que verá tu
+            invitado. Aquí deslizar no abre la puerta.</mark></p>
         <p th:if="${status.usable}" th:text="#{guest.validity(${#temporals.format(validFrom, #messages.msg('format.datetime'))}, ${#temporals.format(validUntil, #messages.msg('format.datetime'))}, ${timeZone})}">
             Este enlace abre la puerta del 1/11/2030 15:00 al 3/11/2030 11:00 (hora de Europa central).
         </p>
@@ -35,11 +38,13 @@
                     <span class="slide-label" aria-hidden="true" th:data-busy-text="#{guest.opening}"
                           th:data-locating-text="#{guest.locating}" th:data-wait-text="#{guest.wait('{0}')}"
                           th:data-anyway-text="#{guest.open-anyway}"
+                          th:data-preview-text="${pinRequired} ? #{guest.preview.result.pin} : #{guest.preview.result}"
                           th:text="#{guest.open}">Desliza para abrir</span>
                     <input type="range" th:id="${door.id}" min="0" max="100" step="1" value="0"
                            th:aria-label="${door.opener} ? #{guest.entrance.open} : #{guest.open}"
                            th:data-door="${door.door}" th:data-opener="${door.opener}"
-                           th:data-location-check="${door.checksLocation}" th:data-pin-required="${pinRequired}">
+                           th:data-location-check="${door.checksLocation}" th:data-pin-required="${pinRequired}"
+                           th:data-preview="${preview}">
                 </div>
                 <!-- After the slide, for a link with a PIN: open.js shows it, and sends the PIN with the slide. -->
                 <form class="pin-form" th:if="${pinRequired}" hidden>
@@ -65,7 +70,7 @@
                 Esta puerta no está disponible.</p>
         </section>
         <!-- Every slide is recorded in the owner's history, so the guest is told what is kept and for how long. -->
-        <p th:if="${canOpen}"><small th:text="#{guest.privacy(${ipRetentionDays}, ${retentionDays})}">
+        <p th:if="${canOpen and !preview}"><small th:text="#{guest.privacy(${ipRetentionDays}, ${retentionDays})}">
             Al deslizar, quien te dio este enlace podrá ver la hora, tu país y tu dirección IP. La IP se borra a los
             90 días; lo demás, a los 365.</small>
             <small th:if="${checksLocation}" th:text="#{guest.location-privacy}">También se comprueba a qué

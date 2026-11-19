@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        A column of its own rather than a fourth value of location_check: its CHECK lists three, widening it takes
+        dropping it, and a release before this one cannot read a value it does not know. With location_check
+        REFUSE_WHEN_FAR it is the app's REQUIRE_NEAR; a release before this one ignores it and refuses only a guest
+        clearly far.
+    -->
+    <changeSet id="034-location-required" author="welcome-home">
+        <comment>
+            Whether a lock that refuses guests far from it also refuses one whose position is unknown, who may
+            otherwise open by confirming.
+        </comment>
+        <addColumn tableName="lock">
+            <column name="location_required" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

@@ -23,7 +23,8 @@ class AccessEventDao {
     /** What every page's attempts are read from: each with the names of its link, its lock and its entrance. */
     private static final String ATTEMPTS = """
             SELECT e.id, e.occurred_at, k.time_zone, e.lock_id, k.name AS lock_name, e.link_id, l.label AS link_label,
-                   d.name AS entrance_name, e.result, e.reason, host(e.ip) AS ip, e.country, e.distance_m
+                   d.name AS entrance_name, e.result, e.reason, host(e.ip) AS ip, e.country, e.distance_m,
+                   e.location_confirmed
             FROM access_event e
             JOIN access_link l ON l.owner_id = e.owner_id AND l.id = e.link_id
             JOIN lock k ON k.owner_id = e.owner_id AND k.id = e.lock_id

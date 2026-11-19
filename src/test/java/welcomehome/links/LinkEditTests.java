@@ -87,6 +87,18 @@ class LinkEditTests {
     }
 
     @Test
+    void aLinkEditedToOpenForOverThirtyDaysIsSaidSo() {
+        assertThat(update(ALICE, linkId, "Ana", "2030-11-02T10:00", "2030-11-05T12:00").getMvcResult().getFlashMap()
+                .get("updatedDays")).isNull();
+
+        var flash = update(ALICE, linkId, "Ana", "2030-11-02T10:00", "2031-03-02T10:00").getMvcResult().getFlashMap();
+
+        assertThat(flash.get("updatedDays")).isEqualTo("120");
+        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(owner(ALICE)).flashAttrs(flash))
+                .bodyText().contains("Este enlace puede abrir la puerta durante 120 días.");
+    }
+
+    @Test
     void expiredLinkCanBeExtended() {
         migrator.sql("UPDATE access_link SET valid_from = now() - interval '3 days', valid_until = now() - interval '1 day'")
                 .update();

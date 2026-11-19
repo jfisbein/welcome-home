@@ -36,6 +36,9 @@
                     <a th:href="@{/locks/{lockId}/history(lockId=${lock.id},link=${link.id})}"
                        role="button" class="outline secondary" th:text="#{common.history}">Historial</a>
                     <th:block th:if="${link.status.usable}">
+                        <a th:href="${link.url + '?preview=1'}" target="_blank" rel="noopener" role="button"
+                           class="outline secondary" th:title="#{links.preview.title}"
+                           th:text="#{links.preview}">Ver como invitado</a>
                         <th:block th:replace="~{links/table :: send(${link}, ${lock}, true)}"></th:block>
                         <form th:action="@{/links/{id}/regenerate(id=${link.id})}" method="post"
                               th:data-confirm="#{links.regenerate.confirm(${link.label})}">

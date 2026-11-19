@@ -142,6 +142,21 @@ class LinkDao {
                 .list();
     }
 
+    /** How many links of each lock are within their dates and not revoked, by the lock's id. */
+    Map<UUID, Integer> countOpenByLock(UUID ownerId) {
+        var counts = new HashMap<UUID, Integer>();
+        jdbc.sql("""
+                        SELECT lock_id, count(*) AS links FROM access_link
+                        WHERE owner_id = :ownerId AND revoked_at IS NULL AND valid_from <= now() AND valid_until > now()
+                        GROUP BY lock_id
+                        """)
+                .param("ownerId", ownerId)
+                .query(rs -> {
+                    counts.put(rs.getObject("lock_id", UUID.class), rs.getInt("links"));
+                });
+        return counts;
+    }
+
     List<StoredLink> findByLock(UUID ownerId, UUID lockId) {
         return jdbc.sql("""
                         SELECT id, label, token_version, valid_from, valid_until, revoked_at, pin_encrypted IS NOT NULL AS has_pin,

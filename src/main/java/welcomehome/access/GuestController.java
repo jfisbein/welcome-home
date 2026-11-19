@@ -11,12 +11,14 @@ import java.util.Map;
 import java.util.Objects;
 
 import jakarta.servlet.http.HttpServletResponse;
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.MessageSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import welcomehome.audit.AccessEvents;
 import welcomehome.audit.AccessOutcome;
 import welcomehome.config.TimeZoneNames;
@@ -54,8 +56,12 @@ class GuestController {
     }
 
     @GetMapping("/o/{token}")
-    String guestPage(@PathVariable String token, Locale locale, Model model, HttpServletResponse response) {
+    String guestPage(@PathVariable String token, @RequestParam(required = false) @Nullable String preview,
+                     Locale locale, Model model, HttpServletResponse response) {
         response.setHeader("X-Robots-Tag", "noindex, nofollow");
+        // For an owner to see what their guest will: the same page, whose slider says what it would do and sends
+        // nothing (open.js). Whoever holds the link may ask for it, as it does less than the link.
+        model.addAttribute("preview", preview != null);
         model.addAttribute("noindex", true);
         model.addAttribute("sessionless", true);
         var now = Instant.now();

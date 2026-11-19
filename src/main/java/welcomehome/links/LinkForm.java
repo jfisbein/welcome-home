@@ -1,5 +1,6 @@
 package welcomehome.links;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -24,6 +25,19 @@ record LinkForm(String label, String validFrom, String validUntil, ScheduleForm 
 
     static final int MAX_LABEL_LENGTH = 100;
     private static final DateTimeFormatter INPUT_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
+
+    /** A link that can open for longer than this is one its owner may forget: the page says so on saving it. */
+    static final Duration LONG = Duration.ofDays(30);
+
+    /**
+     * For how long a link can still open, if that is long enough for its owner to be reminded to revoke it.
+     *
+     * @return the whole days from now, or from its start if later, to its end, as text; null up to {@link #LONG}
+     */
+    static @Nullable String daysIfLong(Instant validFrom, Instant validUntil, Instant now) {
+        var open = Duration.between(validFrom.isAfter(now) ? validFrom : now, validUntil);
+        return open.compareTo(LONG) > 0 ? String.valueOf(open.toDays()) : null;
+    }
 
     /** A new link's form: from now, for one day. */
     static LinkForm startingNow(ZoneId zone) {

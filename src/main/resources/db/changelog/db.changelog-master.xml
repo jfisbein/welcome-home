@@ -42,5 +42,6 @@
     <include file="changes/031-access-link-pin.xml" relativeToChangelogFile="true"/>
     <include file="changes/032-lock-offline-report.xml" relativeToChangelogFile="true"/>
     <include file="changes/033-link-pin-failures.xml" relativeToChangelogFile="true"/>
+    <include file="changes/034-location-required.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import welcomehome.audit.RecentAttempts;
 import welcomehome.auth.CurrentOwner;
 import welcomehome.auth.EmailVerification;
+import welcomehome.links.OpenLinks;
 import welcomehome.locks.LockChecks;
 import welcomehome.locks.Locks;
 import welcomehome.nuki.LockProvider;
@@ -26,9 +27,11 @@ class HomeController {
     private final Locks locks;
     private final LockChecks lockChecks;
     private final RecentAttempts recentAttempts;
+    private final OpenLinks openLinks;
 
     HomeController(LockProvider lockProvider, EmailVerification emailVerification, Locks locks,
-                   LockChecks lockChecks, RecentAttempts recentAttempts) {
+                   LockChecks lockChecks, RecentAttempts recentAttempts, OpenLinks openLinks) {
+        this.openLinks = openLinks;
         this.lockProvider = lockProvider;
         this.emailVerification = emailVerification;
         this.locks = locks;
@@ -45,6 +48,7 @@ class HomeController {
         model.addAttribute("nukiConnection", lockProvider.findConnection(owner.id()).orElse(null));
         model.addAttribute("emailVerified", emailVerification.isVerified(owner.id()));
         model.addAttribute("locks", ownerLocks);
+        model.addAttribute("openLinks", openLinks.countByLock(owner.id()));
         model.addAttribute("attempts", recentAttempts.latest(owner.id(), RECENT_ATTEMPTS, locale));
         return "home";
     }

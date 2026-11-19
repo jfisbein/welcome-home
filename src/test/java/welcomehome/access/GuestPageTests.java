@@ -110,6 +110,21 @@ class GuestPageTests {
         assertThat(body(guestPage(signer.sign(active, 1)))).as("unavailable").doesNotContain("Deslizar abre");
     }
 
+    /** For its owner to see what their guest will: marked as such, and nothing is recorded, so nothing is said of it. */
+    @Test
+    void theGuestPageAsAPreviewSaysSoAndTellsItsSliderToSendNothing() {
+        var token = signer.sign(insertLink("now() - interval '1 day'", "now() + interval '1 day'", false), 1);
+
+        assertThat(body(guestPage(token))).contains("data-preview=\"false\"").doesNotContain("Vista de prueba");
+
+        var preview = body(mvc.get().uri("/o/" + token + "?preview=1").exchange());
+        assertThat(preview).contains("Vista de prueba: esto es lo que verá tu invitado. Aquí deslizar no abre la "
+                        + "puerta ni envía nada a la cerradura.", "data-preview=\"true\"",
+                        "data-preview-text=\"Con el enlace de verdad, la puerta se abriría ahora.\"",
+                        "Deslizar abre la puerta de verdad")
+                .doesNotContain("Al deslizar, quien te dio este enlace");
+    }
+
     /** Only where the guest can slide, as only sliding records anything. */
     @Test
     void theGuestIsToldWhatSlidingKeepsAndForHowLong() {
@@ -280,9 +295,9 @@ class GuestPageTests {
 
         assertThat(body(guestPage(signer.sign(link, 1))))
                 .containsPattern("(?s)<h2>Portal</h2>.*<input type=\"range\" id=\"open-entrance\"[^>]*"
-                        + "aria-label=\"Desliza para abrir el portal\"\\s+data-door=\"entrance\" data-opener=\"true\"\\s+data-location-check=\"false\"\\s+data-pin-required=\"false\">"
+                        + "aria-label=\"Desliza para abrir el portal\"\\s+data-door=\"entrance\" data-opener=\"true\"\\s+data-location-check=\"false\"\\s+data-pin-required=\"false\"\\s+data-preview=\"false\">"
                         + ".*<h2>Puerta</h2>.*<input type=\"range\" id=\"open\"[^>]*"
-                        + "aria-label=\"Desliza para abrir\"\\s+data-door=\"lock\" data-opener=\"false\"\\s+data-location-check=\"false\"\\s+data-pin-required=\"false\">")
+                        + "aria-label=\"Desliza para abrir\"\\s+data-door=\"lock\" data-opener=\"false\"\\s+data-location-check=\"false\"\\s+data-pin-required=\"false\"\\s+data-preview=\"false\">")
                 .as("each slider carries its own messages")
                 .contains("Portal abierto: empújalo ya", "Puerta abierta: empújala.");
     }

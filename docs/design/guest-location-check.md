@@ -103,6 +103,8 @@ Within v2. The migrations only add nullable columns, columns with a default, and
 
 Off for every lock. The owner turns the stricter mode on for their own, with a test link, and goes through the phones above; then decides whether new locks start with a mode on, which one, and the radius.
 
+A fourth mode since 2026-11-19, `REQUIRE_NEAR` (the user's choice, review item MIS-04): "Si está claramente lejos, no abrir" still opens for a guest who refuses the permission, by confirming, which its name does not say. The new one opens only for a guest whose position is known and near; without a position, or with one too vague, it answers `location-required`, whatever the guest confirms, and the page tells them to allow their location and asks afresh on the next slide. It leaves a guest at the door, which the goal above ruled out for the other modes, so it is never a default and its option says what it costs. It is a column, `lock.location_required`, with `location_check` `REFUSE_WHEN_FAR`, not a fourth value: the CHECK on `location_check` lists three, and a release before it could not read a lock with a fourth; rolled back, such a lock refuses only a guest clearly far.
+
 Decided on 2026-11-19 (the user's choice, review item MIS-01): a lock imported with a position from Nuki starts with `CONFIRM_WHEN_FAR` and the default radius, as with the check off a slide anywhere opens the door and an owner had to know of the check to turn it on. Locks already imported are not changed: the home page and `/locks` say of each lock that does not check that its links open from anywhere, with a link to its settings.
 
 ## Work

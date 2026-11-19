@@ -43,6 +43,14 @@
                         Nuki</span></small>
                     <th:block th:replace="~{fragments/lock-warnings :: warnings(${lockWarnings.of(lock.id)})}"></th:block>
                     <th:block th:replace="~{fragments/lock-warnings :: unchecked(${lock})}"></th:block>
+                    <!-- A link made for a guest long gone still opens the door: how many do, by their dates. -->
+                    <th:block th:with="open=${openLinks[lock.id]}">
+                        <small class="links-open" th:if="${open != null}">
+                            <a th:href="@{/locks/{id}/links(id=${lock.id})}"
+                               th:text="${open == 1} ? #{home.links-open.one} : #{home.links-open.many(${open})}">2
+                                enlaces pueden abrir ahora</a>
+                        </small>
+                    </th:block>
                 </td>
                 <td>
                     <p th:if="${lock.active}">
