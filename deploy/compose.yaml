@@ -2,8 +2,17 @@
 # first (see docs/deployment.md). No port is published: the Cloudflare tunnel is the only way in.
 name: welcome-home
 
+# Each container keeps at most 50 MB of logs, in five files: without a limit they grow until the disk is full,
+# and the app's name owners' email addresses, which no retention would then reach.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "5"
+
 services:
   db:
+    logging: *logging
     image: postgres:18-alpine
     restart: unless-stopped
     environment:
@@ -36,6 +45,7 @@ services:
       retries: 5
 
   app:
+    logging: *logging
     # The latest release of major version 2, so that Dockge's Update upgrades it: releases within a major are
     # backward compatible (AGENTS.md, Conventions). The running release is the image's
     # org.opencontainers.image.version label. To roll back, pin the previous one, such as v2.0.0.
@@ -82,7 +92,8 @@ services:
     networks:
       - backend
       - frontend
-    # The JVM sizes its heap to 75% of this (MaxRAMPercentage in the Dockerfile), not of the whole host. Measured
+    # The JVM sizes its heap to 60% of this (MaxRAMPercentage in the Dockerfile), not of the whole host, and exits
+    # if it ever fills, for Docker to start it again. Measured
     # on v1.5.0: about 300 MiB after starting and 400 MiB after 12,000 requests, with 40 MB of live heap.
     mem_limit: 1g
     # An opening waits up to 15 s for the lock to confirm, and is recorded only then: Docker's default 10 s would
@@ -104,6 +115,7 @@ services:
       start_period: 60s
 
   backup:
+    logging: *logging
     image: postgres:18-alpine
     restart: unless-stopped
     depends_on:
@@ -143,6 +155,7 @@ services:
       start_interval: 10s
 
   cloudflared:
+    logging: *logging
     # Cloudflare supports cloudflared releases up to a year old. Pin one, such as 2026.10.0, if an update breaks
     # the tunnel.
     image: cloudflare/cloudflared:latest

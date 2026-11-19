@@ -80,7 +80,22 @@ docker compose exec -T backup cat "$dump" > "$work/copy.dump"
 sql "DELETE FROM owner" > /dev/null
 expect "the data is gone before restoring" "$(sql 'SELECT count(*) FROM access_link')" 0
 
-./restore.sh "$work/copy.dump"
+# The wrong file changes nothing and stops nothing.
+echo "not a dump" > "$work/wrong.dump"
+if ./restore.sh "$work/wrong.dump" > /dev/null 2>&1; then
+    echo "FAILED: a file that is no dump was restored" >&2
+    exit 1
+fi
+expect "the wrong file left the database there" "$(sql 'SELECT count(*) FROM access_link')" 0
+expect "and the app running" "$(docker compose ps --status running --services | grep -c '^app$')" 1
+
+dumps_before="$(ls backups | wc -l | tr -d ' ')"
+./restore.sh "$work/copy.dump" > "$work/restore.log" 2>&1 || { cat "$work/restore.log" >&2; exit 1; }
+cat "$work/restore.log"
+# One before replacing the database, and the backup service's own as it starts again.
+expect "what was there was dumped before it was replaced" \
+    "$(grep -c 'Backed up to /backups/' "$work/restore.log")" 1
+expect "and the dump is in backups" "$(( $(ls backups | wc -l | tr -d ' ') - dumps_before >= 1 ))" 1
 
 expect "restored the link" "$(sql 'SELECT label FROM access_link')" Ana
 expect "the restored database compares text by PostgreSQL's own rules" \

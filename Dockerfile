@@ -20,4 +20,8 @@ COPY --from=layers /workspace/extracted/application/ ./
 USER 10001:10001
 EXPOSE 8080
 # Compact object headers (JDK 25, JEP 519): 8-byte object headers instead of 12, so the same objects take less heap.
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-XX:+UseCompactObjectHeaders", "org.springframework.boot.loader.launch.JarLauncher"]
+# The heap takes at most 60% of the container's memory, which leaves room for what is not heap (metaspace, threads,
+# the code cache, direct buffers): at 75% of 1 GiB the kernel could kill the container before the heap filled.
+# A JVM that runs out of heap exits, so that Docker starts it again: one that stays up after an OutOfMemoryError
+# may answer its health check and nothing else.
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=60", "-XX:+ExitOnOutOfMemoryError", "-XX:+UseCompactObjectHeaders", "org.springframework.boot.loader.launch.JarLauncher"]

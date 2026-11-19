@@ -105,7 +105,7 @@ Once the workflow has finished, on the server:
    docker inspect welcome-home-app-1 --format '{{ index .Config.Labels "org.opencontainers.image.version" }}'
    ```
 
-No dump first. Within a major version migrations only add to the schema, and each runs in a transaction: a migration that fails leaves the database as it was, and the previous release keeps working with one that succeeds (`MigrationCompatibilityTests` checks it). The `backup` service's nightly dump is still there.
+No dump first. Within a major version migrations only add to the schema, and each runs in a transaction: a migration that fails leaves the database as it was, and the previous release keeps working with one that succeeds (`MigrationCompatibilityTests` checks it). The `backup` service's nightly dump is still there, and `docker compose exec backup /backup/backup.sh now` takes one in a few seconds for whoever would rather have it: it costs nothing and is not required.
 
 A new major version, such as `v3`, may break compatibility: read its release notes, take a dump first (`docker compose exec backup /backup/backup.sh now`), and change the `app` image to `:v3`, with whatever else the notes ask for.
 
@@ -129,7 +129,7 @@ ls -lt backups/                                   # the newest dumps first
 ./restore.sh backups/welcome_home-YYYYMMDD-HHMMSS.dump
 ```
 
-Run it as root: `backups/` is readable only by root and the `backup` service's user. The script stops `app` and `backup`, replaces the database with the dump and starts both again. Whatever happened after the dump is lost: owners, links and history alike.
+Run it as root: `backups/` is readable only by root and the `backup` service's user. The script checks that the file is a dump before it touches anything, stops `app` and `backup`, dumps what the database holds to `backups/`, replaces the database with the dump and starts both again. Whatever happened after the dump you restore is no longer in the database, owners, links and history alike, but it is in the dump the script has just taken, whose name it prints: restore that one to go back. If that dump cannot be taken, as with a database that no longer reads, the script stops with the database untouched; `SKIP_DUMP=1 ./restore.sh <dump>` goes on without it, and `docker compose up --detach` starts `app` and `backup` again instead.
 
 The script creates the database itself, as the migrator's and with who may connect to it (`app_user`, and `backup_reader` if the role exists), and then restores the dump into it, so a dump from before `backup_reader` existed needs nothing more. The database it creates compares text by PostgreSQL's own rules, whatever the dump's did (see "Move the database to PostgreSQL's own collation"). Not while Databasus is dumping: a database that someone is connected to cannot be dropped, and the script stops before changing anything. To start from Databasus's copy in B2, such as on a new server, download the backup in Databasus (Download, a `pg_dump` custom archive) and pass its path to `restore.sh`.
 
