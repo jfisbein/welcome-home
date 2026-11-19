@@ -11,6 +11,7 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * An owner's passkeys, in Spring Security's WebAuthn tables. They have no Row-Level Security, as Spring Security
@@ -67,11 +68,17 @@ class PasskeyDao {
 
     /**
      * Deletes one of the owner's passkeys, unless it is their last: an owner without passkeys could not sign
-     * in. A single statement, so that two concurrent deletions cannot remove the last two.
+     * in. The owner's entry in the passkey store is locked first: a single statement is not enough, as two
+     * deletions at once of different passkeys would each count the other's as still there, and remove both.
      *
      * @return whether the passkey was deleted
      */
+    @Transactional
     boolean deleteUnlessLast(UUID ownerId, String credentialId) {
+        jdbc.sql("SELECT id FROM user_entities WHERE owner_id = :ownerId FOR UPDATE")
+                .param("ownerId", ownerId)
+                .query((rs, row) -> rs.getString("id"))
+                .list();
         return jdbc.sql("""
                         DELETE FROM user_credentials c
                         USING user_entities u

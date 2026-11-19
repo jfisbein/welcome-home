@@ -21,19 +21,17 @@ enum NotificationKind {
     LOCK_PROBLEMS;
 
     /**
-     * The kind of an attempt. An unavailable door is a failure, not a denial: the link was fine, and the owner is
-     * the one who must act.
+     * The kind of an attempt, as {@link AccessOutcome#news()} says what it is to its owner.
      *
      * @return the kind, or null for an attempt no email is about: a guest asked to confirm where they are, or
      *         to type a PIN, whose mistake was caught
      */
     static @Nullable NotificationKind of(AccessOutcome outcome) {
-        return switch (outcome) {
+        return switch (outcome.news()) {
             case OPENED -> OPENED;
-            case NOT_CONFIRMED, UNAVAILABLE, NUKI_ERROR, LOCK_FAILED, NIGHT_MODE, MISSING_PERMISSION -> FAILED;
-            case INVALID, TOO_MANY_ATTEMPTS, REVOKED, NOT_YET_VALID, EXPIRED, OUTSIDE_SCHEDULE, TOO_FAR, WRONG_PIN,
-                 PIN_LOCKED, LOCATION_REQUIRED -> DENIED;
-            case CONFIRM_LOCATION, PIN_REQUIRED -> null;
+            case FAILED -> FAILED;
+            case DENIED -> DENIED;
+            case NONE -> null;
         };
     }
 }

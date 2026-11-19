@@ -37,6 +37,9 @@ class PasskeyRecoveryTests {
     InvitationService invitations;
 
     @Autowired
+    OwnerAccounts accounts;
+
+    @Autowired
     JdbcClient jdbc;
 
     @Autowired
@@ -87,6 +90,27 @@ class PasskeyRecoveryTests {
     }
 
     /** So that the owner can tell the lost device's passkey from the new one, and delete it. */
+    /**
+     * The recovery read her entry in the passkey store when it began: saving it again would name her by the email
+     * she had then, and the store finds a passkey's owner by that name.
+     */
+    @Test
+    void anOwnerWhoChangesTheirEmailWhileRecoveringKeepsTheirPasskeysAndIsSignedInUnderTheNewOne() {
+        var recovery = recoveryPath();
+        var session = new MockHttpSession();
+        var options = body(post(session, recovery + "/options", "{}"));
+
+        assertThat(accounts.changeEmail(aliceId, "alicia@example.com")).isTrue();
+        assertThat(post(session, recovery + "/register", newDevice.create(options))).hasStatusOk();
+
+        assertThat(jdbc.sql("SELECT u.name || '|' || (u.owner_id = ?) || '|' || count(c.credential_id) "
+                        + "FROM user_entities u JOIN user_credentials c ON c.user_entity_user_id = u.id "
+                        + "GROUP BY u.name, u.owner_id").param(aliceId).query(String.class).list())
+                .containsExactly("alicia@example.com|true|2");
+        assertThat(mvc.get().uri("/").session(session)).as("signed in, under the email she has now")
+                .hasStatusOk().bodyText().contains("alicia@example.com");
+    }
+
     @Test
     void theNewPasskeyHasTheNameGivenAndTheOldOneKeepsItsOwn() {
         var recovery = recoveryPath();

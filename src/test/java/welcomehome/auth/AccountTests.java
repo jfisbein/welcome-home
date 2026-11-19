@@ -57,6 +57,9 @@ class AccountTests {
     InvitationService invitations;
 
     @Autowired
+    OwnerAccounts accounts;
+
+    @Autowired
     GreenMail mail;
 
     @Autowired
@@ -211,6 +214,55 @@ class AccountTests {
         data.admin(BOB);
         assertThat(mvc.get().uri("/settings/account").session(session)).bodyText()
                 .contains("Darme de baja").doesNotContain("Eres el único administrador");
+    }
+
+    /** Whatever the pages offer: a request sent anyway, by anyone, never deletes the only admin, nor touches them. */
+    @Test
+    void theOnlyAdminIsNeverDeletedAndTwoAdminsDeletedAtOnceLeaveOne() throws Exception {
+        migrator.sql("UPDATE owner SET is_admin = true WHERE id = ?").param(aliceId).update();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> accounts.delete(aliceId))
+                .isInstanceOf(LastAdminException.class);
+        assertThat(migrator.sql("SELECT email FROM owner").query(String.class).list()).isEqualTo(List.of(ALICE));
+
+        var bobId = data.admin(BOB);
+        var start = new java.util.concurrent.CountDownLatch(1);
+        try (var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            var deletions = List.of(aliceId, bobId).stream().map(id -> executor.submit(() -> {
+                start.await();
+                try {
+                    return accounts.delete(id);
+                } catch (LastAdminException e) {
+                    return false;
+                }
+            })).toList();
+            start.countDown();
+
+            assertThat(List.of(deletions.get(0).get(), deletions.get(1).get())).containsExactlyInAnyOrder(true, false);
+        }
+        assertThat(migrator.sql("SELECT count(*) FROM owner WHERE is_admin").query(Integer.class).single()).isEqualTo(1);
+    }
+
+    /** What makes the two deletions above take their turn: deleting any owner waits for whoever holds an admin's row. */
+    @Test
+    void aDeletionWaitsForAnotherThatHoldsTheAdminsRows() throws Exception {
+        migrator.sql("UPDATE owner SET is_admin = true WHERE id = ?").param(aliceId).update();
+        var bobId = data.admin(BOB);
+
+        try (var other = TestDatabaseConfiguration.newSessionsAsAppUser(postgres).getConnection();
+             var executor = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+            other.setAutoCommit(false);
+            try (var lock = other.prepareStatement("SELECT id FROM owner WHERE id = ? FOR UPDATE")) {
+                lock.setObject(1, aliceId);
+                lock.execute();
+            }
+            var deletion = executor.submit(() -> accounts.delete(bobId));
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                            () -> deletion.get(500, java.util.concurrent.TimeUnit.MILLISECONDS))
+                    .isInstanceOf(java.util.concurrent.TimeoutException.class);
+            other.commit();
+            assertThat(deletion.get(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+        }
     }
 
     @Test

@@ -331,14 +331,14 @@ class OwnerNotifier {
 
         static EmailKeys of(AccessOutcome outcome) {
             var reason = "notification.reason." + outcome.code();
-            return switch (outcome) {
+            if (outcome == AccessOutcome.NOT_CONFIRMED) {
+                return new EmailKeys("notification.not-confirmed", null);
+            }
+            return switch (outcome.news()) {
                 case OPENED -> new EmailKeys("notification.opened", null);
-                case NOT_CONFIRMED -> new EmailKeys("notification.not-confirmed", null);
-                case UNAVAILABLE, NUKI_ERROR, LOCK_FAILED, NIGHT_MODE, MISSING_PERMISSION ->
-                        new EmailKeys("notification.failed", reason);
-                case INVALID, TOO_MANY_ATTEMPTS, REVOKED, NOT_YET_VALID, EXPIRED, OUTSIDE_SCHEDULE, TOO_FAR,
-                     CONFIRM_LOCATION, PIN_REQUIRED, WRONG_PIN, PIN_LOCKED, LOCATION_REQUIRED ->
-                        new EmailKeys("notification.denied", reason);
+                case FAILED -> new EmailKeys("notification.failed", reason);
+                // NONE is never emailed: NotificationKind has no kind for it.
+                case DENIED, NONE -> new EmailKeys("notification.denied", reason);
             };
         }
     }

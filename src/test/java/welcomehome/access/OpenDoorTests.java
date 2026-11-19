@@ -594,6 +594,53 @@ class OpenDoorTests {
         assertThat(lastEvent()).startsWith("DENIED|too-many-attempts|");
     }
 
+    /** An error here would have the guest slide again, and the door open twice. */
+    @Test
+    void anAttemptThatCannotBeRecordedStillTellsTheGuestWhatHappenedAtTheDoor() {
+        nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));
+        lockLogShowsUnlatch(0);
+        var token = signer.sign(insertLink("now() - interval '1 hour'", "now() + interval '1 day'"), 1);
+        migrator.sql("REVOKE INSERT ON access_event FROM app_user").update();
+        try {
+            assertThat(open(token)).hasStatusOk().bodyJson().extractingPath("$.result").isEqualTo("opened");
+        } finally {
+            migrator.sql("GRANT INSERT ON access_event TO app_user").update();
+        }
+
+        nuki.verify(1, postRequestedFor(urlPathEqualTo("/smartlock/17/action")));
+        assertThat(migrator.sql("SELECT count(*) FROM access_event").query(Integer.class).single()).isZero();
+    }
+
+    /**
+     * Something that no answer of Nuki's explains fails once the lock has been asked: here the database, while Nuki
+     * takes its time to accept the unlatch. The guest is told that the door may have opened, and it is recorded.
+     */
+    @Test
+    void whateverFailsOnceTheLockWasAskedIsAnUnconfirmedOpeningAndIsRecorded() throws Exception {
+        nuki.stubFor(post("/smartlock/17/action").willReturn(status(204).withFixedDelay(1500)));
+        lockLogShowsUnlatch(0);
+        var token = signer.sign(insertLink("now() - interval '1 hour'", "now() + interval '1 day'"), 1);
+
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var opening = executor.submit(() -> open(token));
+            var deadline = Instant.now().plusSeconds(5);
+            while (nuki.findAll(postRequestedFor(urlPathEqualTo("/smartlock/17/action"))).isEmpty()
+                   && Instant.now().isBefore(deadline)) {
+                Thread.sleep(10);
+            }
+            migrator.sql("REVOKE SELECT ON nuki_connection FROM app_user").update();
+            try {
+                assertThat(opening.get(20, TimeUnit.SECONDS)).hasStatus(HttpStatus.ACCEPTED)
+                        .bodyJson().extractingPath("$.result").isEqualTo("not-confirmed");
+            } finally {
+                migrator.sql("GRANT SELECT ON nuki_connection TO app_user").update();
+            }
+        }
+
+        assertThat(lastEvent()).startsWith("OK|not-confirmed|");
+        nuki.verify(1, postRequestedFor(urlPathEqualTo("/smartlock/17/action")));
+    }
+
     @Test
     void simultaneousOpeningsOfALockSendOneActionAndShareItsResult() throws Exception {
         nuki.stubFor(post("/smartlock/17/action").willReturn(status(204).withFixedDelay(1000)));

@@ -35,10 +35,15 @@ public class OwnerAccounts {
      *
      * @param ownerId the owner
      * @return whether there was such an owner
+     * @throws LastAdminException if the owner is the only admin, who stays so that an admin is always left
      */
     public boolean delete(UUID ownerId) {
         if (owners.findById(ownerId).isEmpty()) {
             return false;
+        }
+        // Before anything of theirs is touched. The deletion checks again, under a lock, for two sent at once.
+        if (owners.isOnlyAdmin(ownerId)) {
+            throw new LastAdminException();
         }
         events.publishEvent(new OwnerDeleting(ownerId));
         return owners.delete(ownerId);

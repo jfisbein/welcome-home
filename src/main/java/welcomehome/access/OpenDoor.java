@@ -41,7 +41,8 @@ import welcomehome.nuki.PendingAction;
  * resolve_link returned, which the verified MAC vouches for, and once per lock at a time: concurrent guests share
  * one action and its result.
  * The result waits for Nuki to report the unlatch or the lock's log to confirm it, also when Nuki did not answer
- * the unlatch, as it may have run it. Every attempt with a valid link is recorded in the owner's history.
+ * the unlatch, as it may have run it. Every attempt with a valid link is recorded in the owner's history; once the
+ * lock may have been asked, nothing that fails afterwards, recording included, changes what the guest is told.
  */
 @Service
 class OpenDoor {
@@ -107,10 +108,17 @@ class OpenDoor {
         var entrance = door == Door.ENTRANCE ? guestLinks.entrance(link).orElse(null) : null;
         var attempt = checkAndUnlatch(guestLink, door, entrance, position, confirmed, pin);
         var location = attempt.location();
-        accessEvents.record(new AccessEvent(link.ownerId(), link.linkId(), link.lockId(),
-                entrance == null ? null : entrance.id(), attempt.outcome(), ip, country,
-                location == null ? null : location.distanceM(), location == null ? null : location.accuracyM(),
-                location == null ? null : location.byConfirmation()));
+        try {
+            accessEvents.record(new AccessEvent(link.ownerId(), link.linkId(), link.lockId(),
+                    entrance == null ? null : entrance.id(), attempt.outcome(), ip, country,
+                    location == null ? null : location.distanceM(), location == null ? null : location.accuracyM(),
+                    location == null ? null : location.byConfirmation()));
+        } catch (RuntimeException e) {
+            // The door has been dealt with already: an error here would have the guest slide again, and open it
+            // twice. The owner's history misses the attempt, which this line is all that tells.
+            log.error("Could not record an attempt with link {} that came to {}", link.linkId(),
+                    attempt.outcome().code(), e);
+        }
         return new Opening(attempt.outcome(), location == null ? null : location.distanceM());
     }
 
@@ -222,7 +230,15 @@ class OpenDoor {
     }
 
     private AccessOutcome unlatchAndConfirm(UUID ownerId, UUID lockId, long nukiSmartlockId) {
-        var outcome = unlatchAndAwait(ownerId, nukiSmartlockId);
+        AccessOutcome outcome;
+        try {
+            outcome = unlatchAndAwait(ownerId, nukiSmartlockId);
+        } catch (RuntimeException e) {
+            // Whatever failed, the lock may have been asked: the guest is told to push the door before sliding again,
+            // not sent an error that reads as nothing having happened, and the attempt is recorded.
+            log.error("An opening of lock {} failed in a way no Nuki answer explains", lockId, e);
+            outcome = AccessOutcome.NOT_CONFIRMED;
+        }
         try {
             noteReachability(ownerId, lockId, outcome);
         } catch (RuntimeException e) {

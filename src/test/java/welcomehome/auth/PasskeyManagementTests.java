@@ -40,6 +40,9 @@ class PasskeyManagementTests {
     JdbcClient jdbc;
 
     @Autowired
+    PasskeyDao passkeys;
+
+    @Autowired
     PostgreSQLContainer postgres;
 
     final PasskeyEmulator phone = new PasskeyEmulator(IntegrationTest.BASE_URL);
@@ -177,6 +180,53 @@ class PasskeyManagementTests {
         assertThat(AnnouncingUserCredentialRepository.storedLabel("   ")).isEqualTo("Passkey");
         assertThat(AnnouncingUserCredentialRepository.storedLabel(null)).isEqualTo("Passkey");
         assertThat(AnnouncingUserCredentialRepository.storedLabel(" Portátil ")).isEqualTo("Portátil");
+    }
+
+    /** Each deletion alone leaves one, so each would pass a count of its own: together they must leave one too. */
+    @Test
+    void twoPasskeysDeletedAtOnceLeaveOne() throws Exception {
+        addLaptop();
+        var alice = jdbc.sql("SELECT id FROM owner WHERE email = ?").param(ALICE).query(java.util.UUID.class).single();
+        var ids = List.of(credentialIdOf("Passkey"), credentialIdOf("Portátil"));
+        var start = new java.util.concurrent.CountDownLatch(1);
+
+        try (var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            var deletions = ids.stream().map(id -> executor.submit(() -> {
+                start.await();
+                return passkeys.deleteUnlessLast(alice, id);
+            })).toList();
+            start.countDown();
+
+            assertThat(List.of(deletions.get(0).get(), deletions.get(1).get())).containsExactlyInAnyOrder(true, false);
+        }
+        assertThat(labels()).hasSize(2).contains("Móvil de Bob");
+    }
+
+    /**
+     * What makes the test above hold whenever the two meet: a deletion waits for whoever holds the owner's entry in
+     * the passkey store, as another deletion does.
+     */
+    @Test
+    void aDeletionWaitsForAnotherThatHoldsTheOwnersEntryInThePasskeyStore() throws Exception {
+        addLaptop();
+        var alice = jdbc.sql("SELECT id FROM owner WHERE email = ?").param(ALICE).query(java.util.UUID.class).single();
+        var laptopId = credentialIdOf("Portátil");
+
+        try (var other = TestDatabaseConfiguration.newSessionsAsAppUser(postgres).getConnection();
+             var executor = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+            other.setAutoCommit(false);
+            try (var lock = other.prepareStatement("SELECT id FROM user_entities WHERE owner_id = ? FOR UPDATE")) {
+                lock.setObject(1, alice);
+                lock.execute();
+            }
+            var deletion = executor.submit(() -> passkeys.deleteUnlessLast(alice, laptopId));
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                            () -> deletion.get(500, java.util.concurrent.TimeUnit.MILLISECONDS))
+                    .isInstanceOf(java.util.concurrent.TimeoutException.class);
+            other.commit();
+            assertThat(deletion.get(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+        }
     }
 
     @Test

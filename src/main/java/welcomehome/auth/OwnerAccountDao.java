@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The owner table has no owner_id and no Row-Level Security: authentication reads it by email.
@@ -37,9 +38,20 @@ class OwnerAccountDao {
      * Deletes an owner and everything of theirs: the owner row's foreign keys cascade to their passkeys, Nuki
      * connection, locks, links, history and recovery links.
      *
+     * Never the only admin, so that an admin is always left: the admins' rows are locked first, as two admins
+     * deleting each other at once, or each closing their own account, would each see the other as still there.
+     *
      * @return whether there was such an owner
+     * @throws LastAdminException if the owner is the only admin
      */
+    @Transactional
     boolean delete(UUID id) {
+        jdbc.sql("SELECT id FROM owner WHERE is_admin ORDER BY id FOR UPDATE")
+                .query((rs, row) -> rs.getString("id"))
+                .list();
+        if (isOnlyAdmin(id)) {
+            throw new LastAdminException();
+        }
         return jdbc.sql("DELETE FROM owner WHERE id = :id").param("id", id).update() == 1;
     }
 

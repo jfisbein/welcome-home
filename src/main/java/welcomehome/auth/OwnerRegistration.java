@@ -159,7 +159,13 @@ class OwnerRegistration {
                 ? insertOwner(pending.email(), invitation.grantsAdmin(), language)
                 : owners.findById(recoveredOwnerId)
                         .orElseThrow(() -> new RegistrationException(Reason.INVITATION_NOT_REDEEMABLE));
-        userEntities.save(pending.options().getUser());
+        // An owner the passkey store already knows keeps their entity as it is: the one read when this began may
+        // carry an email they have changed since, and saving it would name them by it again, which detaches their
+        // passkeys from them (the store finds a passkey's owner by that name).
+        var user = pending.options().getUser();
+        if (userEntities.findById(user.getId()) == null) {
+            userEntities.save(namedBy(user, owner.email()));
+        }
         try {
             relyingPartyOperations.registerCredential(new ImmutableRelyingPartyRegistrationRequest(
                     pending.options(), new RelyingPartyPublicKey(passkey, pending.passkeyLabel())));
@@ -171,6 +177,15 @@ class OwnerRegistration {
             emailVerification.start(owner.id());
         }
         return new RegisteredOwner(owner.id(), owner.email(), owner.isAdmin());
+    }
+
+    /** The same user of the passkey store, under the owner's email as it is now. */
+    static PublicKeyCredentialUserEntity namedBy(PublicKeyCredentialUserEntity user, String email) {
+        return ImmutablePublicKeyCredentialUserEntity.builder()
+                .id(user.getId())
+                .name(email)
+                .displayName(email)
+                .build();
     }
 
     private OwnerAccount insertOwner(String email, boolean isAdmin, Locale language) {

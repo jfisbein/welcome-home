@@ -121,7 +121,10 @@ class InvitationController {
                         HttpServletResponse response) {
         var owner = userDetailsService.loadUserByUsername(email);
         var context = securityContextHolder.createEmptyContext();
-        var authentication = new WebAuthnAuthentication(pending.options().getUser(), owner.getAuthorities());
+        // Under the owner's email as it is now, by which every request finds them: a recovery begun before they
+        // changed it still carries the previous one.
+        var authentication = new WebAuthnAuthentication(
+                OwnerRegistration.namedBy(pending.options().getUser(), email), owner.getAuthorities());
         context.setAuthentication(authentication);
         securityContextHolder.setContext(context);
         // As a sign-in with a passkey does: a new session id and a new CSRF token.
