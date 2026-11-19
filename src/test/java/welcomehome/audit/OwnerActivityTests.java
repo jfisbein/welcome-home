@@ -143,7 +143,7 @@ class OwnerActivityTests {
 
         var page = body(asAlice(mvc.get().uri("/settings/activity")));
 
-        assertThat(page).contains("Actividad de tu cuenta", "Horas en la zona horaria del servidor:",
+        assertThat(page).contains("Actividad de tu cuenta", "Zona horaria:",
                         "Cada entrada se guarda 365 días, y su dirección IP, 90.", "aria-current=\"page\">Actividad<")
                 .doesNotContain("Móvil de Bob", "198.51.100.3", "Solo se muestran");
         assertThat(order(page, "Enlace borrado", "Ya borrado, de Casa", "198.51.100.2",

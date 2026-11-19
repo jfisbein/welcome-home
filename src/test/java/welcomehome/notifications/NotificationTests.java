@@ -110,10 +110,10 @@ class NotificationTests {
         record(linkId, AccessOutcome.OPENED);
 
         var email = theOnlyEmail();
-        assertThat(email.getSubject()).isEqualTo("Casa: Ana ha abierto la puerta");
+        assertThat(email.getSubject()).isEqualTo("Casa: «Ana» ha abierto la puerta");
         assertThat(email.getAllRecipients()).extracting(Object::toString).containsExactly(ALICE);
         assertThat(email.getFrom()).extracting(Object::toString).containsExactly(MailStandInConfiguration.FROM);
-        assertThat(text(email)).contains("Ana ha abierto la puerta de Casa el ", "(hora oriental)",
+        assertThat(text(email)).contains("«Ana» ha abierto la puerta de Casa el ", "(hora oriental)",
                 IntegrationTest.BASE_URL + "/locks/" + lockId + "/history?link=" + linkId,
                 IntegrationTest.BASE_URL + "/settings/notifications");
     }
@@ -127,8 +127,8 @@ class NotificationTests {
                 "ES", null, null, null));
 
         var email = theOnlyEmail();
-        assertThat(email.getSubject()).isEqualTo("Portal: Ana ha abierto la puerta");
-        assertThat(text(email)).contains("Ana ha abierto la puerta de Portal el ", "(hora oriental)",
+        assertThat(email.getSubject()).isEqualTo("Portal: «Ana» ha abierto la puerta");
+        assertThat(text(email)).contains("«Ana» ha abierto la puerta de Portal el ", "(hora oriental)",
                 IntegrationTest.BASE_URL + "/locks/" + lockId + "/history?link=" + linkId);
     }
 
@@ -137,7 +137,7 @@ class NotificationTests {
         record(linkId, AccessOutcome.NIGHT_MODE);
 
         var email = theOnlyEmail();
-        assertThat(email.getSubject()).isEqualTo("Casa: Ana no ha podido abrir la puerta");
+        assertThat(email.getSubject()).isEqualTo("Casa: «Ana» no ha podido abrir la puerta");
         assertThat(text(email)).contains("la cerradura está en modo nocturno");
     }
 
@@ -146,7 +146,7 @@ class NotificationTests {
         record(linkId, AccessOutcome.UNAVAILABLE);
 
         var email = theOnlyEmail();
-        assertThat(email.getSubject()).isEqualTo("Casa: Ana no ha podido abrir la puerta");
+        assertThat(email.getSubject()).isEqualTo("Casa: «Ana» no ha podido abrir la puerta");
         assertThat(text(email)).contains("la cerradura no está disponible");
     }
 
@@ -155,8 +155,8 @@ class NotificationTests {
         record(linkId, AccessOutcome.NOT_CONFIRMED);
 
         var email = theOnlyEmail();
-        assertThat(email.getSubject()).isEqualTo("Casa: la cerradura no ha confirmado que Ana abriera la puerta");
-        assertThat(text(email)).contains("Ana ha pedido abrir la puerta de Casa el ",
+        assertThat(email.getSubject()).isEqualTo("Casa: la cerradura no ha confirmado que «Ana» abriera la puerta");
+        assertThat(text(email)).contains("«Ana» ha pedido abrir la puerta de Casa el ",
                 "no ha confirmado que se abriera: puede que se abriera o que no.");
     }
 
@@ -183,7 +183,7 @@ class NotificationTests {
         record(insertLink("Luis"), AccessOutcome.TOO_FAR);
 
         var email = theOnlyEmail();
-        assertThat(email.getSubject()).isEqualTo("Casa: intento denegado con el enlace de Luis");
+        assertThat(email.getSubject()).isEqualTo("Casa: intento denegado con el enlace «Luis»");
         assertThat(text(email)).contains("se ha denegado: estaba lejos de la puerta.");
     }
 
@@ -193,7 +193,7 @@ class NotificationTests {
         record(insertLink("Luis"), AccessOutcome.WRONG_PIN);
 
         var email = theOnlyEmail();
-        assertThat(email.getSubject()).isEqualTo("Casa: intento denegado con el enlace de Luis");
+        assertThat(email.getSubject()).isEqualTo("Casa: intento denegado con el enlace «Luis»");
         assertThat(text(email)).contains("se ha denegado: el PIN escrito era incorrecto.");
     }
 
@@ -225,7 +225,7 @@ class NotificationTests {
                 3200, 20, true));
 
         var email = theOnlyEmail();
-        assertThat(email.getSubject()).isEqualTo("Casa: Ana ha abierto la puerta a unos 3,2 km de ella");
+        assertThat(email.getSubject()).isEqualTo("Casa: «Ana» ha abierto la puerta a unos 3,2 km de ella");
         assertThat(text(email)).contains(", a unos 3,2 km de ella, tras confirmar que estaba delante.",
                 "Si no estaba delante, la puerta puede haberse quedado abierta: compruébalo.",
                 "/history?link=" + linkId, "Este aviso se envía siempre");
@@ -237,7 +237,7 @@ class NotificationTests {
                 null, null, true));
 
         var email = theOnlyEmail();
-        assertThat(email.getSubject()).isEqualTo("Casa: Ana ha abierto la puerta sin saberse dónde estaba");
+        assertThat(email.getSubject()).isEqualTo("Casa: «Ana» ha abierto la puerta sin saberse dónde estaba");
         assertThat(text(email)).contains("sin que su teléfono dijera dónde estaba.");
     }
 
@@ -258,8 +258,8 @@ class NotificationTests {
         record(linkId, AccessOutcome.OPENED);
 
         var email = theOnlyEmail();
-        assertThat(email.getSubject()).isEqualTo("Casa: Ana opened the door");
-        assertThat(text(email)).containsPattern("Ana opened the door of Casa on \\d{2}/\\d{2}/\\d{4} at \\d{2}:\\d{2}")
+        assertThat(email.getSubject()).isEqualTo("Casa: \"Ana\" opened the door");
+        assertThat(text(email)).containsPattern("\"Ana\" opened the door of Casa on \\d{2}/\\d{2}/\\d{4} at \\d{2}:\\d{2}")
                 .contains("(Eastern Time)", "Choose which notifications you get");
 
         assertThat(mvc.post().uri("/settings/notifications/test").with(owner()).with(csrf())).hasStatus3xxRedirection();
@@ -279,14 +279,14 @@ class NotificationTests {
         await().atMost(Duration.ofSeconds(5)).until(() -> mail.getReceivedMessages().length >= 2);
         assertNoMoreThan(2);
         assertThat(subjects()).containsExactlyInAnyOrder(
-                "Casa: intento denegado con el enlace de Ana", "Casa: intento denegado con el enlace de Bea");
+                "Casa: intento denegado con el enlace «Ana»", "Casa: intento denegado con el enlace «Bea»");
     }
 
     /** A guest trying again and again while Nuki is down; a new failure, or a refusal, is still told. */
     @Test
     void failuresWithALinkAreToldOnceInAWhileForEachReason() throws Exception {
         record(linkId, AccessOutcome.NUKI_ERROR);
-        assertThat(theOnlyEmail().getSubject()).isEqualTo("Casa: Ana no ha podido abrir la puerta");
+        assertThat(theOnlyEmail().getSubject()).isEqualTo("Casa: «Ana» no ha podido abrir la puerta");
 
         // One attempt at a time, as emails are sent on other threads.
         record(linkId, AccessOutcome.NUKI_ERROR);
@@ -299,7 +299,7 @@ class NotificationTests {
         await().atMost(Duration.ofSeconds(5)).until(() -> mail.getReceivedMessages().length >= 3);
         assertNoMoreThan(3);
         assertThat(text(mail.getReceivedMessages()[1])).contains("la cerradura no pudo abrir");
-        assertThat(mail.getReceivedMessages()[2].getSubject()).isEqualTo("Casa: intento denegado con el enlace de Ana");
+        assertThat(mail.getReceivedMessages()[2].getSubject()).isEqualTo("Casa: intento denegado con el enlace «Ana»");
     }
 
     @Test
@@ -375,7 +375,7 @@ class NotificationTests {
         assertNoMoreThan(0);
 
         record(linkId, AccessOutcome.LOCK_FAILED);
-        assertThat(theOnlyEmail().getSubject()).isEqualTo("Casa: Ana no ha podido abrir la puerta");
+        assertThat(theOnlyEmail().getSubject()).isEqualTo("Casa: «Ana» no ha podido abrir la puerta");
     }
 
     @Test

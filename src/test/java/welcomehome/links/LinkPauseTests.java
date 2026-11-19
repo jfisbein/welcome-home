@@ -104,16 +104,16 @@ class LinkPauseTests {
 
         post(ALICE, linkId, "pause");
 
-        assertThat(page("pausedLabel")).contains("Enlace de Ana en pausa: no abre la puerta hasta que lo reanudes.",
+        assertThat(page("pausedLabel")).contains("Enlace «Ana» en pausa: no abre la puerta hasta que lo reanudes.",
                         "<strong>En pausa</strong>", "/links/" + linkId + "/resume", "Reanudar",
-                        "El enlace de Ana volverá a abrir la puerta en sus fechas. ¿Reanudarlo?",
+                        "El enlace «Ana» volverá a abrir la puerta en sus fechas. ¿Reanudarlo?",
                         "/links/" + linkId + "/revoke", "/history?link=" + linkId)
                 .as("among the links that can open, not folded away with those that ended")
                 .doesNotContain("Caducados y anulados", "Ningún enlace de esta cerradura")
                 .as("nothing that gives the link away, edits it or deletes it")
                 .doesNotContain("Copiar", "href=\"/links/" + linkId + "\"", "/links/" + linkId + "/regenerate",
                         "/links/" + linkId + "/pause", "Borrar");
-        assertThat(page("resumedLabel")).contains("Enlace de Ana reanudado: vuelve a abrir la puerta en sus fechas.");
+        assertThat(page("resumedLabel")).contains("Enlace «Ana» reanudado: vuelve a abrir la puerta en sus fechas.");
     }
 
     @Test

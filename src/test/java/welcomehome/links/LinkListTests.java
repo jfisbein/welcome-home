@@ -123,8 +123,8 @@ class LinkListTests {
         insertLink(lockId, "Bea", "now() - interval '1 day'", "now() + interval '1 day'", false);
 
         assertThat(page()).contains(
-                "data-confirm=\"El enlace actual de Bea dejará de funcionar ahora mismo",
-                "data-confirm=\"El enlace de Bea dejará de abrir la puerta para siempre",
+                "data-confirm=\"El enlace actual «Bea» dejará de funcionar ahora mismo",
+                "data-confirm=\"El enlace «Bea» dejará de abrir la puerta para siempre",
                 "/js/confirm.js");
     }
 
@@ -179,10 +179,10 @@ class LinkListTests {
 
         assertThat(page())
                 .containsPattern("action=\"/links/" + expired + "\"\\s+method=\"post\" data-confirm=\"Se borrarán el enlace "
-                        + "de Carlos y sus intentos del historial. ¿Borrarlo\\?\">.*<input type=\"hidden\" name=\"_method\" "
+                        + "«Carlos» y sus intentos del historial. ¿Borrarlo\\?\">.*<input type=\"hidden\" name=\"_method\" "
                         + "value=\"delete\"")
                 .containsPattern("action=\"/links/" + revoked + "\"\\s+method=\"post\" data-confirm=\"Se borrarán el enlace "
-                        + "de Dani")
+                        + "«Dani»")
                 .doesNotContain("action=\"/links/" + active + "\"");
     }
 

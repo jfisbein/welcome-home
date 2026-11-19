@@ -93,7 +93,7 @@ class LinkRegenerationTests {
 
         assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(owner(ALICE))
                 .flashAttr("regeneratedUrl", newUrl).flashAttr("regeneratedLabel", "Ana"))
-                .bodyText().contains("Nuevo enlace para Ana", "El enlace anterior ya no abre la puerta", newUrl.toString())
+                .bodyText().contains("Nuevo enlace «Ana»", "El enlace anterior ya no abre la puerta", newUrl.toString())
                 .doesNotContain(oldUrl);
     }
 

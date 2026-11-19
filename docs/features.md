@@ -232,7 +232,7 @@ A lock may check that a guest is in front of the door before opening (`lock.loca
 - **Asked to confirm**, the guest reads what sliding will do ("Si deslizas, la puerta se abrirá de verdad aunque no estés delante, y puede quedarse abierta"), and the slider stays off for 10 seconds, its track counting them down, then reads "Desliza para abrir igualmente": the next slide confirms. A guest who refused the permission is never left at the door, even by the stricter mode, but waits at every opening.
 - **Refused as far**, the guest reads that this link only opens in front of the door, and to tell whoever sent it if it keeps refusing; after 10 seconds the next slide asks the browser afresh (`maximumAge: 0`), as a phone that placed them wrong often corrects itself.
 - **What is kept**: `access_event.distance_m` and `accuracy_m`, never the guest's position, forgotten with the IP address after `welcomehome.audit.ip-retention`, and `location_confirmed`. The history shows the distance under the origin ("a 3,2 km de la puerta"); `confirm-location` reads "Sin abrir: se pidió confirmar que estaba delante" and sends no email, `too-far` reads "Denegado: lejos de la puerta" and is emailed as refused attempts are. `location_confirmed` says whether the door opened only because the guest confirmed, while they seemed far or their position was unknown.
-- **The owner is told** of such an opening whatever their preferences, instead of the email about an opening: "Casa: Ana ha abierto la puerta a unos 3,2 km de ella", or "sin saberse dónde estaba", and that the door may have been left open. The guest may not have been there, and a door unlatched from afar may stay ajar where the lock cannot lock it again.
+- **The owner is told** of such an opening whatever their preferences, instead of the email about an opening: "Casa: «Ana» ha abierto la puerta a unos 3,2 km de ella", or "sin saberse dónde estaba", and that the door may have been left open. The guest may not have been there, and a door unlatched from afar may stay ajar where the lock cannot lock it again.
 
 ### A building entrance
 
@@ -280,9 +280,9 @@ Owners get emails about their locks and choose which ones at `/settings/notifica
 
 | Kind | When | Example subject |
 |------|------|-----------------|
-| Opened | a guest opens the door | "Casa: Ana ha abierto la puerta" |
-| Failed | a guest with a valid link cannot get in: the lock failed, night mode, Nuki did not answer, the owner's token may not open, or the door is unavailable; also an opening the lock did not confirm, with its own subject ("Casa: la cerradura no ha confirmado que Ana abriera la puerta") | "Casa: Ana no ha podido abrir la puerta" |
-| Denied | a guest's link is refused: not valid yet, expired, outside its schedule, revoked, or too many attempts | "Casa: intento denegado con el enlace de Ana" |
+| Opened | a guest opens the door | "Casa: «Ana» ha abierto la puerta" |
+| Failed | a guest with a valid link cannot get in: the lock failed, night mode, Nuki did not answer, the owner's token may not open, or the door is unavailable; also an opening the lock did not confirm, with its own subject ("Casa: la cerradura no ha confirmado que «Ana» abriera la puerta") | "Casa: «Ana» no ha podido abrir la puerta" |
+| Denied | a guest's link is refused: not valid yet, expired, outside its schedule, revoked, or too many attempts | "Casa: intento denegado con el enlace «Ana»" |
 | Disconnected | Nuki rejects the owner's token, or refuses to refresh it; and when it accepts it again | "Nuki ha rechazado la conexión" |
 | Lock problems | after the daily sync, at 08:15: a lock's battery is critical, Nuki reports that it cannot reach it (unless it has opened it since), or its motor is blocked. One email when a problem starts, with the problems that started; another only if it comes back after it ended (`lock.notified_problems`) | "Casa: la cerradura necesita que hagas algo" |
 

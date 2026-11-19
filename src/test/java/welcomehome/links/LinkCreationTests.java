@@ -142,7 +142,7 @@ class LinkCreationTests {
         var page = mvc.get().uri("/locks/" + madridLock + "/links").with(owner(ALICE)).flashAttrs(flash).exchange();
 
         assertThat(page).hasStatusOk()
-                .bodyText().contains("Enlace creado para Ana", "01/11/2030 15:00", "03/11/2030 11:00",
+                .bodyText().contains("Enlace «Ana» creado", "01/11/2030 15:00", "03/11/2030 11:00",
                         "value=\"" + url + "\"", "Copiar");
         assertThat(page).bodyText().as("copied and shared with its words there too, as from its row")
                 .containsSubsequence("id=\"link-url\"", "data-copy-text=\"Para entrar en Casa del 01/11/2030 15:00",

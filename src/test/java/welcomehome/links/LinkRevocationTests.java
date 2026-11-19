@@ -77,7 +77,7 @@ class LinkRevocationTests {
         revoke(ALICE, linkId);
 
         assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(owner(ALICE)).flashAttr("revokedLabel", "Ana"))
-                .bodyText().contains("Enlace de Ana anulado", "Anulado")
+                .bodyText().contains("Enlace «Ana» anulado", "Anulado")
                 .doesNotContain("Copiar", "/links/" + linkId + "/revoke", "Sustituir enlace");
     }
 

@@ -127,7 +127,7 @@ class LinkDeletionTests {
         data.link(lockId, "Dani", TWO_DAYS_AGO, ENDED_YESTERDAY);
 
         assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(owner(ALICE)).flashAttr("deletedLabel", "Carlos"))
-                .bodyText().contains("Enlace de Carlos borrado, con sus intentos.", "<details open=\"open\">");
+                .bodyText().contains("Enlace «Carlos» borrado, con sus intentos.", "<details open=\"open\">");
         assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(owner(ALICE)))
                 .bodyText().contains("<details>").doesNotContain("<details open");
     }

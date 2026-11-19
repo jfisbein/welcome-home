@@ -65,8 +65,12 @@ public class LinkSchedules {
     }
 
     private String dayRange(DayHours first, DayHours last, Locale locale) {
-        return first.day() == last.day() ? dayName(first, locale)
-                : message("link-schedule.days", locale, dayName(first, locale), dayName(last, locale));
+        if (first.day() == last.day()) {
+            return dayName(first, locale);
+        }
+        // Two days are both named: "Saturday to Sunday" reads as a range with something in between.
+        return message(last.day() == first.day().plus(1) ? "link-schedule.two-days" : "link-schedule.days", locale,
+                dayName(first, locale), dayName(last, locale));
     }
 
     private static String dayName(DayHours day, Locale locale) {

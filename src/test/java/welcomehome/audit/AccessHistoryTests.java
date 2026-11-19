@@ -98,7 +98,7 @@ class AccessHistoryTests {
         insertEvent(ana, "2030-07-01T10:00:00Z", "OK", "opened", "198.51.100.1");
         insertEvent(bea, "2030-07-02T10:00:00Z", "OK", "opened", "198.51.100.2");
 
-        assertThat(body(history(casa, "?link=" + ana))).contains("Solo el enlace de Ana", "198.51.100.1")
+        assertThat(body(history(casa, "?link=" + ana))).contains("Solo el enlace «Ana»", "198.51.100.1")
                 .doesNotContain("198.51.100.2");
     }
 

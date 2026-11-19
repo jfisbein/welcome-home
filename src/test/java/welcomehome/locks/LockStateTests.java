@@ -131,7 +131,7 @@ class LockStateTests {
 
         reachability.opened(aliceId, lockId);
 
-        assertThat(lockPage()).bodyText().contains("pero ha abierto la puerta desde entonces")
+        assertThat(lockPage()).bodyText().contains("pero la cerradura ha abierto la puerta desde entonces")
                 .doesNotContain(OFFLINE, "En línea");
     }
 

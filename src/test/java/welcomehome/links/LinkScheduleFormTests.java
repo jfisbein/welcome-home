@@ -95,9 +95,9 @@ class LinkScheduleFormTests {
         assertThat(result).hasStatus(HttpStatus.FOUND);
         assertThat(rows()).containsExactly("1|09:00:00|17:00:00", "2|09:00:00|17:00:00", "6|10:00:00|14:00:00");
         assertThat(result.getMvcResult().getFlashMap().get("createdSchedule"))
-                .isEqualTo(List.of("Lunes a martes: 09:00–17:00", "Sábado: 10:00–14:00"));
+                .isEqualTo(List.of("Lunes y martes: 09:00–17:00", "Sábado: 10:00–14:00"));
         assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(owner(ALICE))).hasStatusOk()
-                .bodyText().contains("<small>Lunes a martes: 09:00–17:00</small>", "<small>Sábado: 10:00–14:00</small>");
+                .bodyText().contains("<small>Lunes y martes: 09:00–17:00</small>", "<small>Sábado: 10:00–14:00</small>");
     }
 
     @Test
