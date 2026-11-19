@@ -99,6 +99,15 @@ class LinkDao {
                 .single();
     }
 
+    /** @return how many wrong PINs the link has been given since they were last forgotten */
+    int findPinFailures(UUID ownerId, UUID linkId) {
+        return jdbc.sql("SELECT pin_failures FROM access_link WHERE owner_id = :ownerId AND id = :linkId")
+                .param("ownerId", ownerId)
+                .param("linkId", linkId)
+                .query(Integer.class)
+                .single();
+    }
+
     /** Forgets the wrong PINs the link was given: its owner edited it or gave it a new URL. */
     void resetPinFailures(UUID ownerId, UUID linkId) {
         jdbc.sql("UPDATE access_link SET pin_failures = 0 WHERE owner_id = :ownerId AND id = :linkId")

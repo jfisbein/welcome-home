@@ -7,6 +7,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.EnumSet;
+import java.util.Set;
 import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
@@ -14,6 +16,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import welcomehome.db.OwnerTransactions;
 import welcomehome.links.LinkChanged.Change;
+import welcomehome.links.LinkChanged.OpensMore;
 import welcomehome.links.LinkDao.DeletedLink;
 import welcomehome.links.LinkDao.EditableLink;
 import welcomehome.links.LinkDao.RevokedLink;
@@ -122,15 +125,47 @@ class AccessLinks {
     boolean update(UUID ownerId, UUID linkId, String label, Instant validFrom, Instant validUntil,
                    LinkSchedule schedule, @Nullable String pin) {
         return ownerTransactions.execute(ownerId, () -> {
+            var before = links.findEditable(ownerId, linkId);
+            if (before.isEmpty()) {
+                return false;
+            }
+            var opensMore = opensMore(ownerId, before.get(), validFrom, validUntil, schedule, pin);
             var lockId = links.update(ownerId, linkId, label, validFrom, validUntil);
             lockId.ifPresent(lock -> {
                 links.replaceSchedule(ownerId, linkId, schedule);
                 pins.set(ownerId, linkId, pin);
                 pins.unlock(ownerId, linkId);
-                events.publishEvent(new LinkChanged(ownerId, lock, linkId, Change.EDITED));
+                events.publishEvent(new LinkChanged(ownerId, lock, linkId, Change.EDITED, opensMore));
             });
             return lockId.isPresent();
         });
+    }
+
+    /**
+     * In what ways an edit lets a link open where it did not, read before the edit is stored. A schedule that
+     * changed counts unless the link opened at any time before, as telling a wider schedule from a narrower one is
+     * not worth getting wrong.
+     */
+    private Set<OpensMore> opensMore(UUID ownerId, EditableLink before, Instant validFrom, Instant validUntil,
+                                     LinkSchedule schedule, @Nullable String pin) {
+        var opensMore = EnumSet.noneOf(OpensMore.class);
+        if (validFrom.isBefore(before.validFrom().toInstant()) || validUntil.isAfter(before.validUntil().toInstant())) {
+            opensMore.add(OpensMore.DATES);
+        }
+        var scheduleBefore = links.findSchedule(ownerId, before.id());
+        if (!scheduleBefore.equals(schedule) && !scheduleBefore.equals(LinkSchedule.ANY_TIME)) {
+            opensMore.add(OpensMore.SCHEDULE);
+        }
+        var pinBefore = pins.of(ownerId, before.id());
+        if (pinBefore.isPresent() && pin == null) {
+            opensMore.add(OpensMore.PIN_REMOVED);
+        } else if (pinBefore.isPresent() && !pinBefore.get().equals(pin)) {
+            opensMore.add(OpensMore.PIN_CHANGED);
+        }
+        if (pinBefore.isPresent() && pins.isLocked(links.findPinFailures(ownerId, before.id()))) {
+            opensMore.add(OpensMore.UNLOCKED);
+        }
+        return opensMore;
     }
 
     /**

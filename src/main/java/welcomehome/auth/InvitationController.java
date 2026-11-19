@@ -121,9 +121,11 @@ class InvitationController {
                         HttpServletResponse response) {
         var owner = userDetailsService.loadUserByUsername(email);
         var context = securityContextHolder.createEmptyContext();
-        context.setAuthentication(new WebAuthnAuthentication(pending.options().getUser(), owner.getAuthorities()));
+        var authentication = new WebAuthnAuthentication(pending.options().getUser(), owner.getAuthorities());
+        context.setAuthentication(authentication);
         securityContextHolder.setContext(context);
-        request.changeSessionId();
+        // As a sign-in with a passkey does: a new session id and a new CSRF token.
+        SecurityConfiguration.ON_SIGN_IN.onAuthentication(authentication, request, response);
         securityContextRepository.saveContext(context, request, response);
     }
 

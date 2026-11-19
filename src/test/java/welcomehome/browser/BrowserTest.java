@@ -46,6 +46,8 @@ abstract class BrowserTest {
         registry.add("server.port", () -> PORT);
         registry.add("welcomehome.base-url", () -> BASE_URL);
         registry.add("server.servlet.session.cookie.secure", () -> false);
+        // As the dev profile does: a browser refuses a __Host- cookie that is not Secure.
+        registry.add("server.servlet.session.cookie.name", () -> "JSESSIONID");
         registry.add("welcomehome.access.rate-limit.per-ip", () -> 1000);
     }
 

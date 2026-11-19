@@ -1,6 +1,7 @@
 package welcomehome.auth;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Set;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
@@ -13,7 +14,12 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpMessageConverterAuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.authentication.session.ChangeSessionIdAuthenticationStrategy;
+import org.springframework.security.web.authentication.session.CompositeSessionAuthenticationStrategy;
+import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 import org.springframework.security.web.context.SecurityContextHolderFilter;
+import org.springframework.security.web.csrf.CsrfAuthenticationStrategy;
+import org.springframework.security.web.csrf.CsrfTokenRepository;
+import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
 import org.springframework.security.web.webauthn.api.AuthenticatorSelectionCriteria;
 import org.springframework.security.web.webauthn.api.PublicKeyCredentialRpEntity;
@@ -34,7 +40,7 @@ import welcomehome.config.WelcomeHomeProperties;
  * {@link WebAuthnRelyingPartyOperations}. The admin panel under {@code /admin} is for admins only.
  *
  * <p>CSRF protection is Spring Security's default: every POST needs the token, which pages put in a meta tag
- * for static/js/webauthn.js. The exceptions are {@code POST /api/open}: the link's token in the body is the
+ * for static/js/webauthn.js, and signing in renews it with the session's id. The exceptions are {@code POST /api/open}: the link's token in the body is the
  * guest's only credential, which a forged request would need anyway, and a token kept in the session went stale
  * when a guest opened from a page opened more than a session's lifetime earlier; and {@code POST /nuki/webhook},
  * whose credential is Nuki's signature of the body. On top of Spring Security's
@@ -56,6 +62,23 @@ class SecurityConfiguration {
 
     static final Duration HSTS_MAX_AGE = Duration.ofDays(365);
 
+    /** Where CSRF tokens are kept: the session, as by default; named so that signing in can renew them. */
+    static final CsrfTokenRepository CSRF_TOKENS = new HttpSessionCsrfTokenRepository();
+
+    /** Passkeys must verify their user and be discoverable, however they are registered. */
+    static final AuthenticatorSelectionCriteria PASSKEYS = AuthenticatorSelectionCriteria.builder()
+            .userVerification(UserVerificationRequirement.REQUIRED)
+            .residentKey(ResidentKeyRequirement.REQUIRED)
+            .build();
+
+    /**
+     * What signing in does to the session, by a passkey or by an invitation: a new session id and a new CSRF token.
+     * Someone who planted a session in the browser beforehand, as a page on a sibling domain can with a cookie for
+     * the parent domain, knows both, and would otherwise share the session or forge the owner's forms.
+     */
+    static final SessionAuthenticationStrategy ON_SIGN_IN = new CompositeSessionAuthenticationStrategy(List.of(
+            new ChangeSessionIdAuthenticationStrategy(), new CsrfAuthenticationStrategy(CSRF_TOKENS)));
+
     /** Only with the web server: the one-off commands run without it, and without HttpSecurity. */
     @Bean
     @ConditionalOnWebApplication
@@ -72,7 +95,8 @@ class SecurityConfiguration {
                         .permitAll()
                         .requestMatchers("/admin/**").hasRole(OwnerUserDetailsService.ADMIN)
                         .anyRequest().authenticated())
-                .csrf(csrf -> csrf.ignoringRequestMatchers("/api/open", "/nuki/webhook"))
+                .csrf(csrf -> csrf.csrfTokenRepository(CSRF_TOKENS)
+                        .ignoringRequestMatchers("/api/open", "/nuki/webhook"))
                 .webAuthn(webAuthn -> webAuthn.disableDefaultRegistrationPage(true))
                 .addFilterAfter(new OwnerSessionTrackingFilter(sessions), SecurityContextHolderFilter.class)
                 .exceptionHandling(exceptions -> exceptions
@@ -88,13 +112,13 @@ class SecurityConfiguration {
                                 .includeSubDomains(true)));
         var chain = http.build();
         // WebAuthnConfigurer leaves its filter without a session strategy, so a sign-in would keep the session id
-        // from before it, which someone who planted that id in the browser would then share. And each sign-in is
-        // announced, for the owner's activity, before the filter's own answer.
+        // and the CSRF token from before it (ON_SIGN_IN). And each sign-in is announced, for the owner's activity,
+        // before the filter's own answer.
         chain.getFilters().stream()
                 .filter(WebAuthnAuthenticationFilter.class::isInstance)
                 .map(WebAuthnAuthenticationFilter.class::cast)
                 .forEach(filter -> {
-                    filter.setSessionAuthenticationStrategy(new ChangeSessionIdAuthenticationStrategy());
+                    filter.setSessionAuthenticationStrategy(ON_SIGN_IN);
                     filter.setAuthenticationSuccessHandler(new SignInAnnouncer(
                             new HttpMessageConverterAuthenticationSuccessHandler(), owners, passkeys, events));
                 });
@@ -119,11 +143,7 @@ class SecurityConfiguration {
         // A passkey is the only factor, so it must verify its user (PIN, fingerprint or face): a security key that
         // anyone holding it can touch is not enough for an account that opens doors. Asked for, and checked when
         // the answer comes back.
-        operations.setCustomizeCreationOptions(options -> options.authenticatorSelection(
-                AuthenticatorSelectionCriteria.builder()
-                        .userVerification(UserVerificationRequirement.REQUIRED)
-                        .residentKey(ResidentKeyRequirement.REQUIRED)
-                        .build()));
+        operations.setCustomizeCreationOptions(options -> options.authenticatorSelection(PASSKEYS));
         operations.setCustomizeRequestOptions(options -> options.userVerification(UserVerificationRequirement.REQUIRED));
         return operations;
     }

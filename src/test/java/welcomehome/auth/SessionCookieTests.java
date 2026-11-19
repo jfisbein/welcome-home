@@ -39,8 +39,11 @@ class SessionCookieTests {
 
             assertThat(response.headers().allValues("Set-Cookie"))
                     .singleElement().asString()
-                    .startsWith("JSESSIONID=")
-                    .contains("; Secure", "; HttpOnly", "; SameSite=Lax");
+                    .as("__Host-: browsers take it only if Secure, for this host alone and for every path, so a "
+                            + "page on a sibling subdomain cannot plant one")
+                    .startsWith("__Host-session=")
+                    .contains("; Path=/;", "; Secure", "; HttpOnly", "; SameSite=Lax")
+                    .doesNotContain("Domain=");
         }
     }
 }

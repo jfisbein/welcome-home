@@ -10,7 +10,6 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.web.webauthn.api.AttestationConveyancePreference;
 import org.springframework.security.web.webauthn.api.AuthenticatorAttestationResponse;
-import org.springframework.security.web.webauthn.api.AuthenticatorSelectionCriteria;
 import org.springframework.security.web.webauthn.api.Bytes;
 import org.springframework.security.web.webauthn.api.ImmutableAuthenticationExtensionsClientInput;
 import org.springframework.security.web.webauthn.api.ImmutableAuthenticationExtensionsClientInputs;
@@ -21,8 +20,6 @@ import org.springframework.security.web.webauthn.api.PublicKeyCredentialDescript
 import org.springframework.security.web.webauthn.api.PublicKeyCredentialParameters;
 import org.springframework.security.web.webauthn.api.PublicKeyCredentialRpEntity;
 import org.springframework.security.web.webauthn.api.PublicKeyCredentialUserEntity;
-import org.springframework.security.web.webauthn.api.ResidentKeyRequirement;
-import org.springframework.security.web.webauthn.api.UserVerificationRequirement;
 import org.springframework.security.web.webauthn.management.ImmutableRelyingPartyRegistrationRequest;
 import org.springframework.security.web.webauthn.management.PublicKeyCredentialUserEntityRepository;
 import org.springframework.security.web.webauthn.management.RelyingPartyPublicKey;
@@ -44,7 +41,7 @@ import welcomehome.auth.RegistrationException.Reason;
 class OwnerRegistration {
 
     /** The name of a passkey created from a page that did not ask for one: a page loaded before it did. */
-    private static final String DEFAULT_PASSKEY_LABEL = "Passkey";
+    static final String DEFAULT_PASSKEY_LABEL = "Passkey";
 
     private final InvitationService invitations;
     private final OwnerAccountDao owners;
@@ -133,8 +130,9 @@ class OwnerRegistration {
 
     private PublicKeyCredentialCreationOptions creationOptions(PublicKeyCredentialUserEntity user,
                                                                List<PublicKeyCredentialDescriptor> excluded) {
-        // The same choices as Spring Security's own registration, as SecurityConfiguration sets it: discoverable
-        // passkeys that verify their user, no attestation.
+        // The same choices as Spring Security's own registration: what the app asks of a passkey is
+        // SecurityConfiguration.PASSKEYS, for both; the rest are Spring Security's defaults, which it offers no way to
+        // ask for without saving a user entity for an email not yet registered.
         return PublicKeyCredentialCreationOptions.builder()
                 .rp(relyingParty)
                 .user(user)
@@ -142,10 +140,7 @@ class OwnerRegistration {
                 .excludeCredentials(excluded)
                 .pubKeyCredParams(PublicKeyCredentialParameters.EdDSA, PublicKeyCredentialParameters.ES256,
                         PublicKeyCredentialParameters.RS256)
-                .authenticatorSelection(AuthenticatorSelectionCriteria.builder()
-                        .userVerification(UserVerificationRequirement.REQUIRED)
-                        .residentKey(ResidentKeyRequirement.REQUIRED)
-                        .build())
+                .authenticatorSelection(SecurityConfiguration.PASSKEYS)
                 .attestation(AttestationConveyancePreference.NONE)
                 .extensions(new ImmutableAuthenticationExtensionsClientInputs(
                         ImmutableAuthenticationExtensionsClientInput.credProps))

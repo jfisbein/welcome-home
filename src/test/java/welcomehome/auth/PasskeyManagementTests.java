@@ -46,6 +46,8 @@ class PasskeyManagementTests {
     final PasskeyEmulator laptop = new PasskeyEmulator(IntegrationTest.BASE_URL);
     final PasskeyEmulator bobsPhone = new PasskeyEmulator(IntegrationTest.BASE_URL);
 
+    static final String CSRF_TOKEN = "org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository.CSRF_TOKEN";
+
     @BeforeEach
     void registerAliceOnHerPhoneAndBob() {
         var migrator = TestDatabaseConfiguration.asMigrator(postgres);
@@ -138,9 +140,14 @@ class PasskeyManagementTests {
         assertThat(mvc.get().uri("/settings/passkeys").session(bobs)).as("another owner").hasStatusOk();
     }
 
+    /** Whoever planted the session in the browser beforehand knows both. */
     @Test
-    void signingInGetsANewSessionId() {
+    void signingInGetsANewSessionIdAndANewCsrfToken() {
         var visit = new MockHttpSession();
+        // The login page puts the CSRF token in the session.
+        assertThat(mvc.get().uri("/login").session(visit)).hasStatusOk();
+        var tokenBefore = visit.getAttribute(CSRF_TOKEN);
+        assertThat(tokenBefore).isNotNull();
         var before = visit.getId();
         var options = body(mvc.post().uri("/webauthn/authenticate/options").session(visit).with(csrf()).exchange());
 
@@ -154,6 +161,22 @@ class PasskeyManagementTests {
 
         assertThat(result).hasStatusOk();
         assertThat(visit.getId()).isNotEqualTo(before);
+        assertThat(visit.getAttribute(CSRF_TOKEN)).isNotEqualTo(tokenBefore);
+    }
+
+    /** Spring Security's own endpoint checks nothing of a passkey's name, which pages and emails show. */
+    @Test
+    void aPasskeyAddedWithANameTooLongOrBlankIsStoredWithOneThePagesCanShow() {
+        var session = new MockHttpSession();
+        var credential = laptop.create(body(post(session, "/webauthn/register/options", "")));
+
+        assertThat(post(session, "/webauthn/register", "{\"publicKey\": {\"credential\": " + credential
+                + ", \"label\": \"  " + "x".repeat(200) + "\"}}")).hasStatusOk();
+
+        assertThat(labels()).containsExactlyInAnyOrder("Passkey", "Móvil de Bob", "x".repeat(60));
+        assertThat(AnnouncingUserCredentialRepository.storedLabel("   ")).isEqualTo("Passkey");
+        assertThat(AnnouncingUserCredentialRepository.storedLabel(null)).isEqualTo("Passkey");
+        assertThat(AnnouncingUserCredentialRepository.storedLabel(" Portátil ")).isEqualTo("Portátil");
     }
 
     @Test

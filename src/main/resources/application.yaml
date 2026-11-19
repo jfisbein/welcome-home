@@ -38,7 +38,9 @@ management:
 
 server:
   # Behind Cloudflare Tunnel: X-Forwarded-Proto tells the app that the request came over HTTPS, which HSTS,
-  # secure cookies and https URLs rely on. Trustworthy because the tunnel is the only way in.
+  # secure cookies and https URLs rely on. Trustworthy only because the tunnel is the only way in: this strategy
+  # believes X-Forwarded-* and Forwarded from whoever sends them, the address a request came from included
+  # (X-Forwarded-For). An app reachable any other way must set it to none.
   forward-headers-strategy: framework
   servlet:
     session:
@@ -46,6 +48,9 @@ server:
       tracking-modes: cookie
       # The session cookie: only over HTTPS, not readable from JavaScript, not sent on cross-site subrequests.
       cookie:
+        # The __Host- prefix makes browsers refuse the cookie unless it is Secure, for this host alone and for every
+        # path: a page on another subdomain of the same parent domain cannot plant a session here.
+        name: __Host-session
         secure: true
         http-only: true
         same-site: lax
@@ -81,8 +86,10 @@ welcomehome:
     confirmation:
       timeout: PT15S
       interval: PT2S
-    # Where the guest's IP address comes from: Cloudflare sets this header on every request. Blank to use the
-    # address the request came from, if the app is ever reachable other than through the tunnel.
+    # Where the guest's IP address comes from: Cloudflare sets this header on every request, overwriting what the
+    # client sent. If the app is ever reachable other than through the tunnel, anyone can send it: set it blank to use
+    # the address the request came from, and server.forward-headers-strategy to none as well, or that address is
+    # whatever X-Forwarded-For says and the limits per IP address can be dodged.
     client-ip-header: CF-Connecting-IP
     # Where the guest's country comes from, for the history: Cloudflare sets this header when its IP Geolocation is
     # on. Blank to record none.

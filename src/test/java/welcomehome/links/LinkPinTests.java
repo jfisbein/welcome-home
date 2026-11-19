@@ -135,17 +135,22 @@ class LinkPinTests {
         assertThat(hasStoredPin()).isFalse();
     }
 
-    /** A right PIN does not, or guesses could go on between a guest's openings. */
+    /** So that a guest's own slips over a long stay never lock their link: the total is of wrong PINs in a row. */
     @Test
-    void wrongPinsAreCountedWithTheLinkAndARightOneDoesNotStartTheCountAgain() {
+    void wrongPinsAreCountedWithTheLinkAndARightOneStartsTheCountAgain() {
         create("4821");
         var link = linkId();
 
         assertThat(pins.check(aliceId, link, "0000")).isEqualTo(LinkPins.Check.DOES_NOT_MATCH);
         assertThat(pins.check(aliceId, link, null)).isEqualTo(LinkPins.Check.DOES_NOT_MATCH);
-        assertThat(pins.check(aliceId, link, "4821")).isEqualTo(LinkPins.Check.MATCHES);
-
         assertThat(pinFailures()).isEqualTo(2);
+
+        assertThat(pins.check(aliceId, link, "4821")).isEqualTo(LinkPins.Check.MATCHES);
+        assertThat(pinFailures()).isZero();
+
+        data.pinFailures(link, 19);
+        assertThat(pins.check(aliceId, link, "4821")).as("one wrong PIN from locking").isEqualTo(LinkPins.Check.MATCHES);
+        assertThat(pinFailures()).isZero();
     }
 
     @Test

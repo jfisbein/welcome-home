@@ -14,7 +14,8 @@ import org.springframework.stereotype.Component;
  * account's activity. Behind Cloudflare it comes from
  * CF-Connecting-IP, which Cloudflare sets on every request, overwriting what the client sent; X-Forwarded-For,
  * by contrast, starts with whatever the client sent. Without that header, or when it holds no IP address, it
- * is the address the request came from.
+ * is the address the request came from, which is the client's own to choose while
+ * {@code server.forward-headers-strategy} believes X-Forwarded-For: both are safe only behind the tunnel.
  */
 @Component
 public class ClientIp {

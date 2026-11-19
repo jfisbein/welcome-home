@@ -15,7 +15,8 @@ server:
   servlet:
     session:
       cookie:
-        # http://localhost has no HTTPS.
+        # http://localhost has no HTTPS, so no Secure cookie, which the __Host- prefix requires.
+        name: JSESSIONID
         secure: false
 
 welcomehome:

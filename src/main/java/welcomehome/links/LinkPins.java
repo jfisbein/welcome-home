@@ -21,8 +21,9 @@ import welcomehome.db.OwnerTransactions;
  * <p>
  * Four digits can be guessed, so wrong PINs are counted on the link's row, where a restart does not lose them: past
  * {@code welcomehome.links.pin-max-failures} the link is locked and refuses every attempt, a right PIN too, until
- * its owner edits it or gives it a new URL, which starts the count again. A right PIN does not, or guesses could go
- * on between a guest's openings.
+ * its owner edits it or gives it a new URL. A right PIN starts the count again, so that a guest's own slips over a
+ * long stay never lock their link: the total is then of wrong PINs in a row, and whoever guesses between a guest's
+ * openings gets as many again after each (the user's choice, 2026-11-19).
  */
 @Service
 public class LinkPins {
@@ -84,7 +85,8 @@ public class LinkPins {
 
     /**
      * Compares what a guest typed with the link's PIN, in constant time, in the owner's context: only for a link
-     * whose token was verified. A wrong PIN is counted, and the one that spends the link's total locks it, which
+     * whose token was verified. A wrong PIN is counted, a right one starts the count again, and the wrong one that
+     * spends the link's total locks it, which
      * {@link LinkPinLocked} tells. The link's row is locked meanwhile, so that guesses sent at once are counted one
      * after another and none is compared once the total is spent.
      *
@@ -108,6 +110,9 @@ public class LinkPins {
             var same = typed != null && MessageDigest.isEqual(pin.getBytes(StandardCharsets.UTF_8),
                     typed.strip().getBytes(StandardCharsets.UTF_8));
             if (same) {
+                if (stored.failures() > 0) {
+                    links.resetPinFailures(ownerId, linkId);
+                }
                 return Check.MATCHES;
             }
             var failures = links.addPinFailure(ownerId, linkId);

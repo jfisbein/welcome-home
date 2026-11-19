@@ -6,6 +6,7 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.web.webauthn.api.Bytes;
 import org.springframework.security.web.webauthn.api.CredentialRecord;
+import org.springframework.security.web.webauthn.api.ImmutableCredentialRecord;
 import org.springframework.security.web.webauthn.management.PublicKeyCredentialUserEntityRepository;
 import org.springframework.security.web.webauthn.management.UserCredentialRepository;
 
@@ -29,8 +30,24 @@ class AnnouncingUserCredentialRepository implements UserCredentialRepository {
         this.events = events;
     }
 
+    /**
+     * Also what Spring Security's own endpoint stores, which checks nothing of a passkey's name: stripped, cut to
+     * what the app's own forms allow, and never blank, as it is shown on the passkeys page and in emails.
+     */
+    static String storedLabel(@Nullable String label) {
+        var stripped = label == null ? "" : label.strip();
+        if (stripped.isEmpty()) {
+            return OwnerRegistration.DEFAULT_PASSKEY_LABEL;
+        }
+        return stripped.length() <= PasskeysController.MAX_LABEL_LENGTH ? stripped
+                : stripped.substring(0, PasskeysController.MAX_LABEL_LENGTH).strip();
+    }
+
     @Override
-    public void save(CredentialRecord credentialRecord) {
+    public void save(CredentialRecord given) {
+        var label = storedLabel(given.getLabel());
+        var credentialRecord = label.equals(given.getLabel()) ? given
+                : ImmutableCredentialRecord.fromCredentialRecord(given).label(label).build();
         var added = credentials.findByCredentialId(credentialRecord.getCredentialId()) == null
                 && !credentials.findByUserId(credentialRecord.getUserEntityUserId()).isEmpty();
         credentials.save(credentialRecord);

@@ -23,7 +23,7 @@ import welcomehome.IntegrationTest;
 class EndedSessionTests {
 
     /** The cookie of a session the server no longer has. */
-    static final String ENDED_SESSION = "JSESSIONID=0123456789ABCDEF0123456789ABCDEF";
+    static final String ENDED_SESSION = "__Host-session=0123456789ABCDEF0123456789ABCDEF";
     static final String FORM = "application/x-www-form-urlencoded";
 
     @LocalServerPort

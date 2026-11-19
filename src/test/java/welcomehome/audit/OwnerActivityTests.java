@@ -164,13 +164,55 @@ class OwnerActivityTests {
                 .param("validFrom", "2030-11-02T10:00").param("validUntil", "2030-11-05T12:00"));
         var edited = theOnlyEmail();
         assertThat(edited.getSubject()).isEqualTo("Casa: enlace «Luis» editado");
-        assertThat(text(edited)).contains("ahora es válido del 02/11/2030 10:00 al 05/11/2030 12:00");
+        assertThat(text(edited)).contains("ahora es válido del 02/11/2030 10:00 al 05/11/2030 12:00",
+                "- Sus fechas abarcan más que antes.").doesNotContain("PIN", "horario");
 
         mail.purgeEmailFromAllMailboxes();
         asAlice(mvc.post().uri("/links/" + link + "/regenerate"));
         var newUrl = theOnlyEmail();
         assertThat(newUrl.getSubject()).isEqualTo("Casa: URL nueva del enlace «Luis»");
         assertThat(text(newUrl)).contains("la anterior ya no abre la puerta").doesNotContain("/o/");
+    }
+
+    /** An email for every edit would teach the owner to ignore the one that tells of an intruder. */
+    @Test
+    void anEditThatOnlyRenamesOrNarrowsALinkIsRecordedButNotEmailed() throws Exception {
+        create("Ana", "2030-11-01T15:00", "2030-11-03T11:00");
+        var link = linkId("Ana");
+        theOnlyEmail();
+        mail.purgeEmailFromAllMailboxes();
+
+        assertThat(asAlice(mvc.patch().uri("/links/" + link).param("label", "Ana y Luis")
+                .param("validFrom", "2030-11-01T15:00").param("validUntil", "2030-11-03T11:00")))
+                .as("another label").hasStatus3xxRedirection();
+        assertThat(asAlice(mvc.patch().uri("/links/" + link).param("label", "Ana y Luis")
+                .param("validFrom", "2030-11-02T15:00").param("validUntil", "2030-11-03T10:00").param("pin", "4821")
+                .param("day-SATURDAY", "on").param("opens-SATURDAY", "09:00").param("closes-SATURDAY", "17:00")))
+                .as("shorter, with hours and a PIN").hasStatus3xxRedirection();
+
+        assertNoMoreThan(0);
+        assertThat(activity(ALICE)).hasSize(3).allMatch(entry -> entry.startsWith("LINK_"));
+    }
+
+    /** The dates alone do not say what an intruder would change: the email says what the link now does. */
+    @Test
+    void anEditThatTakesOffThePinOrChangesTheHoursSaysSoInItsEmail() throws Exception {
+        create("Ana", "2030-11-01T15:00", "2030-11-03T11:00");
+        var link = linkId("Ana");
+        theOnlyEmail();
+        asAlice(mvc.patch().uri("/links/" + link).param("label", "Ana")
+                .param("validFrom", "2030-11-01T15:00").param("validUntil", "2030-11-03T11:00").param("pin", "4821")
+                .param("day-SATURDAY", "on").param("opens-SATURDAY", "09:00").param("closes-SATURDAY", "17:00"));
+        mail.purgeEmailFromAllMailboxes();
+
+        asAlice(mvc.patch().uri("/links/" + link).param("label", "Ana")
+                .param("validFrom", "2030-11-01T15:00").param("validUntil", "2030-11-03T11:00").param("pin", ""));
+
+        var edited = theOnlyEmail();
+        assertThat(edited.getSubject()).isEqualTo("Casa: enlace «Ana» editado");
+        assertThat(text(edited)).containsSubsequence("(hora de España peninsular).", "- Su horario ha cambiado.",
+                        "- Ya no pide PIN.", "Si no has sido tú")
+                .doesNotContain("Sus fechas abarcan", "Su PIN ha cambiado");
     }
 
     @Test

@@ -214,13 +214,13 @@ class OwnerNotifier {
     }
 
     /**
-     * A link created, edited or given a new URL: whoever got into the owner's account could have made it for
-     * themselves. Never with the URL, which opens the door.
+     * A link created, given a new URL, or edited so that it opens where it did not: whoever got into the owner's
+     * account could have made it for themselves. Never with the URL, which opens the door.
      */
     @Async
     @TransactionalEventListener
     void on(LinkChanged changed) {
-        if (!mailer.isConfigured() || !changed.change().letsItOpen()) {
+        if (!mailer.isConfigured() || !changed.letsItOpen()) {
             return;
         }
         var found = ownerTransactions.execute(changed.ownerId(),
@@ -234,6 +234,10 @@ class OwnerNotifier {
                             format(to, "format.datetime", link.validFrom().atZone(zone)),
                             format(to, "format.datetime", link.validUntil().atZone(zone)),
                             timeZoneNames.of(link.timeZone(), to.language()))
+                            // What an edit let the link do that it did not: its dates alone do not say.
+                            + changed.opensMore().stream().sorted()
+                                    .map(more -> "\n- " + message(to, "account.link.opens-more." + more.name()))
+                                    .collect(Collectors.joining())
                             + "\n\n" + message(to, "account.link.not-you",
                                     app.link("/locks/" + changed.lockId() + "/links"), app.link("/settings/activity"))
                             + "\n" + accountFooter(to));

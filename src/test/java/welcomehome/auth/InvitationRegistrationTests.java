@@ -69,6 +69,29 @@ class InvitationRegistrationTests {
                 .isEqualTo(List.of("iPhone de Bob"));
     }
 
+    /** Registering signs the new owner in: as any sign-in, with a new session id and a new CSRF token. */
+    @Test
+    void registeringGetsANewSessionIdAndANewCsrfToken() {
+        var invitation = invitationPath(false);
+        // The invitation page puts the CSRF token in the session.
+        assertThat(mvc.get().uri(invitation).session(session)).hasStatusOk();
+        var tokenBefore = session.getAttribute("org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository.CSRF_TOKEN");
+        assertThat(tokenBefore).isNotNull();
+        var options = post(invitation + "/options", "{\"email\": \"bob@example.com\"}");
+        var before = session.getId();
+
+        assertThat(mvc.post().uri(invitation + "/register").session(session).with(csrf())
+                .with(request -> {
+                    // As with a browser that sent the session's cookie, unlike MockMvc by default.
+                    request.setRequestedSessionIdValid(true);
+                    return request;
+                })
+                .contentType(MediaType.APPLICATION_JSON).content(passkeys.create(body(options)))).hasStatusOk();
+
+        assertThat(session.getId()).isNotEqualTo(before);
+        assertThat(session.getAttribute("org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository.CSRF_TOKEN")).isNotEqualTo(tokenBefore);
+    }
+
     /** As from a page loaded before the name was asked for. */
     @Test
     void withoutANameThePasskeyIsCalledPasskey() {
