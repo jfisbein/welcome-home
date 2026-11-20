@@ -54,6 +54,8 @@ chmod 444 secrets/*
 # The database starts as one created before 2026-11-19 was: compared by the C library, which restoring must change.
 cat > compose.override.yaml <<EOF
 services:
+  migrate:
+    image: $image
   app:
     image: $image
   db:
@@ -62,6 +64,12 @@ services:
 EOF
 
 docker compose up --detach --wait db app backup
+
+# The schema is the migrate service's doing, which ended well; the app never had the password of the role that owns it.
+expect "the migrate service ran and ended without an error" \
+    "$(docker compose ps --all --format '{{.Service}} {{.State}} {{.ExitCode}}' migrate)" "migrate exited 0"
+expect "the app's container has no password of migrator's" \
+    "$(docker compose exec -T app sh -c 'ls /run/secrets/config | grep -c liquibase || true')" 0
 
 owner="$(sql "INSERT INTO owner (email) VALUES ('alice@example.com') RETURNING id" | head -1)"
 lock="$(sql "INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone)

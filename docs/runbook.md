@@ -89,7 +89,7 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 Once the workflow has finished, on the server:
 
 1. In Dockge, update the stack: it pulls `:v4` and `cloudflared:latest` again and recreates what changed.
-2. Liquibase migrates the database as `app` starts. Check that `app` turns healthy and that `docker compose logs app` shows no errors. The release that runs:
+2. The `migrate` service migrates the database and ends, and then `app` starts. Check that `app` turns healthy and that `docker compose logs migrate app` shows no errors; if `app` did not start, `migrate` ended in an error, and its log says which changeset. The release that runs:
 
    ```sh
    docker inspect welcome-home-app-1 --format '{{ index .Config.Labels "org.opencontainers.image.version" }}'
@@ -101,10 +101,14 @@ A new major version, such as `v5`, may break compatibility: read its release not
 
 ### From 3.x to 4.0
 
-4.0.0 knows an owner by their id, not by their email, in their session and in the passkey store (changeset 041), and drops three columns nothing read (040). No 3.x release runs against that schema.
+4.0.0 knows an owner by their id, not by their email, in their session and in the passkey store (changeset 041), and drops three columns nothing read (040). No 3.x release runs against that schema. And migrations move out of `app` into a service of their own, so that `app` no longer has the password of the role that owns the tables.
 
 1. Take a dump: `docker compose exec backup /backup/backup.sh now`. It is the only way back to 3.x.
-2. In Dockge, edit the stack: the `app` image `:v4`. Nothing else in `compose.yaml` changes. Deploy.
+2. In Dockge, edit the stack as `deploy/compose.yaml` now has it:
+   - add the `migrate` service, whole;
+   - in `app`: the image `:v4`; under `depends_on`, `migrate` with `condition: service_completed_successfully`; under `environment`, `SPRING_LIQUIBASE_ENABLED: "false"` in place of `SPRING_LIQUIBASE_USER`; under `secrets`, take out the two lines of `migrator_password`.
+
+   Deploy. A stack left as it was, with only the image changed, still works: `app` then migrates as it starts, and keeps the password.
 3. Check that `app` turns healthy and runs 4.0.0 (the command above), and sign in with a passkey you had: passkeys made before go on working, and every owner signs in again once, as sessions do not outlive a restart.
 
 ### From 2.x to 3.0

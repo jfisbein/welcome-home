@@ -44,6 +44,37 @@ services:
       timeout: 5s
       retries: 5
 
+  # Brings the schema up to the image's release and ends, before the application starts. It alone has the password
+  # of migrator, the role that owns every table and that Row-Level Security does not hold back: the application,
+  # which serves requests, has only app_user's. Runs again on every start of the stack, with nothing to do.
+  migrate:
+    logging: *logging
+    # The same image as app, always: the schema it leaves is the one that release needs.
+    image: ghcr.io/jfisbein/welcome-home:v4
+    command: ["--migrate"]
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      TZ: Europe/Madrid
+      SPRING_LIQUIBASE_URL: jdbc:postgresql://db:5432/welcome_home
+      SPRING_LIQUIBASE_USER: migrator
+      SPRING_CONFIG_IMPORT: configtree:/run/secrets/config/
+    secrets:
+      - source: migrator_password
+        target: /run/secrets/config/spring.liquibase.password
+    networks:
+      - backend
+    mem_limit: 512m
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
   app:
     logging: *logging
     # The latest release of major version 4, so that Dockge's Update upgrades it: releases within a major are
@@ -54,13 +85,16 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       # Your public URL: this one is an example.
       BASE_URL: https://welcome-home.example.com
       TZ: Europe/Madrid
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/welcome_home
       SPRING_DATASOURCE_USERNAME: app_user
-      SPRING_LIQUIBASE_USER: migrator
+      # The migrate service has migrated already, with a role whose password this container does not have.
+      SPRING_LIQUIBASE_ENABLED: "false"
       # Each file in this directory is the property its name says: the database and SMTP passwords, and Nuki's
       # OAuth2 client.
       SPRING_CONFIG_IMPORT: configtree:/run/secrets/config/
@@ -75,8 +109,6 @@ services:
     secrets:
       - source: app_user_password
         target: /run/secrets/config/spring.datasource.password
-      - source: migrator_password
-        target: /run/secrets/config/spring.liquibase.password
       - source: smtp_username
         target: /run/secrets/config/spring.mail.username
       - source: smtp_password

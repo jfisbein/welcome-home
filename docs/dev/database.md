@@ -27,7 +27,7 @@ See also: [conventions](conventions.md) (compatibility: what a migration may do 
 
 ## Roles in Postgres
 
-**Roles in Postgres**: `migrator` owns the schema and runs Liquibase; the app connects as `app_user`, with no ownership and no `BYPASSRLS`; the `backup` service and the off-site backup tool read as `backup_reader`, with `BYPASSRLS` and `pg_read_all_data` and no other grant. No `FORCE ROW LEVEL SECURITY`, so that `resolve_link` (owned by `migrator`) sees the link. Roles come from `deploy/db-init/01-create-roles.sh`, used by development, tests and production alike.
+**Roles in Postgres**: `migrator` owns the schema and runs Liquibase, in production from the stack's `migrate` service (`db.Migration`, the `--migrate` command), so that the app's container never has its password; the app connects as `app_user`, with no ownership and no `BYPASSRLS`; the `backup` service and the off-site backup tool read as `backup_reader`, with `BYPASSRLS` and `pg_read_all_data` and no other grant. No `FORCE ROW LEVEL SECURITY`, so that `resolve_link` (owned by `migrator`) sees the link. Roles come from `deploy/db-init/01-create-roles.sh`, used by development, tests and production alike.
 
 ## Rules
 

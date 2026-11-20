@@ -8,6 +8,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import welcomehome.config.ClientProperties;
 import welcomehome.config.WelcomeHomeProperties;
+import welcomehome.db.Migration;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
@@ -30,6 +31,11 @@ public class WelcomeHomeApplication {
      * @param args command-line arguments, passed on to Spring Boot
      */
     public static void main(String[] args) {
+        if (Migration.isAskedFor(args)) {
+            // Not the application: only its schema, with the role that owns it (db.Migration).
+            Migration.run(args);
+            return;
+        }
         var application = new SpringApplication(WelcomeHomeApplication.class);
         if (runsACommand(args)) {
             application.setWebApplicationType(WebApplicationType.NONE);

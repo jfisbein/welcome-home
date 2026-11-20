@@ -1,8 +1,8 @@
 #!/bin/sh
 # Replaces the database with a dump from ./backups: ./restore.sh backups/welcome_home-20261018-040000.dump
 # The roles must exist: on a new server, start db first so that db-init creates them.
-# The dump brings back the schema with its owner, its grants, the data and Liquibase's history; the app migrates it
-# on start, and the backup service then dumps the restored database.
+# The dump brings back the schema with its owner, its grants, the data and Liquibase's history; the migrate service
+# migrates it before the app starts again, and the backup service then dumps the restored database.
 # What the database holds is dumped to ./backups first, so that the wrong file, or a restore that fails halfway,
 # loses nothing: SKIP_DUMP=1 ./restore.sh <dump file> goes without it, for a database that cannot be dumped.
 set -eu
