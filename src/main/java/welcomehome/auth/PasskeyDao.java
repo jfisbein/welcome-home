@@ -92,21 +92,21 @@ class PasskeyDao {
     }
 
     // Spring Security writes created and last_used as timestamps without a zone, in the JVM's: read as it wrote
-    // them they are the instants they were, which are shown in UTC whatever that zone is.
+    // them they are the instants they were, and carry the server's zone for the page to say.
     private static Passkey passkey(ResultSet rs, int row) throws SQLException {
         return new Passkey(rs.getString("credential_id"), rs.getString("label"),
-                inUtc(rs.getTimestamp("created")), inUtc(rs.getTimestamp("last_used")));
+                inTheServersZone(rs.getTimestamp("created")), inTheServersZone(rs.getTimestamp("last_used")));
     }
 
-    private static @Nullable ZonedDateTime inUtc(@Nullable Timestamp timestamp) {
-        return timestamp == null ? null : timestamp.toInstant().atZone(ZoneId.of("UTC"));
+    private static @Nullable ZonedDateTime inTheServersZone(@Nullable Timestamp timestamp) {
+        return timestamp == null ? null : timestamp.toInstant().atZone(ZoneId.systemDefault());
     }
 
     /**
      * @param credentialId the passkey's id, base64url
      * @param label        the name the owner gave it
-     * @param created      when it was created, in UTC, which the page says
-     * @param lastUsed     when it last signed in, in UTC; {@code null} if never
+     * @param created      when it was created, in the server's time zone, which the page says
+     * @param lastUsed     when it last signed in, in the server's time zone; {@code null} if never
      */
     record Passkey(String credentialId, String label, @Nullable ZonedDateTime created,
                    @Nullable ZonedDateTime lastUsed) {

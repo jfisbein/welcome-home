@@ -4,7 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -280,7 +284,9 @@ class AdminPanelTests {
         assertThat(pendingSection(mvc.get().uri("/admin/owners").with(admin()).exchange()))
                 .contains("Ana, piso de la playa", "Carlos, otro admin", "Invitación de admin", OWNER_EMAIL,
                         "Nueva passkey", "Anular")
-                .as("when one expires is in UTC, and says so").contains("01/07/2090 10:00 UTC")
+                .as("when one expires is in the server's zone, and says so")
+                .contains(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm z", Locale.of("es"))
+                        .format(Instant.parse("2090-07-01T10:00:00Z").atZone(ZoneId.systemDefault())))
                 .doesNotContain("Ya usada", "Ya caducada");
     }
 

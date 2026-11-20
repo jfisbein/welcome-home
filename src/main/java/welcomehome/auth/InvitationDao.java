@@ -84,7 +84,7 @@ class InvitationDao {
                         """)
                 .query((rs, row) -> new PendingInvitation(rs.getObject("id", UUID.class), rs.getString("recipient"),
                         rs.getBoolean("grants_admin"), rs.getBoolean("recovery"),
-                        rs.getObject("expires_at", OffsetDateTime.class).atZoneSameInstant(ZoneId.of("UTC"))))
+                        rs.getObject("expires_at", OffsetDateTime.class).atZoneSameInstant(ZoneId.systemDefault())))
                 .list();
     }
 

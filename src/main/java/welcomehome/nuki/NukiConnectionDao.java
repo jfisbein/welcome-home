@@ -22,8 +22,6 @@ import org.springframework.stereotype.Repository;
 @Repository
 class NukiConnectionDao {
 
-    /** The zone a time is shown in to an owner, who has none of their own: said, never the database session's. */
-    private static final ZoneId UTC = ZoneId.of("UTC");
 
     private final JdbcClient jdbc;
 
@@ -194,7 +192,7 @@ class NukiConnectionDao {
                 rs.getBytes("refresh_token_encrypted"),
                 rs.getObject("access_token_expires_at", OffsetDateTime.class).toInstant(),
                 ConnectionStatus.valueOf(rs.getString("status")),
-                lastCheckedAt == null ? null : lastCheckedAt.atZoneSameInstant(UTC));
+                lastCheckedAt == null ? null : lastCheckedAt.atZoneSameInstant(ZoneId.systemDefault()));
     }
 
     /**

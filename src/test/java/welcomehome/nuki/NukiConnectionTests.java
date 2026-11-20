@@ -10,7 +10,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -92,10 +96,11 @@ class NukiConnectionTests {
                 .bodyText().contains("Conectado con tu cuenta de Nuki.", "Última comprobación", "Desconectar Nuki")
                 .doesNotContain("/settings/nuki/oauth");
 
-        // In UTC and saying so, whatever zone the time was written in or the database session has.
+        // In the server's zone and saying so, whatever zone the time was written in or the database session has.
         data.nukiLastChecked("'2030-07-01 12:00:00+02'");
         assertThat(mvc.get().uri("/settings/nuki").with(SignedIn.owner(ALICE)))
-                .bodyText().contains("Última comprobación: 01/07/2030 10:00 UTC.");
+                .bodyText().contains("Última comprobación: " + DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm z", Locale.of("es"))
+                        .format(Instant.parse("2030-07-01T10:00:00Z").atZone(ZoneId.systemDefault())) + ".");
 
         data.disconnectNuki();
 

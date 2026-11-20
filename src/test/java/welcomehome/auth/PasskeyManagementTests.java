@@ -7,9 +7,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -66,17 +66,15 @@ class PasskeyManagementTests {
         new TestData(jdbc).passkeyLabel(BOB, "Móvil de Bob");
     }
 
-    /** Spring Security stores them without a zone, in the JVM's: the page shows the instant they were, in UTC. */
+    /** Spring Security stores them without a zone, in the JVM's: the page shows them in it, and says which it is. */
     @Test
-    void whenAPasskeyWasCreatedAndLastUsedIsShownInUtcWhateverTheServersZone() {
+    void whenAPasskeyWasCreatedAndLastUsedIsShownInTheServersZoneWhichThePageSays() {
         TestDatabaseConfiguration.asMigrator(postgres)
                 .sql("UPDATE user_credentials SET created = '2030-07-01 12:00:00', last_used = '2030-07-02 08:30:00'")
                 .update();
-        var format = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm 'UTC'");
-        var created = LocalDateTime.of(2030, 7, 1, 12, 0).atZone(ZoneId.systemDefault())
-                .withZoneSameInstant(ZoneOffset.UTC).format(format);
-        var lastUsed = LocalDateTime.of(2030, 7, 2, 8, 30).atZone(ZoneId.systemDefault())
-                .withZoneSameInstant(ZoneOffset.UTC).format(format);
+        var format = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm z", Locale.of("es"));
+        var created = LocalDateTime.of(2030, 7, 1, 12, 0).atZone(ZoneId.systemDefault()).format(format);
+        var lastUsed = LocalDateTime.of(2030, 7, 2, 8, 30).atZone(ZoneId.systemDefault()).format(format);
 
         assertThat(mvc.get().uri("/settings/passkeys").with(SignedIn.owner(ALICE))).hasStatusOk()
                 .bodyText().contains("Creada el " + created + ".", "Último uso: " + lastUsed + ".");
