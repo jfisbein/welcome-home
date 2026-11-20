@@ -130,6 +130,19 @@ class NukiOAuthClientTests {
         assertFailsWith(Reason.ACCESS_DENIED, () -> client.refresh("revoked"));
     }
 
+    /** A 403 or a 404 from these endpoints is about no permission of the owner's and no lock. */
+    @Test
+    void anAnswerThatWouldBeAboutALockElsewhereIsOnlyNukiFailing() {
+        for (var status : new int[] {403, 404}) {
+            nuki.stubFor(post("/oauth/token").willReturn(status(status)));
+            nuki.stubFor(post("/oauth2/revoke").willReturn(status(status)));
+
+            assertFailsWith(Reason.NUKI_ERROR, () -> client.refresh("refresh-1"));
+            assertFailsWith(Reason.NUKI_ERROR, () -> client.exchangeCode("code", "the-verifier", CALLBACK));
+            assertFailsWith(Reason.NUKI_ERROR, () -> client.revoke("refresh-1"));
+        }
+    }
+
     @Test
     void revokesWithTheClientsCredentialsOnlyAsHttpBasic() {
         nuki.stubFor(post("/oauth2/revoke").willReturn(status(200)));

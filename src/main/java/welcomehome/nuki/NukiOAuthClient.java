@@ -141,12 +141,28 @@ class NukiOAuthClient {
         form.add("token_type_hint", "refresh_token");
         // Only as HTTP Basic: with the client's credentials in the form as well, as the token endpoint takes them,
         // Nuki's revocation endpoint answers invalid_client (seen 2026-11-04).
-        requests.call(false, () -> requests.rest().post().uri(properties.revocationUrl())
-                .headers(headers -> headers.setBasicAuth(oauth.clientId(), oauth.clientSecret()))
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .body(form)
-                .retrieve()
-                .toBodilessEntity());
+        try {
+            requests.call(false, () -> requests.rest().post().uri(properties.revocationUrl())
+                    .headers(headers -> headers.setBasicAuth(oauth.clientId(), oauth.clientSecret()))
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body(form)
+                    .retrieve()
+                    .toBodilessEntity());
+        } catch (LockProviderException e) {
+            throw notAboutALock(e);
+        }
+    }
+
+    /**
+     * {@link NukiRequests} reads every answer as one about a lock: a 403 as a permission the owner did not give, a
+     * 404 as a lock that is gone. From these endpoints they are neither, only Nuki not doing what it was asked: an
+     * owner told of a missing permission would go and look for one that is there.
+     */
+    private static LockProviderException notAboutALock(LockProviderException e) {
+        return switch (e.reason()) {
+            case MISSING_PERMISSION, LOCK_NOT_FOUND -> new LockProviderException(Reason.NUKI_ERROR, e.getCause());
+            case NUKI_ERROR, NO_ANSWER, ACCESS_DENIED, NOT_CONNECTED -> e;
+        };
     }
 
     /** With the client's credentials both as HTTP Basic and in the form, as Nuki was seen to accept them. */
@@ -175,7 +191,7 @@ class NukiOAuthClient {
                     throw new LockProviderException(Reason.ACCESS_DENIED, refused);
                 }
             }
-            throw e;
+            throw notAboutALock(e);
         }
         var accessToken = response.accessToken();
         if (accessToken == null || accessToken.isBlank() || !"bearer".equalsIgnoreCase(response.tokenType())) {
