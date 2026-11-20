@@ -15,7 +15,7 @@ public final class Languages {
 
     /** Every language with a bundle, the default first. */
     public static final List<Locale> SUPPORTED =
-            List.of(DEFAULT, Locale.ENGLISH, Locale.FRENCH, Locale.GERMAN, Locale.ITALIAN);
+            List.of(DEFAULT, Locale.ENGLISH, Locale.FRENCH, Locale.ITALIAN);
 
     private Languages() {
     }

@@ -17,7 +17,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
-import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.SignedIn;
 import welcomehome.IntegrationTest;
@@ -63,10 +62,10 @@ class LockSettingsTests {
 
     @Test
     void editPageShowsTheCurrentSettings() {
-        assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE)))
+        assertThat(mvc.get().uri("/locks/" + alicesLock).with(SignedIn.owner(ALICE)))
                 .hasStatusOk()
                 .bodyText().contains("Casa", "Europe/Berlin (hora de Europa central)", "Guardar");
-        assertThat(mvc.get().uri("/locks").with(owner(ALICE))).bodyText().contains("Estado y ajustes");
+        assertThat(mvc.get().uri("/locks").with(SignedIn.owner(ALICE))).bodyText().contains("Estado y ajustes");
     }
 
     @Test
@@ -77,7 +76,7 @@ class LockSettingsTests {
         assertThat(result).as("back on the lock's page, where what was saved shows").hasStatus(HttpStatus.FOUND)
                 .redirectedUrl().isEqualTo("/locks/" + alicesLock);
         assertThat(settings(alicesLock)).isEqualTo("Casa de la playa|Europe/London");
-        assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE)).flashAttr("updated", "Casa de la playa"))
+        assertThat(mvc.get().uri("/locks/" + alicesLock).with(SignedIn.owner(ALICE)).flashAttr("updated", "Casa de la playa"))
                 .bodyText().contains("Guardados los cambios de Casa de la playa", "hora de Londres");
     }
 
@@ -106,18 +105,18 @@ class LockSettingsTests {
 
     @Test
     void anotherOwnersLockIsNotFound() {
-        assertThat(mvc.get().uri("/locks/" + bobsLock).with(owner(ALICE))).hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(mvc.get().uri("/locks/" + bobsLock).with(SignedIn.owner(ALICE))).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(update(ALICE, bobsLock, "Mía", "Europe/Madrid")).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(settings(bobsLock)).isEqualTo("Apartamento de Bob|Europe/Berlin");
     }
 
     @Test
     void ownerChoosesOneOfTheirOpenersAsTheLocksEntrance() {
-        assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE))).as("without an Opener, no entrance")
+        assertThat(mvc.get().uri("/locks/" + alicesLock).with(SignedIn.owner(ALICE))).as("without an Opener, no entrance")
                 .bodyText().doesNotContain("Portal del edificio");
         var portal = insertLock(ownerOf(alicesLock), 19, "Portal", "OPENER");
 
-        assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE)))
+        assertThat(mvc.get().uri("/locks/" + alicesLock).with(SignedIn.owner(ALICE)))
                 .bodyText().contains("Portal del edificio", "Ninguno", "Portal");
         assertThat(updateEntrance(alicesLock, portal.toString())).hasStatus(HttpStatus.FOUND);
         assertThat(entrance(alicesLock)).isEqualTo(portal.toString());
@@ -148,21 +147,21 @@ class LockSettingsTests {
     void anOpenersPageSaysWhatItIsWithoutAutoLockOrEntrance() {
         var portal = insertLock(ownerOf(alicesLock), 19, "Portal", "OPENER");
 
-        assertThat(mvc.get().uri("/locks/" + portal).with(owner(ALICE))).hasStatusOk().bodyText()
+        assertThat(mvc.get().uri("/locks/" + portal).with(SignedIn.owner(ALICE))).hasStatusOk().bodyText()
                 .contains("Es un Nuki Opener")
                 .doesNotContain("Portal del edificio", "El bloqueo lo gestiono de otra forma");
     }
 
     @Test
     void ownerWritesInstructionsForTheLocksGuests() {
-        assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE))).bodyText()
+        assertThat(mvc.get().uri("/locks/" + alicesLock).with(SignedIn.owner(ALICE))).bodyText()
                 .contains("Instrucciones para tus invitados", "maxlength=\"1000\"></textarea>");
 
         assertThat(updateInstructions(alicesLock, "  Calle Mayor 1, 3.º B.\r\nLa llave está en el buzón.\r\n "))
                 .hasStatus(HttpStatus.FOUND);
 
         assertThat(guestInstructions(alicesLock)).isEqualTo("Calle Mayor 1, 3.º B.\nLa llave está en el buzón.");
-        assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE))).bodyText()
+        assertThat(mvc.get().uri("/locks/" + alicesLock).with(SignedIn.owner(ALICE))).bodyText()
                 .contains(">Calle Mayor 1, 3.º B.\nLa llave está en el buzón.</textarea>");
     }
 
@@ -196,7 +195,7 @@ class LockSettingsTests {
         assertThat(updatePosition(alicesLock, " 40.4167754, -3.7037902 ")).hasStatus(HttpStatus.FOUND);
         assertThat(position(alicesLock)).isEqualTo("40.416775|-3.70379");
 
-        assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE))).bodyText().contains(
+        assertThat(mvc.get().uri("/locks/" + alicesLock).with(SignedIn.owner(ALICE))).bodyText().contains(
                 "value=\"40.416775, -3.703790\"", "Ubicación de la cerradura", "Usar mi ubicación actual",
                 "href=\"https://www.openstreetmap.org/?mlat=40.416775&amp;mlon=-3.703790#map=18/40.416775/-3.703790\"",
                 "/js/location.js");
@@ -214,7 +213,7 @@ class LockSettingsTests {
 
         assertThat(updatePosition(alicesLock, "  ")).hasStatus(HttpStatus.FOUND);
         assertThat(position(alicesLock)).isEqualTo("none");
-        assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE))).bodyText()
+        assertThat(mvc.get().uri("/locks/" + alicesLock).with(SignedIn.owner(ALICE))).bodyText()
                 .contains("name=\"coordinates\" autocomplete=\"off\" value=\"\"").doesNotContain("openstreetmap");
     }
 
@@ -233,14 +232,14 @@ class LockSettingsTests {
 
     @Test
     void ownerChoosesHowTheLockChecksWhereItsGuestsAre() {
-        assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE))).bodyText()
+        assertThat(mvc.get().uri("/locks/" + alicesLock).with(SignedIn.owner(ALICE))).bodyText()
                 .contains("Comprobar que el invitado está delante de la puerta", "Si está claramente lejos, no abrir",
                         "name=\"locationRadius\"", "value=\"150\"")
                 .containsPattern("<option value=\"OFF\"\\s+selected");
 
         assertThat(updateCheck("40.416775, -3.70379", "REFUSE_WHEN_FAR", "300")).hasStatus(HttpStatus.FOUND);
         assertThat(check(alicesLock)).isEqualTo("REFUSE_WHEN_FAR|300");
-        assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE))).bodyText()
+        assertThat(mvc.get().uri("/locks/" + alicesLock).with(SignedIn.owner(ALICE))).bodyText()
                 .contains("value=\"300\"").containsPattern("<option value=\"REFUSE_WHEN_FAR\"\\s+selected");
 
         assertThat(update(ALICE, alicesLock, "Casa", "Europe/Madrid")).as("a form without the fields keeps them")
@@ -251,14 +250,14 @@ class LockSettingsTests {
     /** Kept as the mode before it and a flag, which a release that does not know it reads as that mode. */
     @Test
     void ownerChoosesTheStrictestCheckWhichIsStoredSoThatAnEarlierReleaseStillReadsTheLock() {
-        assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE))).bodyText()
+        assertThat(mvc.get().uri("/locks/" + alicesLock).with(SignedIn.owner(ALICE))).bodyText()
                 .contains("Abrir solo si su teléfono dice que está delante",
                         "con ella no abre quien no dé su ubicación, y tendrías que abrirle tú desde la app de Nuki");
 
         assertThat(updateCheck("40.416775, -3.70379", "REQUIRE_NEAR", "150")).hasStatus(HttpStatus.FOUND);
 
         assertThat(storedCheck()).isEqualTo("REFUSE_WHEN_FAR|true");
-        assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE))).bodyText()
+        assertThat(mvc.get().uri("/locks/" + alicesLock).with(SignedIn.owner(ALICE))).bodyText()
                 .containsPattern("<option value=\"REQUIRE_NEAR\"\\s+selected");
         assertThat(update(ALICE, alicesLock, "Casa", "Europe/Madrid")).as("a form without the fields keeps them")
                 .hasStatus(HttpStatus.FOUND);
@@ -266,7 +265,7 @@ class LockSettingsTests {
 
         assertThat(updateCheck("40.416775, -3.70379", "REFUSE_WHEN_FAR", "150")).hasStatus(HttpStatus.FOUND);
         assertThat(storedCheck()).as("back to the mode before it").isEqualTo("REFUSE_WHEN_FAR|false");
-        assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE))).bodyText()
+        assertThat(mvc.get().uri("/locks/" + alicesLock).with(SignedIn.owner(ALICE))).bodyText()
                 .containsPattern("<option value=\"REFUSE_WHEN_FAR\"\\s+selected");
     }
 
@@ -293,7 +292,7 @@ class LockSettingsTests {
                  "config": {"latitude": 40.41678, "longitude": -3.70379}}
                 """)));
         try {
-            assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE))).bodyText()
+            assertThat(mvc.get().uri("/locks/" + alicesLock).with(SignedIn.owner(ALICE))).bodyText()
                     .contains("value=\"40.416780, -3.703790\"", "Es la ubicación que tiene Nuki para esta cerradura",
                             "mlat=40.416780&amp;mlon=-3.703790")
                     .doesNotContain("Solo la ves tú");
@@ -301,7 +300,7 @@ class LockSettingsTests {
 
             updatePosition(alicesLock, "40.5, -3.6");
 
-            assertThat(mvc.get().uri("/locks/" + alicesLock).with(owner(ALICE))).bodyText()
+            assertThat(mvc.get().uri("/locks/" + alicesLock).with(SignedIn.owner(ALICE))).bodyText()
                     .contains("value=\"40.500000, -3.600000\"", "Solo la ves tú")
                     .doesNotContain("Es la ubicación que tiene Nuki");
         } finally {
@@ -311,7 +310,7 @@ class LockSettingsTests {
 
     @Test
     void htmlFormSendsThePatchAsAPostWithHiddenMethod() {
-        assertThat(mvc.post().uri("/locks/" + alicesLock).with(owner(ALICE)).with(csrf())
+        assertThat(mvc.post().uri("/locks/" + alicesLock).with(SignedIn.owner(ALICE)).with(csrf())
                 .param("_method", "patch").param("name", "Casa").param("timeZone", "Europe/Madrid"))
                 .hasStatus(HttpStatus.FOUND);
         assertThat(settings(alicesLock)).isEqualTo("Casa|Europe/Madrid");
@@ -319,20 +318,20 @@ class LockSettingsTests {
 
     @Test
     void updatingRequiresTheCsrfToken() {
-        assertThat(mvc.patch().uri("/locks/" + alicesLock).with(owner(ALICE))
+        assertThat(mvc.patch().uri("/locks/" + alicesLock).with(SignedIn.owner(ALICE))
                 .param("name", "Otra").param("timeZone", "Europe/Madrid"))
                 .hasStatus(HttpStatus.FORBIDDEN);
         assertThat(settings(alicesLock)).isEqualTo("Casa|Europe/Berlin");
     }
 
     private MvcTestResult update(String email, UUID lockId, String name, String timeZone) {
-        return mvc.patch().uri("/locks/" + lockId).with(owner(email)).with(csrf())
+        return mvc.patch().uri("/locks/" + lockId).with(SignedIn.owner(email)).with(csrf())
                 .param("name", name).param("timeZone", timeZone)
                 .exchange();
     }
 
     private MvcTestResult updatePosition(UUID lockId, String coordinates) {
-        return mvc.patch().uri("/locks/" + lockId).with(owner(ALICE)).with(csrf())
+        return mvc.patch().uri("/locks/" + lockId).with(SignedIn.owner(ALICE)).with(csrf())
                 .param("name", "Casa").param("timeZone", "Europe/Berlin").param("coordinates", coordinates)
                 .exchange();
     }
@@ -344,7 +343,7 @@ class LockSettingsTests {
     }
 
     private MvcTestResult updateCheck(String coordinates, String locationCheck, String locationRadius) {
-        return mvc.patch().uri("/locks/" + alicesLock).with(owner(ALICE)).with(csrf())
+        return mvc.patch().uri("/locks/" + alicesLock).with(SignedIn.owner(ALICE)).with(csrf())
                 .param("name", "Casa").param("timeZone", "Europe/Berlin").param("coordinates", coordinates)
                 .param("locationCheck", locationCheck).param("locationRadius", locationRadius)
                 .exchange();
@@ -363,13 +362,13 @@ class LockSettingsTests {
     }
 
     private MvcTestResult updateEntrance(UUID lockId, String entranceLockId) {
-        return mvc.patch().uri("/locks/" + lockId).with(owner(ALICE)).with(csrf())
+        return mvc.patch().uri("/locks/" + lockId).with(SignedIn.owner(ALICE)).with(csrf())
                 .param("name", "Casa").param("timeZone", "Europe/Berlin").param("entranceLockId", entranceLockId)
                 .exchange();
     }
 
     private MvcTestResult updateInstructions(UUID lockId, String guestInstructions) {
-        return mvc.patch().uri("/locks/" + lockId).with(owner(ALICE)).with(csrf())
+        return mvc.patch().uri("/locks/" + lockId).with(SignedIn.owner(ALICE)).with(csrf())
                 .param("name", "Casa").param("timeZone", "Europe/Berlin").param("guestInstructions", guestInstructions)
                 .exchange();
     }
@@ -400,9 +399,5 @@ class LockSettingsTests {
 
     private UUID insertLock(String email, String name) {
         return data.lock(data.owner(email), 17, name, "Europe/Berlin");
-    }
-
-    private static RequestPostProcessor owner(String email) {
-        return SignedIn.owner(email);
     }
 }

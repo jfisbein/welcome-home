@@ -203,7 +203,7 @@ class LocationCheckTests {
     void theEntranceChecksAgainstItsOwnPositionOrElseItsLocks() {
         data.locationCheck(lockId, DOOR_LATITUDE, DOOR_LONGITUDE, "OFF", 150);
         var portal = data.entrance(lockId, 19, "Portal");
-        migrator.sql("UPDATE lock SET location_check = 'CONFIRM_WHEN_FAR' WHERE id = ?").param(portal).update();
+        data.locationCheck(portal, "CONFIRM_WHEN_FAR");
         nukiOpens(19);
 
         assertThat(open("entrance", metresAway(3000, 20), false)).hasStatus(HttpStatus.PRECONDITION_REQUIRED);

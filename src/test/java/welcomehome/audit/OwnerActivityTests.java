@@ -84,9 +84,7 @@ class OwnerActivityTests {
     void aliceWithAVerifiedAddressAndALock() throws Exception {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        for (var table : new String[] {"user_credentials", "user_entities", "invitation", "owner"}) {
-            migrator.sql("DELETE FROM " + table).update();
-        }
+        data.deleteOwners();
         aliceId = data.owner(ALICE);
         data.verifyEmail(aliceId);
         lockId = data.lock(aliceId, 17, "Casa");
@@ -187,7 +185,7 @@ class OwnerActivityTests {
         assertThat(created.getSubject()).isEqualTo("Casa: enlace «Ana» creado");
         assertThat(created.getAllRecipients()).extracting(Object::toString).containsExactly(ALICE);
         assertThat(text(created)).contains(
-                        "Se ha creado el enlace «Ana» para Casa, válido del vie 1 nov 2030, 15:00 al dom 3 nov 2030, 11:00 "
+                        "Se ha creado el enlace «Ana» de Casa, válido del vie 1 nov 2030, 15:00 al dom 3 nov 2030, 11:00 "
                                 + "(hora de España peninsular).",
                         "anúlalo en " + IntegrationTest.BASE_URL + "/locks/" + lockId + "/links",
                         "actividad de tu cuenta en " + IntegrationTest.BASE_URL + "/settings/activity",
@@ -300,7 +298,7 @@ class OwnerActivityTests {
 
     @Test
     void anAddressNotYetVerifiedGetsNoEmail() {
-        migrator.sql("UPDATE owner SET email_verified_at = NULL").update();
+        data.unverifyEmails();
 
         create("Ana", "2030-11-01T15:00", "2030-11-03T11:00");
 
@@ -350,11 +348,7 @@ class OwnerActivityTests {
 
     private void insertActivity(UUID ownerId, String age, String kind, UUID lock, UUID link, String passkey,
                                 String ip, String country) {
-        migrator.sql("""
-                        INSERT INTO owner_activity (owner_id, occurred_at, kind, lock_id, link_id, passkey, ip, country)
-                        VALUES (?, now() - CAST(? AS interval), ?, ?, ?, ?, CAST(? AS inet), ?)
-                        """)
-                .params(ownerId, age, kind, lock, link, passkey, ip, country).update();
+        data.activity(ownerId, age, kind, lock, link, passkey, ip, country);
     }
 
     private UUID linkId(String label) {

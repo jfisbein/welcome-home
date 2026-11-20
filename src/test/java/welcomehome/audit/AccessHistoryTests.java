@@ -17,7 +17,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
-import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.SignedIn;
 import welcomehome.IntegrationTest;
@@ -55,13 +54,13 @@ class AccessHistoryTests {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
         data.deleteOwners();
-        var alice = insertOwner(ALICE);
-        casa = insertLock(alice, 17, "Casa", "Europe/Madrid");
-        garaje = insertLock(alice, 18, "Garaje", "Europe/Madrid");
+        var alice = data.owner(ALICE);
+        casa = data.lock(alice, 17, "Casa", "Europe/Madrid");
+        garaje = data.lock(alice, 18, "Garaje", "Europe/Madrid");
         ana = insertLink(casa, "Ana");
         bea = insertLink(casa, "Bea");
         carlos = insertLink(garaje, "Carlos");
-        bobsLock = insertLock(insertOwner(BOB), 19, "Casa de Bob", "Europe/Madrid");
+        bobsLock = data.lock(data.owner(BOB), 19, "Casa de Bob", "Europe/Madrid");
         bobsLink = insertLink(bobsLock, "Invitado de Bob");
     }
 
@@ -111,7 +110,7 @@ class AccessHistoryTests {
         var portal = data.entrance(casa, 20, "Portal del 5");
         insertEvent(ana, "2030-07-01T10:00:00Z", "OK", "opened", "198.51.100.1");
         insertEvent(ana, "2030-07-01T09:58:00Z", "OK", "opened", "198.51.100.2");
-        migrator.sql("UPDATE access_event SET entrance_lock_id = ? WHERE ip = '198.51.100.2'").param(portal).update();
+        data.atEntrance("198.51.100.2", portal);
 
         assertThat(body(history(casa, "?link=" + ana))).containsSubsequence(
                 "12:00:00", "Ana", "198.51.100.1", "11:58:00", "Ana", "Portal: Portal del 5", "198.51.100.2");
@@ -119,7 +118,7 @@ class AccessHistoryTests {
         assertThat(body(history(portal, ""))).contains("Portal: Portal del 5", "198.51.100.2",
                         "href=\"/locks/" + casa + "/history?link=" + ana + "\"")
                 .doesNotContain("198.51.100.1");
-        assertThat(body(mvc.get().uri("/").with(owner(ALICE)).exchange())).as("the home page's latest attempts")
+        assertThat(body(mvc.get().uri("/").with(SignedIn.owner(ALICE)).exchange())).as("the home page's latest attempts")
                 .contains("Portal: Portal del 5");
     }
 
@@ -139,7 +138,7 @@ class AccessHistoryTests {
         var older = first.replaceAll("(?s).*href=\"([^\"]*)\">Anteriores.*", "$1").replace("&amp;", "&");
         assertThat(older).startsWith("/locks/" + casa + "/history?link=" + ana + "&before=");
 
-        var second = body(mvc.get().uri(older).with(owner(ALICE)).exchange());
+        var second = body(mvc.get().uri(older).with(SignedIn.owner(ALICE)).exchange());
         assertThat(second).contains(">10.0.0.1<", "Más recientes").doesNotContain(">10.0.0.2<", "Anteriores");
     }
 
@@ -155,7 +154,7 @@ class AccessHistoryTests {
 
         var first = body(history(casa, "?link=" + ana));
         var older = first.replaceAll("(?s).*href=\"([^\"]*)\">Anteriores.*", "$1").replace("&amp;", "&");
-        var second = body(mvc.get().uri(older).with(owner(ALICE)).exchange());
+        var second = body(mvc.get().uri(older).with(SignedIn.owner(ALICE)).exchange());
 
         var shown = new ArrayList<String>();
         for (var page : List.of(first, second)) {
@@ -177,8 +176,8 @@ class AccessHistoryTests {
         insertEvent(ana, "2030-07-01T10:00:00Z", "OK", "opened", "198.51.100.7");
         insertEvent(ana, "2030-07-01T11:00:00Z", "OK", "opened", "198.51.100.8");
         insertEvent(ana, "2030-07-01T12:00:00Z", "OK", "opened", "198.51.100.9");
-        migrator.sql("UPDATE access_event SET country = 'ES' WHERE ip = '198.51.100.8'").update();
-        migrator.sql("UPDATE access_event SET country = 'T1' WHERE ip = '198.51.100.9'").update();
+        data.country("198.51.100.8", "ES");
+        data.country("198.51.100.9", "T1");
 
         assertThat(body(history(casa, ""))).as("a flag named for those who cannot see it, Tor by name, else the IP")
                 .containsPattern("<span role=\"img\" tabindex=\"0\" data-placement=\"left\"\\s+aria-label=\"España · 198\\.51\\.100\\.8\"\\s+"
@@ -186,7 +185,7 @@ class AccessHistoryTests {
                 .containsPattern("<small tabindex=\"0\" data-placement=\"left\"\\s+data-tooltip=\"198\\.51\\.100\\.9\">Tor</small>")
                 .contains("<small>198.51.100.7</small>")
                 .doesNotContain(">198.51.100.8<", ">198.51.100.9<");
-        migrator.sql("UPDATE owner SET language = 'en' WHERE email = ?").param(ALICE).update();
+        data.language(ALICE, "en");
         assertThat(body(history(casa, ""))).contains("data-tooltip=\"Spain · 198.51.100.8\">🇪🇸<");
     }
 
@@ -278,7 +277,7 @@ class AccessHistoryTests {
         var older = first.replaceAll("(?s).*href=\"([^\"]*)\">Anteriores.*", "$1").replace("&amp;", "&");
         assertThat(older).startsWith("/locks/" + casa + "/history?result=OK&before=");
 
-        var second = body(mvc.get().uri(older).with(owner(ALICE)).exchange());
+        var second = body(mvc.get().uri(older).with(SignedIn.owner(ALICE)).exchange());
         assertThat(second).contains(">10.0.0.4<", ">10.0.0.2<").doesNotContain(">10.0.0.6<", ">10.0.0.3<", "Anteriores");
     }
 
@@ -294,16 +293,16 @@ class AccessHistoryTests {
     @Test
     void lockAndLinkPagesLeadToTheHistory() {
         var lockHistory = "href=\"/locks/" + casa + "/history\"";
-        assertThat(body(mvc.get().uri("/locks").with(owner(ALICE)).exchange())).as("the list of locks")
+        assertThat(body(mvc.get().uri("/locks").with(SignedIn.owner(ALICE)).exchange())).as("the list of locks")
                 .contains(lockHistory);
-        assertThat(body(mvc.get().uri("/locks/" + casa).with(owner(ALICE)).exchange())).as("the lock")
+        assertThat(body(mvc.get().uri("/locks/" + casa).with(SignedIn.owner(ALICE)).exchange())).as("the lock")
                 .contains(lockHistory);
-        assertThat(body(mvc.get().uri("/locks/" + casa + "/links").with(owner(ALICE)).exchange())).as("its links")
+        assertThat(body(mvc.get().uri("/locks/" + casa + "/links").with(SignedIn.owner(ALICE)).exchange())).as("its links")
                 .contains(lockHistory, "href=\"/locks/" + casa + "/history?link=" + ana + "\"");
     }
 
     private MvcTestResult history(UUID lockId, String query) {
-        return mvc.get().uri("/locks/" + lockId + "/history" + query).with(owner(ALICE)).exchange();
+        return mvc.get().uri("/locks/" + lockId + "/history" + query).with(SignedIn.owner(ALICE)).exchange();
     }
 
     private static String body(MvcTestResult result) {
@@ -315,19 +314,7 @@ class AccessHistoryTests {
         data.attempt(linkId, "timestamptz '" + occurredAt + "'", result, reason, ip);
     }
 
-    private UUID insertOwner(String email) {
-        return data.owner(email);
-    }
-
-    private UUID insertLock(UUID ownerId, long nukiSmartlockId, String name, String timeZone) {
-        return data.lock(ownerId, nukiSmartlockId, name, timeZone);
-    }
-
     private UUID insertLink(UUID lockId, String label) {
         return data.link(lockId, label, "now()", TestData.IN_A_DAY);
-    }
-
-    private static RequestPostProcessor owner(String email) {
-        return SignedIn.owner(email);
     }
 }

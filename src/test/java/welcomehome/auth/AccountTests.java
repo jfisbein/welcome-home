@@ -78,9 +78,7 @@ class AccountTests {
     void registerAliceOnHerPhone() throws Exception {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        for (var table : new String[] {"user_credentials", "user_entities", "invitation", "owner"}) {
-            migrator.sql("DELETE FROM " + table).update();
-        }
+        data.deleteOwners();
         mail.purgeEmailFromAllMailboxes();
         var invitation = invitations.createInvitation(null, ALICE, false).url().getPath();
         var session = new MockHttpSession();
@@ -189,8 +187,7 @@ class AccountTests {
         assertThat(text(toTheNew)).doesNotContain("Te llega porque");
         mail.purgeEmailFromAllMailboxes();
 
-        migrator.sql("UPDATE owner SET previous_email_until = now() - interval '1 minute' WHERE id = ?")
-                .param(aliceId).update();
+        data.previousEmailUntil(aliceId, "now() - interval '1 minute'");
         addPasskey(session, "Tableta");
         assertThat(emails(1)).as("the days are over")
                 .isEqualTo(List.of(NEW_EMAIL + ": Se ha añadido una passkey a tu cuenta de welcome-home"));
@@ -215,7 +212,7 @@ class AccountTests {
 
     @Test
     void aPreviousAddressNeverVerifiedIsNotWrittenTo() throws MessagingException {
-        migrator.sql("UPDATE owner SET email_verified_at = NULL WHERE id = ?").param(aliceId).update();
+        data.unverifyEmail(aliceId);
 
         changeEmail(signIn(), NEW_EMAIL);
 

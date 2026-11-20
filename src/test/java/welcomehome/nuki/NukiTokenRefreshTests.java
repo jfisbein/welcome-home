@@ -226,7 +226,8 @@ class NukiTokenRefreshTests {
     @Test
     void disconnectedAuthorizationWhoseTokenExpiredReconnectsByRefreshing() {
         insertAuthorization("access-1", "refresh-1", "-1 minute");
-        migrator.sql("UPDATE nuki_connection SET status = 'DISCONNECTED', last_checked_at = now()").update();
+        data.disconnectNuki();
+        data.nukiLastChecked("now()");
         nukiRefreshes("refresh-1", "access-2", "refresh-2");
 
         job.recheckDisconnected();
@@ -239,7 +240,8 @@ class NukiTokenRefreshTests {
     @Test
     void disconnectedAuthorizationThatNukiStillRefusesStaysDisconnected() {
         insertAuthorization("access-1", "refresh-1", "-1 minute");
-        migrator.sql("UPDATE nuki_connection SET status = 'DISCONNECTED', last_checked_at = now()").update();
+        data.disconnectNuki();
+        data.nukiLastChecked("now()");
         nuki.stubFor(post("/oauth/token").willReturn(status(400).withHeader("Content-Type", "application/json")
                 .withBody("{\"error\": \"invalid_grant\"}")));
 

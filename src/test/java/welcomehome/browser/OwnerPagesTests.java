@@ -39,9 +39,7 @@ class OwnerPagesTests extends BrowserTest {
     void emptyDatabaseAndAnAuthenticator() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        for (var table : List.of("invitation", "user_credentials", "user_entities", "owner")) {
-            migrator.sql("DELETE FROM " + table).update();
-        }
+        data.deleteOwners();
         var cdp = context.newCDPSession(page);
         cdp.send("WebAuthn.enable");
         var options = new JsonObject();

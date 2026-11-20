@@ -97,7 +97,7 @@ class EventPurgeJobTests {
             insertEvent(link, "91 days", "198.51.100.1");
             insertEvent(link, "89 days", "198.51.100.2");
         }
-        migrator.sql("UPDATE access_event SET country = 'ES'").update();
+        data.country("ES");
 
         job.purgeAll();
 
@@ -112,7 +112,7 @@ class EventPurgeJobTests {
         var link = insertLink("alice@example.com");
         insertEvent(link, "91 days", "198.51.100.1");
         insertEvent(link, "89 days", "198.51.100.2");
-        migrator.sql("UPDATE access_event SET distance_m = 3000, accuracy_m = 20, location_confirmed = true").update();
+        data.confirmedFrom(3000, 20);
 
         job.purgeAll();
 
@@ -150,11 +150,7 @@ class EventPurgeJobTests {
         var bob = data.owner("bob@example.com");
         for (var owner : List.of(alice, bob)) {
             for (var age : List.of("366 days", "91 days", "89 days")) {
-                migrator.sql("""
-                                INSERT INTO owner_activity (owner_id, occurred_at, kind, ip, country)
-                                VALUES (?, now() - CAST(? AS interval), 'SIGNED_IN', '198.51.100.1', 'ES')
-                                """)
-                        .params(owner, age).update();
+                data.activity(owner, age, "SIGNED_IN", null, null, null, "198.51.100.1", "ES");
             }
         }
 

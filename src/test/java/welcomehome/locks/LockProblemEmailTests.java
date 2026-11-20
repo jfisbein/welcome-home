@@ -127,8 +127,7 @@ class LockProblemEmailTests {
 
     @Test
     void anOwnerWhoDoesNotWantThemGetsNone() {
-        migrator.sql("INSERT INTO notification_preference (owner_id, lock_problems) VALUES (?, false)")
-                .param(aliceId).update();
+        data.noLockProblemEmails(aliceId);
         nukiReports(false, true);
 
         job.syncAll();

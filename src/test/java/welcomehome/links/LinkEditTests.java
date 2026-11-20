@@ -15,7 +15,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
-import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.SignedIn;
 import welcomehome.IntegrationTest;
@@ -70,16 +69,16 @@ class LinkEditTests {
         data = new TestData(migrator);
         data.deleteOwners();
         lockId = insertLock(ALICE, "America/New_York");
-        linkId = insertLink(lockId, "Ana", "'2030-11-01T19:00:00Z'", "'2030-11-03T16:00:00Z'");
-        bobsLinkId = insertLink(insertLock(BOB, "Europe/Madrid"), "Invitado de Bob", "now()", "now() + interval '1 day'");
+        linkId = data.link(lockId, "Ana", "'2030-11-01T19:00:00Z'", "'2030-11-03T16:00:00Z'");
+        bobsLinkId = data.link(insertLock(BOB, "Europe/Madrid"), "Invitado de Bob", "now()", "now() + interval '1 day'");
     }
 
     @Test
     void editPageShowsTheLinkInTheLocksTimeZone() {
-        assertThat(mvc.get().uri("/links/" + linkId).with(owner(ALICE)))
+        assertThat(mvc.get().uri("/links/" + linkId).with(SignedIn.owner(ALICE)))
                 .hasStatusOk()
                 .bodyText().contains("Enlace «Ana»", "2030-11-01T15:00", "2030-11-03T11:00", "hora oriental");
-        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(owner(ALICE)))
+        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(SignedIn.owner(ALICE)))
                 .bodyText().contains("/links/" + linkId);
     }
 
@@ -108,14 +107,13 @@ class LinkEditTests {
         var flash = update(ALICE, linkId, "Ana", "2030-11-02T10:00", "2031-03-02T10:00").getMvcResult().getFlashMap();
 
         assertThat(flash.get("updatedDays")).isEqualTo("120");
-        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(owner(ALICE)).flashAttrs(flash))
+        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(SignedIn.owner(ALICE)).flashAttrs(flash))
                 .bodyText().contains("Este enlace puede abrir la puerta durante 120 días.");
     }
 
     @Test
     void expiredLinkCanBeExtended() {
-        migrator.sql("UPDATE access_link SET valid_from = now() - interval '3 days', valid_until = now() - interval '1 day'")
-                .update();
+        data.validity("now() - interval '3 days'", "now() - interval '1 day'");
 
         assertThat(update(ALICE, linkId, "Ana", "2020-01-01T00:00", "2030-11-05T12:00")).hasStatus(HttpStatus.FOUND);
 
@@ -146,7 +144,7 @@ class LinkEditTests {
         data.revoke(linkId);
         var before = row(linkId);
 
-        assertThat(mvc.get().uri("/links/" + linkId).with(owner(ALICE))).hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(mvc.get().uri("/links/" + linkId).with(SignedIn.owner(ALICE))).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(update(ALICE, linkId, "Ana", "2030-11-02T10:00", "2030-11-05T12:00")).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(row(linkId)).isEqualTo(before);
     }
@@ -155,7 +153,7 @@ class LinkEditTests {
     void anotherOwnersLinkIsNotFound() {
         var before = row(bobsLinkId);
 
-        assertThat(mvc.get().uri("/links/" + bobsLinkId).with(owner(ALICE))).hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(mvc.get().uri("/links/" + bobsLinkId).with(SignedIn.owner(ALICE))).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(update(ALICE, bobsLinkId, "Mío", "2030-11-02T10:00", "2030-11-05T12:00"))
                 .hasStatus(HttpStatus.NOT_FOUND);
         assertThat(row(bobsLinkId)).isEqualTo(before);
@@ -163,7 +161,7 @@ class LinkEditTests {
 
     @Test
     void htmlFormSendsThePatchAsAPostWithHiddenMethod() {
-        assertThat(mvc.post().uri("/links/" + linkId).with(owner(ALICE)).with(csrf()).param("_method", "patch")
+        assertThat(mvc.post().uri("/links/" + linkId).with(SignedIn.owner(ALICE)).with(csrf()).param("_method", "patch")
                 .param("label", "Luis").param("validFrom", "2030-11-02T10:00").param("validUntil", "2030-11-05T12:00"))
                 .hasStatus(HttpStatus.FOUND);
         assertThat(migrator.sql("SELECT label FROM access_link WHERE id = ?").param(linkId)
@@ -174,14 +172,14 @@ class LinkEditTests {
     void editingRequiresTheCsrfToken() {
         var before = row(linkId);
 
-        assertThat(mvc.patch().uri("/links/" + linkId).with(owner(ALICE))
+        assertThat(mvc.patch().uri("/links/" + linkId).with(SignedIn.owner(ALICE))
                 .param("label", "Luis").param("validFrom", "2030-11-02T10:00").param("validUntil", "2030-11-05T12:00"))
                 .hasStatus(HttpStatus.FORBIDDEN);
         assertThat(row(linkId)).isEqualTo(before);
     }
 
     private MvcTestResult update(String email, UUID link, String label, String validFrom, String validUntil) {
-        return mvc.patch().uri("/links/" + link).with(owner(email)).with(csrf())
+        return mvc.patch().uri("/links/" + link).with(SignedIn.owner(email)).with(csrf())
                 .param("label", label).param("validFrom", validFrom).param("validUntil", validUntil)
                 .exchange();
     }
@@ -197,13 +195,5 @@ class LinkEditTests {
 
     private UUID insertLock(String email, String timeZone) {
         return data.lock(data.owner(email), 17, "Casa", timeZone);
-    }
-
-    private UUID insertLink(UUID lock, String label, String validFrom, String validUntil) {
-        return data.link(lock, label, validFrom, validUntil);
-    }
-
-    private static RequestPostProcessor owner(String email) {
-        return SignedIn.owner(email);
     }
 }

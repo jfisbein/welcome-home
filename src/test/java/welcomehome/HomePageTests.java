@@ -15,7 +15,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
-import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.nuki.NukiStandInConfiguration;
 
@@ -47,12 +46,12 @@ class HomePageTests {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
         data.deleteOwners();
-        var alice = insertOwner(ALICE);
-        casa = insertLock(alice, 17, "Casa", "Europe/Madrid");
-        garaje = insertLock(alice, 18, "Garaje", "America/New_York");
+        var alice = data.owner(ALICE);
+        casa = data.lock(alice, 17, "Casa", "Europe/Madrid");
+        garaje = data.lock(alice, 18, "Garaje", "America/New_York");
         ana = insertLink(casa, "Ana");
         carlos = insertLink(garaje, "Carlos");
-        bobsLink = insertLink(insertLock(insertOwner(BOB), 19, "Casa de Bob", "Europe/Madrid"), "Invitado de Bob");
+        bobsLink = insertLink(data.lock(data.owner(BOB), 19, "Casa de Bob", "Europe/Madrid"), "Invitado de Bob");
     }
 
     @Test
@@ -76,7 +75,7 @@ class HomePageTests {
         data.link(casa, "Dani", "now() + interval '1 day'", "now() + interval '2 days'");
         data.link(casa, "Eva", "now() - interval '2 days'", "now() - interval '1 day'");
         data.link(casa, "Fer", "now() - interval '1 day'", "now() + interval '1 day'", "now()");
-        migrator.sql("DELETE FROM access_link WHERE id = ?").param(carlos).update();
+        data.deleteLink(carlos);
 
         assertThat(home()).as("not the pending, the expired or the revoked one, nor Bob's")
                 .containsSubsequence("Casa", ">2 enlaces pueden abrir ahora</a>", "Garaje")
@@ -93,7 +92,7 @@ class HomePageTests {
 
     @Test
     void ownerWithoutLocksIsToldWhereToImportThem() {
-        migrator.sql("DELETE FROM lock").update();
+        data.deleteLocks();
 
         assertThat(home()).contains("Todavía no tienes cerraduras", "href=\"/locks\"");
     }
@@ -125,10 +124,10 @@ class HomePageTests {
     @Test
     void attemptsShowAsInTheHistoryWithTheLockAndTheOrigin() {
         insertEvent(ana, "2030-07-01T10:00:00Z", "OK", "opened");
-        migrator.sql("UPDATE access_event SET country = 'ES'").update();
+        data.country("ES");
 
         var home = home();
-        var history = body(mvc.get().uri("/locks/" + casa + "/history").with(owner(ALICE)).exchange());
+        var history = body(mvc.get().uri("/locks/" + casa + "/history").with(SignedIn.owner(ALICE)).exchange());
         assertThat(home).containsSubsequence("Fecha", "Cerradura", "Enlace", "Resultado", "Origen")
                 .contains("data-tooltip=\"España · 198.51.100.1\">🇪🇸</span>");
         assertThat(history).containsSubsequence("Fecha", "Enlace", "Resultado", "Origen")
@@ -145,12 +144,12 @@ class HomePageTests {
     @Test
     void menuMarksTheCurrentSectionAndConfigurationLeadsToItsSections() {
         assertThat(home()).contains("href=\"/locks\"", "href=\"/settings\"").doesNotContain("href=\"/settings/passkeys\"");
-        assertThat(mvc.get().uri("/settings").with(owner(ALICE))).hasRedirectedUrl("/settings/nuki");
-        assertThat(body(mvc.get().uri("/locks").with(owner(ALICE)).exchange()))
+        assertThat(mvc.get().uri("/settings").with(SignedIn.owner(ALICE))).hasRedirectedUrl("/settings/nuki");
+        assertThat(body(mvc.get().uri("/locks").with(SignedIn.owner(ALICE)).exchange()))
                 .contains("<a href=\"/locks\" aria-current=\"page\">Cerraduras</a>");
         for (var section : new String[] {"/settings/nuki", "/settings/preferences", "/settings/notifications",
                 "/settings/passkeys", "/settings/activity"}) {
-            assertThat(body(mvc.get().uri(section).with(owner(ALICE)).exchange()))
+            assertThat(body(mvc.get().uri(section).with(SignedIn.owner(ALICE)).exchange()))
                     .as(section)
                     .contains("<a href=\"/settings\" aria-current=\"page\">Configuración</a>",
                             "<a href=\"" + section + "\" aria-current=\"page\">",
@@ -163,7 +162,7 @@ class HomePageTests {
     void configurationsFormerAddressesLeadToItsSections() {
         var moved = Map.of("/nuki/connection", "/settings/nuki", "/notifications", "/settings/notifications",
                 "/passkeys", "/settings/passkeys", "/settings/language", "/settings/preferences");
-        moved.forEach((from, to) -> assertThat(mvc.get().uri(from).with(owner(ALICE))).as(from)
+        moved.forEach((from, to) -> assertThat(mvc.get().uri(from).with(SignedIn.owner(ALICE))).as(from)
                 .hasStatus(HttpStatus.MOVED_PERMANENTLY).hasRedirectedUrl(to));
     }
 
@@ -174,7 +173,7 @@ class HomePageTests {
     }
 
     private String home() {
-        return body(mvc.get().uri("/").with(owner(ALICE)).exchange());
+        return body(mvc.get().uri("/").with(SignedIn.owner(ALICE)).exchange());
     }
 
     private static String body(MvcTestResult result) {
@@ -186,19 +185,7 @@ class HomePageTests {
         data.attempt(linkId, "timestamptz '" + occurredAt + "'", result, reason, "198.51.100.1");
     }
 
-    private UUID insertOwner(String email) {
-        return data.owner(email);
-    }
-
-    private UUID insertLock(UUID ownerId, long nukiSmartlockId, String name, String timeZone) {
-        return data.lock(ownerId, nukiSmartlockId, name, timeZone);
-    }
-
     private UUID insertLink(UUID lockId, String label) {
         return data.link(lockId, label, "now()", TestData.IN_A_DAY);
-    }
-
-    private static RequestPostProcessor owner(String email) {
-        return SignedIn.owner(email);
     }
 }

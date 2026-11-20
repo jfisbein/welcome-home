@@ -148,7 +148,7 @@ class LockWarningsTests {
 
     @Test
     void autoLockOffIsNoWarningForAnOwnerWhoRelocksSomeOtherWay() {
-        migrator.sql("UPDATE lock SET relocking_handled_elsewhere = true").update();
+        data.relockingHandledElsewhere();
         connectNuki();
         nukiLists(ALL_WELL.replace("\"autoLock\": true", "\"autoLock\": false"));
 
@@ -157,7 +157,7 @@ class LockWarningsTests {
 
     @Test
     void autoLockIsNoWarningForAnOpener() {
-        migrator.sql("UPDATE lock SET device_type = 'OPENER'").update();
+        data.makeOpeners();
         connectNuki();
         nukiLists("""
                 {"smartlockId": 17, "type": 2, "name": "Portal", "serverState": 0, "state": {"state": 1}}

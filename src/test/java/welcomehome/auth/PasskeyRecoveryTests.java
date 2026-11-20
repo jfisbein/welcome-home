@@ -20,6 +20,7 @@ import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import welcomehome.TestData;
 import welcomehome.IntegrationTest;
 import welcomehome.TestDatabaseConfiguration;
 
@@ -53,9 +54,7 @@ class PasskeyRecoveryTests {
     @BeforeEach
     void registerAliceOnHerOldDevice() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
-        for (var table : new String[] {"user_credentials", "user_entities", "invitation", "owner"}) {
-            migrator.sql("DELETE FROM " + table).update();
-        }
+        new TestData(migrator).deleteOwners();
         var invitation = invitations.createInvitation(null, "Alice", true).url().getPath();
         var session = new MockHttpSession();
         var options = post(session, invitation + "/options", "{\"email\": \"" + ALICE + "\"}");

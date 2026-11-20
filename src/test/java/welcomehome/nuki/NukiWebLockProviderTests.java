@@ -68,8 +68,8 @@ class NukiWebLockProviderTests {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
         data.deleteOwners();
-        alice = insertOwner("alice@example.com");
-        bob = insertOwner("bob@example.com");
+        alice = data.owner("alice@example.com");
+        bob = data.owner("bob@example.com");
     }
 
     @Test
@@ -105,13 +105,7 @@ class NukiWebLockProviderTests {
     void tokenCopiedFromAnotherOwnersRowIsNotUsed() {
         connectWith(alice, ALICES_TOKEN);
         connectWith(bob, BOBS_TOKEN);
-        migrator.sql("""
-                        UPDATE nuki_connection SET access_token_encrypted =
-                            (SELECT access_token_encrypted FROM nuki_connection WHERE owner_id = ?)
-                        WHERE owner_id = ?
-                        """)
-                .params(bob, alice)
-                .update();
+        data.copyAccessToken(bob, alice);
         nuki.resetRequests();
 
         assertNotConnected(alice);
@@ -189,9 +183,5 @@ class NukiWebLockProviderTests {
 
     private void assertNotConnected(UUID ownerId) {
         assertFailsWith(Reason.NOT_CONNECTED, () -> locks.unlatch(ownerId, 17));
-    }
-
-    private UUID insertOwner(String email) {
-        return data.owner(email);
     }
 }

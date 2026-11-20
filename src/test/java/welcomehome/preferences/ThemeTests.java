@@ -41,9 +41,7 @@ class ThemeTests {
     void insertAlice() {
         var migrator = TestDatabaseConfiguration.asMigrator(postgres);
         var data = new TestData(migrator);
-        for (var table : new String[] {"user_credentials", "user_entities", "invitation", "owner"}) {
-            migrator.sql("DELETE FROM " + table).update();
-        }
+        data.deleteOwners();
         data.owner(ALICE);
     }
 

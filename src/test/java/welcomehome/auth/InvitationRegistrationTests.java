@@ -9,7 +9,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BooleanSupplier;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,6 +21,7 @@ import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import welcomehome.TestData;
 import welcomehome.IntegrationTest;
 import welcomehome.TestDatabaseConfiguration;
 
@@ -47,9 +47,7 @@ class InvitationRegistrationTests {
     @BeforeEach
     void emptyDatabase() {
         var migrator = TestDatabaseConfiguration.asMigrator(postgres);
-        for (var table : new String[] {"user_credentials", "user_entities", "invitation", "owner"}) {
-            migrator.sql("DELETE FROM " + table).update();
-        }
+        new TestData(migrator).deleteOwners();
     }
 
     @Test
@@ -188,7 +186,7 @@ class InvitationRegistrationTests {
 
     @Test
     void emailOfAnExistingOwnerIsRejected() {
-        TestDatabaseConfiguration.asMigrator(postgres).sql("INSERT INTO owner (email) VALUES ('alice@example.com')").update();
+        new TestData(TestDatabaseConfiguration.asMigrator(postgres)).owner("alice@example.com");
 
         assertThat(post(invitationPath(false) + "/options", "{\"email\": \"alice@example.com\"}"))
                 .hasStatus(HttpStatus.CONFLICT)

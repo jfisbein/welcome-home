@@ -30,7 +30,7 @@ Functional:
 - Owners get emails about their locks (opened, failed, denied, Nuki disconnected, a lock's problems) and choose which ones, once they have verified their address with the link sent when they register. Emails about their account, a link that may open the door from now on among them, always go.
 - Owners see their account's activity: every sign-in, with its passkey, one made with a recovery link said so, and every change to a link, with where it came from.
 - Changing the email or adding a passkey asks for a sign-in within the last 10 minutes, or a passkey again.
-- Spanish, English, French, German and Italian: a guest's pages in their browser's language, an owner's pages and emails in the language they chose.
+- Spanish, English, French and Italian: a guest's pages in their browser's language, an owner's pages and emails in the language they chose.
 
 Non-functional:
 

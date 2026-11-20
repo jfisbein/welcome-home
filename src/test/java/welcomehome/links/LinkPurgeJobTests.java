@@ -34,7 +34,7 @@ class LinkPurgeJobTests {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
         data.deleteOwners();
-        alice = insertOwner("alice@example.com");
+        alice = data.owner("alice@example.com");
         casa = insertLock(alice);
     }
 
@@ -79,8 +79,8 @@ class LinkPurgeJobTests {
         var paused = insertLink(casa, "En pausa", "now() + interval '1 year'", "now() - interval '2 years'");
         var pausedAndOver = insertLink(casa, "En pausa y caducado", "now() - interval '2 years'",
                 "now() - interval '3 years'");
-        migrator.sql("UPDATE access_link SET paused_at = revoked_at WHERE id IN (?, ?)").params(paused, pausedAndOver)
-                .update();
+        data.pausedSinceRevoked(paused);
+        data.pausedSinceRevoked(pausedAndOver);
 
         job.purgeAll();
 
@@ -99,7 +99,7 @@ class LinkPurgeJobTests {
 
     @Test
     void everyOwnersLinksGo() {
-        var bob = insertOwner("bob@example.com");
+        var bob = data.owner("bob@example.com");
         insertLink(insertLock(bob), "De Bob", "now() - interval '2 years'", "NULL");
         insertLink(casa, "De Alice", "now() - interval '2 years'", "NULL");
 
@@ -110,10 +110,6 @@ class LinkPurgeJobTests {
 
     private List<String> labels() {
         return migrator.sql("SELECT label FROM access_link ORDER BY label").query(String.class).list();
-    }
-
-    private UUID insertOwner(String email) {
-        return data.owner(email);
     }
 
     private UUID insertLock(UUID owner) {

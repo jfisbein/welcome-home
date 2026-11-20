@@ -16,7 +16,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
-import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.SignedIn;
 import welcomehome.IntegrationTest;
@@ -120,9 +119,9 @@ class LinkPauseTests {
     void aPausedLinkIsNeitherEditedNorReplacedNorDeleted() {
         post(ALICE, linkId, "pause");
 
-        assertThat(mvc.get().uri("/links/" + linkId).with(owner(ALICE))).hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(mvc.get().uri("/links/" + linkId).with(SignedIn.owner(ALICE))).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(post(ALICE, linkId, "regenerate")).hasStatus(HttpStatus.NOT_FOUND);
-        assertThat(mvc.delete().uri("/links/" + linkId).with(owner(ALICE)).with(csrf())).hasStatus(HttpStatus.CONFLICT);
+        assertThat(mvc.delete().uri("/links/" + linkId).with(SignedIn.owner(ALICE)).with(csrf())).hasStatus(HttpStatus.CONFLICT);
         assertThat(state(linkId)).isEqualTo("revoked|paused");
     }
 
@@ -160,7 +159,7 @@ class LinkPauseTests {
         data.pause(link);
 
         assertThat(page(null)).contains("Dani", "Caducado");
-        assertThat(mvc.delete().uri("/links/" + link).with(owner(ALICE)).with(csrf())).hasStatus(HttpStatus.FOUND);
+        assertThat(mvc.delete().uri("/links/" + link).with(SignedIn.owner(ALICE)).with(csrf())).hasStatus(HttpStatus.FOUND);
     }
 
     @Test
@@ -175,20 +174,20 @@ class LinkPauseTests {
 
     @Test
     void pausingAndResumingRequireTheCsrfToken() {
-        assertThat(mvc.post().uri("/links/" + linkId + "/pause").with(owner(ALICE))).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(mvc.post().uri("/links/" + linkId + "/pause").with(SignedIn.owner(ALICE))).hasStatus(HttpStatus.FORBIDDEN);
         assertThat(state(linkId)).isEqualTo("open|-");
         data.pause(linkId);
 
-        assertThat(mvc.post().uri("/links/" + linkId + "/resume").with(owner(ALICE))).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(mvc.post().uri("/links/" + linkId + "/resume").with(SignedIn.owner(ALICE))).hasStatus(HttpStatus.FORBIDDEN);
         assertThat(state(linkId)).isEqualTo("revoked|paused");
     }
 
     private MvcTestResult post(String email, UUID link, String action) {
-        return mvc.post().uri("/links/" + link + "/" + action).with(owner(email)).with(csrf()).exchange();
+        return mvc.post().uri("/links/" + link + "/" + action).with(SignedIn.owner(email)).with(csrf()).exchange();
     }
 
     private String page(String flash) {
-        var request = mvc.get().uri("/locks/" + lockId + "/links").with(owner(ALICE));
+        var request = mvc.get().uri("/locks/" + lockId + "/links").with(SignedIn.owner(ALICE));
         var result = (flash == null ? request : request.flashAttr(flash, "Ana")).exchange();
         assertThat(result).hasStatusOk();
         return new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8);
@@ -205,9 +204,5 @@ class LinkPauseTests {
     private int tokenVersion(UUID link) {
         return migrator.sql("SELECT token_version FROM access_link WHERE id = ?").param(link).query(Integer.class)
                 .single();
-    }
-
-    private static RequestPostProcessor owner(String email) {
-        return SignedIn.owner(email);
     }
 }

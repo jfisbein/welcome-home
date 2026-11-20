@@ -16,7 +16,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
-import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.SignedIn;
 import welcomehome.IntegrationTest;
@@ -107,7 +106,7 @@ class LinkDeletionTests {
     void deletingRequiresTheCsrfToken() {
         var expired = data.link(lockId, "Carlos", TWO_DAYS_AGO, ENDED_YESTERDAY);
 
-        assertThat(mvc.delete().uri("/links/" + expired).with(owner(ALICE))).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(mvc.delete().uri("/links/" + expired).with(SignedIn.owner(ALICE))).hasStatus(HttpStatus.FORBIDDEN);
 
         assertThat(rows()).isEqualTo(List.of("access_link " + expired));
     }
@@ -116,7 +115,7 @@ class LinkDeletionTests {
     void htmlFormSendsTheDeleteAsAPostWithHiddenMethod() {
         var expired = data.link(lockId, "Carlos", TWO_DAYS_AGO, ENDED_YESTERDAY);
 
-        assertThat(mvc.post().uri("/links/" + expired).with(owner(ALICE)).with(csrf()).param("_method", "delete"))
+        assertThat(mvc.post().uri("/links/" + expired).with(SignedIn.owner(ALICE)).with(csrf()).param("_method", "delete"))
                 .hasStatus(HttpStatus.FOUND);
 
         assertThat(rows()).isEqualTo(List.of());
@@ -126,14 +125,14 @@ class LinkDeletionTests {
     void afterDeletingThePageSaysSoAndKeepsTheLinksThatEndedUnfolded() {
         data.link(lockId, "Dani", TWO_DAYS_AGO, ENDED_YESTERDAY);
 
-        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(owner(ALICE)).flashAttr("deletedLabel", "Carlos"))
+        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(SignedIn.owner(ALICE)).flashAttr("deletedLabel", "Carlos"))
                 .bodyText().contains("Enlace «Carlos» borrado, con sus intentos.", "<details open=\"open\">");
-        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(owner(ALICE)))
+        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(SignedIn.owner(ALICE)))
                 .bodyText().contains("<details>").doesNotContain("<details open");
     }
 
     private MvcTestResult delete(String email, UUID link) {
-        return mvc.delete().uri("/links/" + link).with(owner(email)).with(csrf()).exchange();
+        return mvc.delete().uri("/links/" + link).with(SignedIn.owner(email)).with(csrf()).exchange();
     }
 
     /** Every link, schedule and attempt left, by the link it belongs to. */
@@ -146,9 +145,5 @@ class LinkDeletionTests {
                         """)
                 .query(String.class)
                 .list();
-    }
-
-    private static RequestPostProcessor owner(String email) {
-        return SignedIn.owner(email);
     }
 }

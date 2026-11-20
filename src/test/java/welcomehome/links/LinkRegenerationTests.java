@@ -15,7 +15,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
-import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.SignedIn;
 import welcomehome.IntegrationTest;
@@ -57,8 +56,8 @@ class LinkRegenerationTests {
         data = new TestData(migrator);
         data.deleteOwners();
         lockId = insertLock(ALICE);
-        linkId = insertActiveLink(lockId, "Ana");
-        bobsLinkId = insertActiveLink(insertLock(BOB), "Invitado de Bob");
+        linkId = data.link(lockId, "Ana");
+        bobsLinkId = data.link(insertLock(BOB), "Invitado de Bob");
     }
 
     @Test
@@ -91,7 +90,7 @@ class LinkRegenerationTests {
         var oldUrl = IntegrationTest.BASE_URL + "/o/" + signer.sign(linkId, 1);
         var newUrl = (URI) regenerate(ALICE, linkId).getMvcResult().getFlashMap().get("regeneratedUrl");
 
-        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(owner(ALICE))
+        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(SignedIn.owner(ALICE))
                 .flashAttr("regeneratedUrl", newUrl).flashAttr("regeneratedLabel", "Ana"))
                 .bodyText().contains("Nuevo enlace «Ana»", "El enlace anterior ya no abre la puerta", newUrl.toString())
                 .doesNotContain(oldUrl);
@@ -125,13 +124,13 @@ class LinkRegenerationTests {
 
     @Test
     void regeneratingRequiresTheCsrfToken() {
-        assertThat(mvc.post().uri("/links/" + linkId + "/regenerate").with(owner(ALICE)))
+        assertThat(mvc.post().uri("/links/" + linkId + "/regenerate").with(SignedIn.owner(ALICE)))
                 .hasStatus(HttpStatus.FORBIDDEN);
         assertThat(tokenVersion(linkId)).isEqualTo(1);
     }
 
     private MvcTestResult regenerate(String email, UUID link) {
-        return mvc.post().uri("/links/" + link + "/regenerate").with(owner(email)).with(csrf()).exchange();
+        return mvc.post().uri("/links/" + link + "/regenerate").with(SignedIn.owner(email)).with(csrf()).exchange();
     }
 
     private int tokenVersion(UUID link) {
@@ -146,13 +145,5 @@ class LinkRegenerationTests {
 
     private UUID insertLock(String email) {
         return data.lock(data.owner(email), 17, "Casa");
-    }
-
-    private UUID insertActiveLink(UUID lock, String label) {
-        return data.link(lock, label);
-    }
-
-    private static RequestPostProcessor owner(String email) {
-        return SignedIn.owner(email);
     }
 }

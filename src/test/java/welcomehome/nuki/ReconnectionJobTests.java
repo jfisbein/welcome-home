@@ -74,10 +74,9 @@ class ReconnectionJobTests {
         var revoked = connectedOwner("revoked", status(401));
         var nukiDown = connectedOwner("down", status(503));
         var alreadyDisconnected = connectedOwner("disconnected", okJson("[]"));
-        migrator.sql("UPDATE nuki_connection SET status = 'DISCONNECTED' WHERE owner_id = ?")
-                .param(alreadyDisconnected).update();
+        data.disconnectNuki(alreadyDisconnected);
         data.owner("never-connected@example.com");
-        migrator.sql("UPDATE nuki_connection SET last_checked_at = '" + LONG_AGO + "'").update();
+        data.nukiLastChecked("'" + LONG_AGO + "'");
         nuki.resetRequests();
 
         everyOwnersLocksAreRead();
@@ -113,7 +112,7 @@ class ReconnectionJobTests {
         var revoked = connectedOwner("revoked", status(401));
         var nukiDown = connectedOwner("down", status(503));
         var connected = connectedOwner("connected", okJson("[]"));
-        migrator.sql("UPDATE nuki_connection SET status = 'DISCONNECTED' WHERE owner_id <> ?").param(connected).update();
+        data.disconnectNukiOfAllBut(connected);
         nuki.resetRequests();
 
         job.recheckDisconnected();
@@ -129,8 +128,8 @@ class ReconnectionJobTests {
     @Test
     void aDisconnectionThatLastsADaysWhileIsFinal() {
         var owner = connectedOwner("gone", okJson("[]"));
-        migrator.sql("UPDATE nuki_connection SET status = 'DISCONNECTED', last_checked_at = now() - interval '8 days'")
-                .update();
+        data.disconnectNuki();
+        data.nukiLastChecked("now() - interval '8 days'");
         nuki.resetRequests();
 
         job.recheckDisconnected();

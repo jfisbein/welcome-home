@@ -22,7 +22,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
-import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.SignedIn;
 import welcomehome.IntegrationTest;
@@ -77,7 +76,7 @@ class NukiConnectionTests {
 
     @Test
     void ownerWithoutConnectionIsOfferedToConnectWithTheirNukiAccountAndNoOtherWay() {
-        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)))
+        assertThat(mvc.get().uri("/settings/nuki").with(SignedIn.owner(ALICE)))
                 .hasStatusOk()
                 .bodyText().contains("Todavía no has conectado",
                         "<a href=\"/settings/nuki/oauth\" role=\"button\"", "Conectar con Nuki", "Te llevamos a Nuki")
@@ -89,20 +88,20 @@ class NukiConnectionTests {
         nukiAccepts(TOKEN);
         connect(ALICE, TOKEN);
 
-        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)))
+        assertThat(mvc.get().uri("/settings/nuki").with(SignedIn.owner(ALICE)))
                 .bodyText().contains("Conectado con tu cuenta de Nuki.", "Última comprobación", "Desconectar Nuki")
                 .doesNotContain("/settings/nuki/oauth");
 
         data.disconnectNuki();
 
-        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)))
+        assertThat(mvc.get().uri("/settings/nuki").with(SignedIn.owner(ALICE)))
                 .bodyText().contains("Nuki ha rechazado", "Volver a conectar con Nuki", "/settings/nuki/oauth");
     }
 
     /** A pasted API token was the other way to connect until 2.18.0. */
     @Test
     void thereIsNoWayLeftToPasteAToken() {
-        assertThat(mvc.put().uri("/settings/nuki").with(owner(ALICE)).with(csrf()).param("apiToken", TOKEN))
+        assertThat(mvc.put().uri("/settings/nuki").with(SignedIn.owner(ALICE)).with(csrf()).param("apiToken", TOKEN))
                 .hasStatus(HttpStatus.METHOD_NOT_ALLOWED);
         nuki.verify(0, anyRequestedFor(anyUrl()));
         assertNoConnection();
@@ -110,19 +109,19 @@ class NukiConnectionTests {
 
     @Test
     void pageConfirmsTheDisconnection() {
-        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)).flashAttr("disconnected", true))
+        assertThat(mvc.get().uri("/settings/nuki").with(SignedIn.owner(ALICE)).flashAttr("disconnected", true))
                 .bodyText().contains("Nuki desconectado: hemos borrado los tokens", "Todavía no has conectado");
     }
 
     @Test
     void pageNamesTheLocksJustFound() {
-        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)).flashAttr("connectedLocks", List.of("Casa")))
+        assertThat(mvc.get().uri("/settings/nuki").with(SignedIn.owner(ALICE)).flashAttr("connectedLocks", List.of("Casa")))
                 .bodyText().contains("Tus cerraduras ya están aquí", "Casa", "href=\"/locks\"", "<details id=\"nuki-web\">");
     }
 
     @Test
     void guideToActivatingNukiWebIsFoldedAway() {
-        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)))
+        assertThat(mvc.get().uri("/settings/nuki").with(SignedIn.owner(ALICE)))
                 .bodyText()
                 .containsPattern("<details id=\"nuki-web\">\\s*"
                         + "<summary>¿Acabas de instalar tu Nuki\\?</summary>")
@@ -134,7 +133,7 @@ class NukiConnectionTests {
 
     @Test
     void guideUnfoldsWhenConnectingFoundNoLocks() {
-        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)).flashAttr("connectedLocks", List.of()))
+        assertThat(mvc.get().uri("/settings/nuki").with(SignedIn.owner(ALICE)).flashAttr("connectedLocks", List.of()))
                 .bodyText().contains("no hemos encontrado ninguna cerradura en tu cuenta: actívalas en Nuki Web",
                         "<details id=\"nuki-web\" open=\"open\">");
     }
@@ -144,29 +143,29 @@ class NukiConnectionTests {
         nukiAccepts(TOKEN);
         connect("bob@example.com", TOKEN);
 
-        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE))).bodyText().contains("Todavía no has conectado");
+        assertThat(mvc.get().uri("/settings/nuki").with(SignedIn.owner(ALICE))).bodyText().contains("Todavía no has conectado");
     }
 
     @Test
     void signedInUserWithoutOwnerIsForbidden() {
-        assertThat(mvc.get().uri("/settings/nuki").with(owner("deleted@example.com"))).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(mvc.get().uri("/settings/nuki").with(SignedIn.owner("deleted@example.com"))).hasStatus(HttpStatus.FORBIDDEN);
     }
 
     @Test
     void panelAsksAnOwnerWithoutConnectionToConnectNuki() {
-        assertThat(mvc.get().uri("/").with(owner(ALICE))).bodyText().contains("Conecta tu cuenta de Nuki");
+        assertThat(mvc.get().uri("/").with(SignedIn.owner(ALICE))).bodyText().contains("Conecta tu cuenta de Nuki");
     }
 
     @Test
     void panelWarnsWhenNukiRejectedTheToken() {
         nukiAccepts(TOKEN);
         connect(ALICE, TOKEN);
-        assertThat(mvc.get().uri("/").with(owner(ALICE)))
+        assertThat(mvc.get().uri("/").with(SignedIn.owner(ALICE)))
                 .bodyText().doesNotContain("Conecta tu cuenta de Nuki", "Nuki ha rechazado");
 
         data.disconnectNuki();
 
-        assertThat(mvc.get().uri("/").with(owner(ALICE))).bodyText().contains("Nuki ha rechazado la conexión");
+        assertThat(mvc.get().uri("/").with(SignedIn.owner(ALICE))).bodyText().contains("Nuki ha rechazado la conexión");
     }
 
     @Test
@@ -177,7 +176,7 @@ class NukiConnectionTests {
         data.link(lockId, "Invitado", "now()", TestData.IN_A_DAY);
         var linkBefore = link();
 
-        var result = mvc.delete().uri("/settings/nuki").with(owner(ALICE)).with(csrf()).exchange();
+        var result = mvc.delete().uri("/settings/nuki").with(SignedIn.owner(ALICE)).with(csrf()).exchange();
 
         assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/settings/nuki");
         assertNoConnection();
@@ -195,7 +194,7 @@ class NukiConnectionTests {
         nukiAccepts(TOKEN);
         connect(ALICE, TOKEN);
 
-        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE))).bodyText().contains(
+        assertThat(mvc.get().uri("/settings/nuki").with(SignedIn.owner(ALICE))).bodyText().contains(
                 "data-confirm=\"Tus enlaces dejarán de abrir la puerta hasta que vuelvas a conectar Nuki. "
                         + "¿Desconectar?\"", "/js/confirm.js");
     }
@@ -205,7 +204,7 @@ class NukiConnectionTests {
         nukiAccepts(TOKEN);
         connect(ALICE, TOKEN);
 
-        assertThat(mvc.post().uri("/settings/nuki").with(owner(ALICE)).with(csrf()).param("_method", "delete"))
+        assertThat(mvc.post().uri("/settings/nuki").with(SignedIn.owner(ALICE)).with(csrf()).param("_method", "delete"))
                 .hasStatus(HttpStatus.FOUND);
         assertNoConnection();
     }
@@ -216,7 +215,7 @@ class NukiConnectionTests {
         connect(ALICE, TOKEN);
         connect("bob@example.com", TOKEN);
 
-        mvc.delete().uri("/settings/nuki").with(owner(ALICE)).with(csrf()).exchange();
+        mvc.delete().uri("/settings/nuki").with(SignedIn.owner(ALICE)).with(csrf()).exchange();
 
         assertThat(migrator.sql("SELECT o.email FROM nuki_connection c JOIN owner o ON o.id = c.owner_id")
                 .query(String.class).list()).containsExactly("bob@example.com");
@@ -227,7 +226,7 @@ class NukiConnectionTests {
         nukiAccepts(TOKEN);
         connect(ALICE, TOKEN);
 
-        assertThat(mvc.delete().uri("/settings/nuki").with(owner(ALICE))).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(mvc.delete().uri("/settings/nuki").with(SignedIn.owner(ALICE))).hasStatus(HttpStatus.FORBIDDEN);
         assertThat(storedToken(aliceId)).isNotNull();
     }
 
@@ -263,9 +262,5 @@ class NukiConnectionTests {
 
     private UUID insertOwner(String email) {
         return data.owner(email);
-    }
-
-    private static RequestPostProcessor owner(String email) {
-        return SignedIn.owner(email);
     }
 }

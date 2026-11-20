@@ -74,9 +74,7 @@ class PagesInEveryLanguageTests {
     void insertAliceWithALockALinkAndAnAttempt() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        for (var table : new String[] {"user_credentials", "user_entities", "invitation", "owner"}) {
-            migrator.sql("DELETE FROM " + table).update();
-        }
+        data.deleteOwners();
         var aliceId = data.admin(ALICE);
         data.connection(aliceId, crypto.encryptAccessToken(aliceId, "alices-token"));
         lockId = data.lock(aliceId, 17, "Casa");
@@ -122,7 +120,8 @@ class PagesInEveryLanguageTests {
         assertThat(login("nl-NL,nl;q=0.9,en;q=0.5")).contains("<html lang=\"en\"");
         assertThat(login("es-ES")).contains("<html lang=\"es\"", "Entrar con passkey");
         assertThat(login("fr-BE,fr;q=0.9")).contains("<html lang=\"fr\"", "Connexion");
-        assertThat(login("de-AT,de;q=0.9")).contains("<html lang=\"de\"", "Mit Passkey anmelden");
+        assertThat(login("de-AT,de;q=0.9,fr;q=0.5")).as("German went with 4.0.0: the next one the app has")
+                .contains("<html lang=\"fr\"");
         assertThat(login("it-CH")).contains("<html lang=\"it\"", "Accedi con passkey");
         assertThat(login("pt-PT")).as("no bundle: the default").contains("<html lang=\"es\"", "Entrar con passkey");
         assertThat(body(mvc.get().uri("/login").exchange())).as("no Accept-Language").contains("<html lang=\"es\"");

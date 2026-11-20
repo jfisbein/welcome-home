@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import welcomehome.TestData;
 import welcomehome.IntegrationTest;
 import welcomehome.TestDatabaseConfiguration;
 
@@ -24,7 +25,7 @@ class InvitationPurgeJobTests {
     @BeforeEach
     void deleteInvitations() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
-        migrator.sql("DELETE FROM invitation").update();
+        new TestData(migrator).deleteOwners();
     }
 
     @Test
@@ -41,9 +42,6 @@ class InvitationPurgeJobTests {
     }
 
     private void insert(String note, String expiresAt, boolean used) {
-        migrator.sql("INSERT INTO invitation (token_hash, note, expires_at, used_at) "
-                        + "VALUES (sha256(convert_to(:note, 'UTF8')), :note, " + expiresAt + ", "
-                        + (used ? expiresAt + " - interval '1 hour'" : "NULL") + ")")
-                .param("note", note).update();
+        new TestData(migrator).invitation(note, null, expiresAt, used);
     }
 }

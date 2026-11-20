@@ -57,9 +57,7 @@ class OwnerLanguageTests {
     void deleteOwners() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        for (var table : new String[] {"user_credentials", "user_entities", "invitation", "owner"}) {
-            migrator.sql("DELETE FROM " + table).update();
-        }
+        data.deleteOwners();
     }
 
     @Test
@@ -87,7 +85,6 @@ class OwnerLanguageTests {
                 .containsPattern("<option value=\"es\" lang=\"es\"\\s+selected=\"selected\">Español</option>")
                 .contains("<option value=\"en\" lang=\"en\">English</option>",
                         "<option value=\"fr\" lang=\"fr\">Français</option>",
-                        "<option value=\"de\" lang=\"de\">Deutsch</option>",
                         "<option value=\"it\" lang=\"it\">Italiano</option>");
 
         assertThat(mvc.put().uri("/settings/language").with(owner()).with(csrf()).param("language", "en"))

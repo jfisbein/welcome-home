@@ -19,7 +19,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
-import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.SignedIn;
 import welcomehome.IntegrationTest;
@@ -80,7 +79,7 @@ class LinkScheduleFormTests {
                 "opens-MONDAY", "09:00", "closes-MONDAY", "17:00")).hasStatus(HttpStatus.FOUND);
 
         assertThat(rows()).as("the hours of a day not ticked count for nothing").isEmpty();
-        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(owner(ALICE))).hasStatusOk()
+        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(SignedIn.owner(ALICE))).hasStatusOk()
                 .bodyText().doesNotContain("<small>Lunes").contains("<details class=\"schedule\">");
     }
 
@@ -96,7 +95,7 @@ class LinkScheduleFormTests {
         assertThat(rows()).containsExactly("1|09:00:00|17:00:00", "2|09:00:00|17:00:00", "6|10:00:00|14:00:00");
         assertThat(result.getMvcResult().getFlashMap().get("createdSchedule"))
                 .isEqualTo(List.of("Lunes y martes: 09:00–17:00", "Sábado: 10:00–14:00"));
-        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(owner(ALICE))).hasStatusOk()
+        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(SignedIn.owner(ALICE))).hasStatusOk()
                 .bodyText().contains("<small>Lunes y martes: 09:00–17:00</small>", "<small>Sábado: 10:00–14:00</small>");
     }
 
@@ -107,7 +106,7 @@ class LinkScheduleFormTests {
                 "day-SUNDAY", "on", "opens-SUNDAY", "00:00", "closes-SUNDAY", "00:00")).hasStatus(HttpStatus.FOUND);
 
         assertThat(rows()).containsExactly("5|22:00:00|02:00:00", "7|00:00:00|00:00:00");
-        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(owner(ALICE))).hasStatusOk()
+        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(SignedIn.owner(ALICE))).hasStatusOk()
                 .bodyText().contains("Viernes: 22:00–02:00", "Domingo: todo el día");
     }
 
@@ -119,7 +118,7 @@ class LinkScheduleFormTests {
                 .hasStatus(HttpStatus.FOUND);
 
         assertThat(rows()).containsExactly("1|00:00:00|00:00:00", "2|00:00:00|00:00:00");
-        assertThat(mvc.get().uri("/links/" + linkId()).with(owner(ALICE))).hasStatusOk().bodyText()
+        assertThat(mvc.get().uri("/links/" + linkId()).with(SignedIn.owner(ALICE))).hasStatusOk().bodyText()
                 .contains(allDayTicked("MONDAY", "Lunes"), allDayTicked("TUESDAY", "Martes"))
                 .doesNotContain(allDayTicked("WEDNESDAY", "Miércoles"));
     }
@@ -138,7 +137,7 @@ class LinkScheduleFormTests {
                 "day-MONDAY", "on", "opens-MONDAY", "00:00", "closes-MONDAY", "00:00")).hasStatus(HttpStatus.FOUND);
 
         assertThat(rows()).containsExactly("1|00:00:00|00:00:00");
-        assertThat(mvc.get().uri("/links/" + linkId()).with(owner(ALICE))).hasStatusOk().bodyText()
+        assertThat(mvc.get().uri("/links/" + linkId()).with(SignedIn.owner(ALICE))).hasStatusOk().bodyText()
                 .contains(allDayTicked("MONDAY", "Lunes"));
     }
 
@@ -148,7 +147,7 @@ class LinkScheduleFormTests {
                 "day-MONDAY", "on", "opens-MONDAY", "08:30", "closes-MONDAY", "12:00");
         var link = linkId();
 
-        assertThat(mvc.get().uri("/links/" + link).with(owner(ALICE))).hasStatusOk().bodyText()
+        assertThat(mvc.get().uri("/links/" + link).with(SignedIn.owner(ALICE))).hasStatusOk().bodyText()
                 .contains("<details class=\"schedule\" open=\"open\">", "name=\"day-MONDAY\" checked=\"checked\"",
                         "value=\"08:30\"", "value=\"12:00\"")
                 .doesNotContain("name=\"day-TUESDAY\" checked");
@@ -197,7 +196,7 @@ class LinkScheduleFormTests {
         create("label", "Ana", "validFrom", FROM, "validUntil", UNTIL,
                 "day-MONDAY", "on", "opens-MONDAY", "09:00", "closes-MONDAY", "17:00");
 
-        assertThat(mvc.post().uri("/links/" + linkId() + "/regenerate").with(owner(ALICE)).with(csrf()))
+        assertThat(mvc.post().uri("/links/" + linkId() + "/regenerate").with(SignedIn.owner(ALICE)).with(csrf()))
                 .hasStatus(HttpStatus.FOUND);
 
         assertThat(rows()).containsExactly("1|09:00:00|17:00:00");
@@ -225,10 +224,8 @@ class LinkScheduleFormTests {
                 "Viernes: 09:00–17:00", "Sábado: 10:00–14:00", "Domingo: todo el día");
         assertThat(schedules.describe(schedule, Locale.ENGLISH)).containsExactly("Monday to Wednesday: 09:00–17:00",
                 "Friday: 09:00–17:00", "Saturday: 10:00–14:00", "Sunday: all day");
-        assertThat(schedules.describe(schedule, Locale.FRENCH)).containsExactly("Lundi au mercredi : 09:00–17:00",
-                "Vendredi : 09:00–17:00", "Samedi : 10:00–14:00", "Dimanche : toute la journée");
-        assertThat(schedules.describe(schedule, Locale.GERMAN)).containsExactly("Montag bis Mittwoch: 09:00–17:00",
-                "Freitag: 09:00–17:00", "Samstag: 10:00–14:00", "Sonntag: ganztägig");
+        assertThat(schedules.describe(schedule, Locale.FRENCH)).containsExactly("Lundi au mercredi\u00a0: 09:00–17:00",
+                "Vendredi\u00a0: 09:00–17:00", "Samedi\u00a0: 10:00–14:00", "Dimanche\u00a0: toute la journée");
         assertThat(schedules.describe(schedule, Locale.ITALIAN)).containsExactly("Da lunedì a mercoledì: 09:00–17:00",
                 "Venerdì: 09:00–17:00", "Sabato: 10:00–14:00", "Domenica: tutto il giorno");
         assertThat(schedules.describe(LinkSchedule.ANY_TIME, Locale.ENGLISH)).isEmpty();
@@ -243,7 +240,7 @@ class LinkScheduleFormTests {
     }
 
     private MvcTestResult create(String... params) {
-        var request = mvc.post().uri("/locks/" + lockId + "/links").with(owner(ALICE)).with(csrf());
+        var request = mvc.post().uri("/locks/" + lockId + "/links").with(SignedIn.owner(ALICE)).with(csrf());
         for (int i = 0; i < params.length; i += 2) {
             request = request.param(params[i], params[i + 1]);
         }
@@ -251,7 +248,7 @@ class LinkScheduleFormTests {
     }
 
     private MvcTestResult update(String email, UUID link, String... params) {
-        var request = mvc.patch().uri("/links/" + link).with(owner(email)).with(csrf())
+        var request = mvc.patch().uri("/links/" + link).with(SignedIn.owner(email)).with(csrf())
                 .param("label", "Ana").param("validFrom", FROM).param("validUntil", UNTIL);
         for (int i = 0; i < params.length; i += 2) {
             request = request.param(params[i], params[i + 1]);
@@ -277,9 +274,5 @@ class LinkScheduleFormTests {
 
     private UUID insertLock(String email) {
         return data.lock(data.owner(email), 17, "Casa");
-    }
-
-    private static RequestPostProcessor owner(String email) {
-        return SignedIn.owner(email);
     }
 }

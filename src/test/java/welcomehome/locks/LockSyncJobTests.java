@@ -102,7 +102,7 @@ class LockSyncJobTests {
         insertLock(revoked, 18, "Garaje");
         nuki.stubFor(get("/smartlock").withHeader("Authorization", equalTo("Bearer token-revoked"))
                 .willReturn(status(401)));
-        migrator.sql("UPDATE nuki_connection SET last_checked_at = '2000-01-01 00:00:00+00'").update();
+        data.nukiLastChecked("'2000-01-01 00:00:00+00'");
 
         job.syncAll();
 

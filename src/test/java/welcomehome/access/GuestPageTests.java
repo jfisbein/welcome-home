@@ -109,7 +109,8 @@ class GuestPageTests {
 
         assertThat(body(mvc.get().uri("/o/" + token).header("Accept-Language", "nl").exchange()))
                 .as("Dutch, which the app lacks").contains("Desliza para abrir", "aria-current=\"true\">Español</strong>",
-                        "href=\"?lang=en\">English</a>", "href=\"?lang=de\">Deutsch</a>");
+                        "href=\"?lang=en\">English</a>", "href=\"?lang=it\">Italiano</a>")
+                .doesNotContain("Deutsch");
         assertThat(body(mvc.get().uri("/o/" + token + "?lang=en").header("Accept-Language", "nl").exchange()))
                 .contains("Slide to open", "aria-current=\"true\">English</strong>", "href=\"?lang=es\">Español</a>");
         assertThat(body(mvc.get().uri("/o/" + token + "?lang=xx").exchange())).as("no such language")
@@ -129,7 +130,7 @@ class GuestPageTests {
         assertThat(body(mvc.get().uri("/o/" + token + "?preview=1").with(alice).exchange()))
                 .as("their own, until they choose").contains("Desliza para abrir");
         assertThat(body(mvc.get().uri("/o/" + token + "?lang=fr&preview=1").with(alice).exchange()))
-                .contains("<html lang=\"fr\"", "Glissez pour ouvrir", "aria-current=\"true\">Français</strong>");
+                .contains("<html lang=\"fr\"", "Faites glisser pour ouvrir", "aria-current=\"true\">Français</strong>");
     }
 
     /** A guest who opens the page early and waits with it open gets the slider when the link can open. */
@@ -431,7 +432,7 @@ class GuestPageTests {
     void everyInvalidTokenGetsTheSameNotFoundPage() {
         var link = insertLink("now() - interval '1 day'", "now() + interval '1 day'", false);
         var token = signer.sign(link, 1);
-        migrator.sql("UPDATE access_link SET token_version = 2").update();
+        data.tokenVersion(2);
 
         for (var invalid : new String[] {
                 token,

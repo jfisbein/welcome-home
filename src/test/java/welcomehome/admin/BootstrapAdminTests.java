@@ -40,8 +40,7 @@ class BootstrapAdminTests {
     void emptyDatabase() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        migrator.sql("DELETE FROM invitation").update();
-        migrator.sql("DELETE FROM owner").update();
+        new TestData(migrator).deleteOwners();
     }
 
     @Test

@@ -101,9 +101,9 @@ class TimeZoneNamesTests {
     void spainsZonesAreNamedAsPeopleThereKnowThem() {
         assertThat(Languages.SUPPORTED.stream().map(language -> names.of("Europe/Madrid", language)).toList())
                 .isEqualTo(List.of("hora de España peninsular", "mainland Spain time", "heure de l'Espagne péninsulaire",
-                        "spanische Festlandzeit", "ora della Spagna peninsulare"));
+                        "ora della Spagna peninsulare"));
         assertThat(Languages.SUPPORTED.stream().map(language -> names.of("Atlantic/Canary", language)).toList())
-                .isEqualTo(List.of("hora de Canarias", "Canary Islands time", "heure des Canaries", "kanarische Zeit",
+                .isEqualTo(List.of("hora de Canarias", "Canary Islands time", "heure des Canaries",
                         "ora delle Canarie"));
         assertThat(names.of("Europe/Berlin", Languages.DEFAULT)).as("any other zone, Java's name")
                 .isEqualTo("hora de Europa central");

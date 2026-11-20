@@ -192,7 +192,7 @@ class OpenDoorTests {
 
     @Test
     void anOpeningDisprovesNukiReportingTheLockOfflineAndAnUnconfirmedOneRestoresIt() {
-        migrator.sql("UPDATE lock SET offline_since = now() - interval '1 hour'").update();
+        data.offlineSince("now() - interval '1 hour'");
         nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));
         var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
 
@@ -213,7 +213,7 @@ class OpenDoorTests {
     @Test
     void anOpeningOfTheEntranceTellsOfTheOpenerNotOfTheLock() {
         var portal = insertOpenerAsEntrance();
-        migrator.sql("UPDATE lock SET offline_since = now() - interval '1 hour'").update();
+        data.offlineSince("now() - interval '1 hour'");
         nuki.stubFor(post("/smartlock/19/action").willReturn(status(204)));
         nuki.stubFor(get(urlPathEqualTo("/smartlock/19/log")).willReturn(okJson(log(Instant.now(), 3, 0))));
         var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
@@ -281,7 +281,7 @@ class OpenDoorTests {
                 .bodyJson().extractingPath("$.result").isEqualTo("paused");
         nuki.verify(0, anyRequestedFor(anyUrl()));
 
-        migrator.sql("UPDATE access_link SET revoked_at = NULL, paused_at = NULL WHERE id = ?").param(link).update();
+        data.resume(link);
 
         assertThat(open(signer.sign(link, 1))).hasStatusOk().bodyJson().extractingPath("$.result").isEqualTo("opened");
     }

@@ -52,9 +52,7 @@ class AccessibilityTests extends BrowserTest {
     void emptyDatabase() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        for (var table : List.of("invitation", "user_credentials", "user_entities", "owner")) {
-            migrator.sql("DELETE FROM " + table).update();
-        }
+        data.deleteOwners();
     }
 
     @Test

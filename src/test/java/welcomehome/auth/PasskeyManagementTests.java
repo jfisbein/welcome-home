@@ -18,8 +18,8 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
-import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import welcomehome.TestData;
 import welcomehome.SignedIn;
 import welcomehome.IntegrationTest;
 import welcomehome.TestDatabaseConfiguration;
@@ -56,22 +56,19 @@ class PasskeyManagementTests {
     @BeforeEach
     void registerAliceOnHerPhoneAndBob() {
         var migrator = TestDatabaseConfiguration.asMigrator(postgres);
-        for (var table : new String[] {"user_credentials", "user_entities", "invitation", "owner"}) {
-            migrator.sql("DELETE FROM " + table).update();
-        }
+        new TestData(migrator).deleteOwners();
         register(ALICE, phone);
         register(BOB, bobsPhone);
-        jdbc.sql("UPDATE user_credentials SET label = 'Móvil de Bob' FROM user_entities u "
-                + "WHERE u.id = user_entity_user_id AND u.display_name = ?").param(BOB).update();
+        new TestData(jdbc).passkeyLabel(BOB, "Móvil de Bob");
     }
 
     @Test
     void pageListsOnlyTheOwnersPasskeysAndHowToAddOne() {
-        assertThat(mvc.get().uri("/settings/passkeys").with(owner(ALICE)))
+        assertThat(mvc.get().uri("/settings/passkeys").with(SignedIn.owner(ALICE)))
                 .hasStatusOk()
                 .bodyText().contains("Tus passkeys", "value=\"Passkey\"", "Añadir passkey", "/js/passkeys.js")
                 .doesNotContain("Móvil de Bob");
-        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE))).bodyText().contains("href=\"/settings/passkeys\"");
+        assertThat(mvc.get().uri("/settings/nuki").with(SignedIn.owner(ALICE))).bodyText().contains("href=\"/settings/passkeys\"");
     }
 
     @Test
@@ -89,14 +86,14 @@ class PasskeyManagementTests {
                 .hasStatusOk()
                 .bodyJson().extractingPath("$.success").isEqualTo(true);
 
-        assertThat(mvc.get().uri("/settings/passkeys").with(owner(ALICE))).bodyText().contains("value=\"Portátil\"");
+        assertThat(mvc.get().uri("/settings/passkeys").with(SignedIn.owner(ALICE))).bodyText().contains("value=\"Portátil\"");
         assertSignsIn(laptop, true);
         assertSignsIn(phone, true);
     }
 
     @Test
     void renamingChangesOnlyThatPasskey() {
-        var result = mvc.patch().uri("/settings/passkeys/" + credentialIdOf("Passkey")).with(owner(ALICE)).with(csrf())
+        var result = mvc.patch().uri("/settings/passkeys/" + credentialIdOf("Passkey")).with(SignedIn.owner(ALICE)).with(csrf())
                 .param("label", "  iPhone  ").exchange();
 
         assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/settings/passkeys");
@@ -106,7 +103,7 @@ class PasskeyManagementTests {
     @Test
     void aNameMustNotBeBlankOrTooLong() {
         for (var label : new String[] {"", "   ", "x".repeat(61)}) {
-            assertThat(mvc.patch().uri("/settings/passkeys/" + credentialIdOf("Passkey")).with(owner(ALICE)).with(csrf())
+            assertThat(mvc.patch().uri("/settings/passkeys/" + credentialIdOf("Passkey")).with(SignedIn.owner(ALICE)).with(csrf())
                     .param("label", label))
                     .as(label).hasStatus(HttpStatus.BAD_REQUEST);
         }
@@ -116,11 +113,11 @@ class PasskeyManagementTests {
     @Test
     void aDeletedPasskeyNoLongerSignsIn() {
         addLaptop();
-        assertThat(mvc.get().uri("/settings/passkeys").with(owner(ALICE))).bodyText()
+        assertThat(mvc.get().uri("/settings/passkeys").with(SignedIn.owner(ALICE))).bodyText()
                 .contains("data-confirm=\"La passkey «Passkey» dejará de servir para entrar. ¿Borrarla?\"",
                         "/js/confirm.js");
 
-        assertThat(mvc.delete().uri("/settings/passkeys/" + credentialIdOf("Passkey")).with(owner(ALICE)).with(csrf()))
+        assertThat(mvc.delete().uri("/settings/passkeys/" + credentialIdOf("Passkey")).with(SignedIn.owner(ALICE)).with(csrf()))
                 .hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/settings/passkeys");
 
         assertThat(labels()).containsExactlyInAnyOrder("Portátil", "Móvil de Bob");
@@ -236,10 +233,10 @@ class PasskeyManagementTests {
 
     @Test
     void theLastPasskeyCannotBeDeleted() {
-        assertThat(mvc.get().uri("/settings/passkeys").with(owner(ALICE))).bodyText()
+        assertThat(mvc.get().uri("/settings/passkeys").with(SignedIn.owner(ALICE))).bodyText()
                 .contains("Es tu única passkey").doesNotContain("data-confirm");
 
-        assertThat(mvc.delete().uri("/settings/passkeys/" + credentialIdOf("Passkey")).with(owner(ALICE)).with(csrf()))
+        assertThat(mvc.delete().uri("/settings/passkeys/" + credentialIdOf("Passkey")).with(SignedIn.owner(ALICE)).with(csrf()))
                 .hasStatus(HttpStatus.CONFLICT);
 
         assertThat(labels()).containsExactlyInAnyOrder("Passkey", "Móvil de Bob");
@@ -249,10 +246,10 @@ class PasskeyManagementTests {
     @Test
     void changesRequireTheCsrfToken() {
         var id = credentialIdOf("Passkey");
-        assertThat(mvc.patch().uri("/settings/passkeys/" + id).with(owner(ALICE)).param("label", "x"))
+        assertThat(mvc.patch().uri("/settings/passkeys/" + id).with(SignedIn.owner(ALICE)).param("label", "x"))
                 .hasStatus(HttpStatus.FORBIDDEN);
-        assertThat(mvc.delete().uri("/settings/passkeys/" + id).with(owner(ALICE))).hasStatus(HttpStatus.FORBIDDEN);
-        assertThat(mvc.post().uri("/webauthn/register/options").with(owner(ALICE))).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(mvc.delete().uri("/settings/passkeys/" + id).with(SignedIn.owner(ALICE))).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(mvc.post().uri("/webauthn/register/options").with(SignedIn.owner(ALICE))).hasStatus(HttpStatus.FORBIDDEN);
     }
 
     /** A session left open in a browser is not enough to give the account another key. */
@@ -266,7 +263,7 @@ class PasskeyManagementTests {
                     .content("{}")).as(path).hasStatus(HttpStatus.FORBIDDEN)
                     .bodyJson().extractingPath("$.error").isEqualTo("sign-in-not-recent");
         }
-        assertThat(mvc.post().uri("/webauthn/register/options").with(owner(ALICE)).with(csrf()))
+        assertThat(mvc.post().uri("/webauthn/register/options").with(SignedIn.owner(ALICE)).with(csrf()))
                 .as("a session that never said when it signed in").hasStatus(HttpStatus.FORBIDDEN);
         assertThat(mvc.get().uri("/settings/confirm?for=passkeys").session(session)).hasStatusOk().bodyText()
                 .contains("Confirma que eres tú", "en los últimos 10 minutos",
@@ -345,7 +342,7 @@ class PasskeyManagementTests {
     /** As Alice, in a session that signed in just now: adding a passkey asks for that ({@link RecentSignIn}). */
     private MvcTestResult post(MockHttpSession session, String path, String json) {
         session.setAttribute(RecentSignIn.ATTRIBUTE, Instant.now());
-        var request = mvc.post().uri(path).session(session).with(owner(ALICE)).with(csrf());
+        var request = mvc.post().uri(path).session(session).with(SignedIn.owner(ALICE)).with(csrf());
         return json.isEmpty() ? request.exchange()
                 : request.contentType(MediaType.APPLICATION_JSON).content(json).exchange();
     }
@@ -353,9 +350,5 @@ class PasskeyManagementTests {
     private static String body(MvcTestResult result) {
         assertThat(result).hasStatusOk();
         return new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8);
-    }
-
-    private static RequestPostProcessor owner(String email) {
-        return SignedIn.owner(email);
     }
 }

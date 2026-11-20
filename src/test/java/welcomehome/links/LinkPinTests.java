@@ -19,7 +19,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
-import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.SignedIn;
 import welcomehome.IntegrationTest;
@@ -93,7 +92,7 @@ class LinkPinTests {
 
         assertThat(hasStoredPin()).isFalse();
         assertThat(pins.isSet(aliceId, linkId())).isFalse();
-        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(owner(ALICE))).hasStatusOk()
+        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(SignedIn.owner(ALICE))).hasStatusOk()
                 .bodyText().doesNotContain("Pide un PIN");
     }
 
@@ -108,7 +107,7 @@ class LinkPinTests {
         assertThat(pins.check(aliceId, link, "4821")).isEqualTo(LinkPins.Check.MATCHES);
         assertThat(pins.check(aliceId, link, "4822")).isEqualTo(LinkPins.Check.DOES_NOT_MATCH);
         assertThat(pins.check(aliceId, link, null)).isEqualTo(LinkPins.Check.DOES_NOT_MATCH);
-        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(owner(ALICE))).hasStatusOk()
+        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(SignedIn.owner(ALICE))).hasStatusOk()
                 .bodyText().contains("Pide un PIN");
     }
 
@@ -126,11 +125,11 @@ class LinkPinTests {
         create("4821");
         var link = linkId();
 
-        assertThat(mvc.get().uri("/links/" + link).with(owner(ALICE))).hasStatusOk().bodyText()
+        assertThat(mvc.get().uri("/links/" + link).with(SignedIn.owner(ALICE))).hasStatusOk().bodyText()
                 .contains("type=\"password\"").contains("value=\"4821\"");
-        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(owner(ALICE))).hasStatusOk()
+        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(SignedIn.owner(ALICE))).hasStatusOk()
                 .bodyText().doesNotContain("4821");
-        assertThat(mvc.get().uri("/links/" + link).with(owner(BOB))).hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(mvc.get().uri("/links/" + link).with(SignedIn.owner(BOB))).hasStatus(HttpStatus.NOT_FOUND);
     }
 
     @Test
@@ -178,7 +177,7 @@ class LinkPinTests {
 
         assertThat(pins.check(aliceId, link, "4821")).as("the right one too").isEqualTo(LinkPins.Check.LOCKED);
         assertThat(pinFailures()).isEqualTo(20);
-        assertThat(links()).contains("Bloqueado por PIN incorrectos: no abre hasta que lo edites o lo cambies");
+        assertThat(links()).contains("Bloqueado por PIN incorrectos: no abre hasta que lo edites o lo sustituyas");
     }
 
     /** Whoever was guessing knows neither the new PIN nor the new URL. */
@@ -194,7 +193,7 @@ class LinkPinTests {
         assertThat(links()).doesNotContain("Bloqueado por PIN incorrectos");
 
         data.pinFailures(link, 20);
-        assertThat(mvc.post().uri("/links/" + link + "/regenerate").with(owner(ALICE)).with(csrf()))
+        assertThat(mvc.post().uri("/links/" + link + "/regenerate").with(SignedIn.owner(ALICE)).with(csrf()))
                 .hasStatus(HttpStatus.FOUND);
         assertThat(pinFailures()).isZero();
         assertThat(pins.check(aliceId, link, "5930")).isEqualTo(LinkPins.Check.MATCHES);
@@ -220,8 +219,7 @@ class LinkPinTests {
                 aeadKeysetFile.resolveSibling(TestKeysetsConfiguration.AEAD_KEYSET_BEFORE_ROTATION));
         create("4821");
         var link = linkId();
-        migrator.sql("UPDATE access_link SET pin_encrypted = ?").param(earlierKey.encryptLinkPin(aliceId, link, "4821"))
-                .update();
+        data.pin(link, earlierKey.encryptLinkPin(aliceId, link, "4821"));
         assertThat(keyIdOf(storedPin())).isNotEqualTo(crypto.primaryKeyId());
 
         reEncryption.reEncryptAll();
@@ -237,13 +235,13 @@ class LinkPinTests {
     }
 
     private MvcTestResult create(String pin) {
-        return mvc.post().uri("/locks/" + lockId + "/links").with(owner(ALICE)).with(csrf())
+        return mvc.post().uri("/locks/" + lockId + "/links").with(SignedIn.owner(ALICE)).with(csrf())
                 .param("label", "Ana").param("validFrom", FROM).param("validUntil", UNTIL).param("pin", pin)
                 .exchange();
     }
 
     private MvcTestResult update(String email, UUID link, String pin) {
-        return mvc.patch().uri("/links/" + link).with(owner(email)).with(csrf())
+        return mvc.patch().uri("/links/" + link).with(SignedIn.owner(email)).with(csrf())
                 .param("label", "Ana").param("validFrom", FROM).param("validUntil", UNTIL).param("pin", pin)
                 .exchange();
     }
@@ -257,7 +255,7 @@ class LinkPinTests {
     }
 
     private String links() {
-        var result = mvc.get().uri("/locks/" + lockId + "/links").with(owner(ALICE)).exchange();
+        var result = mvc.get().uri("/locks/" + lockId + "/links").with(SignedIn.owner(ALICE)).exchange();
         assertThat(result).hasStatusOk();
         return new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8);
     }
@@ -268,9 +266,5 @@ class LinkPinTests {
 
     private byte[] storedPin() {
         return migrator.sql("SELECT pin_encrypted FROM access_link").query(byte[].class).single();
-    }
-
-    private static RequestPostProcessor owner(String email) {
-        return SignedIn.owner(email);
     }
 }

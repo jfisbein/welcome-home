@@ -5,7 +5,6 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 
 import java.net.URI;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -17,7 +16,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
-import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.SignedIn;
 import welcomehome.IntegrationTest;
@@ -71,10 +69,10 @@ class LinkCreationTests {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
         data.deleteOwners();
-        var alice = insertOwner(ALICE);
-        madridLock = insertLock(alice, 17, "Casa", "Europe/Madrid");
-        newYorkLock = insertLock(alice, 18, "Loft", "America/New_York");
-        bobsLock = insertLock(insertOwner(BOB), 19, "Apartamento de Bob", "Europe/Madrid");
+        var alice = data.owner(ALICE);
+        madridLock = data.lock(alice, 17, "Casa", "Europe/Madrid");
+        newYorkLock = data.lock(alice, 18, "Loft", "America/New_York");
+        bobsLock = data.lock(data.owner(BOB), 19, "Apartamento de Bob", "Europe/Madrid");
     }
 
     @Test
@@ -139,7 +137,7 @@ class LinkCreationTests {
         var flash = create(madridLock, "Ana", "2030-11-01T15:00", "2030-11-03T11:00").getMvcResult().getFlashMap();
         var url = (URI) flash.get("createdUrl");
 
-        var page = mvc.get().uri("/locks/" + madridLock + "/links").with(owner(ALICE)).flashAttrs(flash).exchange();
+        var page = mvc.get().uri("/locks/" + madridLock + "/links").with(SignedIn.owner(ALICE)).flashAttrs(flash).exchange();
 
         assertThat(page).hasStatusOk()
                 .bodyText().contains("Enlace «Ana» creado", "01/11/2030 15:00", "03/11/2030 11:00",
@@ -153,12 +151,12 @@ class LinkCreationTests {
     @Test
     void aLinkThatOpensAlreadyIsSaidSoOnCreatingItAndTheFormSaysToPutTheDayOfArrival() {
         var later = create(madridLock, "Ana", "2030-11-01T15:00", "2030-11-03T11:00").getMvcResult().getFlashMap();
-        assertThat(mvc.get().uri("/locks/" + madridLock + "/links").with(owner(ALICE)).flashAttrs(later))
+        assertThat(mvc.get().uri("/locks/" + madridLock + "/links").with(SignedIn.owner(ALICE)).flashAttrs(later))
                 .bodyText().doesNotContain("abre la puerta desde ya")
                 .contains("Si lo envías antes de que llegue tu invitado, pon aquí el día y la hora de llegada.");
 
         var now = create(madridLock, "Bea", "2020-11-01T15:00", "2030-11-03T11:00").getMvcResult().getFlashMap();
-        assertThat(mvc.get().uri("/locks/" + madridLock + "/links").with(owner(ALICE)).flashAttrs(now))
+        assertThat(mvc.get().uri("/locks/" + madridLock + "/links").with(SignedIn.owner(ALICE)).flashAttrs(now))
                 .bodyText().containsSubsequence("Enlace «Bea» creado", "Este enlace abre la puerta desde ya: quien lo "
                         + "reciba puede abrirla ahora mismo, aunque todavía no haya llegado.", "id=\"link-url\"");
     }
@@ -168,18 +166,18 @@ class LinkCreationTests {
     void aLinkThatCanOpenForOverThirtyDaysIsSaidSoOnCreatingIt() {
         var oneMonth = create(madridLock, "Ana", "2030-11-01T15:00", "2030-12-01T15:00").getMvcResult().getFlashMap();
         assertThat(oneMonth.get("createdDays")).as("30 days, to the minute").isNull();
-        assertThat(mvc.get().uri("/locks/" + madridLock + "/links").with(owner(ALICE)).flashAttrs(oneMonth))
+        assertThat(mvc.get().uri("/locks/" + madridLock + "/links").with(SignedIn.owner(ALICE)).flashAttrs(oneMonth))
                 .bodyText().doesNotContain("Anúlalo cuando deje de hacer falta");
 
         var longer = create(madridLock, "Bea", "2030-11-01T15:00", "2031-01-30T15:00").getMvcResult().getFlashMap();
         assertThat(longer.get("createdDays")).isEqualTo("90");
-        assertThat(mvc.get().uri("/locks/" + madridLock + "/links").with(owner(ALICE)).flashAttrs(longer))
+        assertThat(mvc.get().uri("/locks/" + madridLock + "/links").with(SignedIn.owner(ALICE)).flashAttrs(longer))
                 .bodyText().contains("Este enlace puede abrir la puerta durante 90 días. Anúlalo cuando deje de hacer falta.");
     }
 
     @Test
     void formIsPrefilledInTheLocksTimeZone() {
-        assertThat(mvc.get().uri("/locks/" + newYorkLock + "/links").with(owner(ALICE)))
+        assertThat(mvc.get().uri("/locks/" + newYorkLock + "/links").with(SignedIn.owner(ALICE)))
                 .hasStatusOk()
                 .bodyText().contains("Enlaces de Loft", "hora oriental", "Crear enlace");
     }
@@ -214,20 +212,20 @@ class LinkCreationTests {
 
     @Test
     void anotherOwnersLockIsNotFound() {
-        assertThat(mvc.get().uri("/locks/" + bobsLock + "/links").with(owner(ALICE))).hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(mvc.get().uri("/locks/" + bobsLock + "/links").with(SignedIn.owner(ALICE))).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(create(bobsLock, "Ana", "2030-11-01T15:00", "2030-11-03T11:00")).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(migrator.sql("SELECT count(*) FROM access_link").query(Long.class).single()).isZero();
     }
 
     @Test
     void creatingRequiresTheCsrfToken() {
-        assertThat(mvc.post().uri("/locks/" + madridLock + "/links").with(owner(ALICE))
+        assertThat(mvc.post().uri("/locks/" + madridLock + "/links").with(SignedIn.owner(ALICE))
                 .param("label", "Ana").param("validFrom", "2030-11-01T15:00").param("validUntil", "2030-11-03T11:00"))
                 .hasStatus(HttpStatus.FORBIDDEN);
     }
 
     private MvcTestResult create(UUID lockId, String label, String validFrom, String validUntil) {
-        return mvc.post().uri("/locks/" + lockId + "/links").with(owner(ALICE)).with(csrf())
+        return mvc.post().uri("/locks/" + lockId + "/links").with(SignedIn.owner(ALICE)).with(csrf())
                 .param("label", label).param("validFrom", validFrom).param("validUntil", validUntil)
                 .exchange();
     }
@@ -243,17 +241,5 @@ class LinkCreationTests {
                         FROM access_link WHERE label = ?
                         """)
                 .param(label).query(String.class).single();
-    }
-
-    private UUID insertOwner(String email) {
-        return data.owner(email);
-    }
-
-    private UUID insertLock(UUID ownerId, long nukiSmartlockId, String name, String timeZone) {
-        return data.lock(ownerId, nukiSmartlockId, name, timeZone);
-    }
-
-    private static RequestPostProcessor owner(String email) {
-        return SignedIn.owner(email);
     }
 }

@@ -59,9 +59,7 @@ class AdminPanelTests {
     void insertAnAdminAndAnOwnerWithALockAndALink() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        for (var table : new String[] {"invitation", "user_credentials", "user_entities", "owner"}) {
-            migrator.sql("DELETE FROM " + table).update();
-        }
+        data.deleteOwners();
         adminId = data.admin(ADMIN_EMAIL);
         bobId = data.owner(OWNER_EMAIL);
         data.link(data.lock(bobId, 1, BOBS_LOCK), BOBS_LINK, "now()", TestData.IN_A_DAY);
@@ -249,10 +247,7 @@ class AdminPanelTests {
         insertPasskey("YWRtaW4", ADMIN_EMAIL, "YWRtaW4tcGFzc2tleQ");
         insertPasskey("Ym9i", OWNER_EMAIL, "Ym9iLXBhc3NrZXk");
         invitations.createPasskeyRecovery(adminId, bobId);
-        migrator.sql("""
-                        INSERT INTO invitation (token_hash, note, created_by, expires_at)
-                        VALUES ('\\x01', 'Invitada por Bob', ?, now() + interval '1 day')
-                        """).param(bobId).update();
+        data.invitation("Invitada por Bob", bobId, "now() + interval '1 day'", false);
         assertThat(mvc.get().uri("/admin/owners").with(admin())).bodyText()
                 .contains("data-confirm=\"Se borrarán para siempre la cuenta de bob@example.com", "/js/confirm.js");
 
@@ -279,10 +274,7 @@ class AdminPanelTests {
         invitations.createInvitation(adminId, "Carlos, otro admin", true);
         invitations.createPasskeyRecovery(adminId, bobId);
         invitations.redeem(tokenOf(invitations.createInvitation(adminId, "Ya usada", false)));
-        migrator.sql("""
-                        INSERT INTO invitation (token_hash, note, created_by, expires_at)
-                        VALUES ('\\x02', 'Ya caducada', ?, now() - interval '1 minute')
-                        """).param(adminId).update();
+        data.invitation("Ya caducada", adminId, "now() - interval '1 minute'", false);
 
         assertThat(pendingSection(mvc.get().uri("/admin/owners").with(admin()).exchange()))
                 .contains("Ana, piso de la playa", "Carlos, otro admin", "Invitación de admin", OWNER_EMAIL,

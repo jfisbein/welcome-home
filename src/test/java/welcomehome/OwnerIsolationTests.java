@@ -81,10 +81,9 @@ class OwnerIsolationTests {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
         data.deleteOwners();
-        migrator.sql("DELETE FROM user_credentials").update();
-        migrator.sql("DELETE FROM user_entities").update();
-        alicesLock = insertLock(insertOwner(ALICE), 17, "Casa de Alice");
-        bobsLock = insertLock(insertOwner(BOB), 18, "Casa de Bob");
+        data.deletePasskeys();
+        alicesLock = data.lock(data.owner(ALICE), 17, "Casa de Alice");
+        bobsLock = data.lock(data.owner(BOB), 18, "Casa de Bob");
         bobsLink = data.link(bobsLock, "Invitado de Bob", "now()", TestData.IN_A_DAY);
         // Two passkeys, so that Bob may delete one of them.
         data.passkeyUser("Ym9i", BOB);
@@ -133,9 +132,9 @@ class OwnerIsolationTests {
         var before = bobsData();
 
         for (var attempt : attemptsOnBobsResources()) {
-            assertThat(attempt.request().apply(owner(ALICE))).as(attempt.route()).hasStatus(HttpStatus.NOT_FOUND);
+            assertThat(attempt.request().apply(SignedIn.owner(ALICE))).as(attempt.route()).hasStatus(HttpStatus.NOT_FOUND);
         }
-        assertThat(mvc.get().uri("/locks/" + alicesLock + "/history?link=" + bobsLink).with(owner(ALICE)))
+        assertThat(mvc.get().uri("/locks/" + alicesLock + "/history?link=" + bobsLink).with(SignedIn.owner(ALICE)))
                 .as("her own lock with his link").hasStatus(HttpStatus.NOT_FOUND);
 
         assertThat(bobsData()).isEqualTo(before);
@@ -144,7 +143,7 @@ class OwnerIsolationTests {
     @Test
     void bobCanMakeTheSameRequests() {
         for (var attempt : attemptsOnBobsResources()) {
-            assertThat(attempt.request().apply(owner(BOB)).getResponse().getStatus()).as(attempt.route())
+            assertThat(attempt.request().apply(SignedIn.owner(BOB)).getResponse().getStatus()).as(attempt.route())
                     .isBetween(200, 399);
         }
     }
@@ -176,18 +175,6 @@ class OwnerIsolationTests {
                 .param("lockId", bobsLock)
                 .query(String.class)
                 .list();
-    }
-
-    private UUID insertOwner(String email) {
-        return data.owner(email);
-    }
-
-    private UUID insertLock(UUID ownerId, long nukiSmartlockId, String name) {
-        return data.lock(ownerId, nukiSmartlockId, name);
-    }
-
-    private static RequestPostProcessor owner(String email) {
-        return SignedIn.owner(email);
     }
 
     /**

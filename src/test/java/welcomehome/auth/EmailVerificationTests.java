@@ -68,9 +68,7 @@ class EmailVerificationTests {
     void aliceRegisters() throws Exception {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        for (var table : new String[] {"user_credentials", "user_entities", "invitation", "owner"}) {
-            migrator.sql("DELETE FROM " + table).update();
-        }
+        data.deleteOwners();
         mail.purgeEmailFromAllMailboxes();
         var invitation = invitations.createInvitation(null, ALICE, false).url().getPath();
         var session = new MockHttpSession();
@@ -113,7 +111,7 @@ class EmailVerificationTests {
     @Test
     void theLinkExpires() throws Exception {
         var link = linkIn(theOnlyEmail());
-        migrator.sql("UPDATE owner SET email_verification_expires_at = now() - interval '1 second'").update();
+        data.emailVerificationExpires("now() - interval '1 second'");
 
         assertThat(mvc.get().uri(link)).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(mvc.post().uri(link).with(csrf())).hasStatus(HttpStatus.NOT_FOUND);
@@ -129,8 +127,7 @@ class EmailVerificationTests {
         assertNoMoreThan(1);
 
         // As if the link had gone out six minutes ago. In hours: '7 days' is 169 of them across a DST change.
-        migrator.sql("UPDATE owner SET email_verification_expires_at = now() + interval '168 hours' - interval '6 minutes'")
-                .update();
+        data.emailVerificationExpires("now() + interval '168 hours' - interval '6 minutes'");
         assertThat(mvc.post().uri("/email/verification").with(owner()).with(csrf())).hasStatus3xxRedirection()
                 .flash().containsKey("verificationSent");
         await().atMost(Duration.ofSeconds(5)).until(() -> mail.getReceivedMessages().length == 2);
@@ -151,7 +148,7 @@ class EmailVerificationTests {
                 .contains("action=\"/email/verification\"", "Enviar el enlace de nuevo")
                 .doesNotContain("/settings/notifications/test");
 
-        migrator.sql("UPDATE owner SET email_verified_at = now()").update();
+        data.verifyEmails();
 
         assertThat(mvc.get().uri("/").with(owner())).bodyText().doesNotContain("Confirma tu email.");
         assertThat(mvc.get().uri("/settings/notifications").with(owner())).bodyText()

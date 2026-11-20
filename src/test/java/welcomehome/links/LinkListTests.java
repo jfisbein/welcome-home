@@ -69,7 +69,7 @@ class LinkListTests {
     @Test
     void usableLinksCanBeCopiedAndSharedWithTheUrlOfTheirCurrentTokenVersion() {
         var active = insertLink(lockId, "Bea", "now() - interval '1 day'", "now() + interval '1 day'", false);
-        migrator.sql("UPDATE access_link SET token_version = 3 WHERE id = ?").param(active).update();
+        data.tokenVersion(active, 3);
         var expired = insertLink(lockId, "Carlos", "now() - interval '2 days'", "now() - interval '1 day'", false);
         var revoked = insertLink(lockId, "Dani", "now() - interval '1 day'", "now() + interval '1 day'", true);
 
@@ -188,7 +188,7 @@ class LinkListTests {
 
     @Test
     void validityIsShownInTheLocksTimeZone() {
-        migrator.sql("UPDATE lock SET time_zone = 'America/New_York' WHERE id = ?").param(lockId).update();
+        data.timeZone(lockId, "America/New_York");
         insertLink(lockId, "Ana", "'2030-11-01T19:00:00Z'", "'2030-11-03T16:00:00Z'", false);
 
         assertThat(page()).contains("01/11/2030 15:00 – 03/11/2030 11:00");

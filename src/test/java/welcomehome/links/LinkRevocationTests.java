@@ -16,7 +16,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
-import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.SignedIn;
 import welcomehome.IntegrationTest;
@@ -54,8 +53,8 @@ class LinkRevocationTests {
         data = new TestData(migrator);
         data.deleteOwners();
         lockId = insertLock(ALICE);
-        linkId = insertActiveLink(lockId, "Ana");
-        bobsLinkId = insertActiveLink(insertLock(BOB), "Invitado de Bob");
+        linkId = data.link(lockId, "Ana");
+        bobsLinkId = data.link(insertLock(BOB), "Invitado de Bob");
     }
 
     @Test
@@ -76,7 +75,7 @@ class LinkRevocationTests {
     void pageShowsTheRevocationAndNoLongerOffersTheLink() {
         revoke(ALICE, linkId);
 
-        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(owner(ALICE)).flashAttr("revokedLabel", "Ana"))
+        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(SignedIn.owner(ALICE)).flashAttr("revokedLabel", "Ana"))
                 .bodyText().contains("Enlace «Ana» anulado", "Anulado")
                 .doesNotContain("Copiar", "/links/" + linkId + "/revoke", "Sustituir enlace");
     }
@@ -99,12 +98,12 @@ class LinkRevocationTests {
 
     @Test
     void revokingRequiresTheCsrfToken() {
-        assertThat(mvc.post().uri("/links/" + linkId + "/revoke").with(owner(ALICE))).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(mvc.post().uri("/links/" + linkId + "/revoke").with(SignedIn.owner(ALICE))).hasStatus(HttpStatus.FORBIDDEN);
         assertThat(revokedAt(linkId)).isNull();
     }
 
     private MvcTestResult revoke(String email, UUID link) {
-        return mvc.post().uri("/links/" + link + "/revoke").with(owner(email)).with(csrf()).exchange();
+        return mvc.post().uri("/links/" + link + "/revoke").with(SignedIn.owner(email)).with(csrf()).exchange();
     }
 
     private OffsetDateTime revokedAt(UUID link) {
@@ -114,14 +113,6 @@ class LinkRevocationTests {
 
     private UUID insertLock(String email) {
         return data.lock(data.owner(email), 17, "Casa");
-    }
-
-    private UUID insertActiveLink(UUID lock, String label) {
-        return data.link(lock, label);
-    }
-
-    private static RequestPostProcessor owner(String email) {
-        return SignedIn.owner(email);
     }
 
     record ResolvedDates(OffsetDateTime validFrom, OffsetDateTime validUntil, OffsetDateTime revokedAt) {

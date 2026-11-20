@@ -35,11 +35,9 @@ class PasskeyOwnerTests {
     void insertAliceAndBob() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
         data = new TestData(migrator);
-        for (var table : List.of("user_credentials", "user_entities", "owner")) {
-            migrator.sql("DELETE FROM " + table).update();
-        }
-        alice = insertOwner(ALICE);
-        bob = insertOwner(BOB);
+        data.deleteOwners();
+        alice = data.owner(ALICE);
+        bob = data.owner(BOB);
     }
 
     @Test
@@ -101,10 +99,6 @@ class PasskeyOwnerTests {
                 .params(alice.toString(), ALICE).update();
 
         assertThat(ownerOf("alice-id")).isEqualTo(alice);
-    }
-
-    private UUID insertOwner(String email) {
-        return data.owner(email);
     }
 
     private void insertUser(String id, String email) {

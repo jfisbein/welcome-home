@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import welcomehome.TestData;
 import welcomehome.IntegrationTest;
 import welcomehome.TestDatabaseConfiguration;
 
@@ -35,7 +36,7 @@ class InvitationRedemptionTests {
     @BeforeEach
     void emptyInvitations() {
         migrator = TestDatabaseConfiguration.asMigrator(postgres);
-        migrator.sql("DELETE FROM invitation").update();
+        new TestData(migrator).deleteOwners();
     }
 
     @Test
@@ -65,9 +66,7 @@ class InvitationRedemptionTests {
     @Test
     void expiredInvitationCannotBeRedeemed() {
         var created = invitations.createInvitation(null, "Alice", false);
-        migrator.sql("UPDATE invitation SET expires_at = now() - interval '1 minute' WHERE id = ?")
-                .param(created.id())
-                .update();
+        new TestData(migrator).expireInvitation(created.id());
 
         assertThat(invitations.findRedeemable(tokenOf(created))).isEmpty();
         assertThat(invitations.redeem(tokenOf(created))).isEmpty();

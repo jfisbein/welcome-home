@@ -35,8 +35,7 @@ class PasskeyRecoveryCommandTests {
     void insertAnAdmin() {
         var migrator = TestDatabaseConfiguration.asMigrator(postgres);
         var data = new TestData(migrator);
-        migrator.sql("DELETE FROM invitation").update();
-        migrator.sql("DELETE FROM owner").update();
+        new TestData(migrator).deleteOwners();
         adminId = data.admin("admin@example.com");
     }
 

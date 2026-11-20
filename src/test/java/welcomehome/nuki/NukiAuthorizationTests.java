@@ -37,7 +37,6 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
-import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.SignedIn;
@@ -140,7 +139,7 @@ class NukiAuthorizationTests {
         assertThat(crypto.decryptRefreshToken(aliceId, stored.refreshToken())).isEqualTo("refresh-1");
         assertThat(stored.expiresAt()).isBetween(OffsetDateTime.now(ZoneOffset.UTC).plusSeconds(3599 - 60),
                 OffsetDateTime.now(ZoneOffset.UTC).plusSeconds(3599));
-        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)))
+        assertThat(mvc.get().uri("/settings/nuki").with(SignedIn.owner(ALICE)))
                 .bodyText().contains("Conectado con tu cuenta de Nuki.")
                 .doesNotContain("/settings/nuki/oauth", "Te llevamos a Nuki", "API token");
     }
@@ -277,9 +276,9 @@ class NukiAuthorizationTests {
     void ownerWhoseAuthorizationNukiRejectedIsAskedToConnectAgain() {
         insertAuthorization(aliceId, "DISCONNECTED");
 
-        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)))
+        assertThat(mvc.get().uri("/settings/nuki").with(SignedIn.owner(ALICE)))
                 .bodyText().contains("Nuki ha rechazado la conexión", ">Volver a conectar con Nuki</a>");
-        assertThat(mvc.get().uri("/").with(owner(ALICE)))
+        assertThat(mvc.get().uri("/").with(SignedIn.owner(ALICE)))
                 .bodyText().contains("Nuki ha rechazado la conexión.", "Volver a conectar Nuki");
     }
 
@@ -288,7 +287,7 @@ class NukiAuthorizationTests {
         insertAuthorization(aliceId, "OK");
         nuki.stubFor(post("/oauth2/revoke").willReturn(status(200)));
 
-        var result = mvc.delete().uri("/settings/nuki").with(owner(ALICE)).with(csrf()).exchange();
+        var result = mvc.delete().uri("/settings/nuki").with(SignedIn.owner(ALICE)).with(csrf()).exchange();
 
         assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/settings/nuki");
         assertThat(result.getMvcResult().getFlashMap().get("disconnected")).isEqualTo(true);
@@ -307,7 +306,7 @@ class NukiAuthorizationTests {
         insertAuthorization(aliceId, "OK");
         nuki.stubFor(post("/oauth2/revoke").willReturn(status(503)));
 
-        var result = mvc.delete().uri("/settings/nuki").with(owner(ALICE)).with(csrf()).exchange();
+        var result = mvc.delete().uri("/settings/nuki").with(SignedIn.owner(ALICE)).with(csrf()).exchange();
 
         assertThat(result).hasStatus(HttpStatus.FOUND);
         assertNoConnection();
@@ -320,7 +319,7 @@ class NukiAuthorizationTests {
     void disconnectingAPastedTokenAsksNukiNothing() {
         data.connection(aliceId, crypto.encryptAccessToken(aliceId, "pasted"));
 
-        assertThat(mvc.delete().uri("/settings/nuki").with(owner(ALICE)).with(csrf())).hasStatus(HttpStatus.FOUND);
+        assertThat(mvc.delete().uri("/settings/nuki").with(SignedIn.owner(ALICE)).with(csrf())).hasStatus(HttpStatus.FOUND);
 
         assertNoConnection();
         nuki.verify(0, anyRequestedFor(anyUrl()));
@@ -341,7 +340,7 @@ class NukiAuthorizationTests {
     }
 
     private String authorize(String email) {
-        var result = mvc.get().uri("/settings/nuki/oauth").with(owner(email)).session(session).exchange();
+        var result = mvc.get().uri("/settings/nuki/oauth").with(SignedIn.owner(email)).session(session).exchange();
         assertThat(result).hasStatus(HttpStatus.FOUND);
         var location = result.getMvcResult().getResponse().getRedirectedUrl();
         assertThat(location).isNotNull();
@@ -349,11 +348,11 @@ class NukiAuthorizationTests {
     }
 
     private MvcTestResult callback(String email, String query) {
-        return mvc.get().uri("/nuki/callback?" + query).with(owner(email)).session(session).exchange();
+        return mvc.get().uri("/nuki/callback?" + query).with(SignedIn.owner(email)).session(session).exchange();
     }
 
     private String page(String authorizationError) throws Exception {
-        var result = mvc.get().uri("/settings/nuki").with(owner(ALICE)).flashAttr("authorizationError",
+        var result = mvc.get().uri("/settings/nuki").with(SignedIn.owner(ALICE)).flashAttr("authorizationError",
                 authorizationError).exchange();
         return result.getResponse().getContentAsString(StandardCharsets.UTF_8);
     }
@@ -423,10 +422,6 @@ class NukiAuthorizationTests {
 
     private UUID insertOwner(String email) {
         return data.owner(email);
-    }
-
-    private static RequestPostProcessor owner(String email) {
-        return SignedIn.owner(email);
     }
 
     @SuppressWarnings("ArrayRecordComponent")

@@ -23,6 +23,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import welcomehome.TestData;
 import welcomehome.SignedIn;
 import welcomehome.IntegrationTest;
 import welcomehome.TestDatabaseConfiguration;
@@ -63,9 +64,7 @@ class AccountSecurityEmailTests {
     @BeforeEach
     void registerAliceOnHerPhone() throws Exception {
         var migrator = TestDatabaseConfiguration.asMigrator(postgres);
-        for (var table : new String[] {"user_credentials", "user_entities", "invitation", "owner"}) {
-            migrator.sql("DELETE FROM " + table).update();
-        }
+        new TestData(migrator).deleteOwners();
         mail.purgeEmailFromAllMailboxes();
         var invitation = invitations.createInvitation(null, ALICE, false).url().getPath();
         var session = new MockHttpSession();
@@ -76,8 +75,7 @@ class AccountSecurityEmailTests {
         aliceId = jdbc.sql("SELECT id FROM owner WHERE email = ?").param(ALICE).query(UUID.class).single();
         // A new owner's first email is the link that verifies their address; these tests start after it.
         await().atMost(Duration.ofSeconds(5)).until(() -> mail.getReceivedMessages().length == 1);
-        TestDatabaseConfiguration.asMigrator(postgres)
-                .sql("UPDATE owner SET email_verified_at = now() WHERE id = ?").param(aliceId).update();
+        new TestData(TestDatabaseConfiguration.asMigrator(postgres)).verifyEmail(aliceId);
         mail.purgeEmailFromAllMailboxes();
     }
 
@@ -129,7 +127,7 @@ class AccountSecurityEmailTests {
 
     @Test
     void theyAreWrittenInTheOwnersLanguage() throws Exception {
-        TestDatabaseConfiguration.asMigrator(postgres).sql("UPDATE owner SET language = 'en'").update();
+        new TestData(TestDatabaseConfiguration.asMigrator(postgres)).language("en");
 
         invitations.createPasskeyRecovery(null, aliceId);
 
