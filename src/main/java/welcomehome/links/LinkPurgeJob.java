@@ -14,8 +14,8 @@ import welcomehome.db.Owners;
 
 /**
  * Deletes links that ended longer ago than the retention period once a day, each owner in their own transaction, so
- * that a guest's name in a label does not stay for ever. A link goes with its schedule and its attempts, once none
- * of those is younger than the retention period either.
+ * that a guest's name in a label does not stay for ever. A link goes with its schedule and its attempts, also
+ * those made since it ended: its URL then answers as any unknown link does, and nothing more is recorded.
  */
 @Component
 class LinkPurgeJob {

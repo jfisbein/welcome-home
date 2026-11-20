@@ -49,16 +49,18 @@ class LinkDao {
     }
 
     /**
-     * Deletes the owner's links that ended before the cutoff, by expiring or being cancelled, and have no attempt since.
+     * Deletes the owner's links that ended before the cutoff, by expiring or being revoked, whatever attempts they
+     * have had since: someone trying a dead link's URL must not keep its label, a guest's name, for ever. A paused
+     * link has not ended, though it is revoked meanwhile: its dates alone say when it does.
      *
      * @return how many were deleted
      */
     int deleteEndedBefore(UUID ownerId, Instant cutoff) {
         return jdbc.sql("""
                         DELETE FROM access_link l
-                        WHERE l.owner_id = :ownerId AND least(l.valid_until, l.revoked_at) < :cutoff
-                          AND NOT EXISTS (SELECT 1 FROM access_event e
-                                          WHERE e.owner_id = l.owner_id AND e.link_id = l.id AND e.occurred_at >= :cutoff)
+                        WHERE l.owner_id = :ownerId
+                          AND CASE WHEN l.paused_at IS NULL THEN least(l.valid_until, l.revoked_at)
+                                   ELSE l.valid_until END < :cutoff
                         """)
                 .param("ownerId", ownerId)
                 .param("cutoff", OffsetDateTime.ofInstant(cutoff, ZoneOffset.UTC))

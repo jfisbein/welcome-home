@@ -59,8 +59,9 @@ class LinkPurgeJobTests {
         assertThat(labels()).containsExactly("Anulado ayer");
     }
 
+    /** Whoever holds a dead link's URL must not keep its label, a guest's name, for as long as they try it. */
     @Test
-    void aLinkWithARecentAttemptStaysUntilThatAttemptIsOldToo() {
+    void aLinkSomeoneStillTriesGoesByItsEndAloneWithItsAttempts() {
         var triedLately = insertLink(casa, "Lo probaron ayer", "now() - interval '2 years'", "NULL");
         var triedLongAgo = insertLink(casa, "Lo probaron hace tiempo", "now() - interval '2 years'", "NULL");
         insertEvent(triedLately, "now() - interval '1 day'");
@@ -68,8 +69,22 @@ class LinkPurgeJobTests {
 
         job.purgeAll();
 
-        assertThat(labels()).containsExactly("Lo probaron ayer");
-        assertThat(migrator.sql("SELECT count(*) FROM access_event").query(Long.class).single()).isEqualTo(1);
+        assertThat(labels()).isEmpty();
+        assertThat(migrator.sql("SELECT count(*) FROM access_event").query(Long.class).single()).isZero();
+    }
+
+    /** Paused is revoked for now, not ended: a link paused long ago still has its dates to go by. */
+    @Test
+    void aLinkPausedLongAgoStaysWhileItsDatesHaveNotEndedLongAgo() {
+        var paused = insertLink(casa, "En pausa", "now() + interval '1 year'", "now() - interval '2 years'");
+        var pausedAndOver = insertLink(casa, "En pausa y caducado", "now() - interval '2 years'",
+                "now() - interval '3 years'");
+        migrator.sql("UPDATE access_link SET paused_at = revoked_at WHERE id IN (?, ?)").params(paused, pausedAndOver)
+                .update();
+
+        job.purgeAll();
+
+        assertThat(labels()).containsExactly("En pausa");
     }
 
     @Test
