@@ -21,15 +21,30 @@ import welcomehome.audit.AccessOutcome;
 @Component
 class LockMutex {
 
-    /** Far longer than an action takes with Nuki's timeouts: only a stuck action makes anyone wait this long. */
+    /**
+     * Longer than an action takes with Nuki's timeouts, now that each read of the lock's log is bound by what is
+     * left of the confirmation's wait: only a stuck action makes anyone wait this long.
+     */
     static final Duration MAX_WAIT = Duration.ofMinutes(1);
 
     private final ConcurrentMap<UUID, CompletableFuture<AccessOutcome>> inFlight = new ConcurrentHashMap<>();
+    private final Duration maxWait;
+
+    LockMutex() {
+        this(MAX_WAIT);
+    }
+
+    /** With another wait, for a test that does not have a minute. */
+    LockMutex(Duration maxWait) {
+        this.maxWait = maxWait;
+    }
 
     /**
      * Runs {@code action} for the lock, or, if one is already running, waits for it and returns its result.
      *
-     * @return the result of the action that ran
+     * @return the result of the action that ran; {@link AccessOutcome#NOT_CONFIRMED} for a guest who waited for
+     * an action that threw or that did not end in time, as it may have opened the door, or may yet: told that it
+     * failed, they would slide again at once, and open twice
      */
     AccessOutcome runOnce(UUID lockId, Supplier<AccessOutcome> action) {
         var mine = new CompletableFuture<AccessOutcome>();
@@ -49,14 +64,14 @@ class LockMutex {
         }
     }
 
-    private static AccessOutcome await(CompletableFuture<AccessOutcome> running) {
+    private AccessOutcome await(CompletableFuture<AccessOutcome> running) {
         try {
-            return running.get(MAX_WAIT.toMillis(), TimeUnit.MILLISECONDS);
+            return running.get(maxWait.toMillis(), TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return AccessOutcome.NUKI_ERROR;
+            return AccessOutcome.NOT_CONFIRMED;
         } catch (ExecutionException | TimeoutException e) {
-            return AccessOutcome.NUKI_ERROR;
+            return AccessOutcome.NOT_CONFIRMED;
         }
     }
 }

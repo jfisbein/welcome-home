@@ -559,6 +559,24 @@ class OpenDoorTests {
         nuki.verify(1, getRequestedFor(urlPathEqualTo("/smartlock/17/log")));
     }
 
+    /**
+     * A read of the log may take Nuki's timeouts several times over: the guest, and whoever waits for this opening,
+     * are answered when the wait is over, a second here, not when the read is.
+     */
+    @Test
+    void aReadOfTheLogThatTakesLongerThanTheWaitDoesNotMakeTheGuestWaitForIt() {
+        nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));
+        nuki.stubFor(get(urlPathEqualTo("/smartlock/17/log"))
+                .willReturn(okJson(log(Instant.now(), 3, 0)).withFixedDelay(4_000)));
+        var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
+
+        var started = System.nanoTime();
+        assertThat(open(signer.sign(link, 1))).hasStatus(HttpStatus.ACCEPTED)
+                .bodyJson().extractingPath("$.result").isEqualTo("not-confirmed");
+
+        assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(3));
+    }
+
     @Test
     void theGuestsIpAddressIsTheOneCloudflareReports() {
         var link = insertLink("now() - interval '2 days'", "now() - interval '1 day'");

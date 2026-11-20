@@ -63,9 +63,12 @@ class LockMutexTests {
         assertThat(actions).hasValue(1);
     }
 
-    /** A guest who waited is told what one who ran it is: here an error, never a result of their own. */
+    /**
+     * Whatever threw may have reached the lock first: the guest who waited is told the door may have opened, not
+     * that it failed, which would have them slide again at once.
+     */
     @Test
-    void aGuestWaitingForAnActionThatThrowsIsToldItFailedAndTheLockIsFreeAgain() throws Exception {
+    void aGuestWaitingForAnActionThatThrowsIsToldItMayHaveOpenedAndTheLockIsFreeAgain() throws Exception {
         var lockId = UUID.randomUUID();
         var release = new CountDownLatch(1);
         var guests = new CopyOnWriteArrayList<Thread>();
@@ -87,10 +90,34 @@ class LockMutexTests {
                     && guests.stream().allMatch(guest -> guest.getState() == Thread.State.TIMED_WAITING));
             release.countDown();
 
-            assertThat(waiting.get(5, TimeUnit.SECONDS)).isEqualTo(AccessOutcome.NUKI_ERROR);
+            assertThat(waiting.get(5, TimeUnit.SECONDS)).isEqualTo(AccessOutcome.NOT_CONFIRMED);
             assertThatThrownBy(() -> first.get(5, TimeUnit.SECONDS)).hasRootCauseInstanceOf(IllegalStateException.class);
         }
         assertThat(lockMutex.runOnce(lockId, () -> AccessOutcome.OPENED)).isEqualTo(AccessOutcome.OPENED);
+    }
+
+    /** The action they waited for is still running, and may yet open the door. */
+    @Test
+    void aGuestWhoWaitedTooLongForAnActionStillRunningIsToldItMayHaveOpened() throws Exception {
+        var impatient = new LockMutex(Duration.ofMillis(200));
+        var lockId = UUID.randomUUID();
+        var release = new CountDownLatch(1);
+        var running = new AtomicInteger();
+
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var first = executor.submit(() -> impatient.runOnce(lockId, () -> {
+                running.incrementAndGet();
+                awaitRelease(release);
+                return AccessOutcome.OPENED;
+            }));
+            await().atMost(Duration.ofSeconds(5)).untilAtomic(running, org.hamcrest.Matchers.equalTo(1));
+
+            assertThat(impatient.runOnce(lockId, () -> AccessOutcome.OPENED)).isEqualTo(AccessOutcome.NOT_CONFIRMED);
+            assertThat(running).as("and started no action of their own").hasValue(1);
+
+            release.countDown();
+            assertThat(first.get(5, TimeUnit.SECONDS)).isEqualTo(AccessOutcome.OPENED);
+        }
     }
 
     @Test

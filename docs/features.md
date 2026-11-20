@@ -213,7 +213,7 @@ Reaching the end sends `POST /api/open` with the token in the body. The checks r
 7. The lock is active.
 8. The owner's Nuki connection is OK.
 
-Only then is the door unlatched, in the context of the owner that `resolve_link` returned. Only one action runs per lock at a time: a guest who slides to open while the same lock is being opened waits for that action and gets its result, so Nuki receives a single action.
+Only then is the door unlatched, in the context of the owner that `resolve_link` returned. Only one action runs per lock at a time: a guest who slides to open while the same lock is being opened waits for that action and gets its result, so Nuki receives a single action. If that action throws, or has not ended after a minute, the guest who waited is told what an unconfirmed opening is told, to push the door before sliding again, as it may have opened it or may yet. Each read of the lock's log while confirming lasts at most what is left of the wait (`welcomehome.access.confirmation.timeout`), so that a read stuck in Nuki's timeouts and retries does not keep anyone long past it.
 
 Nuki runs actions asynchronously, so after it accepts the unlatch, or gives no answer once the request was sent, the app waits for whichever tells first (`welcomehome.access.confirmation.timeout`, `PT15S`, read every `interval`, `PT2S`):
 
@@ -272,7 +272,7 @@ The guest's country, for the history, comes from `CF-IPCountry` (`welcomehome.ac
 - **Pages.** They hold 50 attempts; "Anteriores" adds `before=` and `beforeId=` with the date and id of the last one shown, so a page never shifts as new attempts come in, and attempts at the same instant are neither lost nor repeated across pages.
 - **Whose.** Row-Level Security keeps each owner to their own history, and a lock or link of someone else's is a 404.
 
-A link's label usually holds a guest's name, so a link is kept for `welcomehome.links.retention` (`P365D`) after it expired or was cancelled, once no attempt with it is younger than that either: a job deletes it, with its schedule and attempts, every night at 03:32. Its owner may delete it sooner with "Borrar". Its URL then answers as any unknown link does.
+A link's label usually holds a guest's name, so a link is kept for `welcomehome.links.retention` (`P365D`) after it expired or was revoked, whatever attempts it has had since, which go with it: a job deletes it, with its schedule and attempts, every night at 03:32. Its owner may delete it sooner with "Borrar". Its URL then answers as any unknown link does. A paused link has not ended, though it is revoked meanwhile: its dates alone say when it goes.
 
 What the app deletes stays in the server's backups for as long as those are kept, 30 days in the stack as it comes, and the guest's page says so too (`welcomehome.audit.backup-retention`, `P30D`, only for that text: set it to the stack's `BACKUP_RETENTION_DAYS` if that changes). Attempts are kept for `welcomehome.audit.retention` (`P365D`), and their IP addresses, which are personal data, for `welcomehome.audit.ip-retention` (`P90D`) only: an older attempt keeps its country, so its flag still says where the guest was, and shows no IP address. A job deletes older attempts and forgets older IP addresses every night (`welcomehome.audit.purge-cron`, `0 30 3 * * *`, in the server's time zone), each owner in their own transaction under Row-Level Security; it also forgets the browsers that releases before 2.11.0 stored. `app_user` may update only those two columns of `access_event`.
 

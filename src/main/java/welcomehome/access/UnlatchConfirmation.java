@@ -4,6 +4,12 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +39,9 @@ class UnlatchConfirmation {
     /** The lock's clock and the server's may differ a little: entries this much older than the request count. */
     static final Duration CLOCK_SKEW = Duration.ofSeconds(5);
 
+    /** Reads of the log run apart, so that the wait for one can end before it does. */
+    private static final Executor READS = Executors.newVirtualThreadPerTaskExecutor();
+
     private final LockProvider lockProvider;
     private final AccessProperties.Confirmation settings;
 
@@ -58,7 +67,7 @@ class UnlatchConfirmation {
                 return result(reported.get());
             }
             try {
-                since = lockProvider.getRecentLog(ownerId, nukiSmartlockId).stream()
+                since = readLog(ownerId, nukiSmartlockId, deadline).stream()
                         .filter(entry -> !entry.occurredAt().isBefore(requestedAt.minus(CLOCK_SKEW)))
                         .toList();
                 var logged = since.stream()
@@ -79,6 +88,31 @@ class UnlatchConfirmation {
                         nukiSmartlockId, settings.timeout(), since);
                 return AccessOutcome.NOT_CONFIRMED;
             }
+        }
+    }
+
+    /**
+     * Reads the lock's log, for no longer than what is left of the wait, and one interval at least: a read may
+     * take Nuki's timeouts several times over, which would keep the guest, and those waiting for this opening,
+     * long past the time the wait is meant to last. A read that takes longer is left to end by itself, and counts
+     * as Nuki failing.
+     */
+    private List<LockLogEntry> readLog(UUID ownerId, long nukiSmartlockId, Instant deadline) {
+        var left = Duration.between(Instant.now(), deadline);
+        var patience = left.compareTo(settings.interval()) > 0 ? left : settings.interval();
+        var read = CompletableFuture.supplyAsync(() -> lockProvider.getRecentLog(ownerId, nukiSmartlockId), READS);
+        try {
+            return read.get(patience.toMillis(), TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new LockProviderException(LockProviderException.Reason.NUKI_ERROR, e);
+        } catch (TimeoutException e) {
+            throw new LockProviderException(LockProviderException.Reason.NUKI_ERROR, e);
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof LockProviderException failure) {
+                throw failure;
+            }
+            throw new LockProviderException(LockProviderException.Reason.NUKI_ERROR, e);
         }
     }
 
