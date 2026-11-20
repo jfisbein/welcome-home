@@ -124,13 +124,27 @@ class NukiOAuthClient {
      * @throws LockProviderException if Nuki does not confirm it
      */
     void revoke(String refreshToken) {
+        revoke(refreshToken, "refresh_token");
+    }
+
+    /**
+     * Revokes an access token at Nuki that came with no refresh token, so that it is all there is of its
+     * authorization.
+     *
+     * @throws LockProviderException if Nuki does not confirm it
+     */
+    void revokeAccessToken(String accessToken) {
+        revoke(accessToken, "access_token");
+    }
+
+    private void revoke(String token, String kind) {
         var oauth = properties.oauth();
         if (!oauth.enabled()) {
             return;
         }
         var form = new LinkedMultiValueMap<String, String>();
-        form.add("token", refreshToken);
-        form.add("token_type_hint", "refresh_token");
+        form.add("token", token);
+        form.add("token_type_hint", kind);
         // Only as HTTP Basic: with the client's credentials in the form as well, as the token endpoint takes them,
         // Nuki's revocation endpoint answers invalid_client (seen 2026-11-04).
         try {

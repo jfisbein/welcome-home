@@ -21,9 +21,10 @@ import welcomehome.nuki.LockProviderException.Reason;
 import welcomehome.nuki.NukiConnectionDao.StoredConnection;
 
 /**
- * Owners' Nuki connections: an API token the owner pasted, or the tokens of an OAuth2 authorization. They are
- * stored only after Nuki accepts them, encrypted for their owner, and decrypted only to call Nuki. An OAuth2
- * access token is refreshed before it expires ({@link TokenRefresher}). When Nuki rejects a stored token, and again when asked once more,
+ * Owners' Nuki connections: the tokens of an OAuth2 authorization. They are stored only after Nuki accepts them,
+ * encrypted for their owner, and decrypted only to call Nuki; an authorization that is not stored is revoked. The
+ * access token is refreshed before it expires ({@link TokenRefresher}). When Nuki rejects a stored token, and again
+ * when asked once more,
  * the connection becomes {@link ConnectionStatus#DISCONNECTED}. It stays so until the owner connects Nuki again, or
  * until Nuki accepts the stored credentials again, which is tried for {@link #RECHECK_FOR}.
  */
@@ -67,7 +68,8 @@ class NukiConnections {
 
     /**
      * Exchanges the code that Nuki sent back with the owner for the owner's tokens, checks that they list the
-     * owner's locks and read their log, and stores them as the owner's connection.
+     * owner's locks and read their log, and stores them as the owner's connection. An authorization that fails any
+     * of it is revoked at Nuki, best effort, where it would otherwise stay valid with nobody using it.
      *
      * @param codeVerifier the PKCE verifier whose challenge went to Nuki with the owner
      * @param redirectUri  where Nuki sent the owner back, which the exchange repeats
@@ -79,6 +81,18 @@ class NukiConnections {
     List<NukiDevice> connectAuthorized(UUID ownerId, String code, String codeVerifier, URI redirectUri) {
         var tokens = TokenRefresher.notActing(() -> oauth.exchangeCode(code, codeVerifier, redirectUri));
         log.info("Nuki granted owner {} the scopes {}", ownerId, tokens.scopeForLog());
+        List<NukiDevice> locks;
+        try {
+            locks = store(ownerId, tokens);
+        } catch (RuntimeException e) {
+            revokeUnstored(ownerId, tokens);
+            throw e;
+        }
+        events.publishEvent(new NukiConnected(ownerId, locks));
+        return locks;
+    }
+
+    private List<NukiDevice> store(UUID ownerId, NukiTokens tokens) {
         var refreshToken = tokens.refreshToken();
         if (refreshToken == null || !tokens.grantsAll(NukiOAuthClient.SCOPES)) {
             throw new LockProviderException(Reason.MISSING_PERMISSION);
@@ -89,8 +103,23 @@ class NukiConnections {
         var expiresAt = refresher.expiresAt(tokens);
         ownerTransactions.run(ownerId, () -> connections.save(ownerId, accessTokenEncrypted, refreshTokenEncrypted,
                 expiresAt));
-        events.publishEvent(new NukiConnected(ownerId, locks));
         return locks;
+    }
+
+    /** The tokens are about to be thrown away: what Nuki granted goes with them. A failure is only logged. */
+    private void revokeUnstored(UUID ownerId, NukiTokens tokens) {
+        var refreshToken = tokens.refreshToken();
+        try {
+            if (refreshToken != null) {
+                oauth.revoke(refreshToken);
+            } else {
+                oauth.revokeAccessToken(tokens.accessToken());
+            }
+            log.info("Asked Nuki to revoke the authorization of owner {}, which was not stored", ownerId);
+        } catch (LockProviderException e) {
+            log.warn("Could not revoke the Nuki authorization of owner {}, which was not stored: {}", ownerId,
+                    e.getMessage());
+        }
     }
 
     /** Outside a transaction: no database connection is held while waiting for Nuki. */

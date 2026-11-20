@@ -252,6 +252,47 @@ class NukiAuthorizationTests {
         assertNoConnection();
     }
 
+    /** What Nuki granted would stay valid there, with its tokens thrown away here. */
+    @Test
+    void authorizationThatIsNotStoredIsRevokedAtNuki(CapturedOutput output) {
+        nuki.stubFor(post("/oauth2/revoke").willReturn(status(200)));
+        nukiGrants("no-action", "access-1", "refresh-1", "smartlock.readOnly smartlock.log offline_access");
+        callback(ALICE, "code=no-action&state=" + state(authorize(ALICE)));
+        nukiGrants("no-refresh", "access-2", null, "smartlock.readOnly smartlock.action smartlock.log");
+        callback(ALICE, "code=no-refresh&state=" + state(authorize(ALICE)));
+        nukiGrants("no-log", "access-3", "refresh-3", SCOPE);
+        nuki.stubFor(get(urlPathEqualTo("/smartlock/log")).willReturn(status(403)));
+        callback(ALICE, "code=no-log&state=" + state(authorize(ALICE)));
+
+        assertThat(nuki.findAll(postRequestedFor(urlPathEqualTo("/oauth2/revoke"))).stream()
+                .map(request -> request.formParameter("token").firstValue() + " as "
+                        + request.formParameter("token_type_hint").firstValue()))
+                .containsExactly("refresh-1 as refresh_token", "access-2 as access_token",
+                        "refresh-3 as refresh_token");
+        assertThat(output.getAll())
+                .contains("Asked Nuki to revoke the authorization of owner " + aliceId + ", which was not stored")
+                .doesNotContain("refresh-1", "access-2", "refresh-3");
+    }
+
+    @Test
+    void authorizationThatNukiDoesNotRevokeFailsAsItWould(CapturedOutput output) {
+        nuki.stubFor(post("/oauth2/revoke").willReturn(status(503)));
+        nukiGrants("no-action", "access-1", "refresh-1", "smartlock.readOnly smartlock.log offline_access");
+
+        assertFailed(callback(ALICE, "code=no-action&state=" + state(authorize(ALICE))), "missing-permission");
+        assertThat(output.getAll())
+                .contains("Could not revoke the Nuki authorization of owner " + aliceId + ", which was not stored");
+    }
+
+    @Test
+    void authorizationThatIsStoredIsNotRevoked() {
+        nukiGrants("the-code", "access-1", "refresh-1", SCOPE);
+
+        callback(ALICE, "code=the-code&state=" + state(authorize(ALICE)));
+
+        nuki.verify(0, postRequestedFor(urlPathEqualTo("/oauth2/revoke")));
+    }
+
     @Test
     void authorizingAgainReplacesTheTokensOfTheOwnersOneConnection() {
         insertAuthorization(aliceId, "DISCONNECTED");
