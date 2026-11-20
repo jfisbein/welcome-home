@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        An owner's entry in Spring Security's passkey store is named by the owner's id, no longer by their email
+        (review item ARC-01). The session's name is that entry's, and Spring Security finds and creates the entry by
+        the session's name: named by the email, a change of email had to rename the entry and rebuild the session by
+        hand, and end the owner's other sessions. The email stays as the entry's display name.
+
+        Not backward compatible, with major version 4: a 3.x release finds owners by email in this column.
+
+        The function goes first: the trigger runs on the update below, and the earlier function would look for an
+        owner whose email is their id, find none, and untie every entry.
+    -->
+    <changeSet id="041-passkey-user-by-owner-id" author="welcome-home">
+        <comment>Names passkeys' users by their owner's id, and ties every one of them to an owner.</comment>
+        <sql splitStatements="false">
+            CREATE OR REPLACE FUNCTION set_passkey_owner() RETURNS trigger
+                LANGUAGE plpgsql
+            AS $$
+            BEGIN
+                NEW.owner_id := (SELECT id FROM owner WHERE id::text = NEW.name);
+                RETURN NEW;
+            END;
+            $$;
+        </sql>
+        <!-- An entry of no owner could not sign in; its passkeys go with it. -->
+        <sql>
+            DELETE FROM user_entities WHERE owner_id IS NULL;
+            UPDATE user_entities u
+            SET display_name = (SELECT o.email FROM owner o WHERE o.id = u.owner_id), name = u.owner_id::text;
+        </sql>
+        <addNotNullConstraint tableName="user_entities" columnName="owner_id"/>
+        <!-- Spring Security looks an entry up by its name on every sign-in, and an owner has one. -->
+        <addUniqueConstraint tableName="user_entities" columnNames="name" constraintName="user_entities_name_key"/>
+    </changeSet>
+
+</databaseChangeLog>

@@ -1,7 +1,7 @@
 package welcomehome.auth;
 
 import java.time.Duration;
-import java.util.Locale;
+import java.util.UUID;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -22,15 +22,9 @@ class OwnerSessions {
     private static final Duration KEPT_FOR = Duration.ofDays(1);
 
     private final Cache<String, SignedIn> sessions = Caffeine.newBuilder().expireAfterAccess(KEPT_FOR).build();
-    private final OwnerAccountDao owners;
-
-    OwnerSessions(OwnerAccountDao owners) {
-        this.owners = owners;
-    }
-
-    /** Notes a request of a session signed in as this owner. */
-    void seen(String email, HttpSession session) {
-        sessions.put(session.getId(), new SignedIn(key(email), session));
+    /** Notes a request of a session signed in under this name, an owner's ({@link OwnerName}). */
+    void seen(String name, HttpSession session) {
+        sessions.put(session.getId(), new SignedIn(name, session));
     }
 
     /**
@@ -38,10 +32,10 @@ class OwnerSessions {
      *
      * @param keptSessionId the id of the session to keep, usually the one asking, if any
      */
-    void endOthers(String email, @Nullable String keptSessionId) {
-        var owner = key(email);
+    void endOthers(UUID ownerId, @Nullable String keptSessionId) {
+        var owner = OwnerName.of(ownerId);
         sessions.asMap().forEach((id, signedIn) -> {
-            if (signedIn.email().equals(owner) && !id.equals(keptSessionId)) {
+            if (signedIn.name().equals(owner) && !id.equals(keptSessionId)) {
                 sessions.invalidate(id);
                 end(signedIn.session());
             }
@@ -50,7 +44,7 @@ class OwnerSessions {
 
     @EventListener
     void on(OwnerDeleting deleting) {
-        owners.findById(deleting.ownerId()).ifPresent(owner -> endOthers(owner.email(), null));
+        endOthers(deleting.ownerId(), null);
     }
 
     private static void end(HttpSession session) {
@@ -61,10 +55,6 @@ class OwnerSessions {
         }
     }
 
-    private static String key(String email) {
-        return email.toLowerCase(Locale.ROOT);
-    }
-
-    private record SignedIn(String email, HttpSession session) {
+    private record SignedIn(String name, HttpSession session) {
     }
 }

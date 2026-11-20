@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Columns that nothing read (review item DB-01), taken out with major version 4, as a 3.x release writes two
+        of them and so does not run without them.
+
+        lock.connection_id was written on every sync and never read: an owner has one connection, found by
+        owner_id, and whether a lock can open is asked of that. With it goes nuki_connection.id, which only that
+        column referred to: the connection's key is its owner.
+
+        access_event.user_agent held guests' browsers until 2.10.0, which stopped storing them and emptied it.
+    -->
+    <changeSet id="040-drop-unused-columns" author="welcome-home">
+        <comment>Drops lock.connection_id, nuki_connection.id and access_event.user_agent, which nothing read.</comment>
+        <sql>
+            ALTER TABLE lock DROP CONSTRAINT lock_connection_fkey;
+        </sql>
+        <dropColumn tableName="lock" columnName="connection_id"/>
+        <sql>
+            ALTER TABLE nuki_connection DROP CONSTRAINT nuki_connection_owner_id_id_key;
+            ALTER TABLE nuki_connection DROP CONSTRAINT nuki_connection_pkey;
+            ALTER TABLE nuki_connection DROP CONSTRAINT nuki_connection_owner_id_key;
+        </sql>
+        <dropColumn tableName="nuki_connection" columnName="id"/>
+        <addPrimaryKey tableName="nuki_connection" columnNames="owner_id" constraintName="nuki_connection_pkey"/>
+        <dropColumn tableName="access_event" columnName="user_agent"/>
+    </changeSet>
+
+</databaseChangeLog>

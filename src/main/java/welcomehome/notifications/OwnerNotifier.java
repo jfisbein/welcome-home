@@ -195,7 +195,7 @@ class OwnerNotifier {
         if (!mailer.isConfigured()) {
             return;
         }
-        recipients.findForAccount(added.ownerEmail()).forEach(to -> send(to.email(),
+        recipients.findForAccount(added.ownerId()).forEach(to -> send(to.email(),
                 message(to, "account.passkey-added.subject"),
                 message(to, "account.passkey-added.body", added.label(), app.link("/settings/passkeys")) + accountFooter(to)));
     }

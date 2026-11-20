@@ -1,7 +1,6 @@
 package welcomehome.audit;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -20,6 +19,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import welcomehome.SignedIn;
 import welcomehome.IntegrationTest;
 import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
@@ -328,6 +328,6 @@ class AccessHistoryTests {
     }
 
     private static RequestPostProcessor owner(String email) {
-        return user(email).roles("OWNER");
+        return SignedIn.owner(email);
     }
 }

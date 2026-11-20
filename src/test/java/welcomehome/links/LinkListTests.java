@@ -1,7 +1,6 @@
 package welcomehome.links;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
@@ -15,6 +14,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import welcomehome.SignedIn;
 import welcomehome.IntegrationTest;
 import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
@@ -217,6 +217,6 @@ class LinkListTests {
     }
 
     private static RequestPostProcessor owner() {
-        return user(ALICE).roles("OWNER");
+        return SignedIn.owner(ALICE);
     }
 }

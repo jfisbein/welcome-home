@@ -9,7 +9,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.security.web.webauthn.management.PublicKeyCredentialUserEntityRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import welcomehome.config.Languages;
@@ -30,14 +29,11 @@ public class OwnerAccounts {
     public static final Duration PREVIOUS_EMAIL_KEPT = Duration.ofDays(7);
 
     private final OwnerAccountDao owners;
-    private final PublicKeyCredentialUserEntityRepository userEntities;
     private final EmailVerification emailVerification;
     private final ApplicationEventPublisher events;
 
-    OwnerAccounts(OwnerAccountDao owners, PublicKeyCredentialUserEntityRepository userEntities,
-                  EmailVerification emailVerification, ApplicationEventPublisher events) {
+    OwnerAccounts(OwnerAccountDao owners, EmailVerification emailVerification, ApplicationEventPublisher events) {
         this.owners = owners;
-        this.userEntities = userEntities;
         this.emailVerification = emailVerification;
         this.events = events;
     }
@@ -126,7 +122,7 @@ public class OwnerAccounts {
         if (owner.email().equals(newEmail)) {
             return false;
         }
-        if (owners.findByEmail(newEmail).isPresent() || userEntities.findByUsername(newEmail) != null) {
+        if (owners.findByEmail(newEmail).isPresent()) {
             throw new EmailTakenException();
         }
         var wasVerified = emailVerification.isVerified(ownerId);

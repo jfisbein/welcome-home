@@ -2,7 +2,6 @@ package welcomehome.preferences;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.nio.charset.StandardCharsets;
 
@@ -17,6 +16,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import welcomehome.SignedIn;
 import welcomehome.IntegrationTest;
 import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
@@ -107,6 +107,6 @@ class ThemeTests {
     }
 
     private static RequestPostProcessor owner() {
-        return user(ALICE).roles("OWNER");
+        return SignedIn.owner(ALICE);
     }
 }

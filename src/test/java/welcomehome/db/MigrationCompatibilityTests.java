@@ -37,7 +37,7 @@ class MigrationCompatibilityTests {
      * The first changeset that must keep the previous release working. Those before it predate the rule; a new
      * major version moves it past the changesets that break, and production to that major's tag.
      */
-    static final int COMPATIBLE_FROM = 40;
+    static final int COMPATIBLE_FROM = 42;
 
     /**
      * What a changeset may do without anyone looking: only what cannot touch what is there. Anything else is found,

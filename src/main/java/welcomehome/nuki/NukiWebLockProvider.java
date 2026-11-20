@@ -23,7 +23,7 @@ class NukiWebLockProvider implements LockProvider {
 
     @Override
     public Optional<LockConnection> findConnection(UUID ownerId) {
-        return connections.find(ownerId).map(connection -> new LockConnection(connection.id(), connection.status()));
+        return connections.find(ownerId).map(connection -> new LockConnection(connection.status()));
     }
 
     @Override

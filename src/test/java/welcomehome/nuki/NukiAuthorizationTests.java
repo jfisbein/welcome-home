@@ -12,7 +12,6 @@ import static com.github.tomakehurst.wiremock.client.WireMock.status;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -41,6 +40,7 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import welcomehome.SignedIn;
 import welcomehome.IntegrationTest;
 import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
@@ -254,14 +254,13 @@ class NukiAuthorizationTests {
     }
 
     @Test
-    void authorizingAgainReplacesTheTokensAndKeepsTheConnectionsLocks() {
+    void authorizingAgainReplacesTheTokensOfTheOwnersOneConnection() {
         insertAuthorization(aliceId, "DISCONNECTED");
-        var connectionId = migrator.sql("SELECT id FROM nuki_connection").query(UUID.class).single();
         nukiGrants("the-code", "access-1", "refresh-1", SCOPE);
 
         callback(ALICE, "code=the-code&state=" + state(authorize(ALICE)));
 
-        assertThat(migrator.sql("SELECT id FROM nuki_connection").query(UUID.class).single()).isEqualTo(connectionId);
+        assertThat(migrator.sql("SELECT count(*) FROM nuki_connection").query(Integer.class).single()).isEqualTo(1);
         assertThat(stored(aliceId).status()).isEqualTo("OK");
         assertThat(crypto.decryptAccessToken(aliceId, stored(aliceId).accessToken())).isEqualTo("access-1");
     }
@@ -332,7 +331,7 @@ class NukiAuthorizationTests {
         insertAuthorization(aliceId, "OK");
         nuki.stubFor(post("/oauth2/revoke").willReturn(status(200)));
 
-        assertThat(mvc.delete().uri("/admin/owners").with(user(BOB).roles("OWNER", "ADMIN")).with(csrf())
+        assertThat(mvc.delete().uri("/admin/owners").with(SignedIn.admin(BOB)).with(csrf())
                 .param("email", ALICE)).hasStatus(HttpStatus.FOUND);
 
         nuki.verify(1, postRequestedFor(urlPathEqualTo("/oauth2/revoke"))
@@ -427,7 +426,7 @@ class NukiAuthorizationTests {
     }
 
     private static RequestPostProcessor owner(String email) {
-        return user(email).roles("OWNER");
+        return SignedIn.owner(email);
     }
 
     @SuppressWarnings("ArrayRecordComponent")

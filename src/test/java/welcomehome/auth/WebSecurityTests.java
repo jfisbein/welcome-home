@@ -10,6 +10,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import welcomehome.SignedIn;
 import welcomehome.IntegrationTest;
 import welcomehome.TestDatabaseConfiguration;
 
@@ -61,7 +62,7 @@ class WebSecurityTests {
                 .sql("INSERT INTO owner (email) VALUES ('alice@example.com') ON CONFLICT DO NOTHING")
                 .update();
 
-        assertThat(mvc.get().uri("/").with(user("alice@example.com").roles(OwnerUserDetailsService.OWNER)))
+        assertThat(mvc.get().uri("/").with(SignedIn.owner("alice@example.com")))
                 .hasStatusOk()
                 .bodyText().contains("alice@example.com");
     }

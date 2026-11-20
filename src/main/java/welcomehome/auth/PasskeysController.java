@@ -67,7 +67,7 @@ class PasskeysController {
         }
         // A lost device may be why: it must not stay signed in. The one asking is still who they say they are.
         var session = request.getSession(false);
-        sessions.endOthers(owner.email(), session == null ? null : session.getId());
+        sessions.endOthers(owner.id(), session == null ? null : session.getId());
         redirect.addFlashAttribute("deleted", passkey.label());
         return "redirect:/settings/passkeys";
     }

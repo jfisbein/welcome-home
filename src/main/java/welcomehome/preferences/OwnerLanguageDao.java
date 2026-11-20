@@ -22,9 +22,9 @@ class OwnerLanguageDao {
     }
 
     /** @return the owner's language, or empty if there is no such owner or the app no longer has texts for it */
-    Optional<Locale> findLanguage(String email) {
-        return jdbc.sql("SELECT language FROM owner WHERE email = :email")
-                .param("email", email)
+    Optional<Locale> findLanguage(UUID ownerId) {
+        return jdbc.sql("SELECT language FROM owner WHERE id = :id")
+                .param("id", ownerId)
                 .query(String.class)
                 .optional()
                 .flatMap(Languages::of);

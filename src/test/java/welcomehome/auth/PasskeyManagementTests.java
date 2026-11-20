@@ -2,11 +2,11 @@ package welcomehome.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,6 +20,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import welcomehome.SignedIn;
 import welcomehome.IntegrationTest;
 import welcomehome.TestDatabaseConfiguration;
 
@@ -61,7 +62,7 @@ class PasskeyManagementTests {
         register(ALICE, phone);
         register(BOB, bobsPhone);
         jdbc.sql("UPDATE user_credentials SET label = 'Móvil de Bob' FROM user_entities u "
-                + "WHERE u.id = user_entity_user_id AND u.name = ?").param(BOB).update();
+                + "WHERE u.id = user_entity_user_id AND u.display_name = ?").param(BOB).update();
     }
 
     @Test
@@ -79,6 +80,9 @@ class PasskeyManagementTests {
 
         var options = body(post(session, "/webauthn/register/options", ""));
         assertThat(options).as("the phone's passkey is excluded").contains(credentialIdOf("Passkey"));
+        assertThat(options).as("the authenticator is given her email to show beside the passkey, not her id")
+                .contains("\"name\":\"" + ALICE + "\"", "\"displayName\":\"" + ALICE + "\"")
+                .doesNotContain(String.valueOf(aliceId()));
         var credential = laptop.create(options);
         assertThat(post(session, "/webauthn/register", "{\"publicKey\": {\"credential\": " + credential
                 + ", \"label\": \"Portátil\"}}"))
@@ -321,11 +325,15 @@ class PasskeyManagementTests {
         assertThat(result.getResponse().getStatus() == 200).as("signs in").isEqualTo(expected);
     }
 
+    private UUID aliceId() {
+        return jdbc.sql("SELECT id FROM owner WHERE email = ?").param(ALICE).query(UUID.class).single();
+    }
+
     private String credentialIdOf(String label) {
         return jdbc.sql("""
                         SELECT c.credential_id FROM user_credentials c
                         JOIN user_entities u ON u.id = c.user_entity_user_id
-                        WHERE u.name = ? AND c.label = ?
+                        WHERE u.display_name = ? AND c.label = ?
                         """)
                 .params(ALICE, label).query(String.class).single();
     }
@@ -348,6 +356,6 @@ class PasskeyManagementTests {
     }
 
     private static RequestPostProcessor owner(String email) {
-        return user(email).roles("OWNER");
+        return SignedIn.owner(email);
     }
 }

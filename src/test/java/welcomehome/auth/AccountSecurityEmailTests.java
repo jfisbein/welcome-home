@@ -3,7 +3,6 @@ package welcomehome.auth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -24,6 +23,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import welcomehome.SignedIn;
 import welcomehome.IntegrationTest;
 import welcomehome.TestDatabaseConfiguration;
 import welcomehome.notifications.MailStandInConfiguration;
@@ -140,7 +140,7 @@ class AccountSecurityEmailTests {
 
     @Test
     void theyAreSentWhateverTheOwnersPreferences() throws Exception {
-        assertThat(mvc.put().uri("/settings/notifications").with(user(ALICE).roles("OWNER")).with(csrf()))
+        assertThat(mvc.put().uri("/settings/notifications").with(SignedIn.owner(ALICE)).with(csrf()))
                 .hasStatus3xxRedirection();
 
         invitations.createPasskeyRecovery(null, aliceId);
@@ -160,7 +160,7 @@ class AccountSecurityEmailTests {
     /** As Alice, in a session that signed in just now, which adding a passkey asks for. */
     private MvcTestResult asAlice(MockHttpSession session, String path, String json) {
         session.setAttribute(RecentSignIn.ATTRIBUTE, Instant.now());
-        var request = mvc.post().uri(path).session(session).with(user(ALICE).roles("OWNER")).with(csrf());
+        var request = mvc.post().uri(path).session(session).with(SignedIn.owner(ALICE)).with(csrf());
         return json.isEmpty() ? request.exchange()
                 : request.contentType(MediaType.APPLICATION_JSON).content(json).exchange();
     }

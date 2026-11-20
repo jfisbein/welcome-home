@@ -74,8 +74,8 @@ class EventPurgeJobTests {
         job.purgeAll();
 
         // The one from 364 days ago stays, without its IP address.
-        assertThat(attempts(alice)).containsExactly("opened|-|-|-", "opened|-|198.51.100.3|-");
-        assertThat(attempts(bob)).containsExactly("opened|-|-|-", "opened|-|198.51.100.3|-");
+        assertThat(attempts(alice)).containsExactly("opened|-|-", "opened|-|198.51.100.3");
+        assertThat(attempts(bob)).containsExactly("opened|-|-", "opened|-|198.51.100.3");
     }
 
     @Test
@@ -89,7 +89,6 @@ class EventPurgeJobTests {
         assertThat(remainingIps(link)).containsExactly("198.51.100.2");
     }
 
-    /** The browser, which earlier releases stored and nothing shows, goes from every attempt. */
     @Test
     void attemptsForgetTheGuestsIpAddressAfterNinetyDaysButKeepTheirCountry() {
         var alice = insertLink("alice@example.com");
@@ -98,12 +97,12 @@ class EventPurgeJobTests {
             insertEvent(link, "91 days", "198.51.100.1");
             insertEvent(link, "89 days", "198.51.100.2");
         }
-        migrator.sql("UPDATE access_event SET country = 'ES', user_agent = 'Firefox'").update();
+        migrator.sql("UPDATE access_event SET country = 'ES'").update();
 
         job.purgeAll();
 
         for (var link : List.of(alice, bob)) {
-            assertThat(attempts(link)).containsExactly("opened|ES|-|-", "opened|ES|198.51.100.2|-");
+            assertThat(attempts(link)).containsExactly("opened|ES|-", "opened|ES|198.51.100.2");
         }
     }
 
@@ -134,12 +133,12 @@ class EventPurgeJobTests {
         new EventPurgeJob(accessEvents, activity, ownerTransactions, owners, new AuditProperties(Duration.ofDays(365), Duration.ofDays(30), Duration.ofDays(30)), Clock.systemUTC())
                 .purgeAll();
 
-        assertThat(attempts(link)).containsExactly("opened|-|-|-", "opened|-|198.51.100.2|-");
+        assertThat(attempts(link)).containsExactly("opened|-|-", "opened|-|198.51.100.2");
     }
 
     @Test
     void theAppMayForgetAnAttemptsIpAddressButChangeNothingElse() {
-        jdbc.sql("UPDATE access_event SET ip = NULL, user_agent = NULL, distance_m = NULL, accuracy_m = NULL").update();
+        jdbc.sql("UPDATE access_event SET ip = NULL, distance_m = NULL, accuracy_m = NULL").update();
         assertThatThrownBy(() -> jdbc.sql("UPDATE access_event SET reason = 'opened'").update())
                 .isInstanceOf(DataAccessException.class)
                 .rootCause().hasMessageContaining("permission denied for table access_event");
@@ -195,11 +194,10 @@ class EventPurgeJobTests {
                 .param(linkId).query(String.class).list();
     }
 
-    /** Each of the link's attempts, oldest first, as "reason|country|ip|browser", with "-" for none. */
+    /** Each of the link's attempts, oldest first, as "reason|country|ip", with "-" for none. */
     private List<String> attempts(UUID linkId) {
         return migrator.sql("""
-                        SELECT concat_ws('|', reason, coalesce(country, '-'), coalesce(host(ip), '-'),
-                                         coalesce(user_agent, '-'))
+                        SELECT concat_ws('|', reason, coalesce(country, '-'), coalesce(host(ip), '-'))
                         FROM access_event WHERE link_id = ? ORDER BY occurred_at
                         """)
                 .param(linkId).query(String.class).list();

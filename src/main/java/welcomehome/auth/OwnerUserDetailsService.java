@@ -1,6 +1,5 @@
 package welcomehome.auth;
 
-import java.util.Locale;
 
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -9,8 +8,8 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 /**
- * Loads the owner behind a passkey: Spring Security's WebAuthn login calls it with the passkey's user name,
- * which is the owner's email.
+ * Loads the owner behind a passkey: Spring Security's WebAuthn login calls it with the name of the passkey's
+ * entry in its store, which is the owner's id ({@link OwnerName}).
  */
 @Service
 class OwnerUserDetailsService implements UserDetailsService {
@@ -25,11 +24,11 @@ class OwnerUserDetailsService implements UserDetailsService {
     }
 
     @Override
-    public UserDetails loadUserByUsername(String email) {
-        var owner = owners.findByEmail(email.toLowerCase(Locale.ROOT))
-                .orElseThrow(() -> new UsernameNotFoundException("No owner with this email"));
+    public UserDetails loadUserByUsername(String name) {
+        var owner = OwnerName.ownerId(name).flatMap(owners::findById)
+                .orElseThrow(() -> new UsernameNotFoundException("No owner by this name"));
         // Passkeys only: there is no password, and no endpoint accepts one.
-        return User.withUsername(owner.email())
+        return User.withUsername(OwnerName.of(owner.id()))
                 .password("")
                 .roles(owner.isAdmin() ? new String[] {OWNER, ADMIN} : new String[] {OWNER})
                 .build();

@@ -29,7 +29,7 @@ class NukiConnectionDao {
 
     Optional<StoredConnection> find(UUID ownerId) {
         return jdbc.sql("""
-                        SELECT id, access_token_encrypted, refresh_token_encrypted,
+                        SELECT access_token_encrypted, refresh_token_encrypted,
                                access_token_expires_at, status, last_checked_at::timestamp AS last_checked_at
                         FROM nuki_connection
                         WHERE owner_id = :ownerId
@@ -45,7 +45,7 @@ class NukiConnectionDao {
      */
     Optional<StoredConnection> findDisconnectedWithin(UUID ownerId, Duration time) {
         return jdbc.sql("""
-                        SELECT id, access_token_encrypted, refresh_token_encrypted,
+                        SELECT access_token_encrypted, refresh_token_encrypted,
                                access_token_expires_at, status, last_checked_at::timestamp AS last_checked_at
                         FROM nuki_connection
                         WHERE owner_id = :ownerId AND status = 'DISCONNECTED'
@@ -164,7 +164,7 @@ class NukiConnectionDao {
     }
 
     /**
-     * Locks keep their row: their connection_id becomes NULL, and their links do not change.
+     * Locks keep their row, and their links do not change.
      *
      * @return whether the owner had one
      */
@@ -185,8 +185,7 @@ class NukiConnectionDao {
     }
 
     private static StoredConnection storedConnection(ResultSet rs, int row) throws SQLException {
-        return new StoredConnection(rs.getObject("id", UUID.class),
-                rs.getBytes("access_token_encrypted"),
+        return new StoredConnection(rs.getBytes("access_token_encrypted"),
                 rs.getBytes("refresh_token_encrypted"),
                 rs.getObject("access_token_expires_at", OffsetDateTime.class).toInstant(),
                 ConnectionStatus.valueOf(rs.getString("status")),
@@ -200,7 +199,7 @@ class NukiConnectionDao {
      */
     // Never compared, so the arrays' identity-based equals does not matter.
     @SuppressWarnings("ArrayRecordComponent")
-    record StoredConnection(UUID id, byte[] accessTokenEncrypted, byte[] refreshTokenEncrypted,
+    record StoredConnection(byte[] accessTokenEncrypted, byte[] refreshTokenEncrypted,
                             Instant accessTokenExpiresAt, ConnectionStatus status, @Nullable LocalDateTime lastCheckedAt) {
     }
 }

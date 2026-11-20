@@ -2,7 +2,6 @@ package welcomehome.access;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.util.UUID;
 
@@ -19,6 +18,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import welcomehome.SignedIn;
 import welcomehome.IntegrationTest;
 import welcomehome.crypto.LinkTokenSigner;
 import welcomehome.nuki.NukiStandInConfiguration;
@@ -85,7 +85,7 @@ class TokenLoggingTests {
     @Test
     void nukisWayBackLogsNoCode(CapturedOutput output) {
         mvc.get().uri("/nuki/callback?code=the-authorization-code&state=the-state")
-                .with(user("alice@example.com").roles("OWNER")).exchange();
+                .with(SignedIn.owner("alice@example.com")).exchange();
 
         assertThat(output.getAll()).contains("/nuki/callback?***")
                 .doesNotContain("the-authorization-code").doesNotContain("the-state");

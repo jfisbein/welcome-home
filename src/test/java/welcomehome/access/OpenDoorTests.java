@@ -929,13 +929,10 @@ class OpenDoorTests {
                 """.formatted(date, nukiAction, nukiTrigger, nukiState);
     }
 
-    /**
-     * The latest event as "result|reason|ip", and then its browser, though nothing should keep it: every request
-     * says it is "Guest browser".
-     */
+    /** The latest event as "result|reason|ip". */
     private String lastEvent() {
         return migrator.sql("""
-                        SELECT concat_ws('|', result, reason, ip, user_agent) FROM access_event
+                        SELECT concat_ws('|', result, reason, ip) FROM access_event
                         ORDER BY occurred_at DESC LIMIT 1
                         """)
                 .query(String.class).single();

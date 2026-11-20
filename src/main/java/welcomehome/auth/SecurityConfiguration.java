@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.HttpMessageConverterAuthenticationSuccessHandler;
@@ -83,8 +84,7 @@ class SecurityConfiguration {
     /** Only with the web server: the one-off commands run without it, and without HttpSecurity. */
     @Bean
     @ConditionalOnWebApplication
-    SecurityFilterChain securityFilterChain(HttpSecurity http, OwnerSessions sessions, OwnerAccountDao owners,
-                                           PasskeyDao passkeys, ApplicationEventPublisher events,
+    SecurityFilterChain securityFilterChain(HttpSecurity http, OwnerSessions sessions, PasskeyDao passkeys, ApplicationEventPublisher events,
                                            Clock clock) {
         http
                 .authorizeHttpRequests(requests -> requests
@@ -123,8 +123,7 @@ class SecurityConfiguration {
                 .forEach(filter -> {
                     filter.setSessionAuthenticationStrategy(ON_SIGN_IN);
                     filter.setAuthenticationSuccessHandler(new SignInAnnouncer(
-                            new HttpMessageConverterAuthenticationSuccessHandler(), owners, passkeys, events,
-                            clock));
+                            new HttpMessageConverterAuthenticationSuccessHandler(), passkeys, events, clock));
                 });
         return chain;
     }
@@ -141,13 +140,26 @@ class SecurityConfiguration {
     WebAuthnRelyingPartyOperations relyingPartyOperations(PublicKeyCredentialUserEntityRepository userEntities,
                                                           UserCredentialRepository userCredentials,
                                                           PublicKeyCredentialRpEntity relyingParty,
-                                                          WelcomeHomeProperties app) {
+                                                          WelcomeHomeProperties app, OwnerAccountDao owners) {
         var operations = new Webauthn4JRelyingPartyOperations(userEntities, userCredentials, relyingParty,
                 Set.of(app.origin()));
         // A passkey is the only factor, so it must verify its user (PIN, fingerprint or face): a security key that
         // anyone holding it can touch is not enough for an account that opens doors. Asked for, and checked when
         // the answer comes back.
-        operations.setCustomizeCreationOptions(options -> options.authenticatorSelection(PASSKEYS));
+        operations.setCustomizeCreationOptions(options -> {
+            options.authenticatorSelection(PASSKEYS);
+            // Spring Security gives the authenticator the signed-in owner's entry as it is stored, under their id:
+            // what a passkey shows on their device is their email, so the entry goes under that. Its id, which is
+            // what ties the passkey to its owner, is the same.
+            var signedIn = SecurityContextHolder.getContext().getAuthentication();
+            if (signedIn != null) {
+                var entity = userEntities.findByUsername(signedIn.getName());
+                var owner = OwnerName.ownerId(signedIn.getName()).flatMap(owners::findById);
+                if (entity != null && owner.isPresent()) {
+                    options.user(OwnerName.shown(entity, owner.get().email()));
+                }
+            }
+        });
         operations.setCustomizeRequestOptions(options -> options.userVerification(UserVerificationRequirement.REQUIRED));
         return operations;
     }

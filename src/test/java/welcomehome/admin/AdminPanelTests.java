@@ -2,7 +2,6 @@ package welcomehome.admin;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -19,6 +18,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import welcomehome.SignedIn;
 import welcomehome.IntegrationTest;
 import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
@@ -263,7 +263,7 @@ class AdminPanelTests {
         assertThat(data.rowsByTable(bobId)).as("nothing of Bob's is left in any table that holds owners' data")
                 .allMatch(count -> count.endsWith(": 0"));
         assertThat(migrator.sql("SELECT email FROM owner").query(String.class).list()).containsExactly(ADMIN_EMAIL);
-        assertThat(migrator.sql("SELECT name FROM user_entities").query(String.class).list())
+        assertThat(migrator.sql("SELECT display_name FROM user_entities").query(String.class).list())
                 .containsExactly(ADMIN_EMAIL);
         assertThat(migrator.sql("SELECT credential_id FROM user_credentials").query(String.class).list())
                 .containsExactly("YWRtaW4tcGFzc2tleQ");
@@ -331,7 +331,7 @@ class AdminPanelTests {
         var invitation = invitations.createInvitation(adminId, "Ana", false);
 
         assertThat(mvc.delete().uri("/admin/invitations/" + invitation.id())
-                .with(user(OWNER_EMAIL).roles("OWNER")).with(csrf())).hasStatus(HttpStatus.FORBIDDEN);
+                .with(SignedIn.owner(OWNER_EMAIL)).with(csrf())).hasStatus(HttpStatus.FORBIDDEN);
         assertThat(mvc.delete().uri("/admin/invitations/" + invitation.id()).with(admin()))
                 .as("without the CSRF token").hasStatus(HttpStatus.FORBIDDEN);
         assertThat(invitations.findRedeemable(tokenOf(invitation))).isPresent();
@@ -340,7 +340,7 @@ class AdminPanelTests {
     @Test
     void anOwnerDeletedWhileSignedInLosesTheirSessionAndWithItTheirRole() {
         var session = new MockHttpSession();
-        assertThat(mvc.get().uri("/admin/owners").with(user(OWNER_EMAIL).roles("OWNER", "ADMIN")).session(session))
+        assertThat(mvc.get().uri("/admin/owners").with(SignedIn.admin(OWNER_EMAIL)).session(session))
                 .hasStatusOk();
         assertThat(session.isInvalid()).isFalse();
 
@@ -404,11 +404,11 @@ class AdminPanelTests {
     }
 
     private static RequestPostProcessor admin() {
-        return user(ADMIN_EMAIL).roles("OWNER", "ADMIN");
+        return SignedIn.admin(ADMIN_EMAIL);
     }
 
     private static RequestPostProcessor owner() {
-        return user(OWNER_EMAIL).roles("OWNER");
+        return SignedIn.owner(OWNER_EMAIL);
     }
 
     private static String tokenOf(CreatedInvitation invitation) {

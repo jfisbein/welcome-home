@@ -54,7 +54,8 @@ class AnnouncingUserCredentialRepository implements UserCredentialRepository {
         if (added) {
             var userEntity = userEntities.findById(credentialRecord.getUserEntityUserId());
             if (userEntity != null) {
-                events.publishEvent(new PasskeyAdded(userEntity.getName(), credentialRecord.getLabel()));
+                OwnerName.ownerId(userEntity.getName()).ifPresent(ownerId ->
+                        events.publishEvent(new PasskeyAdded(ownerId, credentialRecord.getLabel())));
             }
         }
     }

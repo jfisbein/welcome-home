@@ -105,16 +105,17 @@ class AccountTests {
     }
 
     @Test
-    void changingTheEmailMovesTheAccountAndItsPasskeysToTheNewOne() throws MessagingException {
+    void changingTheEmailChangesWhatTheAccountAndItsPasskeysShowAndNotWhoseTheyAre() throws MessagingException {
         var session = signIn();
 
         var result = changeEmail(session, "  Ana.Nueva@Example.com ");
 
         assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/settings/account");
         assertThat(owner()).isEqualTo(NEW_EMAIL + "|unverified");
-        assertThat(passkeyUsers()).isEqualTo(List.of(NEW_EMAIL + "|" + NEW_EMAIL + "|" + aliceId));
+        assertThat(passkeyUsers()).as("named by her id as before, and showing the new email")
+                .isEqualTo(List.of(aliceId + "|" + NEW_EMAIL + "|" + aliceId));
         assertThat(mvc.get().uri("/settings/account").session(session).flashAttr("emailChanged", NEW_EMAIL))
-                .as("the session goes on under the new email").hasStatusOk().bodyText()
+                .as("the session goes on, and shows the new email").hasStatusOk().bodyText()
                 .contains("Email cambiado a " + NEW_EMAIL, "value=\"" + NEW_EMAIL + "\"", "Confirma tu email");
         assertThat(mvc.get().uri("/settings/account").session(signIn())).as("the passkey signs in as the new email")
                 .hasStatusOk().bodyText().contains("value=\"" + NEW_EMAIL + "\"");
@@ -221,8 +222,9 @@ class AccountTests {
         assertThat(emails(1)).isEqualTo(List.of(NEW_EMAIL + ": Confirma tu email en welcome-home"));
     }
 
+    /** A session knows its owner by their id: none has to end, nor be rebuilt, because an email changed. */
     @Test
-    void theOwnersOtherSessionsEndAsTheyKnowThemByThePreviousEmail() throws MessagingException {
+    void theOwnersOtherSessionsGoOnAsTheyKnowThemByTheirId() throws MessagingException {
         var here = signIn();
         var elsewhere = signIn();
         for (var session : List.of(here, elsewhere)) {
@@ -231,8 +233,11 @@ class AccountTests {
 
         changeEmail(here, NEW_EMAIL);
 
-        assertThat(elsewhere.isInvalid()).isTrue();
-        assertThat(mvc.get().uri("/settings/account").session(here)).hasStatusOk();
+        assertThat(elsewhere.isInvalid()).isFalse();
+        for (var session : List.of(here, elsewhere)) {
+            assertThat(mvc.get().uri("/settings/account").session(session)).hasStatusOk().bodyText()
+                    .contains("value=\"" + NEW_EMAIL + "\"");
+        }
         assertThat(emails(2)).containsExactlyInAnyOrderElementsOf(EMAILS_ABOUT_THE_CHANGE);
     }
 

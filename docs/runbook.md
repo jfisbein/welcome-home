@@ -5,7 +5,7 @@ How to run welcome-home in production. It runs as a Dockge stack on a server of 
 | What               | Where                                                                  |
 |--------------------|------------------------------------------------------------------------|
 | Public URL         | yours; `https://welcome-home.example.com` stands for it here           |
-| Image              | `ghcr.io/jfisbein/welcome-home:v3`, the latest 3.x release             |
+| Image              | `ghcr.io/jfisbein/welcome-home:v4`, the latest 4.x release             |
 | Secrets            | `secrets/` in the stack's folder; the keysets also in a password manager |
 | Database dumps     | `backups/` in the stack's folder; off-site, wherever your backup tool puts them |
 | Tunnel             | Cloudflare Zero Trust: its own tunnel, with only this public hostname  |
@@ -88,7 +88,7 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 
 Once the workflow has finished, on the server:
 
-1. In Dockge, update the stack: it pulls `:v3` and `cloudflared:latest` again and recreates what changed.
+1. In Dockge, update the stack: it pulls `:v4` and `cloudflared:latest` again and recreates what changed.
 2. Liquibase migrates the database as `app` starts. Check that `app` turns healthy and that `docker compose logs app` shows no errors. The release that runs:
 
    ```sh
@@ -97,7 +97,15 @@ Once the workflow has finished, on the server:
 
 No dump first. Within a major version migrations only add to the schema, and each runs in a transaction: a migration that fails leaves the database as it was, and the previous release keeps working with one that succeeds (`MigrationCompatibilityTests` checks it). The `backup` service's nightly dump is still there, and `docker compose exec backup /backup/backup.sh now` takes one in a few seconds for whoever would rather have it: it costs nothing and is not required.
 
-A new major version, such as `v4`, may break compatibility: read its release notes, take a dump first (`docker compose exec backup /backup/backup.sh now`), and change the `app` image to `:v4`, with whatever else the notes ask for.
+A new major version, such as `v5`, may break compatibility: read its release notes, take a dump first (`docker compose exec backup /backup/backup.sh now`), and change the `app` image to `:v5`, with whatever else the notes ask for.
+
+### From 3.x to 4.0
+
+4.0.0 knows an owner by their id, not by their email, in their session and in the passkey store (changeset 041), and drops three columns nothing read (040). No 3.x release runs against that schema.
+
+1. Take a dump: `docker compose exec backup /backup/backup.sh now`. It is the only way back to 3.x.
+2. In Dockge, edit the stack: the `app` image `:v4`. Nothing else in `compose.yaml` changes. Deploy.
+3. Check that `app` turns healthy and runs 4.0.0 (the command above), and sign in with a passkey you had: passkeys made before go on working, and every owner signs in again once, as sessions do not outlive a restart.
 
 ### From 2.x to 3.0
 
@@ -123,9 +131,9 @@ A new major version, such as `v4`, may break compatibility: read its release not
 
 ## Roll back
 
-Pin the previous release of the same major version, such as `ghcr.io/jfisbein/welcome-home:v3.0.0`, and deploy. Within a major version the older release works with the newer schema, so nothing else is needed; go back to `:v3` once a fixed release is out. Before pinning a release that is several behind, read the notes of those in between for what it does not know: it ignores the columns added since, and so whatever they turned on.
+Pin the previous release of the same major version, such as `ghcr.io/jfisbein/welcome-home:v4.0.0`, and deploy. Within a major version the older release works with the newer schema, so nothing else is needed; go back to `:v4` once a fixed release is out. Before pinning a release that is several behind, read the notes of those in between for what it does not know: it ignores the columns added since, and so whatever they turned on.
 
-Rolling back to an earlier major version means restoring the dump taken before upgrading (next section), and pinning that major's last release, `:v2.18.0` or `:v1.12.0`: no 2.x release runs against 3.x's schema.
+Rolling back to an earlier major version means restoring the dump taken before upgrading (next section), and pinning that major's last release, `:v3.0.0`, `:v2.18.0` or `:v1.12.0`: no release of an earlier major runs against a later one's schema.
 
 ## Restore a dump
 

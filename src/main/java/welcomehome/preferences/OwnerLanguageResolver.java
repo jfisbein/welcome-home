@@ -2,6 +2,7 @@ package welcomehome.preferences;
 
 import java.util.Locale;
 import java.util.Optional;
+import java.util.UUID;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -43,7 +44,15 @@ class OwnerLanguageResolver implements LocaleResolver {
 
     private Optional<Locale> ofTheOwner(HttpServletRequest request) {
         var principal = request.getUserPrincipal();
-        return principal == null ? Optional.empty() : owners.findLanguage(principal.getName().toLowerCase(Locale.ROOT));
+        if (principal == null) {
+            return Optional.empty();
+        }
+        try {
+            // A signed-in owner's name is their id.
+            return owners.findLanguage(UUID.fromString(principal.getName()));
+        } catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
     }
 
     /**

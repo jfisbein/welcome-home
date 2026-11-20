@@ -1,7 +1,6 @@
 package welcomehome;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -200,6 +199,6 @@ class HomePageTests {
     }
 
     private static RequestPostProcessor owner(String email) {
-        return user(email).roles("OWNER");
+        return SignedIn.owner(email);
     }
 }

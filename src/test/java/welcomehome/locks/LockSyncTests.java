@@ -7,7 +7,6 @@ import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.status;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.time.Instant;
 import java.time.ZoneId;
@@ -27,6 +26,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import welcomehome.SignedIn;
 import welcomehome.IntegrationTest;
 import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
@@ -82,8 +82,8 @@ class LockSyncTests {
         assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/locks");
         assertThat(result.getMvcResult().getFlashMap().get("synced")).as("already there").isEqualTo(new SyncResult(0, 0));
         assertThat(locks()).as("Garaje reports no time zone, so it gets the server's").containsExactly(
-                "17|Casa|Europe/London|true|connected",
-                "18|Garaje|Europe/Madrid|true|connected");
+                "17|Casa|Europe/London|true",
+                "18|Garaje|Europe/Madrid|true");
         assertThat(mvc.get().uri("/locks").with(owner(ALICE))).bodyText().contains("Casa", "Garaje");
     }
 
@@ -93,7 +93,7 @@ class LockSyncTests {
                 [{"smartlockId": 17, "type": 4, "name": "Casa", "serverState": 0, "config": {"timezoneId": 37}}]
                 """));
 
-        assertThat(locks()).isEqualTo(List.of("17|Casa|Europe/Madrid|true|connected"));
+        assertThat(locks()).isEqualTo(List.of("17|Casa|Europe/Madrid|true"));
     }
 
     @Test
@@ -222,8 +222,8 @@ class LockSyncTests {
 
         assertThat(result.getMvcResult().getFlashMap().get("synced")).isEqualTo(new SyncResult(0, 1));
         assertThat(locks()).containsExactly(
-                "17|Mi casa|Atlantic/Canary|true|connected",
-                "18|Garaje|" + ZoneId.systemDefault().getId() + "|false|connected");
+                "17|Mi casa|Atlantic/Canary|true",
+                "18|Garaje|" + ZoneId.systemDefault().getId() + "|false");
         assertThat(migrator.sql("SELECT count(*) FROM access_link").query(Long.class).single()).isEqualTo(1);
         assertThat(mvc.get().uri("/locks").with(owner(ALICE))).bodyText().contains("Ya no está en tu cuenta de Nuki");
     }
@@ -240,20 +240,6 @@ class LockSyncTests {
 
         assertThat(result.getMvcResult().getFlashMap().get("synced")).isEqualTo(new SyncResult(0, 0));
         assertThat(migrator.sql("SELECT bool_and(active) FROM lock").query(Boolean.class).single()).isTrue();
-    }
-
-    @Test
-    void syncAfterReconnectingLinksTheLocksToTheNewConnection() {
-        connectNuki(ALICE, CASA_AND_GARAJE);
-        sync(ALICE);
-        mvc.delete().uri("/settings/nuki").with(owner(ALICE)).with(csrf()).exchange();
-        assertThat(migrator.sql("SELECT bool_and(connection_id IS NULL) FROM lock").query(Boolean.class).single())
-                .isTrue();
-
-        connectNuki(ALICE, CASA_AND_GARAJE);
-        sync(ALICE);
-
-        assertThat(locks()).allMatch(lock -> lock.endsWith("|connected"));
     }
 
     @Test
@@ -335,12 +321,11 @@ class LockSyncTests {
                 .list();
     }
 
-    /** Alice's locks as "nukiId|name|timeZone|active|connected", where connected means her current connection. */
+    /** Alice's locks as "nukiId|name|timeZone|active". */
     private List<String> locks() {
         return migrator.sql("""
-                        SELECT concat_ws('|', l.nuki_smartlock_id, l.name, l.time_zone, CASE WHEN l.active THEN 'true' ELSE 'false' END,
-                                         CASE WHEN l.connection_id = c.id THEN 'connected' ELSE 'not connected' END)
-                        FROM lock l LEFT JOIN nuki_connection c ON c.owner_id = l.owner_id
+                        SELECT concat_ws('|', l.nuki_smartlock_id, l.name, l.time_zone, CASE WHEN l.active THEN 'true' ELSE 'false' END)
+                        FROM lock l
                         WHERE l.owner_id = ?
                         ORDER BY l.nuki_smartlock_id
                         """)
@@ -364,6 +349,6 @@ class LockSyncTests {
     }
 
     private static RequestPostProcessor owner(String email) {
-        return user(email).roles("OWNER");
+        return SignedIn.owner(email);
     }
 }

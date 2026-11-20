@@ -117,7 +117,7 @@ class OwnerAccountDao {
                 .param("id", id)
                 .query(String.class)
                 .single();
-        jdbc.sql("UPDATE user_entities SET name = :email, display_name = :email WHERE owner_id = :id")
+        jdbc.sql("UPDATE user_entities SET display_name = :email WHERE owner_id = :id")
                 .param("email", email)
                 .param("id", id)
                 .update();

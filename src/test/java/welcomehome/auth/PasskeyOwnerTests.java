@@ -43,26 +43,35 @@ class PasskeyOwnerTests {
     }
 
     @Test
-    void aUserWrittenWithOnlyAnEmailGetsItsOwner() {
+    void aUserWrittenUnderItsOwnersIdGetsItsOwner() {
         insertUser("alice-id", ALICE);
 
         assertThat(ownerOf("alice-id")).isEqualTo(alice);
     }
 
     @Test
-    void aUserWhoseEmailChangesFollowsIt() {
+    void aUserRenamedToAnotherOwnersIdFollowsIt() {
         insertUser("alice-id", ALICE);
 
-        migrator.sql("UPDATE user_entities SET name = ? WHERE id = 'alice-id'").param(BOB).update();
+        migrator.sql("UPDATE user_entities SET name = ? WHERE id = 'alice-id'").param(bob.toString()).update();
 
         assertThat(ownerOf("alice-id")).isEqualTo(bob);
     }
 
     @Test
-    void aUserWithTheEmailOfNoOwnerHasNone() {
-        insertUser("nobody-id", "nobody@example.com");
+    void aUserUnderANameThatIsNoOwnersIdIsRefused() {
+        for (var name : List.of(ALICE, "nobody@example.com", new UUID(0, 1).toString())) {
+            assertThatThrownBy(() -> migrator
+                    .sql("INSERT INTO user_entities (id, name, display_name) VALUES ('some-id', ?, ?)")
+                    .params(name, ALICE).update()).as(name).isInstanceOf(DataIntegrityViolationException.class);
+        }
+    }
 
-        assertThat(ownerOf("nobody-id")).isNull();
+    @Test
+    void anOwnerHasOneUser() {
+        insertUser("alice-id", ALICE);
+
+        assertThatThrownBy(() -> insertUser("alice-again", ALICE)).isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test
@@ -89,7 +98,7 @@ class PasskeyOwnerTests {
     void theApplicationMayWriteAUser() {
         JdbcClient.create(TestDatabaseConfiguration.newSessionsAsAppUser(postgres))
                 .sql("INSERT INTO user_entities (id, name, display_name) VALUES ('alice-id', ?, ?)")
-                .params(ALICE, ALICE).update();
+                .params(alice.toString(), ALICE).update();
 
         assertThat(ownerOf("alice-id")).isEqualTo(alice);
     }

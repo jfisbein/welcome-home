@@ -46,10 +46,10 @@ services:
 
   app:
     logging: *logging
-    # The latest release of major version 3, so that Dockge's Update upgrades it: releases within a major are
+    # The latest release of major version 4, so that Dockge's Update upgrades it: releases within a major are
     # backward compatible (AGENTS.md, Conventions). The running release is the image's
-    # org.opencontainers.image.version label. To roll back, pin the previous one, such as v3.0.0.
-    image: ghcr.io/jfisbein/welcome-home:v3
+    # org.opencontainers.image.version label. To roll back, pin the previous one, such as v4.0.0.
+    image: ghcr.io/jfisbein/welcome-home:v4
     restart: unless-stopped
     depends_on:
       db:

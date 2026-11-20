@@ -254,10 +254,10 @@ public final class TestData {
                 .params(owner, accessTokenEncrypted, refreshTokenEncrypted, expiresIn, status).update();
     }
 
-    /** A user of Spring Security's passkey store, which knows its owner by email. */
+    /** The entry of an owner in Spring Security's passkey store, which knows its owner by their id. */
     public void passkeyUser(String userId, String email) {
-        db.sql("INSERT INTO user_entities (id, name, display_name) VALUES (?, ?, ?)").params(userId, email, email)
-                .update();
+        db.sql("INSERT INTO user_entities (id, name, display_name) SELECT ?, id::text, email FROM owner WHERE email = ?")
+                .params(userId, email).update();
     }
 
     /** A passkey of a user of the passkey store; its key is not a real one, so it signs nobody in. */

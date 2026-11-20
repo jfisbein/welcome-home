@@ -1,6 +1,5 @@
 package welcomehome.auth;
 
-import java.util.Locale;
 
 import org.jspecify.annotations.Nullable;
 import org.springframework.core.MethodParameter;
@@ -34,7 +33,7 @@ class CurrentOwnerArgumentResolver implements HandlerMethodArgumentResolver {
         if (principal == null) {
             throw new AccessDeniedException("Not signed in");
         }
-        return owners.findByEmail(principal.getName().toLowerCase(Locale.ROOT))
+        return OwnerName.ownerId(principal.getName()).flatMap(owners::findById)
                 .map(owner -> new CurrentOwner(owner.id(), owner.email()))
                 .orElseThrow(() -> new AccessDeniedException("No owner for the signed-in user"));
     }

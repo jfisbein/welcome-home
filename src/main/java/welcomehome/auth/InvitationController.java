@@ -3,6 +3,7 @@ package welcomehome.auth;
 import java.time.Clock;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -106,7 +107,7 @@ class InvitationController {
             throw new RegistrationException(Reason.NO_REGISTRATION_IN_PROGRESS);
         }
         var owner = registration.finish(pending, readPasskey(passkeyJson), locale);
-        signIn(pending, owner.email(), request, response);
+        signIn(pending, owner.id(), owner.email(), request, response);
         // In the owner's activity like a sign-in with a passkey, which SignInAnnouncer tells of: a recovery link is
         // how someone else may get into an account, and must not be the one way in that leaves no entry.
         events.publishEvent(new OwnerSignedIn(owner.id(), pending.passkeyLabel(), pending.recoveredOwnerId() != null));
@@ -127,14 +128,13 @@ class InvitationController {
         }
     }
 
-    private void signIn(PendingRegistration pending, String email, HttpServletRequest request,
+    private void signIn(PendingRegistration pending, UUID ownerId, String email, HttpServletRequest request,
                         HttpServletResponse response) {
-        var owner = userDetailsService.loadUserByUsername(email);
+        var owner = userDetailsService.loadUserByUsername(OwnerName.of(ownerId));
         var context = securityContextHolder.createEmptyContext();
-        // Under the owner's email as it is now, by which every request finds them: a recovery begun before they
-        // changed it still carries the previous one.
+        // Under the owner's id, by which every request finds them, as a sign-in with a passkey is.
         var authentication = new WebAuthnAuthentication(
-                OwnerRegistration.namedBy(pending.options().getUser(), email), owner.getAuthorities());
+                OwnerName.stored(pending.options().getUser(), ownerId, email), owner.getAuthorities());
         context.setAuthentication(authentication);
         securityContextHolder.setContext(context);
         // As a sign-in with a passkey does: a new session id and a new CSRF token.

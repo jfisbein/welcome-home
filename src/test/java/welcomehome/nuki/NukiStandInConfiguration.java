@@ -3,7 +3,6 @@ package welcomehome.nuki;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
@@ -22,6 +21,7 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.DynamicPropertyRegistrar;
+import welcomehome.SignedIn;
 
 /**
  * A stand-in for the Nuki Web API, for integration tests: the application calls it instead of Nuki.
@@ -89,7 +89,7 @@ public class NukiStandInConfiguration {
     public static void connect(MockMvcTester mvc, WireMockServer nuki, String email, String accessToken) {
         var code = "code-" + UUID.randomUUID();
         nukiGives(nuki, code, accessToken);
-        var owner = user(email).roles("OWNER");
+        var owner = SignedIn.owner(email);
         var session = new MockHttpSession();
         var toNuki = mvc.get().uri("/settings/nuki/oauth").with(owner).session(session).exchange();
         assertThat(toNuki).hasStatus(HttpStatus.FOUND);

@@ -1,7 +1,6 @@
 package welcomehome.nuki;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.util.UUID;
 
@@ -14,6 +13,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import welcomehome.SignedIn;
 import welcomehome.IntegrationTest;
 import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
@@ -67,6 +67,6 @@ class NukiConnectionWithoutAuthorizationTests {
     }
 
     private static RequestPostProcessor owner() {
-        return user(ALICE).roles("OWNER");
+        return SignedIn.owner(ALICE);
     }
 }

@@ -52,5 +52,5 @@ updates:
       # A new major Postgres needs a dump and restore of the data, not just a new image.
       - dependency-name: postgres
         update-types: [version-update:semver-major]
-      # Our own image: production follows its major version's tag (:v3).
+      # Our own image: production follows its major version's tag (:v4).
       - dependency-name: ghcr.io/jfisbein/welcome-home

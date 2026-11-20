@@ -1,5 +1,9 @@
 package welcomehome;
 
+import java.util.Locale;
+import java.util.Optional;
+import java.util.UUID;
+
 import javax.sql.DataSource;
 
 import org.springframework.boot.test.context.TestConfiguration;
@@ -64,6 +68,17 @@ public class TestDatabaseConfiguration {
      */
     public static JdbcClient asMigrator(PostgreSQLContainer postgres) {
         return JdbcClient.create(new DriverManagerDataSource(postgres.getJdbcUrl(), "migrator", MIGRATOR_PASSWORD));
+    }
+
+    /**
+     * Finds an owner by their email, as the schema's owner: what a test that signs in without a passkey goes by.
+     *
+     * @param email the owner's email
+     * @return the owner's id, or empty if there is no such owner
+     */
+    public static Optional<UUID> ownerIdOf(String email) {
+        return asMigrator(POSTGRES).sql("SELECT id FROM owner WHERE email = ?").param(email.toLowerCase(Locale.ROOT))
+                .query(UUID.class).optional();
     }
 
     /**

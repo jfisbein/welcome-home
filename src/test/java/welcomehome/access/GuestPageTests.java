@@ -3,7 +3,6 @@ package welcomehome.access;
 import static com.github.tomakehurst.wiremock.client.WireMock.anyRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.anyUrl;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import java.nio.charset.StandardCharsets;
@@ -24,6 +23,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import welcomehome.SignedIn;
 import welcomehome.IntegrationTest;
 import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
@@ -124,7 +124,7 @@ class GuestPageTests {
     @Test
     void anOwnerPreviewingTheirLinkReadsItInTheLanguageTheyChooseThere() {
         var token = signer.sign(insertLink("now() - interval '1 day'", "now() + interval '1 day'", false), 1);
-        var alice = user("alice@example.com").roles("OWNER");
+        var alice = SignedIn.owner("alice@example.com");
 
         assertThat(body(mvc.get().uri("/o/" + token + "?preview=1").with(alice).exchange()))
                 .as("their own, until they choose").contains("Desliza para abrir");

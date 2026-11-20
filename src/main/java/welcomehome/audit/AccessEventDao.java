@@ -38,8 +38,7 @@ class AccessEventDao {
     }
 
     /**
-     * Records an attempt without the guest's browser, which nothing shows: {@code user_agent} stays for the release
-     * before, which still writes it.
+     * Records an attempt, without the guest's browser, which nothing shows.
      *
      * @return when the attempt was recorded, by the database's clock
      */
@@ -130,7 +129,7 @@ class AccessEventDao {
 
     /**
      * Forgets the IP address of attempts before the cutoff, which keep their country, with their distance to the
-     * door, which says where the guest was too, and the browser of every attempt, which an earlier release stored.
+     * door, which says where the guest was too.
      *
      * @return how many attempts were changed
      */
@@ -139,12 +138,9 @@ class AccessEventDao {
                         UPDATE access_event
                         SET ip = CASE WHEN occurred_at < :cutoff THEN NULL ELSE ip END,
                             distance_m = CASE WHEN occurred_at < :cutoff THEN NULL ELSE distance_m END,
-                            accuracy_m = CASE WHEN occurred_at < :cutoff THEN NULL ELSE accuracy_m END,
-                            user_agent = NULL
-                        WHERE owner_id = :ownerId
-                          AND ((occurred_at < :cutoff AND (ip IS NOT NULL OR distance_m IS NOT NULL
-                                                           OR accuracy_m IS NOT NULL))
-                               OR user_agent IS NOT NULL)
+                            accuracy_m = CASE WHEN occurred_at < :cutoff THEN NULL ELSE accuracy_m END
+                        WHERE owner_id = :ownerId AND occurred_at < :cutoff
+                          AND (ip IS NOT NULL OR distance_m IS NOT NULL OR accuracy_m IS NOT NULL)
                         """)
                 .param("ownerId", ownerId)
                 .param("cutoff", OffsetDateTime.ofInstant(cutoff, ZoneOffset.UTC))

@@ -1,7 +1,6 @@
 package welcomehome;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.net.URI;
 import java.time.Instant;
@@ -120,6 +119,6 @@ class TimeZoneNamesTests {
     }
 
     private static RequestPostProcessor owner() {
-        return user(ALICE).roles("OWNER");
+        return SignedIn.owner(ALICE);
     }
 }

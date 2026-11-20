@@ -99,7 +99,7 @@ class OwnerRegistration {
 
     private PendingRegistration startNewOwner(String invitationToken, @Nullable String email, String label) {
         var normalizedEmail = normalize(email);
-        if (owners.findByEmail(normalizedEmail).isPresent() || userEntities.findByUsername(normalizedEmail) != null) {
+        if (owners.findByEmail(normalizedEmail).isPresent()) {
             throw new RegistrationException(Reason.EMAIL_TAKEN);
         }
         return new PendingRegistration(invitationToken, normalizedEmail, null, label,
@@ -107,8 +107,10 @@ class OwnerRegistration {
     }
 
     private PendingRegistration startRecovery(String invitationToken, OwnerAccount owner, String label) {
-        var existing = userEntities.findByUsername(owner.email());
-        var user = existing != null ? existing : newUserEntity(owner.email());
+        // Their entry is named by their id; the authenticator is given it under their email, which is what the
+        // passkey shows on their device.
+        var existing = userEntities.findByUsername(OwnerName.of(owner.id()));
+        var user = existing != null ? OwnerName.shown(existing, owner.email()) : newUserEntity(owner.email());
         // The authenticator refuses to create a second passkey where the owner already has one.
         var ownPasskeys = userCredentials.findByUserId(user.getId()).stream()
                 .map(passkey -> PublicKeyCredentialDescriptor.builder()
@@ -159,12 +161,11 @@ class OwnerRegistration {
                 ? insertOwner(pending.email(), invitation.grantsAdmin(), language)
                 : owners.findById(recoveredOwnerId)
                         .orElseThrow(() -> new RegistrationException(Reason.INVITATION_NOT_REDEEMABLE));
-        // An owner the passkey store already knows keeps their entity as it is: the one read when this began may
-        // carry an email they have changed since, and saving it would name them by it again, which detaches their
-        // passkeys from them (the store finds a passkey's owner by that name).
+        // The entry is stored under the owner's id, whatever email the authenticator was shown. An owner the
+        // passkey store already knows keeps their entry as it is.
         var user = pending.options().getUser();
         if (userEntities.findById(user.getId()) == null) {
-            userEntities.save(namedBy(user, owner.email()));
+            userEntities.save(OwnerName.stored(user, owner.id(), owner.email()));
         }
         try {
             relyingPartyOperations.registerCredential(new ImmutableRelyingPartyRegistrationRequest(
@@ -177,15 +178,6 @@ class OwnerRegistration {
             emailVerification.start(owner.id());
         }
         return new RegisteredOwner(owner.id(), owner.email(), owner.isAdmin());
-    }
-
-    /** The same user of the passkey store, under the owner's email as it is now. */
-    static PublicKeyCredentialUserEntity namedBy(PublicKeyCredentialUserEntity user, String email) {
-        return ImmutablePublicKeyCredentialUserEntity.builder()
-                .id(user.getId())
-                .name(email)
-                .displayName(email)
-                .build();
     }
 
     private OwnerAccount insertOwner(String email, boolean isAdmin, Locale language) {

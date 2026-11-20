@@ -89,12 +89,9 @@ class PasskeyRecoveryTests {
         assertSignsInAsAlice(oldDevice);
     }
 
-    /**
-     * The recovery read her entry in the passkey store when it began: saving it again would name her by the email
-     * she had then, and the store finds a passkey's owner by that name.
-     */
+    /** Her entry in the passkey store goes by her id: an email that changes meanwhile changes nothing of it. */
     @Test
-    void anOwnerWhoChangesTheirEmailWhileRecoveringKeepsTheirPasskeysAndIsSignedInUnderTheNewOne() {
+    void anOwnerWhoChangesTheirEmailWhileRecoveringKeepsTheirPasskeysAndIsSignedInAsThemselves() {
         var recovery = recoveryPath();
         var session = new MockHttpSession();
         var options = body(post(session, recovery + "/options", "{}"));
@@ -105,8 +102,8 @@ class PasskeyRecoveryTests {
         assertThat(jdbc.sql("SELECT u.name || '|' || (u.owner_id = ?) || '|' || count(c.credential_id) "
                         + "FROM user_entities u JOIN user_credentials c ON c.user_entity_user_id = u.id "
                         + "GROUP BY u.name, u.owner_id").param(aliceId).query(String.class).list())
-                .containsExactly("alicia@example.com|true|2");
-        assertThat(mvc.get().uri("/").session(session)).as("signed in, under the email she has now")
+                .containsExactly(aliceId + "|true|2");
+        assertThat(mvc.get().uri("/").session(session)).as("signed in, and shown the email she has now")
                 .hasStatusOk().bodyText().contains("alicia@example.com");
     }
 
@@ -142,7 +139,8 @@ class PasskeyRecoveryTests {
         post(session, recovery + "/register", newDevice.create(body(options)));
 
         assertThat(jdbc.sql("SELECT email FROM owner").query(String.class).list()).containsExactly(ALICE);
-        assertThat(jdbc.sql("SELECT name FROM user_entities").query(String.class).list()).containsExactly(ALICE);
+        assertThat(jdbc.sql("SELECT name || '|' || display_name FROM user_entities").query(String.class).list())
+                .containsExactly(aliceId + "|" + ALICE);
     }
 
     @Test

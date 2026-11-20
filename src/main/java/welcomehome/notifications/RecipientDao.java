@@ -23,12 +23,12 @@ import welcomehome.config.Languages;
 @Repository
 class RecipientDao {
 
-    /** The owner's verified address first, then the one they had: %s tells which owner. */
+    /** The owner's verified address first, then the one they had. */
     private static final String ACCOUNT_RECIPIENTS = """
-            SELECT email, language, false AS previous FROM owner WHERE %1$s AND email_verified_at IS NOT NULL
+            SELECT email, language, false AS previous FROM owner WHERE id = :owner AND email_verified_at IS NOT NULL
             UNION ALL
             SELECT previous_email, language, true FROM owner
-            WHERE %1$s AND previous_email_until > now() AND previous_email <> email
+            WHERE id = :owner AND previous_email_until > now() AND previous_email <> email
             ORDER BY previous
             """;
 
@@ -82,16 +82,8 @@ class RecipientDao {
      * they changed it lately.
      */
     List<Recipient> findForAccount(UUID ownerId) {
-        return jdbc.sql(ACCOUNT_RECIPIENTS.formatted("id = :owner"))
+        return jdbc.sql(ACCOUNT_RECIPIENTS)
                 .param("owner", ownerId)
-                .query(RecipientDao::recipient)
-                .list();
-    }
-
-    /** As {@link #findForAccount(UUID)}, for an owner known by their email. */
-    List<Recipient> findForAccount(String email) {
-        return jdbc.sql(ACCOUNT_RECIPIENTS.formatted("email = :owner"))
-                .param("owner", email)
                 .query(RecipientDao::recipient)
                 .list();
     }

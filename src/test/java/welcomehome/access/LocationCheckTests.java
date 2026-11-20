@@ -9,7 +9,6 @@ import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.status;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -27,6 +26,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import welcomehome.SignedIn;
 import welcomehome.IntegrationTest;
 import welcomehome.TestData;
 import welcomehome.TestDatabaseConfiguration;
@@ -218,7 +218,7 @@ class LocationCheckTests {
         data.locationCheck(lockId, DOOR_LATITUDE, DOOR_LONGITUDE, "CONFIRM_WHEN_FAR", 150);
         open("lock", metresAway(3200, 20), false);
 
-        assertThat(mvc.get().uri("/locks/" + lockId + "/history").with(user(ALICE).roles("OWNER"))).bodyText()
+        assertThat(mvc.get().uri("/locks/" + lockId + "/history").with(SignedIn.owner(ALICE))).bodyText()
                 .contains("a 3,2 km de la puerta", "Sin abrir: se pidió confirmar que estaba delante");
     }
 

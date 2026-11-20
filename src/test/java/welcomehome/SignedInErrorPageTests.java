@@ -1,7 +1,6 @@
 package welcomehome;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.nio.charset.StandardCharsets;
 
@@ -60,7 +59,7 @@ class SignedInErrorPageTests {
     }
 
     private MvcTestResult error(int status, String uri) {
-        return mvc.get().uri("/error").accept(MediaType.TEXT_HTML).with(user(ALICE).roles("OWNER"))
+        return mvc.get().uri("/error").accept(MediaType.TEXT_HTML).with(SignedIn.owner(ALICE))
                 .requestAttr(RequestDispatcher.ERROR_STATUS_CODE, status)
                 .requestAttr(RequestDispatcher.ERROR_REQUEST_URI, uri)
                 .exchange();

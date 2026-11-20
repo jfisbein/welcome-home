@@ -180,20 +180,19 @@ class LockDao {
      * to confirm, so that no owner has to know of the check for a slide at home not to open their door; an existing
      * lock keeps what its owner chose.
      */
-    void upsert(UUID ownerId, UUID connectionId, long nukiSmartlockId, DeviceType deviceType, String name,
+    void upsert(UUID ownerId, long nukiSmartlockId, DeviceType deviceType, String name,
                 String timeZone, @Nullable Coordinates coordinates) {
         jdbc.sql("""
-                        INSERT INTO lock (owner_id, connection_id, nuki_smartlock_id, device_type, name, time_zone,
+                        INSERT INTO lock (owner_id, nuki_smartlock_id, device_type, name, time_zone,
                                           latitude, longitude, location_check)
-                        VALUES (:ownerId, :connectionId, :nukiSmartlockId, :deviceType, :name, :timeZone,
+                        VALUES (:ownerId, :nukiSmartlockId, :deviceType, :name, :timeZone,
                                 :latitude, :longitude, :locationCheck)
                         ON CONFLICT (owner_id, nuki_smartlock_id) DO UPDATE
-                        SET connection_id = excluded.connection_id, device_type = excluded.device_type, active = true,
+                        SET device_type = excluded.device_type, active = true,
                             latitude = coalesce(lock.latitude, excluded.latitude),
                             longitude = coalesce(lock.longitude, excluded.longitude)
                         """)
                 .param("ownerId", ownerId)
-                .param("connectionId", connectionId)
                 .param("nukiSmartlockId", nukiSmartlockId)
                 .param("deviceType", deviceType.name())
                 .param("name", name)

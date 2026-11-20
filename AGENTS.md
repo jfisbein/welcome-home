@@ -12,7 +12,7 @@ A private web app where a few owners connect their Nuki account and create date-
 - **Admin**: an owner who can also invite owners, list them, make one of them an admin, create passkey recovery links, list and cancel both kinds of link, and delete owners. Admins never see other owners' locks, links or history.
 - **Guest**: no account; has only a link.
 
-**In production**: a Dockge stack on a private server, reached only through its own Cloudflare Tunnel. Image `ghcr.io/jfisbein/welcome-home`, at the major version's tag (`:v3`). The repository is public, so its public URL, its host and how to reach it are not here (Rules): `https://welcome-home.example.com` stands for the URL, and the owner has the rest.
+**In production**: a Dockge stack on a private server, reached only through its own Cloudflare Tunnel. Image `ghcr.io/jfisbein/welcome-home`, at the major version's tag (`:v4`). The repository is public, so its public URL, its host and how to reach it are not here (Rules): `https://welcome-home.example.com` stands for the URL, and the owner has the rest.
 
 ## Requirements
 

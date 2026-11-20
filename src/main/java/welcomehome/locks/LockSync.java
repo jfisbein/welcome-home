@@ -64,22 +64,22 @@ class LockSync {
     }
 
     private SyncResult sync(UUID ownerId, boolean keepLocksIfNoneListed) {
-        var connection = lockProvider.findConnection(ownerId)
-                .filter(LockConnection::works)
-                .orElseThrow(() -> new LockProviderException(Reason.NOT_CONNECTED));
+        if (lockProvider.findConnection(ownerId).filter(LockConnection::works).isEmpty()) {
+            throw new LockProviderException(Reason.NOT_CONNECTED);
+        }
         // Outside the transaction: no database connection is held while waiting for Nuki.
         var devices = lockProvider.listLocks(ownerId);
-        return apply(ownerId, connection.id(), devices, keepLocksIfNoneListed);
+        return apply(ownerId, devices, keepLocksIfNoneListed);
     }
 
     /** Imports what Nuki has just listed: an owner who connects it should not have to ask for that. */
     @EventListener
     void on(NukiConnected connected) {
-        lockProvider.findConnection(connected.ownerId()).ifPresent(connection ->
-                apply(connected.ownerId(), connection.id(), connected.devices(), true));
+        lockProvider.findConnection(connected.ownerId()).ifPresent(_ ->
+                apply(connected.ownerId(), connected.devices(), true));
     }
 
-    private SyncResult apply(UUID ownerId, UUID connectionId, List<NukiDevice> devices,
+    private SyncResult apply(UUID ownerId, List<NukiDevice> devices,
                              boolean keepLocksIfNoneListed) {
         if (devices.isEmpty() && keepLocksIfNoneListed) {
             return new SyncResult(0, 0);
@@ -96,7 +96,7 @@ class LockSync {
                     added++;
                 }
                 var timeZone = importedTimeZone(device.timeZone(), serverTimeZone, now);
-                locks.upsert(ownerId, connectionId, device.smartlockId(), device.type(), device.name(),
+                locks.upsert(ownerId, device.smartlockId(), device.type(), device.name(),
                         timeZone, device.coordinates());
             }
             int deactivated = 0;
