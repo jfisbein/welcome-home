@@ -77,6 +77,15 @@ What the stack needs, and what is up to you. The names in brackets are what this
 
    While Databasus is attached, `docker compose down` here reports `Resource is still in use` for `welcome-home_dbbackup`: the network stays, and the next start uses it again.
 
+## Watch it from outside
+
+Nothing in the stack tells anyone that it broke: the health checks show only in Dockge, and Docker does not restart a container that turns unhealthy. A guest at the door would be the first to know. So have a service outside the server ask for it (review item OPS-01):
+
+- **What to ask.** `GET https://welcome-home.example.com/actuator/health`, every few minutes: it answers 200 with `"status":"UP"` while the app is up and reaches its database, and tells nothing else. Alert after two failures in a row, by email or whatever reaches you away from home.
+- **From outside.** A monitor on the same server, or the same network, goes down with what it watches. From outside it also covers the tunnel, the server and the domain.
+- **Through Cloudflare.** A rule that blocks countries, or Bot Fight Mode, stops a monitor that asks from elsewhere with a 403, which reads as the app being down: let that one path of that one host through, in the rule that skips the others.
+- **What it does not cover.** A backup that stopped and a nightly job that fails leave the app healthy. `ls -lt backups/ | head` now and then is all there is for the first; the app's log for the second.
+
 ## Release and upgrade
 
 A release is a version tag on `main`; the workflow tests it, publishes the image `vX.Y.Z` (plus `vX` and `latest`) and creates the GitHub release, whose notes come from the release pull request.
