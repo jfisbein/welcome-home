@@ -92,7 +92,7 @@ class AdminPanelTests {
     @Test
     void onlyAdminsSeeTheLinkToTheAdminPanel() {
         assertThat(mvc.get().uri("/").with(admin())).bodyText().contains("Administración");
-        assertThat(mvc.get().uri("/").with(owner())).bodyText().doesNotContain("Administración");
+        assertThat(mvc.get().uri("/").with(owner())).hasStatusOk().bodyText().doesNotContain("Administración");
     }
 
     @Test
@@ -107,7 +107,7 @@ class AdminPanelTests {
         for (var page : new String[] {"/", "/admin/owners", "/admin/invitations"}) {
             assertThat(mvc.get().uri(page).with(admin()))
                     .as(page)
-                    .bodyText().doesNotContain(BOBS_LOCK, BOBS_LINK);
+                    .hasStatusOk().bodyText().doesNotContain(BOBS_LOCK, BOBS_LINK);
         }
         // Being an admin gives no access to other owners' rows: Row-Level Security knows no admins.
         ownerTransactions.run(adminId, () -> {
@@ -131,7 +131,7 @@ class AdminPanelTests {
         assertThat(mvc.get().uri("/admin/invitations").with(admin()).flashAttr("invitation", created))
                 .bodyText().contains(created.url().toString());
         assertThat(mvc.get().uri("/admin/invitations").with(admin()))
-                .bodyText().doesNotContain(created.url().toString());
+                .hasStatusOk().bodyText().doesNotContain(created.url().toString());
     }
 
     @Test
@@ -177,7 +177,7 @@ class AdminPanelTests {
                 .flashAttr("recovery", created).flashAttr("recoveredEmail", OWNER_EMAIL))
                 .bodyText().contains(created.url().toString(), "conservará las que ya tiene");
         assertThat(mvc.get().uri("/admin/owners").with(admin()))
-                .bodyText().doesNotContain(created.url().toString());
+                .hasStatusOk().bodyText().doesNotContain(created.url().toString());
     }
 
     /** It lets whoever holds it into another owner's account: not one tap. */

@@ -166,7 +166,7 @@ class NukiConnectionTests {
         nukiAccepts(TOKEN);
         connect(ALICE, TOKEN);
         assertThat(mvc.get().uri("/").with(SignedIn.owner(ALICE)))
-                .bodyText().doesNotContain("Conecta tu cuenta de Nuki", "Nuki ha rechazado");
+                .hasStatusOk().bodyText().doesNotContain("Conecta tu cuenta de Nuki", "Nuki ha rechazado");
 
         data.disconnectNuki();
 

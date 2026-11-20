@@ -150,7 +150,7 @@ class EmailVerificationTests {
 
         data.verifyEmails();
 
-        assertThat(mvc.get().uri("/").with(owner())).bodyText().doesNotContain("Confirma tu email.");
+        assertThat(mvc.get().uri("/").with(owner())).hasStatusOk().bodyText().doesNotContain("Confirma tu email.");
         assertThat(mvc.get().uri("/settings/notifications").with(owner())).bodyText()
                 .doesNotContain("Tu email no está confirmado", "/email/verification")
                 .contains("/settings/notifications/test");

@@ -113,7 +113,7 @@ class LockSettingsTests {
     @Test
     void ownerChoosesOneOfTheirOpenersAsTheLocksEntrance() {
         assertThat(mvc.get().uri("/locks/" + alicesLock).with(SignedIn.owner(ALICE))).as("without an Opener, no entrance")
-                .bodyText().doesNotContain("Portal del edificio");
+                .hasStatusOk().bodyText().doesNotContain("Portal del edificio");
         var portal = insertLock(ownerOf(alicesLock), 19, "Portal", "OPENER");
 
         assertThat(mvc.get().uri("/locks/" + alicesLock).with(SignedIn.owner(ALICE)))

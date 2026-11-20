@@ -143,7 +143,7 @@ class GuestPageTests {
         assertThat(body(guestPage(soon))).containsPattern("<meta http-equiv=\"refresh\" content=\"(5[6-9]\\d|60[01])\">");
         assertThat(body(guestPage(later))).as("at most six hours ahead, and then again")
                 .contains("<meta http-equiv=\"refresh\" content=\"21600\">");
-        assertThat(body(guestPage(active))).doesNotContain("http-equiv=\"refresh\"");
+        assertThat(guestPage(active)).hasStatusOk().bodyText().doesNotContain("http-equiv=\"refresh\"");
     }
 
     /** The slider is hidden until its script shows it, and the page says what to do if it never does. */
@@ -167,9 +167,10 @@ class GuestPageTests {
         assertThat(body(guestPage(signer.sign(active, 1)))).containsSubsequence(
                 "<strong>Deslizar abre la puerta de verdad, en ese mismo momento. Hazlo solo cuando estés delante de ella.</strong>",
                 "type=\"range\"");
-        assertThat(body(guestPage(signer.sign(expired, 1)))).doesNotContain("Deslizar abre");
+        assertThat(guestPage(signer.sign(expired, 1))).hasStatusOk().bodyText().doesNotContain("Deslizar abre");
         data.forgetNuki();
-        assertThat(body(guestPage(signer.sign(active, 1)))).as("unavailable").doesNotContain("Deslizar abre");
+        assertThat(guestPage(signer.sign(active, 1))).as("unavailable").hasStatusOk().bodyText()
+                .doesNotContain("Deslizar abre");
     }
 
     /** For its owner to see what their guest will: marked as such, and nothing is recorded, so nothing is said of it. */
@@ -194,9 +195,10 @@ class GuestPageTests {
         var expired = insertLink("now() - interval '2 days'", "now() - interval '1 day'", false);
 
         assertThat(body(guestPage(signer.sign(active, 1)))).contains(PRIVACY_NOTICE);
-        assertThat(body(guestPage(signer.sign(expired, 1)))).doesNotContain("Al deslizar");
+        assertThat(guestPage(signer.sign(expired, 1))).hasStatusOk().bodyText().doesNotContain("Al deslizar");
         data.forgetNuki();
-        assertThat(body(guestPage(signer.sign(active, 1)))).as("unavailable").doesNotContain("Al deslizar");
+        assertThat(guestPage(signer.sign(active, 1))).as("unavailable").hasStatusOk().bodyText()
+                .doesNotContain("Al deslizar");
     }
 
     /** Whether the slide sends the guest's position: never where the door is, which a leaked link must not tell. */
