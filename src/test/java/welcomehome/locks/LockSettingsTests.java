@@ -290,6 +290,26 @@ class LockSettingsTests {
                 .containsPattern("<option value=\"CONFIRM_WHEN_FAR\"\\s+selected");
     }
 
+    /**
+     * A later release may store values this one does not know, as nothing in the database lists them since
+     * changeset 044: rolled back to, this release still shows the owner's locks.
+     */
+    @Test
+    void aLockWithACheckOrAKindOfDeviceThisReleaseDoesNotKnowIsStillShown() {
+        migrator.sql("""
+                UPDATE lock SET latitude = 40.416775, longitude = -3.70379, location_check = 'SOMETHING_NEW',
+                                device_type = 'SOMETHING_ELSE'
+                WHERE id = ?
+                """).param(alicesLock).update();
+
+        assertThat(mvc.get().uri("/locks/" + alicesLock).with(SignedIn.owner(ALICE))).hasStatusOk().bodyText()
+                .as("asks to confirm, which neither opens from anywhere nor leaves a guest at the door")
+                .containsPattern("<option value=\"CONFIRM_WHEN_FAR\"\\s+selected")
+                .as("a smart lock, as every lock was").doesNotContain("Es un Nuki Opener");
+        assertThat(mvc.get().uri("/locks").with(SignedIn.owner(ALICE))).hasStatusOk();
+        assertThat(mvc.get().uri("/").with(SignedIn.owner(ALICE))).hasStatusOk();
+    }
+
     @Test
     void checkingTakesTheLocksPositionAndARadiusWithinItsLimits() {
         assertThat(updateCheck("", "CONFIRM_WHEN_FAR", "150")).hasStatus(HttpStatus.BAD_REQUEST)

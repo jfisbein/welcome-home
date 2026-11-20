@@ -22,12 +22,22 @@ class LockDao {
      * The check as the app names it: the strictest one is stored as REFUSE_WHEN_FAR with location_required, so that
      * a release that does not know it still reads the row (changeset 034). REFUSE_WHEN_FAR without it was a mode
      * of its own until changeset 043 made its locks CONFIRM_WHEN_FAR; a release before that may still store it, and
-     * it is read as what those locks became.
+     * it is read as what those locks became. So is a value this release does not know, which a later one may store
+     * since changeset 044 took the column's CHECK away: asking to confirm neither opens the door from anywhere
+     * nor leaves a guest at it.
      */
     private static final String LOCATION_CHECK = """
-            CASE WHEN location_check <> 'REFUSE_WHEN_FAR' THEN location_check
-                 WHEN location_required THEN 'REQUIRE_NEAR'
+            CASE WHEN location_check IN ('OFF', 'CONFIRM_WHEN_FAR') THEN location_check
+                 WHEN location_check = 'REFUSE_WHEN_FAR' AND location_required THEN 'REQUIRE_NEAR'
                  ELSE 'CONFIRM_WHEN_FAR' END AS location_check""";
+
+    /**
+     * The device as this release knows it: a kind of device it does not know, which a later release may store
+     * since changeset 044, is read as a smart lock, the kind every lock was before there were two, rather than
+     * failing every page that lists the owner's locks.
+     */
+    private static final String DEVICE_TYPE = """
+            CASE WHEN device_type IN ('SMART_LOCK', 'OPENER') THEN device_type ELSE 'SMART_LOCK' END AS device_type""";
 
     private final JdbcClient jdbc;
 
@@ -118,8 +128,9 @@ class LockDao {
 
     List<OwnerLock> findAll(UUID ownerId) {
         return jdbc.sql("""
-                        SELECT id, nuki_smartlock_id, name, time_zone, active, relocking_handled_elsewhere, device_type,
-                               entrance_lock_id, guest_instructions, latitude, longitude,
+                        SELECT id, nuki_smartlock_id, name, time_zone, active, relocking_handled_elsewhere,
+                               """ + DEVICE_TYPE + """
+                               , entrance_lock_id, guest_instructions, latitude, longitude,
                                """ + LOCATION_CHECK + """
                                , location_radius_m
                         FROM lock
@@ -133,8 +144,9 @@ class LockDao {
 
     Optional<OwnerLock> find(UUID ownerId, UUID lockId) {
         return jdbc.sql("""
-                        SELECT id, nuki_smartlock_id, name, time_zone, active, relocking_handled_elsewhere, device_type,
-                               entrance_lock_id, guest_instructions, latitude, longitude,
+                        SELECT id, nuki_smartlock_id, name, time_zone, active, relocking_handled_elsewhere,
+                               """ + DEVICE_TYPE + """
+                               , entrance_lock_id, guest_instructions, latitude, longitude,
                                """ + LOCATION_CHECK + """
                                , location_radius_m
                         FROM lock

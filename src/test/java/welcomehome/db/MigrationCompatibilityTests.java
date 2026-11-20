@@ -64,7 +64,16 @@ class MigrationCompatibilityTests {
             Map.entry("043-refuse-when-far-confirms.xml: <update> of lock",
                     "Locks with REFUSE_WHEN_FAR and no location_required become CONFIRM_WHEN_FAR, a value every "
                             + "release reads; one the previous release then stores as REFUSE_WHEN_FAR is read as "
-                            + "CONFIRM_WHEN_FAR by LockDao."));
+                            + "CONFIRM_WHEN_FAR by LockDao."),
+            Map.entry("044-drop-value-list-checks.xml: SQL ALTER TABLE owner_activity DROP CONSTRAINT owner_activity_ki",
+                    "Only the app writes the column, with values the CHECK allowed, so the previous release runs as "
+                            + "before; it took a list of values out of the database so that the list can grow."),
+            Map.entry("044-drop-value-list-checks.xml: SQL ALTER TABLE lock DROP CONSTRAINT lock_location_check_check",
+                    "Only the app writes the column, with values the CHECK allowed, so the previous release runs as "
+                            + "before; it took a list of values out of the database so that the list can grow."),
+            Map.entry("044-drop-value-list-checks.xml: SQL ALTER TABLE lock DROP CONSTRAINT lock_device_type_check",
+                    "Only the app writes the column, with values the CHECK allowed, so the previous release runs as "
+                            + "before; it took a list of values out of the database so that the list can grow."));
 
     @Test
     void changesetsWithinTheMajorVersionOnlyExpandTheSchema() throws Exception {

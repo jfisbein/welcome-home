@@ -41,7 +41,7 @@ class MigrationCommandTests {
             var migrated = JdbcClient.create(new DriverManagerDataSource(url, "migrator",
                     MigrationUpgradeTests.MIGRATOR_PASSWORD));
             assertThat(migrated.sql("SELECT max(id) FROM databasechangelog").query(String.class).single())
-                    .as("the latest changeset ran").startsWith("043-");
+                    .as("the latest changeset ran").startsWith("044-");
             assertThat(migrated.sql("SELECT count(*) FROM owner").query(Integer.class).single()).isZero();
 
             // Run again, as the stack does on every start: there is nothing left to do, and it says so by ending.

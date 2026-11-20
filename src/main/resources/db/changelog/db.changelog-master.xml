@@ -52,5 +52,6 @@
     <include file="changes/041-passkey-user-by-owner-id.xml" relativeToChangelogFile="true"/>
     <include file="changes/042-access-event-owner-index.xml" relativeToChangelogFile="true"/>
     <include file="changes/043-refuse-when-far-confirms.xml" relativeToChangelogFile="true"/>
+    <include file="changes/044-drop-value-list-checks.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

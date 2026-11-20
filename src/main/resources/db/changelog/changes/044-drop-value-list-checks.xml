@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        A CHECK that lists a column's values cannot gain one within a major version: widening it is dropping it
+        and adding another, and the release before would still not read the new value (review item DB-02, the
+        owner's choice, 2026-11-20). That is why the strict location check is REFUSE_WHEN_FAR with a flag rather
+        than a value of its own (changeset 034). The three lists that are likely to grow are now kept by the app
+        alone, in its enums (ActivityKind, LocationCheck, DeviceType), which are all that writes these columns;
+        and from this release on a value the app does not know is read as a known one, or left out (LockDao,
+        OwnerActivityDao), so that a release rolled back to still starts and shows its pages. A new value may be
+        stored only once every release one may roll back to reads that way: none before this one does.
+        nuki_connection.status and access_event.result keep their CHECKs: nothing safe can be made of a state or
+        a result the app does not know.
+    -->
+    <changeSet id="044-drop-value-list-checks" author="welcome-home">
+        <comment>The lists of values of three columns are kept by the app, so that they can grow.</comment>
+        <sql>
+            ALTER TABLE owner_activity DROP CONSTRAINT owner_activity_kind_check;
+            ALTER TABLE lock DROP CONSTRAINT lock_location_check_check;
+            ALTER TABLE lock DROP CONSTRAINT lock_device_type_check;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

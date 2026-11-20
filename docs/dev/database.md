@@ -31,7 +31,7 @@ See also: [conventions](conventions.md) (compatibility: what a migration may do 
 
 ## Rules
 
-- **Liquibase**: XML with native tags; `<sql>` only for CHECK constraints, RLS, GRANTs and functions. A new table with `owner_id` gets `ENABLE ROW LEVEL SECURITY`, its policy and its grants to `app_user` in the same changeset (`MigrationTests` fails otherwise).
+- **Liquibase**: XML with native tags; `<sql>` only for CHECK constraints, RLS, GRANTs and functions. No CHECK on a list of values for a column whose list may grow: such a CHECK cannot gain a value within a major version, as widening it is dropping it and adding another. `owner_activity.kind`, `lock.location_check` and `lock.device_type` lost theirs with changeset 044 (review item DB-02, the owner's choice, 2026-11-20) and are kept by the app's enums, which are all that writes them; a value the app does not know is read as a known one (`LockDao`: a check as `CONFIRM_WHEN_FAR`, a device as a smart lock) or left out (`OwnerActivityDao`), so that a release rolled back to still shows its pages. A new value may be stored only once every release one may roll back to reads that way, and none before 4.2.0 does. `nuki_connection.status` and `access_event.result` keep their CHECKs, as nothing safe can be made of a state or a result the app does not know. A new table with `owner_id` gets `ENABLE ROW LEVEL SECURITY`, its policy and its grants to `app_user` in the same changeset (`MigrationTests` fails otherwise).
 - **Data access**: `JdbcClient` with records, only in classes named `*Dao`, which `DataAccessTests` checks; owner data only inside `OwnerTransactions.execute/run`, with `owner_id` in the query as well. No `findById(id)` without an owner.
 
 ## Decisions

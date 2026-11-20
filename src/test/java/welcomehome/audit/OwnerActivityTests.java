@@ -171,6 +171,16 @@ class OwnerActivityTests {
         assertThat(body(asAlice(mvc.get().uri("/settings/nuki")))).contains("href=\"/settings/activity\"");
     }
 
+    /** A later release may store kinds this one has no words for, as nothing in the database lists them. */
+    @Test
+    void anEntryOfAKindThisReleaseDoesNotKnowIsLeftOutAndTheRestIsShown() {
+        insertActivity(aliceId, "2 hours", "SIGNED_IN", null, null, "Móvil", "203.0.113.5", "ES");
+        insertActivity(aliceId, "1 hour", "SOMETHING_NEW", null, null, null, "203.0.113.6", "ES");
+
+        assertThat(body(mvc.get().uri("/settings/activity").with(SignedIn.owner(ALICE)).exchange()))
+                .contains("203.0.113.5").doesNotContain("203.0.113.6", "SOMETHING_NEW");
+    }
+
     @Test
     void withoutActivityThePageSaysSo() {
         assertThat(body(asAlice(mvc.get().uri("/settings/activity")))).contains("Todavía no hay actividad.")

@@ -3,6 +3,7 @@ package welcomehome.audit;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
@@ -43,7 +44,11 @@ class OwnerActivityDao {
                 .update();
     }
 
-    /** The owner's latest entries, newest first, with the label of each link that still exists. */
+    /**
+     * The owner's latest entries, newest first, with the label of each link that still exists. An entry of a kind
+     * this release does not know, which a later one may store since changeset 044 took the column's CHECK away, is
+     * left out: the page has no words for it, and would otherwise fail whole.
+     */
     List<StoredActivity> findLatest(UUID ownerId, int limit) {
         return jdbc.sql("""
                         SELECT a.id, a.occurred_at, a.kind, a.link_id, l.label AS link_label, k.name AS lock_name,
@@ -51,11 +56,12 @@ class OwnerActivityDao {
                         FROM owner_activity a
                         LEFT JOIN access_link l ON l.owner_id = a.owner_id AND l.id = a.link_id
                         LEFT JOIN lock k ON k.owner_id = a.owner_id AND k.id = a.lock_id
-                        WHERE a.owner_id = :ownerId
+                        WHERE a.owner_id = :ownerId AND a.kind IN (:kinds)
                         ORDER BY a.occurred_at DESC, a.id DESC
                         LIMIT :limit
                         """)
                 .param("ownerId", ownerId)
+                .param("kinds", Arrays.stream(ActivityKind.values()).map(ActivityKind::name).toList())
                 .param("limit", limit)
                 .query(new SimplePropertyRowMapper<>(StoredActivity.class))
                 .list();
