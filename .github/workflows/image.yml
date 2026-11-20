@@ -56,12 +56,21 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
-      # The browser is some 150 MB to download each time; its version is Playwright's, in build.gradle.kts.
+      # The browser is some 150 MB to download each time; its version is Playwright's, in build.gradle.kts. The
+      # cache goes by that version alone: by the whole file it was lost at every release, whose only change is the
+      # project's version, and the release's pull request took five minutes more.
+      - id: playwright
+        if: steps.tested.outputs.already != 'true'
+        run: |
+          version=$(grep -oP 'com\.microsoft\.playwright:playwright:\K[0-9.]+' build.gradle.kts)
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - if: steps.tested.outputs.already != 'true'
         uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('build.gradle.kts') }}
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
 
       - name: Install the browser for the JavaScript's tests
         if: steps.tested.outputs.already != 'true'
