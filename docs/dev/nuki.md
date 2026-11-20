@@ -43,7 +43,7 @@ See also: [guest flow](guest-flow.md) (what asks for the unlatch), [status](stat
 
 **`serverState` may say offline for a lock that is online** (seen 2026-11-13). `GET /smartlock` gave a smart lock `serverState` 4, which Nuki's API definition names OFFLINE, on every read for hours, while Nuki's app showed the lock online and actions sent through Nuki ran and were reported as succeeded. Whether it ends by itself, and what starts it, is not known. `NukiWebClient` logs the code whenever it is not 0 ("Nuki reports smartlock ... not reachable, serverState ...").
 
-What only a guest's real opening will tell: that the plain action opens for a token with the four scopes asked for since 2026-11-20 and no `smartlock.auth`. It did until 2026-11-04, when the scopes were the same four, and it is what a refused advanced request fell back to.
+**With 3.0.0, as seen in production:** the plain action opens for a token with only the four scopes asked for now and no `smartlock.auth`, and the lock's log confirms it. Connecting again gave exactly those four (the app logs "Nuki granted owner ... the scopes"). And the OAuth2 client outlives its Advanced API being deactivated in Nuki Web, which is what clearing the webhook URL took, as Nuki Web would not clear it alone: authorizing, exchanging the code, refreshing and revoking all went on working. Whether a deactivated Advanced API can be activated again was not tried.
 
 **Nuki's OAuth2, as checked by hand on 2026-10-25** with read-only scopes (Nuki's current guide is docs.nuki.io/guide/authorization/oauth2; older guides and forum posts describe outdated endpoints):
 

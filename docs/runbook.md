@@ -106,11 +106,11 @@ A new major version, such as `v4`, may break compatibility: read its release not
 1. Take a dump: `docker compose exec backup /backup/backup.sh now`. It is the only way back to 2.x.
 2. In Dockge, edit the stack: the `app` image `:v3`. Nothing else in `compose.yaml` changes. Deploy.
 3. Check that `app` turns healthy and runs 3.0.0 (the command above).
-4. In Nuki Web, API → Advanced API, clear the webhook URL: Nuki sends none without an advanced action, but would otherwise keep the address.
+4. In Nuki Web, API → Advanced API, clear the webhook URL: Nuki sends none without an advanced action, but would otherwise keep the address. If it does not let you clear it alone, deactivate the Advanced API there: the OAuth2 client, and so connecting and every connection, goes on working without it. Do not delete the integration.
 5. In Cloudflare, delete the IP Access rule that allowed Nuki's address past Bot Fight Mode (Security → WAF → Tools): nothing from Nuki reaches the app any more.
 6. An owner who had pasted an API token, which the app took until 2.18.0, is no longer connected: the upgrade deleted that connection, and they connect at `/settings/nuki` with "Conectar con Nuki". The token itself stays valid at Nuki until they delete it in Nuki Web (API → API tokens).
 7. Each owner connected with OAuth2 connects again, at `/settings/nuki`, "Desconectar Nuki" and then "Conectar con Nuki" (their links do not open meanwhile): the tokens they have still carry `smartlock.auth` and `webhook.central`, which the app no longer asks for. Their openings work either way.
-8. Open a door with a link, in front of it: that Nuki's plain action opens for a token with only the four scopes asked for now was last seen on 2026-11-04.
+8. Open a door with a link, in front of it, to see that all of it works together.
 
 ### From 1.x to 2.0
 
