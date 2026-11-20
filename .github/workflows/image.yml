@@ -32,6 +32,8 @@ jobs:
   # tests' dependencies, the browser. What it hands on is the jar it built and tested.
   build:
     runs-on: ubuntu-latest
+    # Four times what it takes: a run that hangs ends, with its log, rather than after GitHub's six hours.
+    timeout-minutes: 20
     permissions:
       contents: read
       # To ask whether this commit's tests have already passed (below).
@@ -88,6 +90,9 @@ jobs:
   # takes less than waiting for build's. Like build, not for a version tag whose commit passed on main.
   restore:
     runs-on: ubuntu-latest
+    # It hung once with nothing to read (2026-11-20, cancelled after 15 minutes; the same commit passed when run
+    # again): a step that ends by its timeout keeps its log, which one cancelled by hand did not.
+    timeout-minutes: 10
     permissions:
       contents: read
       actions: read
