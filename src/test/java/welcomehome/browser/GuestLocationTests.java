@@ -129,7 +129,7 @@ class GuestLocationTests extends BrowserTest {
     /** No permission: the browser does not say where the guest is, and the guest may still open, by confirming. */
     @Test
     void aGuestWhoseBrowserDoesNotSayWhereTheyAreOpensByTickingThatTheyAreAtTheDoor() {
-        data.locationCheck(lockId, DOOR_LATITUDE, DOOR_LONGITUDE, "REFUSE_WHEN_FAR", 150);
+        data.locationCheck(lockId, DOOR_LATITUDE, DOOR_LONGITUDE, "CONFIRM_WHEN_FAR", 150);
         context.clearPermissions();
         open();
 
@@ -145,8 +145,8 @@ class GuestLocationTests extends BrowserTest {
 
     /** The next slide asks the browser afresh: a phone that placed the guest wrong often corrects itself. */
     @Test
-    void theStricterModeRefusesAGuestFarAwayAndTheNextSlideAsksWhereTheyAreAgain() {
-        guestIs(3000, "REFUSE_WHEN_FAR");
+    void theStrictModeRefusesAGuestFarAwayAndTheNextSlideAsksWhereTheyAreAgain() {
+        guestIs(3000, "REQUIRE_NEAR");
 
         slide();
 
@@ -165,7 +165,7 @@ class GuestLocationTests extends BrowserTest {
 
     /** No confirming gets past it: the guest is told to let the page use their location, and may try again. */
     @Test
-    void theStrictestModeTellsAGuestItCannotPlaceToAllowTheirLocationAndAsksAgainOnTheNextSlide() {
+    void theStrictModeTellsAGuestItCannotPlaceToAllowTheirLocationAndAsksAgainOnTheNextSlide() {
         data.locationCheck(lockId, DOOR_LATITUDE, DOOR_LONGITUDE, "REQUIRE_NEAR", 150);
         context.clearPermissions();
         open();

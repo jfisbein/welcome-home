@@ -51,5 +51,6 @@
     <include file="changes/040-drop-unused-columns.xml" relativeToChangelogFile="true"/>
     <include file="changes/041-passkey-user-by-owner-id.xml" relativeToChangelogFile="true"/>
     <include file="changes/042-access-event-owner-index.xml" relativeToChangelogFile="true"/>
+    <include file="changes/043-refuse-when-far-confirms.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

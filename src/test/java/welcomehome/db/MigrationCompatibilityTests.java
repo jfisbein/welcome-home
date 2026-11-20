@@ -60,7 +60,11 @@ class MigrationCompatibilityTests {
      * still runs against it and real rows do not stop it. A new finding fails the test until it is added here, with
      * its why; MigrationUpgradeTests runs them all over a database with rows.
      */
-    static final Map<String, String> REVIEWED = Map.ofEntries();
+    static final Map<String, String> REVIEWED = Map.ofEntries(
+            Map.entry("043-refuse-when-far-confirms.xml: <update> of lock",
+                    "Locks with REFUSE_WHEN_FAR and no location_required become CONFIRM_WHEN_FAR, a value every "
+                            + "release reads; one the previous release then stores as REFUSE_WHEN_FAR is read as "
+                            + "CONFIRM_WHEN_FAR by LockDao."));
 
     @Test
     void changesetsWithinTheMajorVersionOnlyExpandTheSchema() throws Exception {

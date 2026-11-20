@@ -29,7 +29,7 @@ final class DoorDistance {
         OPEN,
         /** Ask the guest to confirm that they are in front of the door. */
         CONFIRM,
-        /** Refuse: the door does not open for a guest far from it, or, in the strictest mode, for one it cannot place. */
+        /** Refuse: in the strict mode the door does not open for a guest far from it, nor for one it cannot place. */
         REFUSE
     }
 

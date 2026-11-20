@@ -317,10 +317,10 @@ public final class TestData {
     /**
      * Where a lock is, and how it checks where its guests are.
      *
-     * @param check {@code OFF}, {@code CONFIRM_WHEN_FAR} or {@code REFUSE_WHEN_FAR}
+     * @param check {@code OFF}, {@code CONFIRM_WHEN_FAR} or {@code REQUIRE_NEAR}
      */
     public void locationCheck(UUID lock, double latitude, double longitude, String check, int radiusM) {
-        // The strictest check is stored as the one before it, with location_required (changeset 034).
+        // The strict check is stored as REFUSE_WHEN_FAR with location_required (changeset 034).
         var required = "REQUIRE_NEAR".equals(check);
         db.sql("UPDATE lock SET latitude = ?, longitude = ?, location_check = ?, location_required = ?, "
                         + "location_radius_m = ? WHERE id = ?")

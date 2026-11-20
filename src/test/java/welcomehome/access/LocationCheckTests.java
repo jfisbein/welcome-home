@@ -113,7 +113,7 @@ class LocationCheckTests {
 
     @Test
     void aPoorAccuracyGivesTheGuestTheBenefitOfTheDoubt() {
-        data.locationCheck(lockId, DOOR_LATITUDE, DOOR_LONGITUDE, "REFUSE_WHEN_FAR", 150);
+        data.locationCheck(lockId, DOOR_LATITUDE, DOOR_LONGITUDE, "REQUIRE_NEAR", 150);
 
         assertThat(open("lock", metresAway(300, 200), false)).hasStatusOk()
                 .bodyJson().extractingPath("$.result").isEqualTo("opened");
@@ -122,7 +122,7 @@ class LocationCheckTests {
     /** Sliding at home on a computer, which its IP address places within kilometres. */
     @Test
     void aPositionTooVagueToTellAsksToConfirmWithoutADistanceAndOpensOnlyByConfirmation() {
-        data.locationCheck(lockId, DOOR_LATITUDE, DOOR_LONGITUDE, "REFUSE_WHEN_FAR", 150);
+        data.locationCheck(lockId, DOOR_LATITUDE, DOOR_LONGITUDE, "CONFIRM_WHEN_FAR", 150);
 
         assertThat(open("lock", metresAway(3000, 5000), false)).hasStatus(HttpStatus.PRECONDITION_REQUIRED)
                 .bodyJson().isEqualTo("{\"result\": \"confirm-location\"}");
@@ -136,8 +136,8 @@ class LocationCheckTests {
     }
 
     @Test
-    void theStricterModeRefusesAFarGuestEvenWhenTheyConfirm() {
-        data.locationCheck(lockId, DOOR_LATITUDE, DOOR_LONGITUDE, "REFUSE_WHEN_FAR", 150);
+    void theStrictModeRefusesAFarGuestEvenWhenTheyConfirm() {
+        data.locationCheck(lockId, DOOR_LATITUDE, DOOR_LONGITUDE, "REQUIRE_NEAR", 150);
 
         assertThat(open("lock", metresAway(3000, 20), true)).hasStatus(HttpStatus.FORBIDDEN)
                 .bodyJson().isEqualTo("{\"result\": \"too-far\", \"distance\": 3000}");
@@ -145,10 +145,10 @@ class LocationCheckTests {
         nuki.verify(0, anyRequestedFor(anyUrl()));
     }
 
-    /** A guest who refused the permission must not be left at the door, even by the stricter mode. */
+    /** A guest who refused the permission is not left at the door, unless the owner chose the strict mode. */
     @Test
-    void withoutAPositionTheGuestIsAskedToConfirmInEitherMode() {
-        data.locationCheck(lockId, DOOR_LATITUDE, DOOR_LONGITUDE, "REFUSE_WHEN_FAR", 150);
+    void withoutAPositionTheGuestIsAskedToConfirm() {
+        data.locationCheck(lockId, DOOR_LATITUDE, DOOR_LONGITUDE, "CONFIRM_WHEN_FAR", 150);
 
         assertThat(open("lock", null, false)).hasStatus(HttpStatus.PRECONDITION_REQUIRED)
                 .bodyJson().isEqualTo("{\"result\": \"confirm-location\"}");
@@ -160,7 +160,7 @@ class LocationCheckTests {
 
     /** Its owner chose it knowing that such a guest stays outside until they open for them. */
     @Test
-    void theStrictestModeRefusesAGuestItCannotPlaceWhateverTheyConfirm() {
+    void theStrictModeRefusesAGuestItCannotPlaceWhateverTheyConfirm() {
         data.locationCheck(lockId, DOOR_LATITUDE, DOOR_LONGITUDE, "REQUIRE_NEAR", 150);
 
         assertThat(open("lock", null, false)).hasStatus(HttpStatus.FORBIDDEN)

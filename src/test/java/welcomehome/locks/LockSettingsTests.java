@@ -233,23 +233,44 @@ class LockSettingsTests {
     @Test
     void ownerChoosesHowTheLockChecksWhereItsGuestsAre() {
         assertThat(mvc.get().uri("/locks/" + alicesLock).with(SignedIn.owner(ALICE))).bodyText()
-                .contains("Comprobar que el invitado está delante de la puerta", "Si está claramente lejos, no abrir",
-                        "name=\"locationRadius\"", "value=\"150\"")
+                .contains("Comprobar que el invitado está delante de la puerta",
+                        "Si parece lejos, pedirle que lo confirme", "name=\"locationRadius\"", "value=\"150\"")
+                .doesNotContain("Si está claramente lejos, no abrir")
                 .containsPattern("<option value=\"OFF\"\\s+selected");
 
-        assertThat(updateCheck("40.416775, -3.70379", "REFUSE_WHEN_FAR", "300")).hasStatus(HttpStatus.FOUND);
-        assertThat(check(alicesLock)).isEqualTo("REFUSE_WHEN_FAR|300");
+        assertThat(updateCheck("40.416775, -3.70379", "CONFIRM_WHEN_FAR", "300")).hasStatus(HttpStatus.FOUND);
+        assertThat(check(alicesLock)).isEqualTo("CONFIRM_WHEN_FAR|300");
         assertThat(mvc.get().uri("/locks/" + alicesLock).with(SignedIn.owner(ALICE))).bodyText()
-                .contains("value=\"300\"").containsPattern("<option value=\"REFUSE_WHEN_FAR\"\\s+selected");
+                .contains("value=\"300\"").containsPattern("<option value=\"CONFIRM_WHEN_FAR\"\\s+selected");
 
         assertThat(update(ALICE, alicesLock, "Casa", "Europe/Madrid")).as("a form without the fields keeps them")
                 .hasStatus(HttpStatus.FOUND);
-        assertThat(check(alicesLock)).isEqualTo("REFUSE_WHEN_FAR|300");
+        assertThat(check(alicesLock)).isEqualTo("CONFIRM_WHEN_FAR|300");
     }
 
-    /** Kept as the mode before it and a flag, which a release that does not know it reads as that mode. */
+    /** The mode between the two, taken out on 2026-11-20: a form loaded before then may still send it. */
     @Test
-    void ownerChoosesTheStrictestCheckWhichIsStoredSoThatAnEarlierReleaseStillReadsTheLock() {
+    void theModeThatRefusedOnlyAGuestClearlyFarIsNoLongerOneToChoose() {
+        assertThat(updateCheck("40.416775, -3.70379", "REFUSE_WHEN_FAR", "150")).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(storedCheck()).isEqualTo("OFF|false");
+    }
+
+    /** A release before changeset 043 may still store it: it is read as the mode its locks became. */
+    @Test
+    void aLockStoredWithTheModeThatIsGoneAsksAGuestWhoSeemsFarToConfirm() {
+        migrator.sql("""
+                UPDATE lock SET latitude = 40.416775, longitude = -3.70379, location_check = 'REFUSE_WHEN_FAR',
+                                location_required = false
+                WHERE id = ?
+                """).param(alicesLock).update();
+
+        assertThat(mvc.get().uri("/locks/" + alicesLock).with(SignedIn.owner(ALICE))).bodyText()
+                .containsPattern("<option value=\"CONFIRM_WHEN_FAR\"\\s+selected");
+    }
+
+    /** Kept as it has been stored since changeset 034, which every release of this major version reads. */
+    @Test
+    void ownerChoosesTheStrictCheckWhichIsStoredSoThatAnEarlierReleaseStillReadsTheLock() {
         assertThat(mvc.get().uri("/locks/" + alicesLock).with(SignedIn.owner(ALICE))).bodyText()
                 .contains("Abrir solo si su teléfono dice que está delante",
                         "con ella no abre quien no dé su ubicación, y tendrías que abrirle tú desde la app de Nuki");
@@ -263,10 +284,10 @@ class LockSettingsTests {
                 .hasStatus(HttpStatus.FOUND);
         assertThat(storedCheck()).isEqualTo("REFUSE_WHEN_FAR|true");
 
-        assertThat(updateCheck("40.416775, -3.70379", "REFUSE_WHEN_FAR", "150")).hasStatus(HttpStatus.FOUND);
-        assertThat(storedCheck()).as("back to the mode before it").isEqualTo("REFUSE_WHEN_FAR|false");
+        assertThat(updateCheck("40.416775, -3.70379", "CONFIRM_WHEN_FAR", "150")).hasStatus(HttpStatus.FOUND);
+        assertThat(storedCheck()).as("back to asking").isEqualTo("CONFIRM_WHEN_FAR|false");
         assertThat(mvc.get().uri("/locks/" + alicesLock).with(SignedIn.owner(ALICE))).bodyText()
-                .containsPattern("<option value=\"REFUSE_WHEN_FAR\"\\s+selected");
+                .containsPattern("<option value=\"CONFIRM_WHEN_FAR\"\\s+selected");
     }
 
     @Test

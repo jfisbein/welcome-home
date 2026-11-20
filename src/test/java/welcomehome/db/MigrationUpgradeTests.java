@@ -155,6 +155,47 @@ class MigrationUpgradeTests {
         }
     }
 
+    /** Changeset 043: the mode between asking and requiring is gone, and its locks ask. */
+    @Test
+    void locksThatRefusedOnlyAGuestClearlyFarAskThemToConfirmAndTheStrictOnesStayStrict() throws Exception {
+        var name = "modes_" + UUID.randomUUID().toString().replace("-", "");
+        var superuser = JdbcClient.create(new DriverManagerDataSource(postgres.getJdbcUrl(), postgres.getUsername(),
+                postgres.getPassword()));
+        superuser.sql("CREATE DATABASE " + name + " OWNER migrator").update();
+        var url = postgres.getJdbcUrl().replaceFirst("/[^/?]+(\\?|$)", "/" + name + "$1");
+        JdbcClient.create(new DriverManagerDataSource(url, postgres.getUsername(), postgres.getPassword()))
+                .sql("ALTER SCHEMA public OWNER TO migrator").update();
+        var migrator = JdbcClient.create(new DriverManagerDataSource(url, "migrator", MIGRATOR_PASSWORD));
+
+        try (var connection = DriverManager.getConnection(url, "migrator", MIGRATOR_PASSWORD)) {
+            var database = DatabaseFactory.getInstance().findCorrectDatabaseImplementation(new JdbcConnection(connection));
+            try (var liquibase = new Liquibase(CHANGELOG, new ClassLoaderResourceAccessor(), database)) {
+                liquibase.update(changeSetsBefore(43), new Contexts(), new LabelExpression());
+                var alice = migrator.sql("INSERT INTO owner (email) VALUES ('alice@example.com') RETURNING id")
+                        .query(UUID.class).single();
+                migrator.sql("""
+                        INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone, latitude, longitude,
+                                          location_check, location_required)
+                        VALUES (:alice, 1, 'Off', 'Europe/Madrid', NULL, NULL, 'OFF', false),
+                               (:alice, 2, 'Asks', 'Europe/Madrid', 40.4, -3.7, 'CONFIRM_WHEN_FAR', false),
+                               (:alice, 3, 'Refused', 'Europe/Madrid', 40.4, -3.7, 'REFUSE_WHEN_FAR', false),
+                               (:alice, 4, 'Strict', 'Europe/Madrid', 40.4, -3.7, 'REFUSE_WHEN_FAR', true)
+                        """).param("alice", alice).update();
+
+                liquibase.update(new Contexts(), new LabelExpression());
+
+                assertThat(migrator.sql("""
+                                SELECT name || '|' || location_check || '|' || location_required FROM lock
+                                ORDER BY nuki_smartlock_id
+                                """).query(String.class).list())
+                        .containsExactly("Off|OFF|false", "Asks|CONFIRM_WHEN_FAR|false",
+                                "Refused|CONFIRM_WHEN_FAR|false", "Strict|REFUSE_WHEN_FAR|true");
+            }
+        } finally {
+            superuser.sql("DROP DATABASE IF EXISTS " + name + " WITH (FORCE)").update();
+        }
+    }
+
     /** Only the columns there were then, as a release from then knows no others. */
     private static UUID anOwnerWithEverythingAnOwnerHadThen(JdbcClient migrator) {
         var alice = migrator.sql("INSERT INTO owner (email) VALUES ('alice@example.com') RETURNING id")

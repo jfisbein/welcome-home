@@ -20,11 +20,14 @@ class LockDao {
 
     /**
      * The check as the app names it: the strictest one is stored as REFUSE_WHEN_FAR with location_required, so that
-     * a release that does not know it still reads the row (changeset 034).
+     * a release that does not know it still reads the row (changeset 034). REFUSE_WHEN_FAR without it was a mode
+     * of its own until changeset 043 made its locks CONFIRM_WHEN_FAR; a release before that may still store it, and
+     * it is read as what those locks became.
      */
     private static final String LOCATION_CHECK = """
-            CASE WHEN location_required AND location_check = 'REFUSE_WHEN_FAR' THEN 'REQUIRE_NEAR'
-                 ELSE location_check END AS location_check""";
+            CASE WHEN location_check <> 'REFUSE_WHEN_FAR' THEN location_check
+                 WHEN location_required THEN 'REQUIRE_NEAR'
+                 ELSE 'CONFIRM_WHEN_FAR' END AS location_check""";
 
     private final JdbcClient jdbc;
 
@@ -163,8 +166,8 @@ class LockDao {
                 .param("entranceLockId", entranceLockId)
                 .param("latitude", coordinates == null ? null : coordinates.latitude())
                 .param("longitude", coordinates == null ? null : coordinates.longitude())
-                .param("locationCheck", (locationCheck == LocationCheck.REQUIRE_NEAR ? LocationCheck.REFUSE_WHEN_FAR
-                        : locationCheck).name())
+                .param("locationCheck", locationCheck == LocationCheck.REQUIRE_NEAR ? "REFUSE_WHEN_FAR"
+                        : locationCheck.name())
                 .param("locationRequired", locationCheck == LocationCheck.REQUIRE_NEAR)
                 .param("locationRadiusM", locationRadiusM)
                 .param("guestInstructions", guestInstructions)

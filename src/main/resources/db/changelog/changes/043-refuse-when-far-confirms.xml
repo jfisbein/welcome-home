@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        The mode that refused a guest clearly far and let one without a position open by confirming is gone
+        (review item SIM-04, the owner's choice, 2026-11-20): denying the permission was the way around it, so it
+        only stopped the guest who said where they were. Its locks ask a guest who seems far to confirm, which
+        leaves nobody at the door. A lock that also refuses a guest without a position (location_required, the
+        app's REQUIRE_NEAR) keeps REFUSE_WHEN_FAR, which is how that mode is stored. A release before this one
+        reads CONFIRM_WHEN_FAR as it always has, and what it may still write as REFUSE_WHEN_FAR without
+        location_required this one reads as CONFIRM_WHEN_FAR (LockDao).
+    -->
+    <changeSet id="043-refuse-when-far-confirms" author="welcome-home">
+        <comment>Locks that refused a guest clearly far ask them to confirm.</comment>
+        <update tableName="lock">
+            <column name="location_check" value="CONFIRM_WHEN_FAR"/>
+            <where>location_check = 'REFUSE_WHEN_FAR' AND NOT location_required</where>
+        </update>
+    </changeSet>
+
+</databaseChangeLog>
