@@ -6,7 +6,7 @@ See also: [database](database.md) for tables and roles, [conventions](convention
 
 ## Modules
 
-A modular monolith: one Spring Boot app is the only component that talks to Nuki, Postgres and the secrets. Modules are the packages under `welcomehome`, checked by `ModularityTests` (Spring Modulith): a module uses another only through its public types.
+A modular monolith: one Spring Boot app is the only component that talks to Nuki, Postgres and the secrets. Modules are the packages under `welcomehome`, checked by `ModularityTests` (Spring Modulith, a test dependency only): a module uses another only through its public types, and no two modules depend on each other in a cycle. That is all it checks: which module may use which is not declared, so nothing stops a new dependency between modules, and `access` and `notifications` use seven others each (review item SIM-12, 2026-11-20: left so, as declaring them is upkeep that one maintainer does not need).
 
 | Module   | Responsibility                                                                                              |
 |----------|-------------------------------------------------------------------------------------------------------------|
