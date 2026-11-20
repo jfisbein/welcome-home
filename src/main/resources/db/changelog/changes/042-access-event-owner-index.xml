@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        The home page reads an owner's latest attempts, whatever their lock, and the nightly purges delete and
+        blank an owner's attempts by their age: both went through every attempt of the owner's (review item
+        DB-03). The other index that item asked for, a unique one on user_entities.name, came with changeset 041.
+    -->
+    <changeSet id="042-access-event-owner-index" author="welcome-home">
+        <comment>An owner's attempts by when they happened, newest first.</comment>
+        <createIndex indexName="access_event_owner_occurred_idx" tableName="access_event">
+            <column name="owner_id"/>
+            <column name="occurred_at" descending="true"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>
