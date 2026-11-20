@@ -37,20 +37,21 @@ class OwnerActivityRecorder {
 
     @EventListener
     void on(OwnerSignedIn signedIn) {
-        record(signedIn.ownerId(), ActivityKind.SIGNED_IN, null, null, signedIn.passkey());
+        record(signedIn.ownerId(), ActivityKind.SIGNED_IN, null, null, signedIn.passkey(), signedIn.byRecoveryLink());
     }
 
     @EventListener
     void on(LinkChanged changed) {
-        record(changed.ownerId(), ActivityKind.of(changed.change()), changed.lockId(), changed.linkId(), null);
+        record(changed.ownerId(), ActivityKind.of(changed.change()), changed.lockId(), changed.linkId(), null, false);
     }
 
     private void record(UUID ownerId, ActivityKind kind, @Nullable UUID lockId, @Nullable UUID linkId,
-                        @Nullable String passkey) {
+                        @Nullable String passkey, boolean byRecoveryLink) {
         var request = currentRequest();
         var ip = request == null ? null : clientIp.of(request);
         var country = request == null ? null : clientCountry.of(request).orElse(null);
-        ownerTransactions.run(ownerId, () -> activity.insert(ownerId, kind, lockId, linkId, passkey, ip, country));
+        ownerTransactions.run(ownerId, () -> activity.insert(ownerId, kind, lockId, linkId, passkey,
+                byRecoveryLink, ip, country));
     }
 
     /** The request being answered, or null outside one, where there is nowhere to tell. */

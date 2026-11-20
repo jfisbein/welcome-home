@@ -130,6 +130,67 @@ class GuestSlideTests extends BrowserTest {
         assertUnlatches(1);
     }
 
+    /** No single key opens a door: End stops where three presses do. */
+    @Test
+    void theEndKeyGoesToTheLastQuarterAndOpensNothing() {
+        slider.focus();
+
+        page.keyboard().press("End");
+        assertThat(slider).hasValue("75");
+        page.keyboard().press("End");
+        assertThat(slider).hasValue("75");
+        assertUnlatches(0);
+
+        page.keyboard().press("ArrowRight");
+        assertThat(page.locator(".open-result")).containsText(OPENED);
+        assertUnlatches(1);
+    }
+
+    /** A tab forgotten on a phone: the touch that finds it, days later, opens nothing. */
+    @Test
+    void aPageNobodyTouchedForTenMinutesOpensNothingUntilItIsLoadedAgain() {
+        var stale = page.locator(".stale-page");
+        page.clock().install();
+        slider.focus();
+        page.clock().fastForward(9 * 60_000);
+        page.keyboard().press("ArrowRight");
+        page.keyboard().press("ArrowLeft");
+        page.clock().fastForward(9 * 60_000);
+        page.keyboard().press("ArrowRight");
+        // Used a minute before the ten were up.
+        assertThat(slider).hasValue("25");
+        assertThat(stale).isHidden();
+
+        page.clock().fastForward(11 * 60_000);
+        for (var press = 0; press < 4; press++) {
+            page.keyboard().press("ArrowRight");
+        }
+
+        assertThat(stale).containsText("Esta página lleva un rato abierta. Vuelve a cargarla para abrir.");
+        assertThat(slider).isDisabled();
+        assertUnlatches(0);
+
+        stale.getByText("Volver a cargar").click();
+
+        assertThat(stale).isHidden();
+        assertThat(slider).isEnabled();
+        slideTo(1.0);
+        assertThat(page.locator(".open-result")).containsText(OPENED);
+    }
+
+    /** A screen reader on a phone moves the thumb with neither a touch nor a key: the opening itself checks too. */
+    @Test
+    void aStalePageOpensNothingEitherWhenTheThumbIsMovedWithoutATouchOrAKey() {
+        page.clock().install();
+        page.clock().fastForward(11 * 60_000);
+
+        slider.evaluate("slider => { slider.value = 100; slider.dispatchEvent(new Event('change')); }");
+
+        assertThat(page.locator(".stale-page")).isVisible();
+        assertThat(slider).isDisabled();
+        assertUnlatches(0);
+    }
+
     @Test
     void afterOpeningTheThumbGoesBackButTheSliderStaysOff() {
         slideTo(1.0);

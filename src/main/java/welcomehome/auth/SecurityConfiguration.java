@@ -1,5 +1,6 @@
 package welcomehome.auth;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
 import java.util.Set;
@@ -11,6 +12,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.HttpMessageConverterAuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.authentication.session.ChangeSessionIdAuthenticationStrategy;
@@ -83,7 +85,8 @@ class SecurityConfiguration {
     @Bean
     @ConditionalOnWebApplication
     SecurityFilterChain securityFilterChain(HttpSecurity http, OwnerSessions sessions, OwnerAccountDao owners,
-                                           PasskeyDao passkeys, ApplicationEventPublisher events) {
+                                           PasskeyDao passkeys, ApplicationEventPublisher events,
+                                           Clock clock) {
         http
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers("/login", "/invite/**", "/email/verify/**", "/o/**", "/api/open",
@@ -99,6 +102,7 @@ class SecurityConfiguration {
                         .ignoringRequestMatchers("/api/open", "/nuki/webhook"))
                 .webAuthn(webAuthn -> webAuthn.disableDefaultRegistrationPage(true))
                 .addFilterAfter(new OwnerSessionTrackingFilter(sessions), SecurityContextHolderFilter.class)
+                .addFilterBefore(new RecentSignInFilter(clock), AuthorizationFilter.class)
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login"))
                         // Also what a CSRF failure gets: a form from a page whose session ended goes to sign in.
@@ -120,7 +124,8 @@ class SecurityConfiguration {
                 .forEach(filter -> {
                     filter.setSessionAuthenticationStrategy(ON_SIGN_IN);
                     filter.setAuthenticationSuccessHandler(new SignInAnnouncer(
-                            new HttpMessageConverterAuthenticationSuccessHandler(), owners, passkeys, events));
+                            new HttpMessageConverterAuthenticationSuccessHandler(), owners, passkeys, events,
+                            clock));
                 });
         return chain;
     }

@@ -18,9 +18,15 @@ import welcomehome.crypto.SecretTokens;
 @Service
 public class InvitationService {
 
-    /** How long an invitation or recovery link can be redeemed: 72 hours, as the admin panel says. */
+    /** How long an invitation can be redeemed: 72 hours, as the admin panel says. */
     @SuppressWarnings("CanonicalDuration")
     public static final Duration VALIDITY = Duration.ofHours(72);
+
+    /**
+     * How long a passkey recovery link can be redeemed: it is the key to an account that already has locks and
+     * links, sent by chat to someone who is waiting for it, so a few hours are enough.
+     */
+    public static final Duration RECOVERY_VALIDITY = Duration.ofHours(4);
 
     private final InvitationDao invitations;
     private final WelcomeHomeProperties app;
@@ -41,11 +47,11 @@ public class InvitationService {
      * @return the invitation, with the only copy of its URL
      */
     public CreatedInvitation createInvitation(@Nullable UUID createdBy, String note, boolean grantsAdmin) {
-        return create(createdBy, note, grantsAdmin, null);
+        return create(createdBy, note, grantsAdmin, null, VALIDITY);
     }
 
     /**
-     * Creates a passkey recovery link valid for {@link #VALIDITY}: whoever opens it adds a passkey to the
+     * Creates a passkey recovery link valid for {@link #RECOVERY_VALIDITY}: whoever opens it adds a passkey to the
      * owner, who keeps the passkeys they already have. Publishes a {@link PasskeyRecoveryCreated}, so that the
      * owner learns of it.
      *
@@ -54,17 +60,17 @@ public class InvitationService {
      * @return the link, with the only copy of its URL
      */
     public CreatedInvitation createPasskeyRecovery(@Nullable UUID createdBy, UUID ownerId) {
-        var created = create(createdBy, "Passkey recovery", false, ownerId);
+        var created = create(createdBy, "Passkey recovery", false, ownerId, RECOVERY_VALIDITY);
         events.publishEvent(new PasskeyRecoveryCreated(ownerId));
         return created;
     }
 
     private CreatedInvitation create(@Nullable UUID createdBy, String note, boolean grantsAdmin,
-                                     @Nullable UUID recoversOwnerId) {
+                                     @Nullable UUID recoversOwnerId, Duration validity) {
         var token = SecretTokens.newToken();
         var id = UUID.randomUUID();
         var expiresAt = invitations.insert(id, SecretTokens.hash(token), note, createdBy, grantsAdmin,
-                recoversOwnerId, VALIDITY);
+                recoversOwnerId, validity);
         return new CreatedInvitation(id, app.link("/invite/" + token), expiresAt);
     }
 

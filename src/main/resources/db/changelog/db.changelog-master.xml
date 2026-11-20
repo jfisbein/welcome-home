@@ -45,5 +45,7 @@
     <include file="changes/034-location-required.xml" relativeToChangelogFile="true"/>
     <include file="changes/035-owner-make-admin.xml" relativeToChangelogFile="true"/>
     <include file="changes/036-access-link-paused.xml" relativeToChangelogFile="true"/>
+    <include file="changes/037-owner-activity-recovery.xml" relativeToChangelogFile="true"/>
+    <include file="changes/038-owner-previous-email.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

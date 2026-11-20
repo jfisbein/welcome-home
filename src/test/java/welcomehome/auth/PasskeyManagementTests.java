@@ -5,6 +5,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -250,6 +251,38 @@ class PasskeyManagementTests {
         assertThat(mvc.post().uri("/webauthn/register/options").with(owner(ALICE))).hasStatus(HttpStatus.FORBIDDEN);
     }
 
+    /** A session left open in a browser is not enough to give the account another key. */
+    @Test
+    void aSessionThatSignedInLongAgoAddsNoPasskeyUntilItsOwnerConfirmsWithOne() {
+        var session = signedIn(phone);
+        session.setAttribute(RecentSignIn.ATTRIBUTE, Instant.now().minus(RecentSignIn.WINDOW).minusSeconds(1));
+
+        for (var path : List.of("/webauthn/register/options", "/webauthn/register")) {
+            assertThat(mvc.post().uri(path).session(session).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                    .content("{}")).as(path).hasStatus(HttpStatus.FORBIDDEN)
+                    .bodyJson().extractingPath("$.error").isEqualTo("sign-in-not-recent");
+        }
+        assertThat(mvc.post().uri("/webauthn/register/options").with(owner(ALICE)).with(csrf()))
+                .as("a session that never said when it signed in").hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(mvc.get().uri("/settings/confirm?for=passkeys").session(session)).hasStatusOk().bodyText()
+                .contains("Confirma que eres tú", "en los últimos 10 minutos",
+                        "data-continue=\"/settings/passkeys\"", "Confirmar con passkey", "/js/login.js");
+
+        var options = body(mvc.post().uri("/webauthn/authenticate/options").session(session).with(csrf()).exchange());
+        assertThat(mvc.post().uri("/login/webauthn").session(session).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content(phone.get(options))).hasStatusOk();
+
+        assertThat(mvc.get().uri("/settings/confirm?for=passkeys").session(session))
+                .as("confirmed: nothing to ask").hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/settings/passkeys");
+        var credential = laptop.create(body(mvc.post().uri("/webauthn/register/options").session(session).with(csrf())
+                .exchange()));
+        assertThat(mvc.post().uri("/webauthn/register").session(session).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"publicKey\": {\"credential\": " + credential + ", \"label\": \"Portátil\"}}"))
+                .hasStatusOk();
+        assertThat(labels()).contains("Portátil");
+    }
+
     @Test
     void anonymousVisitorIsSentToLogin() {
         assertThat(mvc.get().uri("/settings/passkeys")).hasStatus(HttpStatus.FOUND).redirectedUrl().endsWith("/login");
@@ -301,7 +334,9 @@ class PasskeyManagementTests {
         return jdbc.sql("SELECT label FROM user_credentials").query(String.class).list();
     }
 
+    /** As Alice, in a session that signed in just now: adding a passkey asks for that ({@link RecentSignIn}). */
     private MvcTestResult post(MockHttpSession session, String path, String json) {
+        session.setAttribute(RecentSignIn.ATTRIBUTE, Instant.now());
         var request = mvc.post().uri(path).session(session).with(owner(ALICE)).with(csrf());
         return json.isEmpty() ? request.exchange()
                 : request.contentType(MediaType.APPLICATION_JSON).content(json).exchange();

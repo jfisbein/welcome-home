@@ -7,6 +7,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.UUID;
 
 import com.icegreen.greenmail.util.GreenMail;
@@ -103,11 +104,16 @@ class AccountSecurityEmailTests {
 
     @Test
     void aRecoveryLinkIsToldWhenCreatedAndWhenUsed() throws Exception {
-        var recovery = invitations.createPasskeyRecovery(null, aliceId).url().getPath();
+        var created4h = invitations.createPasskeyRecovery(null, aliceId);
+        assertThat(created4h.expiresAt()).as("a few hours, not an invitation's three days")
+                .isBetween(Instant.now().plus(Duration.ofMinutes(239)), Instant.now().plus(Duration.ofMinutes(241)));
+        assertThat(invitations.createInvitation(null, "Bob", false).expiresAt())
+                .isBetween(Instant.now().plus(Duration.ofMinutes(72 * 60 - 1)), Instant.now().plus(Duration.ofMinutes(72 * 60 + 1)));
+        var recovery = created4h.url().getPath();
 
         var created = theOnlyEmail();
         assertThat(created.getSubject()).isEqualTo("Se ha creado un enlace para recuperar tu cuenta de welcome-home");
-        assertThat(text(created)).contains("caduca cuando se usa o a las 72 horas", "avisa a un administrador");
+        assertThat(text(created)).contains("caduca cuando se usa o a las 4 horas", "avisa a un administrador");
 
         var session = new MockHttpSession();
         var options = body(mvc.post().uri(recovery + "/options").session(session).with(csrf())
@@ -129,7 +135,7 @@ class AccountSecurityEmailTests {
 
         var email = theOnlyEmail();
         assertThat(email.getSubject()).isEqualTo("A link to recover your welcome-home account was created");
-        assertThat(text(email)).contains("after 72 hours", "This notification is always sent");
+        assertThat(text(email)).contains("after 4 hours", "This notification is always sent");
     }
 
     @Test
@@ -151,7 +157,9 @@ class AccountSecurityEmailTests {
                 .contentType(MediaType.APPLICATION_JSON).content(device.get(requestOptions))).hasStatusOk();
     }
 
+    /** As Alice, in a session that signed in just now, which adding a passkey asks for. */
     private MvcTestResult asAlice(MockHttpSession session, String path, String json) {
+        session.setAttribute(RecentSignIn.ATTRIBUTE, Instant.now());
         var request = mvc.post().uri(path).session(session).with(user(ALICE).roles("OWNER")).with(csrf());
         return json.isEmpty() ? request.exchange()
                 : request.contentType(MediaType.APPLICATION_JSON).content(json).exchange();

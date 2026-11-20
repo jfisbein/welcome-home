@@ -122,6 +122,7 @@ class AdminController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         redirect.addFlashAttribute("recovery", invitations.createPasskeyRecovery(admin.id(), ownerId));
         redirect.addFlashAttribute("recoveredEmail", email);
+        redirect.addFlashAttribute("recoveryHours", String.valueOf(InvitationService.RECOVERY_VALIDITY.toHours()));
         return "redirect:/admin/owners";
     }
 }

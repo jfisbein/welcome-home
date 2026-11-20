@@ -97,7 +97,8 @@ class OwnerActivityTests {
     void aSignInIsRecordedWithItsPasskeyAndWhereItCameFrom() {
         var phone = new PasskeyEmulator(IntegrationTest.BASE_URL);
         register(BOB, phone);
-        assertThat(activity(BOB)).as("registering is not signing in").isEmpty();
+        assertThat(activity(BOB)).as("registering signs the new owner in, with the passkey it creates")
+                .containsExactly("SIGNED_IN|Passkey|127.0.0.1|-|-|-");
         // The link that verifies Bob's address, which must not reach the next test.
         await().atMost(Duration.ofSeconds(5)).until(() -> mail.getReceivedMessages().length == 1);
 
@@ -106,7 +107,28 @@ class OwnerActivityTests {
         assertThat(mvc.post().uri("/login/webauthn").session(visit).with(csrf()).with(from(IP, "ES"))
                 .contentType(MediaType.APPLICATION_JSON).content(phone.get(options))).hasStatusOk();
 
-        assertThat(activity(BOB)).containsExactly("SIGNED_IN|Passkey|" + IP + "|ES|-|-");
+        assertThat(activity(BOB)).last().isEqualTo("SIGNED_IN|Passkey|" + IP + "|ES|-|-");
+    }
+
+    /** The one way someone else may enter an account: it must not be the one that leaves no entry. */
+    @Test
+    void gettingInWithARecoveryLinkIsRecordedAsSuchAndThePageSaysSo() {
+        var recovery = invitations.createPasskeyRecovery(null, aliceId).url().getPath();
+        var session = new MockHttpSession();
+        var options = body(mvc.post().uri(recovery + "/options").session(session).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"email\": null, \"label\": \"Móvil nuevo\"}")
+                .exchange());
+        assertThat(mvc.post().uri(recovery + "/register").session(session).with(csrf()).with(from(IP, "FR"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(new PasskeyEmulator(IntegrationTest.BASE_URL).create(options))).hasStatusOk();
+
+        assertThat(migrator.sql("""
+                        SELECT concat_ws('|', kind, passkey, host(ip), country, by_recovery_link::text) FROM owner_activity
+                        WHERE owner_id = ? ORDER BY occurred_at DESC, id DESC LIMIT 1
+                        """).param(aliceId).query(String.class).single())
+                .isEqualTo("SIGNED_IN|Móvil nuevo|" + IP + "|FR|true");
+        assertThat(body(asAlice(mvc.get().uri("/settings/activity")))).contains("Inicio de sesión",
+                "Con un enlace de nueva passkey, que creó la passkey «Móvil nuevo»");
     }
 
     @Test

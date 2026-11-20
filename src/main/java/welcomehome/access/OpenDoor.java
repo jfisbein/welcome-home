@@ -26,10 +26,11 @@ import welcomehome.nuki.PendingAction;
 /**
  * Opens a door for a guest. The checks run in this order, cheapest and least revealing first:
  * <ol>
- *     <li>rate limit per IP address;</li>
- *     <li>the link exists, its MAC is valid and it is not revoked;</li>
- *     <li>rate limit per link;</li>
- *     <li>within the link's dates, and within its schedule if it has one;</li>
+ *     <li>rate limit per network: an IPv4 address, or the /64 an IPv6 address is in;</li>
+ *     <li>the link exists and its MAC is valid;</li>
+ *     <li>rate limit per link, whatever its state and wherever the attempts come from, so that the holder of a
+ *     revoked link's URL cannot fill its owner's history: of the attempts it refuses, one per period is recorded;</li>
+ *     <li>the link is not revoked nor paused, within its dates, and within its schedule if it has one;</li>
  *     <li>the link's PIN, if it has one: a link that has spent its wrong PINs refuses every attempt, for a while or,
  *     past their total, until its owner acts, and a wrong one counts against the link;</li>
  *     <li>the door is available: its lock is active and the owner's Nuki connection is OK; for the building
@@ -106,9 +107,22 @@ class OpenDoor {
             return new Opening(AccessOutcome.INVALID, null);
         }
         var link = found.get();
-        // The token is verified: the attempt is recorded, with the entrance if that is the door asked for.
-        var entrance = door == Door.ENTRANCE ? link.entrance() : null;
+        if (!rateLimiter.tryAttemptWithLink(link.linkId())) {
+            var refused = Attempt.of(AccessOutcome.TOO_MANY_ATTEMPTS);
+            if (rateLimiter.tellOfRefusal(link.linkId())) {
+                record(link, door, refused, ip, country);
+            }
+            return new Opening(refused.outcome(), null);
+        }
         var attempt = checkAndUnlatch(link, door, now, position, confirmed, pin);
+        record(link, door, attempt, ip, country);
+        var location = attempt.location();
+        return new Opening(attempt.outcome(), location == null ? null : location.distanceM());
+    }
+
+    /** The token is verified: the attempt is recorded, with the entrance if that is the door asked for. */
+    private void record(VerifiedLink link, Door door, Attempt attempt, String ip, @Nullable String country) {
+        var entrance = door == Door.ENTRANCE ? link.entrance() : null;
         var location = attempt.location();
         try {
             accessEvents.record(new AccessEvent(link.ownerId(), link.linkId(), link.lockId(),
@@ -121,7 +135,6 @@ class OpenDoor {
             log.error("Could not record an attempt with link {} that came to {}", link.linkId(),
                     attempt.outcome().code(), e);
         }
-        return new Opening(attempt.outcome(), location == null ? null : location.distanceM());
     }
 
     private Attempt checkAndUnlatch(VerifiedLink link, Door door, Instant now, @Nullable GuestPosition position,
@@ -131,9 +144,6 @@ class OpenDoor {
         }
         if (link.status() == LinkStatus.PAUSED) {
             return Attempt.of(AccessOutcome.PAUSED);
-        }
-        if (!rateLimiter.tryAttemptWithLink(link.linkId())) {
-            return Attempt.of(AccessOutcome.TOO_MANY_ATTEMPTS);
         }
         if (link.status() == LinkStatus.PENDING) {
             return Attempt.of(AccessOutcome.NOT_YET_VALID);

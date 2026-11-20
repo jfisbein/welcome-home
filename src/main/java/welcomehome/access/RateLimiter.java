@@ -1,6 +1,9 @@
 package welcomehome.access;
 
+import java.net.Inet6Address;
+import java.net.InetAddress;
 import java.time.Duration;
+import java.util.HexFormat;
 import java.util.UUID;
 
 import com.github.benmanes.caffeine.cache.Cache;
@@ -13,8 +16,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
- * In-memory rate limits for opening doors, one token bucket per IP address and one per link, and one per link for
- * wrong PINs. Buckets unused for a while are forgotten, so memory stays bounded. In memory is enough for a single
+ * In-memory rate limits for opening doors, one token bucket per network and one per link, and one per link for
+ * wrong PINs. A network is an IPv4 address, or the /64 an IPv6 address is in: a single home or phone has a whole
+ * /64 to itself, so counting each of its addresses apart would limit nothing. Buckets unused for a while are forgotten, so memory stays bounded. In memory is enough for a single
  * instance: what must outlast a restart, a link's total of wrong PINs, is {@link welcomehome.links.LinkPins}'s.
  */
 @Component
@@ -26,6 +30,7 @@ class RateLimiter {
     private final AccessProperties.RateLimit limits;
     private final Cache<String, Bucket> ipBuckets;
     private final Cache<UUID, Bucket> linkBuckets;
+    private final Cache<UUID, Bucket> linkRefusals;
     private final AccessProperties.Pin pinLimit;
     private final Cache<UUID, Bucket> pinBuckets;
 
@@ -40,6 +45,7 @@ class RateLimiter {
         this.limits = properties.rateLimit();
         this.ipBuckets = newCache(limits.period());
         this.linkBuckets = newCache(limits.period());
+        this.linkRefusals = newCache(limits.period());
         this.pinLimit = properties.pin();
         this.pinBuckets = newCache(pinLimit.period());
     }
@@ -63,9 +69,34 @@ class RateLimiter {
         }
     }
 
-    /** @return whether the IP address may try once more, which uses up one attempt */
+    /** @return whether the IP address's network may try once more, which uses up one attempt */
     boolean tryAttemptFromIp(String ip) {
-        return ipBuckets.get(ip, _ -> newBucket(limits.perIp(), limits.period())).tryConsume(1);
+        return ipBuckets.get(network(ip), _ -> newBucket(limits.perIp(), limits.period())).tryConsume(1);
+    }
+
+    /**
+     * What attempts are counted by: an IPv4 address as it is, also when written as an IPv6 one
+     * ({@code ::ffff:192.0.2.1}), and the first 64 bits of an IPv6 address. Anything else, as it came.
+     */
+    static String network(String ip) {
+        InetAddress address;
+        try {
+            address = InetAddress.ofLiteral(ip.strip());
+        } catch (IllegalArgumentException e) {
+            return ip;
+        }
+        if (!(address instanceof Inet6Address)) {
+            return address.getHostAddress();
+        }
+        return HexFormat.of().formatHex(address.getAddress(), 0, 8) + "/64";
+    }
+
+    /**
+     * Whether an attempt that {@link #tryAttemptWithLink} refused is worth telling the link's owner: one per period,
+     * so that refusing attempts does not itself fill their history.
+     */
+    boolean tellOfRefusal(UUID linkId) {
+        return linkRefusals.get(linkId, _ -> newBucket(1, limits.period())).tryConsume(1);
     }
 
     /** @return whether the link may be tried once more, which uses up one attempt */

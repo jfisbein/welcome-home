@@ -22,6 +22,7 @@ import welcomehome.audit.AccessResult;
 import welcomehome.auth.EmailVerification;
 import welcomehome.auth.EmailVerificationRequested;
 import welcomehome.auth.InvitationService;
+import welcomehome.auth.OwnerAccounts;
 import welcomehome.auth.OwnerEmailChanged;
 import welcomehome.auth.PasskeyAdded;
 import welcomehome.auth.PasskeyRecoveryCreated;
@@ -40,7 +41,8 @@ import welcomehome.nuki.NukiReconnected;
 /**
  * Emails an owner about their locks, as their preferences say: guests' attempts by outcome, and a Nuki
  * connection that stopped working. Also, whatever the preferences, about their account's security: a passkey
- * recovery link created for them, a passkey added, and a link that may open the door from now on; and about a
+ * recovery link created for them, a passkey added, and a link that may open the door from now on, which for some
+ * days after an owner changes their email go to the address they had as well; and about a
  * door that opened only because a guest who seemed far, or whose position was unknown, confirmed being there. Only to a verified address: the one email that goes to
  * an address not yet verified is the link that verifies it. Listeners run after the event's transaction
  * commits, mostly on another thread, so a guest never waits for an email; one that cannot be sent is logged and
@@ -180,9 +182,9 @@ class OwnerNotifier {
         if (!mailer.isConfigured()) {
             return;
         }
-        recipients.find(created.ownerId()).ifPresent(to -> send(to.email(),
+        recipients.findForAccount(created.ownerId()).forEach(to -> send(to.email(),
                 message(to, "account.recovery-created.subject"),
-                message(to, "account.recovery-created.body", String.valueOf(InvitationService.VALIDITY.toHours()))
+                message(to, "account.recovery-created.body", String.valueOf(InvitationService.RECOVERY_VALIDITY.toHours()))
                         + accountFooter(to)));
     }
 
@@ -193,7 +195,7 @@ class OwnerNotifier {
         if (!mailer.isConfigured()) {
             return;
         }
-        recipients.find(added.ownerEmail()).ifPresent(to -> send(to.email(),
+        recipients.findForAccount(added.ownerEmail()).forEach(to -> send(to.email(),
                 message(to, "account.passkey-added.subject"),
                 message(to, "account.passkey-added.body", added.label(), app.link("/settings/passkeys")) + accountFooter(to)));
     }
@@ -210,7 +212,8 @@ class OwnerNotifier {
         }
         var to = new Recipient(changed.previousEmail(), changed.language());
         send(to.email(), message(to, "account.email-changed.subject"),
-                message(to, "account.email-changed.body", changed.newEmail()) + accountFooter(to));
+                message(to, "account.email-changed.body", changed.newEmail(),
+                        String.valueOf(OwnerAccounts.PREVIOUS_EMAIL_KEPT.toDays())) + accountFooter(to));
     }
 
     /**
@@ -225,8 +228,7 @@ class OwnerNotifier {
         }
         var found = ownerTransactions.execute(changed.ownerId(),
                 () -> recipients.findLinkDetails(changed.ownerId(), changed.linkId()));
-        found.ifPresent(link -> {
-            var to = link.recipient();
+        found.ifPresent(link -> link.recipients().forEach(to -> {
             var zone = ZoneId.of(link.timeZone());
             var keys = "account.link." + changed.change().name();
             send(to.email(), message(to, keys + ".subject", link.lockName(), link.label()),
@@ -241,7 +243,7 @@ class OwnerNotifier {
                             + "\n\n" + message(to, "account.link.not-you",
                                     app.link("/locks/" + changed.lockId() + "/links"), app.link("/settings/activity"))
                             + "\n" + accountFooter(to));
-        });
+        }));
     }
 
     /**
@@ -256,13 +258,11 @@ class OwnerNotifier {
         }
         var found = ownerTransactions.execute(locked.ownerId(),
                 () -> recipients.findLinkDetails(locked.ownerId(), locked.linkId()));
-        found.ifPresent(link -> {
-            var to = link.recipient();
+        found.ifPresent(link -> link.recipients().forEach(to ->
             send(to.email(), message(to, "account.pin-locked.subject", link.lockName(), link.label()),
                     message(to, "account.pin-locked.body", link.lockName(), link.label(), locked.failures(),
                             app.link("/locks/" + locked.lockId() + "/links"))
-                            + accountFooter(to));
-        });
+                            + accountFooter(to))));
     }
 
     /** Also without a transaction, when the owner asks for the link again. */
@@ -303,7 +303,8 @@ class OwnerNotifier {
     }
 
     private String accountFooter(Recipient to) {
-        return "\n--\n" + message(to, "account.footer") + "\n";
+        return "\n--\n" + message(to, "account.footer") + "\n"
+                + (to.previous() ? message(to, "account.footer.previous") + "\n" : "");
     }
 
     private String message(Recipient to, String key, Object... arguments) {

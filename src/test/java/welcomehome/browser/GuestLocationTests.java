@@ -89,35 +89,46 @@ class GuestLocationTests extends BrowserTest {
         assertThat(lastAttempt()).isEqualTo("opened|50");
     }
 
+    /** Sliding again is what anyone does when a slide did nothing: confirming is another act, ticking a box. */
     @Test
-    void aGuestFarAwayReadsWhySlidingWouldOpenWaitsTenSecondsAndOpensBySlidingAgain() {
+    void aGuestFarAwayReadsWhyOpeningWouldOpenAndTheSliderWorksAgainOnlyOnceTheyTickThatTheyAreAtTheDoor() {
         guestIs(3000, "CONFIRM_WHEN_FAR");
+        var atTheDoor = page.locator(".confirm-here input");
+        assertThat(atTheDoor).isHidden();
 
         slide();
 
-        assertThat(result).containsText("Parece que estás a unos 3 km de la puerta. Si deslizas, la puerta se abrirá"
+        assertThat(result).containsText("Parece que estás a unos 3 km de la puerta. Si abres, la puerta se abrirá"
                 + " de verdad aunque no estés delante");
-        assertThat(slider).isDisabled();
+        assertThat(result).containsText("marca la casilla y desliza");
         assertThat(slider).hasValue("0");
-        assertThat(label).hasText("Podrás deslizar en 10 s");
-        page.clock().runFor(5_000);
-        assertThat(label).hasText("Podrás deslizar en 5 s");
+        assertThat(label).hasText("Marca la casilla para abrir");
+        assertThat(page.locator(".confirm-here")).hasText("Estoy delante de la puerta");
+        page.clock().runFor(60_000);
+        // However long they wait.
         assertThat(slider).isDisabled();
-        page.clock().runFor(5_000);
-        assertThat(slider).isEnabled();
-        assertThat(label).hasText("Desliza para abrir igualmente");
         assertUnlatches(0);
 
+        atTheDoor.check();
+        assertThat(slider).isEnabled();
+        assertThat(label).hasText("Desliza para abrir igualmente");
+        atTheDoor.uncheck();
+        assertThat(slider).isDisabled();
+        assertThat(label).hasText("Marca la casilla para abrir");
+        assertUnlatches(0);
+
+        atTheDoor.check();
         slide();
 
         assertThat(result).containsText(OPENED);
+        assertThat(atTheDoor).isHidden();
         assertUnlatches(1);
         assertThat(lastAttempt()).isEqualTo("opened|3000");
     }
 
     /** No permission: the browser does not say where the guest is, and the guest may still open, by confirming. */
     @Test
-    void aGuestWhoseBrowserDoesNotSayWhereTheyAreConfirmsAfterTheWait() {
+    void aGuestWhoseBrowserDoesNotSayWhereTheyAreOpensByTickingThatTheyAreAtTheDoor() {
         data.locationCheck(lockId, DOOR_LATITUDE, DOOR_LONGITUDE, "REFUSE_WHEN_FAR", 150);
         context.clearPermissions();
         open();
@@ -125,7 +136,7 @@ class GuestLocationTests extends BrowserTest {
         slide();
 
         assertThat(result).containsText("No hemos podido comprobar dónde estás.");
-        page.clock().runFor(10_000);
+        page.locator(".confirm-here input").check();
         slide();
 
         assertThat(result).containsText(OPENED);

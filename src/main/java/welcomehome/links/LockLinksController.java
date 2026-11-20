@@ -77,6 +77,11 @@ class LockLinksController {
         redirect.addFlashAttribute("createdLabel", validation.label());
         redirect.addFlashAttribute("createdFrom", from.atZone(zone));
         redirect.addFlashAttribute("createdUntil", until.atZone(zone));
+        // Sent days ahead, a link that opens already lets its guest open from home: said next to the buttons that send it.
+        var now = clock.instant();
+        if (!from.isAfter(now) && validation.schedule().allows(now, zone)) {
+            redirect.addFlashAttribute("createdOpensNow", true);
+        }
         var days = LinkForm.daysIfLong(from, until, clock.instant());
         if (days != null) {
             redirect.addFlashAttribute("createdDays", days);

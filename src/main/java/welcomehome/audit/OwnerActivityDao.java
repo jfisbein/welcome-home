@@ -25,16 +25,19 @@ class OwnerActivityDao {
     }
 
     void insert(UUID ownerId, ActivityKind kind, @Nullable UUID lockId, @Nullable UUID linkId,
-                @Nullable String passkey, @Nullable String ip, @Nullable String country) {
+                @Nullable String passkey, boolean byRecoveryLink, @Nullable String ip, @Nullable String country) {
         jdbc.sql("""
-                        INSERT INTO owner_activity (owner_id, kind, lock_id, link_id, passkey, ip, country)
-                        VALUES (:ownerId, :kind, :lockId, :linkId, :passkey, CAST(:ip AS inet), :country)
+                        INSERT INTO owner_activity (owner_id, kind, lock_id, link_id, passkey, by_recovery_link, ip,
+                                                    country)
+                        VALUES (:ownerId, :kind, :lockId, :linkId, :passkey, :byRecoveryLink, CAST(:ip AS inet),
+                                :country)
                         """)
                 .param("ownerId", ownerId)
                 .param("kind", kind.name())
                 .param("lockId", lockId)
                 .param("linkId", linkId)
                 .param("passkey", passkey)
+                .param("byRecoveryLink", byRecoveryLink)
                 .param("ip", ip)
                 .param("country", country)
                 .update();
@@ -44,7 +47,7 @@ class OwnerActivityDao {
     List<StoredActivity> findLatest(UUID ownerId, int limit) {
         return jdbc.sql("""
                         SELECT a.id, a.occurred_at, a.kind, a.link_id, l.label AS link_label, k.name AS lock_name,
-                               a.passkey, host(a.ip) AS ip, a.country
+                               a.passkey, a.by_recovery_link, host(a.ip) AS ip, a.country
                         FROM owner_activity a
                         LEFT JOIN access_link l ON l.owner_id = a.owner_id AND l.id = a.link_id
                         LEFT JOIN lock k ON k.owner_id = a.owner_id AND k.id = a.lock_id

@@ -149,6 +149,20 @@ class LinkCreationTests {
                         "data-copy-url=\"" + url + "\"", "data-share-url=\"" + url + "\"", "<table");
     }
 
+    /** Sent days ahead, a link that opens already lets its guest open from home: said where it is sent from. */
+    @Test
+    void aLinkThatOpensAlreadyIsSaidSoOnCreatingItAndTheFormSaysToPutTheDayOfArrival() {
+        var later = create(madridLock, "Ana", "2030-11-01T15:00", "2030-11-03T11:00").getMvcResult().getFlashMap();
+        assertThat(mvc.get().uri("/locks/" + madridLock + "/links").with(owner(ALICE)).flashAttrs(later))
+                .bodyText().doesNotContain("abre la puerta desde ya")
+                .contains("Si lo envías antes de que llegue tu invitado, pon aquí el día y la hora de llegada.");
+
+        var now = create(madridLock, "Bea", "2020-11-01T15:00", "2030-11-03T11:00").getMvcResult().getFlashMap();
+        assertThat(mvc.get().uri("/locks/" + madridLock + "/links").with(owner(ALICE)).flashAttrs(now))
+                .bodyText().containsSubsequence("Enlace «Bea» creado", "Este enlace abre la puerta desde ya: quien lo "
+                        + "reciba puede abrirla ahora mismo, aunque todavía no haya llegado.", "id=\"link-url\"");
+    }
+
     /** For an owner who may forget it: said once, on saving, for a link that can open for over 30 days. */
     @Test
     void aLinkThatCanOpenForOverThirtyDaysIsSaidSoOnCreatingIt() {

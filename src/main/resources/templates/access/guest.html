@@ -25,6 +25,13 @@
         <p th:if="${canOpen}"><strong th:text="#{guest.warning}">Deslizar abre la puerta de verdad, en ese mismo
             momento. Hazlo solo cuando estés delante de ella.</strong></p>
 
+        <!-- A page left open for long stops opening until it is loaded again (open.js): a tab forgotten on a phone
+             would otherwise open days later, and what it says of the link may no longer be so. -->
+        <p class="stale-page" role="alert" hidden>
+            <span th:text="#{guest.stale}">Esta página lleva un rato abierta. Vuelve a cargarla para abrir.</span>
+            <button type="button" data-reload th:text="#{guest.reload}">Volver a cargar</button>
+        </p>
+
         <!-- One slide to open per door, the building entrance first. Slide to open: a touch by mistake, in a
              pocket or while scrolling, does not open the door. A native range, so that keyboards and screen
              readers work it too (see open.js). -->
@@ -41,7 +48,7 @@
                          which door from the range's own label. -->
                     <span class="slide-label" aria-hidden="true" th:data-busy-text="#{guest.opening}"
                           th:data-locating-text="#{guest.locating}" th:data-wait-text="#{guest.wait('{0}')}"
-                          th:data-anyway-text="#{guest.open-anyway}"
+                          th:data-anyway-text="#{guest.open-anyway}" th:data-tick-text="#{guest.tick-first}"
                           th:data-preview-text="${pinRequired} ? #{guest.preview.result.pin} : #{guest.preview.result}"
                           th:text="#{guest.open}">Desliza para abrir</span>
                     <input type="range" th:id="${door.id}" min="0" max="100" step="1" value="0"
@@ -61,6 +68,12 @@
                     </div>
                 </form>
                 <p class="open-result" role="status" hidden></p>
+                <!-- For a guest who seems far, or whose position is unknown: the slider works again only once this is
+                     ticked, an act of its own, as sliding again is what anyone does when a slide did nothing. -->
+                <label class="confirm-here" hidden>
+                    <input type="checkbox">
+                    <span th:text="#{guest.confirm-here}">Estoy delante de la puerta</span>
+                </label>
                 <p><small th:text="${door.opener} ? #{guest.entrance.hint} : #{guest.hint}">
                     Pulsa cuando estés delante de la puerta.</small></p>
                 <!-- What open.js shows after the slide, by outcome. -->

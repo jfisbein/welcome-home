@@ -20,6 +20,8 @@
         <ul th:unless="${#lists.isEmpty(createdSchedule)}">
             <li th:each="line : ${createdSchedule}" th:text="${line}">Lunes a viernes: 09:00–17:00</li>
         </ul>
+        <p th:if="${createdOpensNow}"><strong th:text="#{links.created.opens-now}">Este enlace abre la puerta desde
+            ya: quien lo reciba puede abrirla ahora mismo.</strong></p>
         <fieldset role="group">
             <input id="link-url" type="text" readonly th:value="${createdUrl}" th:aria-label="#{links.url}">
             <th:block th:if="${sentLink}">

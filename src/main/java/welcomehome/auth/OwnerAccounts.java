@@ -1,5 +1,6 @@
 package welcomehome.auth;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -20,6 +21,13 @@ import welcomehome.config.Languages;
 public class OwnerAccounts {
 
     private static final Logger LOG = LoggerFactory.getLogger(OwnerAccounts.class);
+
+    /**
+     * For how long the verified address an owner had still gets the notices about their account's security after
+     * they change it: whoever changed it in the owner's session would otherwise be the only one told of the passkey
+     * they add next, or of the link they create.
+     */
+    public static final Duration PREVIOUS_EMAIL_KEPT = Duration.ofDays(7);
 
     private final OwnerAccountDao owners;
     private final PublicKeyCredentialUserEntityRepository userEntities;
@@ -106,7 +114,7 @@ public class OwnerAccounts {
     /**
      * Changes an owner's email at once: where their notices go, and the name their passkeys know them by. The new
      * address is unverified until its link is opened, as a new owner's is, and the previous one, if it was verified,
-     * is told with {@link OwnerEmailChanged}.
+     * is told with {@link OwnerEmailChanged} and kept for {@link #PREVIOUS_EMAIL_KEPT}.
      *
      * @param newEmail an email already normalized
      * @return whether it changed, which it does not if it is the owner's already
@@ -124,7 +132,7 @@ public class OwnerAccounts {
         var wasVerified = emailVerification.isVerified(ownerId);
         String language;
         try {
-            language = owners.changeEmail(ownerId, newEmail);
+            language = owners.changeEmail(ownerId, newEmail, wasVerified, PREVIOUS_EMAIL_KEPT);
         } catch (DuplicateKeyException e) {
             // Another owner took it at the same time and committed first: owner_email_key stops this one.
             throw new EmailTakenException(e);

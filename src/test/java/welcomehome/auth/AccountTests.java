@@ -6,6 +6,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -58,6 +59,9 @@ class AccountTests {
 
     @Autowired
     OwnerAccounts accounts;
+
+    @Autowired
+    InvitationPurgeJob purgeJob;
 
     @Autowired
     GreenMail mail;
@@ -127,6 +131,85 @@ class AccountTests {
                 .findFirst().orElseThrow();
         assertThat(text(notice)).contains("ha cambiado de esta dirección a " + NEW_EMAIL,
                 "avisa a quien administra welcome-home", "Este aviso se envía siempre");
+    }
+
+    /** A few minutes at an owner's unlocked browser must not be enough to send every notice elsewhere. */
+    @Test
+    void aSessionThatSignedInLongAgoChangesNoEmailUntilItsOwnerConfirmsWithAPasskey() throws MessagingException {
+        var session = signIn();
+        session.setAttribute(RecentSignIn.ATTRIBUTE, Instant.now().minus(RecentSignIn.WINDOW).minusSeconds(1));
+
+        assertThat(changeEmail(session, NEW_EMAIL)).hasStatus(HttpStatus.FOUND)
+                .redirectedUrl().isEqualTo("/settings/confirm?for=account");
+        assertThat(owner()).isEqualTo(ALICE + "|verified");
+        assertThat(emails(0)).isEqualTo(List.of());
+        assertThat(mvc.get().uri("/settings/confirm?for=account").session(session)).hasStatusOk().bodyText()
+                .contains("Confirma que eres tú", "data-continue=\"/settings/account\"");
+        assertThat(mvc.get().uri("/settings/confirm?for=https://example.com").session(session)).bodyText()
+                .as("only ever back to one of its own pages").contains("data-continue=\"/settings/account\"");
+
+        var options = body(mvc.post().uri("/webauthn/authenticate/options").session(session).with(csrf()).exchange());
+        assertThat(mvc.post().uri("/login/webauthn").session(session).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content(phone.get(options))).hasStatusOk();
+
+        assertThat(changeEmail(session, NEW_EMAIL)).redirectedUrl().isEqualTo("/settings/account");
+        assertThat(owner()).isEqualTo(NEW_EMAIL + "|unverified");
+        assertThat(emails(2)).containsExactlyInAnyOrderElementsOf(EMAILS_ABOUT_THE_CHANGE);
+    }
+
+    /**
+     * Whoever changed the email in the owner's session would otherwise be the only one told of the passkey they add
+     * next: for some days the address the owner had gets those notices too, verified or not the new one.
+     */
+    @Test
+    void forSomeDaysTheAddressTheOwnerHadAlsoGetsTheNoticesAboutTheirAccount() throws Exception {
+        var session = signIn();
+        changeEmail(session, NEW_EMAIL);
+        assertThat(emails(2)).containsExactlyInAnyOrderElementsOf(EMAILS_ABOUT_THE_CHANGE);
+        var notice = Arrays.stream(mail.getReceivedMessages()).filter(email -> recipient(email).equals(ALICE))
+                .findFirst().orElseThrow();
+        assertThat(text(notice)).contains("Durante 7 días, los avisos sobre la seguridad de la cuenta llegarán también aquí");
+        mail.purgeEmailFromAllMailboxes();
+
+        addPasskey(session, "Portátil");
+        assertThat(emails(1)).as("the new address is not verified yet")
+                .isEqualTo(List.of(ALICE + ": Se ha añadido una passkey a tu cuenta de welcome-home"));
+        assertThat(text(mail.getReceivedMessages()[0]))
+                .contains("Te llega porque esta dirección era la de la cuenta hasta hace unos días.");
+        mail.purgeEmailFromAllMailboxes();
+
+        data.verifyEmail(aliceId);
+        invitations.createPasskeyRecovery(null, aliceId);
+        assertThat(emails(2)).containsExactlyInAnyOrder(
+                NEW_EMAIL + ": Se ha creado un enlace para recuperar tu cuenta de welcome-home",
+                ALICE + ": Se ha creado un enlace para recuperar tu cuenta de welcome-home");
+        var toTheNew = Arrays.stream(mail.getReceivedMessages()).filter(email -> recipient(email).equals(NEW_EMAIL))
+                .findFirst().orElseThrow();
+        assertThat(text(toTheNew)).doesNotContain("Te llega porque");
+        mail.purgeEmailFromAllMailboxes();
+
+        migrator.sql("UPDATE owner SET previous_email_until = now() - interval '1 minute' WHERE id = ?")
+                .param(aliceId).update();
+        addPasskey(session, "Tableta");
+        assertThat(emails(1)).as("the days are over")
+                .isEqualTo(List.of(NEW_EMAIL + ": Se ha añadido una passkey a tu cuenta de welcome-home"));
+
+        purgeJob.purge();
+        assertThat(migrator.sql("SELECT coalesce(previous_email, '-') FROM owner WHERE id = ?").param(aliceId)
+                .query(String.class).single()).as("and the address is then forgotten").isEqualTo("-");
+    }
+
+    /** Changed twice before verifying: the address that was the owner's for sure is the one kept. */
+    @Test
+    void aSecondChangeBeforeVerifyingKeepsTheVerifiedAddressAsThePreviousOne() throws MessagingException {
+        var session = signIn();
+        changeEmail(session, NEW_EMAIL);
+        changeEmail(session, "otra@example.com");
+
+        assertThat(migrator.sql("SELECT email || '|' || previous_email FROM owner WHERE id = ?").param(aliceId)
+                .query(String.class).single()).isEqualTo("otra@example.com|" + ALICE);
+        assertThat(emails(3)).as("no notice of the second change: the address it left was never verified").contains(
+                "otra@example.com: Confirma tu email en welcome-home");
     }
 
     @Test
@@ -279,6 +362,14 @@ class AccountTests {
         assertThat(mvc.delete().uri("/settings/account").session(session)).hasStatus(HttpStatus.FORBIDDEN);
 
         assertThat(owner()).isEqualTo(ALICE + "|verified");
+    }
+
+    private void addPasskey(MockHttpSession session, String label) {
+        var options = body(mvc.post().uri("/webauthn/register/options").session(session).with(csrf()).exchange());
+        assertThat(mvc.post().uri("/webauthn/register").session(session).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"publicKey\": {\"credential\": " + new PasskeyEmulator(IntegrationTest.BASE_URL).create(options)
+                        + ", \"label\": \"" + label + "\"}}")).hasStatusOk();
     }
 
     private MvcTestResult changeEmail(MockHttpSession session, String email) {

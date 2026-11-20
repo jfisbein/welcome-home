@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        The address an owner had, for some days after they change it: notices about their account's security go
+        there too, so that whoever changed it in the owner's session does not get them alone. A release before this
+        one neither sets nor reads them.
+    -->
+    <changeSet id="038-owner-previous-email" author="welcome-home">
+        <comment>
+            The verified address an owner had before changing it, and until when it also gets their account's
+            notices; both NULL once that passes.
+        </comment>
+        <addColumn tableName="owner">
+            <column name="previous_email" type="text"/>
+            <column name="previous_email_until" type="timestamptz"/>
+        </addColumn>
+        <sql>
+            GRANT UPDATE (previous_email, previous_email_until) ON owner TO app_user;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

@@ -616,6 +616,41 @@ class OpenDoorTests {
         assertThat(lastEvent()).startsWith("DENIED|too-many-attempts|");
     }
 
+    /** A network has a whole IPv6 /64 to itself: counted address by address, it would never run out. */
+    @Test
+    void theAddressesOfAnIpv6NetworkShareItsTenAttempts() {
+        for (int attempt = 1; attempt <= 10; attempt++) {
+            ip = "2001:db8:1:2::" + attempt;
+            assertThat(open("nonsense")).as("attempt " + attempt).hasStatus(HttpStatus.NOT_FOUND);
+        }
+
+        ip = "2001:db8:1:2:aaaa:bbbb:cccc:dddd";
+        assertThat(open("nonsense")).as("another address of the same /64").hasStatus(HttpStatus.TOO_MANY_REQUESTS);
+        ip = "2001:db8:1:3::1";
+        assertThat(open("nonsense")).as("another network").hasStatus(HttpStatus.NOT_FOUND);
+    }
+
+    /** Whoever holds a revoked link's URL cannot fill its owner's history, from however many addresses. */
+    @Test
+    void aRevokedLinkGetsItsFiveAttemptsAndOfThoseRefusedAfterThemOnlyOneIsRecorded() {
+        var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
+        data.revoke(link);
+
+        for (int attempt = 1; attempt <= 5; attempt++) {
+            ip = "198.51.100." + attempt;
+            assertThat(open(signer.sign(link, 1))).as("attempt " + attempt).hasStatus(HttpStatus.GONE);
+        }
+        for (int attempt = 6; attempt <= 9; attempt++) {
+            ip = attempt % 2 == 0 ? "198.51.100." + attempt : "2001:db8:" + attempt + "::1";
+            assertThat(open(signer.sign(link, 1))).as("attempt " + attempt).hasStatus(HttpStatus.TOO_MANY_REQUESTS);
+        }
+
+        assertThat(migrator.sql("SELECT reason, count(*) FROM access_event WHERE link_id = ? GROUP BY reason")
+                .param(link)
+                .query((rs, row) -> rs.getString(1) + "=" + rs.getInt(2)).list())
+                .containsExactlyInAnyOrder("revoked=5", "too-many-attempts=1");
+    }
+
     /** An error here would have the guest slide again, and the door open twice. */
     @Test
     void anAttemptThatCannotBeRecordedStillTellsTheGuestWhatHappenedAtTheDoor() {

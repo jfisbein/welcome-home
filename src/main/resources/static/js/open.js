@@ -17,9 +17,12 @@ const SLIDE_BACK_AFTER_MS = 2 * 1000;
 // mistake, does not move the thumb there.
 const THUMB_REACH = 0.15;
 // Keys move the thumb a quarter of the way, rather than the 1 % a step is, which keeps a slide smooth: four
-// presses open.
+// presses open. End goes to the last quarter and no further, so that no single key opens a door.
 const KEY_MOVES = {ArrowRight: 25, ArrowUp: 25, PageUp: 25, ArrowLeft: -25, ArrowDown: -25, PageDown: -25,
-    Home: -100, End: 100};
+    Home: -100, End: 75};
+// A page nobody has touched for this long stops opening until it is loaded again: a tab forgotten on a phone would
+// otherwise open days later, at a touch, and loading it again also says what has become of the link.
+const STALE_AFTER_MS = 10 * 60 * 1000;
 
 // What a door that checks where its guests are may answer before opening: confirm, or try again with a fresh position.
 const LOCATION_OUTCOMES = ["confirm-location", "too-far", "location-required"];
@@ -73,6 +76,35 @@ function distanceText(metres) {
         : new Intl.NumberFormat(language).format(metres) + " m";
 }
 
+// When the guest last touched the page or pressed a key on it, and whether it has gone stale since.
+let lastUse = Date.now();
+let stale = false;
+
+function goneStale() {
+    if (!stale && Date.now() - lastUse > STALE_AFTER_MS) {
+        stale = true;
+        for (const control of document.querySelectorAll(".door input, .door button")) {
+            control.disabled = true;
+        }
+        const notice = document.querySelector(".stale-page");
+        notice.hidden = false;
+        notice.querySelector("[data-reload]").addEventListener("click", () => window.location.reload());
+    }
+    return stale;
+}
+
+// Before anything else hears of a touch or a key, so that the one that finds the page stale does nothing. Timers
+// stop in a tab left in the background, hence also when the page is seen again.
+for (const type of ["pointerdown", "keydown"]) {
+    document.addEventListener(type, () => {
+        if (!goneStale()) {
+            lastUse = Date.now();
+        }
+    }, true);
+}
+document.addEventListener("visibilitychange", goneStale);
+setInterval(goneStale, 30 * 1000);
+
 // Each door has its own slider: the link's lock, and the building entrance before it if it has one.
 for (const door of document.querySelectorAll(".door")) {
     const slider = door.querySelector("input[type=range]");
@@ -95,10 +127,23 @@ function setUp(door, slider) {
     const message = door.querySelector(".open-result");
     const enableAgainAfter = slider.dataset.opener === "true" ? OPENER_ENABLE_AGAIN_AFTER_MS : ENABLE_AGAIN_AFTER_MS;
     const checksLocation = slider.dataset.locationCheck === "true";
-    // Once the guest is asked to confirm where they are, the next slide confirms; once refused as far, it asks the
-    // browser afresh, in case it placed them wrong. Only within this page: a guest who reloads it is asked again.
+    // Once the guest is asked to confirm where they are, the slider works again only when they tick that they are in
+    // front of the door, and the next slide then confirms; once refused as far, it asks the browser afresh, in case
+    // it placed them wrong. Only within this page: a guest who reloads it is asked again.
     let confirming = false;
     let askAfresh = false;
+    const confirmHere = door.querySelector(".confirm-here");
+    const confirmBox = confirmHere.querySelector("input");
+    confirmBox.addEventListener("change", () => {
+        if (confirmBox.checked) {
+            label.textContent = label.dataset.anywayText;
+            enable();
+        } else {
+            slider.disabled = true;
+            slider.value = 0;
+            label.textContent = label.dataset.tickText;
+        }
+    });
     // For a link with a PIN: the form that asks for it after the slide, and the PIN while the guest is asked to
     // confirm where they are, so that they are not asked twice.
     const needsPin = slider.dataset.pinRequired === "true";
@@ -135,7 +180,8 @@ function setUp(door, slider) {
             return;
         }
         event.preventDefault();
-        slider.value = Math.min(100, Math.max(0, slider.valueAsNumber + move));
+        slider.value = event.key === "End" ? Math.max(slider.valueAsNumber, move)
+            : Math.min(100, Math.max(0, slider.valueAsNumber + move));
         lastValue = slider.valueAsNumber;
         if (slider.valueAsNumber >= 100) {
             open();
@@ -175,6 +221,9 @@ function setUp(door, slider) {
     }
 
     function enable() {
+        if (stale) {
+            return;
+        }
         slider.value = 0;
         lastValue = 0;
         slider.disabled = false;
@@ -232,6 +281,9 @@ function setUp(door, slider) {
     }
 
     async function open(pin) {
+        if (goneStale()) {
+            return;
+        }
         if (slider.dataset.preview === "true") {
             // An owner trying their link: say what the slide would do, and send nothing.
             slider.disabled = true;
@@ -258,8 +310,10 @@ function setUp(door, slider) {
             askAfresh = false;
             request.position = found.error ? null : found;
             request.positionError = found.error ?? null;
-            request.confirmed = confirming;
+            request.confirmed = confirming && confirmBox.checked;
         }
+        confirmHere.hidden = true;
+        confirmBox.checked = false;
         if (needsPin) {
             request.pin = pin;
             for (const control of pinForm.elements) {
@@ -328,7 +382,13 @@ function setUp(door, slider) {
             askAfresh = !confirming;
             slider.value = 0;
             lastValue = 0;
-            waitThenEnable(confirming ? label.dataset.anywayText : slide);
+            if (confirming) {
+                // No countdown: ticking the box is what takes the time to read why.
+                label.textContent = label.dataset.tickText;
+                confirmHere.hidden = false;
+            } else {
+                waitThenEnable(slide);
+            }
             return;
         }
         // Too many attempts with a link that asks for a PIN: the guest who does not know it is told whom to ask.

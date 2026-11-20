@@ -16,6 +16,11 @@ document.getElementById("add-passkey").addEventListener("submit", async event =>
         window.location.href = "/settings/passkeys?added";
     } catch (e) {
         console.error(e);
+        if (e.code === "sign-in-not-recent") {
+            // Signed in too long ago to add a passkey: confirm with one first, and come back.
+            window.location.href = "/settings/confirm?for=passkeys";
+            return;
+        }
         error.textContent = ADD_MESSAGES[e.name] || ADD_MESSAGES["default"];
         error.hidden = false;
         WebAuthn.busy(button, false);

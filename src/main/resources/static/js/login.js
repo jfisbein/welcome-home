@@ -8,7 +8,9 @@ document.getElementById("passkey-login").addEventListener("click", async event =
     error.hidden = true;
     WebAuthn.busy(button, true);
     try {
-        window.location.href = await WebAuthn.authenticate();
+        const next = await WebAuthn.authenticate();
+        // The page that asks to confirm before a change says where to go back to; the sign-in page does not.
+        window.location.href = button.dataset.continue || next;
     } catch (e) {
         console.error(e);
         error.hidden = false;

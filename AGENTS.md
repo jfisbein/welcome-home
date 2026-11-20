@@ -26,9 +26,10 @@ Functional:
 - A guest's GET never acts on the lock: only a POST after sliding to open unlatches (link previews in WhatsApp, Telegram or Slack make GETs). The guest learns whether the door opened, failed, or was refused in night mode.
 - A lock may check that the guest is in front of the door before opening, asking one who seems far to confirm or refusing one clearly far; a guest whose browser does not say may always open by confirming.
 - Every attempt with a valid link is recorded with IP address and country; attempts are purged after a retention (365 days), their IP addresses after a shorter one (90 days), and the guest page says so.
-- Owners who lose their passkey get a recovery link (admin panel or `--recover-owner`); they keep their other passkeys.
+- Owners who lose their passkey get a recovery link (admin panel or `--recover-owner`), valid for 4 hours; they keep their other passkeys.
 - Owners get emails about their locks (opened, failed, denied, Nuki disconnected, a lock's problems) and choose which ones, once they have verified their address with the link sent when they register. Emails about their account, a link that may open the door from now on among them, always go.
-- Owners see their account's activity: every sign-in, with its passkey, and every change to a link, with where it came from.
+- Owners see their account's activity: every sign-in, with its passkey, one made with a recovery link said so, and every change to a link, with where it came from.
+- Changing the email or adding a passkey asks for a sign-in within the last 10 minutes, or a passkey again.
 - Spanish, English, French, German and Italian: a guest's pages in their browser's language, an owner's pages and emails in the language they chose.
 
 Non-functional:

@@ -1,5 +1,6 @@
 package welcomehome.auth;
 
+import java.time.Clock;
 import java.util.Locale;
 import java.util.Map;
 
@@ -7,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -52,12 +54,17 @@ class InvitationController {
     private final InvitationService invitations;
     private final OwnerRegistration registration;
     private final OwnerUserDetailsService userDetailsService;
+    private final ApplicationEventPublisher events;
+    private final Clock clock;
 
     InvitationController(InvitationService invitations, OwnerRegistration registration,
-                         OwnerUserDetailsService userDetailsService) {
+                         OwnerUserDetailsService userDetailsService, ApplicationEventPublisher events,
+                         Clock clock) {
+        this.clock = clock;
         this.invitations = invitations;
         this.registration = registration;
         this.userDetailsService = userDetailsService;
+        this.events = events;
     }
 
     @GetMapping
@@ -100,6 +107,9 @@ class InvitationController {
         }
         var owner = registration.finish(pending, readPasskey(passkeyJson), locale);
         signIn(pending, owner.email(), request, response);
+        // In the owner's activity like a sign-in with a passkey, which SignInAnnouncer tells of: a recovery link is
+        // how someone else may get into an account, and must not be the one way in that leaves no entry.
+        events.publishEvent(new OwnerSignedIn(owner.id(), pending.passkeyLabel(), pending.recoveredOwnerId() != null));
         return Map.of("redirectUrl", "/");
     }
 
@@ -130,6 +140,7 @@ class InvitationController {
         // As a sign-in with a passkey does: a new session id and a new CSRF token.
         SecurityConfiguration.ON_SIGN_IN.onAuthentication(authentication, request, response);
         securityContextRepository.saveContext(context, request, response);
+        RecentSignIn.mark(request, clock);
     }
 
     /** {@code email} is empty for a passkey recovery link, and {@code label} from a page that did not ask for one. */

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        A sign-in with a passkey recovery link is a sign-in like any other, marked: no new kind, which
+        owner_activity_kind_check would refuse and a release before this one could not name.
+    -->
+    <changeSet id="037-owner-activity-recovery" author="welcome-home">
+        <comment>
+            Whether a sign-in was made with a passkey recovery link, the one way someone else may enter an account.
+        </comment>
+        <addColumn tableName="owner_activity">
+            <column name="by_recovery_link" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

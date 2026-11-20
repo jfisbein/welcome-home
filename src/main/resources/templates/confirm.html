@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="es" th:lang="${#locale.language}" th:attr="data-theme=${theme}" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head(#{confirm.title})}"></head>
+<body>
+<main id="main" tabindex="-1" class="container">
+    <nav th:replace="~{fragments/layout :: menu('settings')}"></nav>
+    <h1 th:text="#{confirm.title}">Confirma que eres tú</h1>
+    <p th:text="#{confirm.text(${minutes})}">Para cambiar tu email o añadir una passkey tienes que haber entrado con
+        tu passkey en los últimos 10 minutos.</p>
+    <!-- Signs in again, as the sign-in page does, and goes back to the page of the change (login.js). -->
+    <button id="passkey-login" type="button" th:data-continue="${back}" th:text="#{confirm.button}">Confirmar con
+        passkey</button>
+    <p id="login-error" role="alert" hidden th:text="#{login.error}">No se ha podido entrar con la passkey.</p>
+    <p><a th:href="${back}" th:text="#{confirm.back}">Volver sin cambiar nada</a></p>
+</main>
+<script th:src="@{/js/webauthn.js}"></script>
+<script th:src="@{/js/login.js}"></script>
+</body>
+</html>

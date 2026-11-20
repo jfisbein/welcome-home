@@ -8,7 +8,7 @@
 
     <article th:if="${recovery}">
         <header><strong th:text="#{admin.recovery.created}">Enlace de nueva passkey creado</strong></header>
-        <p th:utext="#{admin.recovery.text(${#strings.escapeXml(recoveredEmail)})}">
+        <p th:utext="#{admin.recovery.text(${#strings.escapeXml(recoveredEmail)}, ${#strings.escapeXml(recoveryHours)})}">
             Envía este enlace a <strong>ana@example.com</strong> para que cree una passkey nueva.
         </p>
         <fieldset role="group">

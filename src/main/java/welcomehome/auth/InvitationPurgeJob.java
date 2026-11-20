@@ -22,10 +22,12 @@ class InvitationPurgeJob {
     private static final Logger log = LoggerFactory.getLogger(InvitationPurgeJob.class);
 
     private final InvitationDao invitations;
+    private final OwnerAccountDao owners;
     private final Clock clock;
 
-    InvitationPurgeJob(InvitationDao invitations, Clock clock) {
+    InvitationPurgeJob(InvitationDao invitations, OwnerAccountDao owners, Clock clock) {
         this.clock = clock;
+        this.owners = owners;
         this.invitations = invitations;
     }
 
@@ -35,6 +37,11 @@ class InvitationPurgeJob {
         var purged = invitations.deleteExpiredBefore(cutoff);
         if (purged > 0) {
             log.info("Purged {} invitations that expired before {}", purged, cutoff);
+        }
+        // With it, as it is the same kind of leftover: the address an owner had, once it gets no more notices.
+        var forgotten = owners.forgetPreviousEmails();
+        if (forgotten > 0) {
+            log.info("Forgot the previous address of {} owners", forgotten);
         }
     }
 }

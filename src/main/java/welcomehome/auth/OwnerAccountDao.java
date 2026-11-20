@@ -1,5 +1,6 @@
 package welcomehome.auth;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -95,15 +96,23 @@ class OwnerAccountDao {
      * Gives the owner another email, unverified, and the passkey store the same name for them. owner first: the
      * trigger on user_entities finds its owner by that name.
      *
+     * @param keepPrevious whether the address they had was verified: it is then kept for {@code previousKept}, to get
+     *                     the notices about the account too; otherwise what was kept stays as it was
      * @return the owner's language
      */
-    String changeEmail(UUID id, String email) {
+    String changeEmail(UUID id, String email, boolean keepPrevious, Duration previousKept) {
         var language = jdbc.sql("""
-                        UPDATE owner SET email = :email, email_verified_at = NULL, email_verification_hash = NULL,
+                        UPDATE owner SET previous_email = CASE WHEN :keepPrevious THEN email ELSE previous_email END,
+                                         previous_email_until = CASE WHEN :keepPrevious
+                                             THEN now() + make_interval(secs => :keptSeconds)
+                                             ELSE previous_email_until END,
+                                         email = :email, email_verified_at = NULL, email_verification_hash = NULL,
                                          email_verification_expires_at = NULL
                         WHERE id = :id
                         RETURNING language
                         """)
+                .param("keepPrevious", keepPrevious)
+                .param("keptSeconds", previousKept.toSeconds())
                 .param("email", email)
                 .param("id", id)
                 .query(String.class)
@@ -113,6 +122,19 @@ class OwnerAccountDao {
                 .param("id", id)
                 .update();
         return language;
+    }
+
+    /**
+     * Forgets the addresses owners had before changing them, once they no longer get notices.
+     *
+     * @return how many were forgotten
+     */
+    int forgetPreviousEmails() {
+        return jdbc.sql("""
+                        UPDATE owner SET previous_email = NULL, previous_email_until = NULL
+                        WHERE previous_email_until < now()
+                        """)
+                .update();
     }
 
     UUID insert(String email, boolean isAdmin, Locale language) {

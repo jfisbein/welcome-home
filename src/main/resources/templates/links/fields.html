@@ -16,6 +16,8 @@
             <input type="datetime-local" name="validFrom" required th:value="${validFrom}"
                    th:attr="aria-invalid=${validFromError} ? 'true' : null">
             <small th:if="${validFromError}" th:text="#{link-form.from.error}">Indica la fecha y hora de inicio.</small>
+            <small th:unless="${validFromError}" th:text="#{link-form.from.hint}">Desde ese momento el enlace abre la
+                puerta. Si lo envías antes, pon aquí el día de llegada.</small>
         </label>
         <label>
             [[#{link-form.until}]]

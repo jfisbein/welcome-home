@@ -64,6 +64,28 @@ class RateLimiterTests {
         assertThat(limiter.tryAttemptWithLink(UUID.randomUUID())).isTrue();
     }
 
+    @Test
+    void anIpv4AddressIsCountedByItselfAndAnIpv6OneByItsFirst64Bits() {
+        assertThat(RateLimiter.network("192.0.2.1")).isEqualTo("192.0.2.1");
+        assertThat(RateLimiter.network("::ffff:192.0.2.1")).as("IPv4 written as IPv6").isEqualTo("192.0.2.1");
+        assertThat(RateLimiter.network("2001:db8:1:2::1")).isEqualTo("20010db800010002/64");
+        assertThat(RateLimiter.network("2001:DB8:1:2:ffff:ffff:ffff:ffff")).isEqualTo("20010db800010002/64");
+        assertThat(RateLimiter.network("2001:db8:1:3::1")).isEqualTo("20010db800010003/64");
+        assertThat(RateLimiter.network("example.com")).as("no address: as it came, and never looked up")
+                .isEqualTo("example.com");
+    }
+
+    @Test
+    void ofTheAttemptsALinkRefusesOnePerPeriodIsWorthTelling() {
+        var link = UUID.randomUUID();
+        assertThat(limiter.tellOfRefusal(link)).isTrue();
+        assertThat(limiter.tellOfRefusal(link)).isFalse();
+        assertThat(limiter.tellOfRefusal(UUID.randomUUID())).as("another link").isTrue();
+
+        clock.advance(Duration.ofHours(1));
+        assertThat(limiter.tellOfRefusal(link)).isTrue();
+    }
+
     /** How many attempts succeed before the first refusal. */
     private static int attempts(BooleanSupplier attempt) {
         int allowed = 0;

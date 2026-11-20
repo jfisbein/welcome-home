@@ -65,6 +65,10 @@ class OwnerActivityController {
     private String detail(StoredActivity entry, Locale locale) {
         if (entry.linkId() == null) {
             var passkey = entry.passkey();
+            if (entry.byRecoveryLink()) {
+                return messages.getMessage("activity.recovery", new Object[] {Objects.requireNonNullElse(passkey, "")},
+                        locale);
+            }
             return passkey == null ? "" : messages.getMessage("activity.passkey", new Object[] {passkey}, locale);
         }
         var lockName = Objects.requireNonNullElse(entry.lockName(), "");

@@ -489,3 +489,16 @@ main:focus {
 .languages a {
     color: var(--pico-color);
 }
+
+/* The guest's "I am in front of the door", which the slider waits for: a line of its own, easy to hit. */
+.confirm-here:not([hidden]) {
+    display: block;
+    margin: var(--pico-spacing) 0;
+    font-weight: bold;
+}
+
+/* A guest page left open for long: the text, and the button to load it again under it. */
+.stale-page button {
+    display: block;
+    margin-top: calc(var(--pico-spacing) / 2);
+}
