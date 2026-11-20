@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.DayOfWeek;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -25,8 +26,10 @@ import welcomehome.crypto.CryptoService;
 import welcomehome.crypto.LinkTokenSigner;
 
 /**
- * axe-core on every page, in every language and in light and dark: WCAG 2.2 level AA is the aim, so a violation fails
- * the build. What axe cannot judge (reading order, a screen reader's announcements) is for a person to try.
+ * axe-core on every page, in every language, and in dark as well as light in the first of them: WCAG 2.2 level AA is
+ * the aim, so a violation fails the build. Dark changes colours only, so contrast, which is the same in every
+ * language: scanning it in each one took a third of these tests' time and could find nothing more. What axe cannot
+ * judge (reading order, a screen reader's announcements) is for a person to try.
  */
 class AccessibilityTests extends BrowserTest {
 
@@ -71,7 +74,7 @@ class AccessibilityTests extends BrowserTest {
         for (var language : Languages.SUPPORTED) {
             context.setExtraHTTPHeaders(Map.of("Accept-Language", language.getLanguage()));
             for (var path : List.of(open, revoked, pinLink, "/o/invalid", "/login", invitation, "/no-such-page")) {
-                scan(path, language.getLanguage(), found);
+                scan(path, language, found);
             }
         }
         assertThat(found).as("violations").isEmpty();
@@ -109,20 +112,22 @@ class AccessibilityTests extends BrowserTest {
         for (var language : Languages.SUPPORTED) {
             data.language(language.getLanguage());
             for (var path : paths) {
-                scan(path, language.getLanguage(), found);
+                scan(path, language, found);
             }
         }
         assertThat(found).as("violations").isEmpty();
     }
 
-    private void scan(String path, String language, List<String> found) {
-        for (var scheme : List.of(ColorScheme.LIGHT, ColorScheme.DARK)) {
+    private void scan(String path, Locale language, List<String> found) {
+        var schemes = language.equals(Languages.SUPPORTED.getFirst())
+                ? List.of(ColorScheme.LIGHT, ColorScheme.DARK) : List.of(ColorScheme.LIGHT);
+        for (var scheme : schemes) {
             page.emulateMedia(new Page.EmulateMediaOptions().setColorScheme(scheme));
             page.navigate(url(path));
             var results = new AxeBuilder(page).withTags(TAGS).analyze();
             for (var violation : results.getViolations()) {
                 var nodes = violation.getNodes().stream().map(node -> String.valueOf(node.getTarget())).toList();
-                found.add("%s [%s, %s] %s: %s %s".formatted(path.replaceAll("[0-9a-f-]{36}", "{id}"), language, scheme,
+                found.add("%s [%s, %s] %s: %s %s".formatted(path.replaceAll("[0-9a-f-]{36}", "{id}"), language.getLanguage(), scheme,
                         violation.getId(), violation.getHelp(), nodes));
             }
         }
