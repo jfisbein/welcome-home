@@ -23,9 +23,9 @@
         <p>
             <small>
                 <span th:if="${passkey.created}"
-                      th:text="#{passkeys.created(${#temporals.format(passkey.created, #messages.msg('format.datetime'))})}">Creada el 18/10/2026 17:05.</span>
+                      th:text="#{passkeys.created(${#temporals.format(passkey.created, #messages.msg('format.datetime-zone'))})}">Creada el 18/10/2026 17:05 UTC.</span>
                 <span th:if="${passkey.lastUsed}"
-                      th:text="#{passkeys.last-used(${#temporals.format(passkey.lastUsed, #messages.msg('format.datetime'))})}">Último uso: 18/10/2026 18:30.</span>
+                      th:text="#{passkeys.last-used(${#temporals.format(passkey.lastUsed, #messages.msg('format.datetime-zone'))})}">Último uso: 18/10/2026 18:30 UTC.</span>
                 <span th:unless="${passkey.lastUsed}" th:text="#{passkeys.never-used}">Todavía no se ha usado.</span>
             </small>
         </p>

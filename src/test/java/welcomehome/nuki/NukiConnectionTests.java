@@ -92,6 +92,11 @@ class NukiConnectionTests {
                 .bodyText().contains("Conectado con tu cuenta de Nuki.", "Última comprobación", "Desconectar Nuki")
                 .doesNotContain("/settings/nuki/oauth");
 
+        // In UTC and saying so, whatever zone the time was written in or the database session has.
+        data.nukiLastChecked("'2030-07-01 12:00:00+02'");
+        assertThat(mvc.get().uri("/settings/nuki").with(SignedIn.owner(ALICE)))
+                .bodyText().contains("Última comprobación: 01/07/2030 10:00 UTC.");
+
         data.disconnectNuki();
 
         assertThat(mvc.get().uri("/settings/nuki").with(SignedIn.owner(ALICE)))

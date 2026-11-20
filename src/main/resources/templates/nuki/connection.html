@@ -34,7 +34,7 @@
     <p th:if="${connection != null and connection.status.name() == 'OK'}">
         [[#{nuki.ok}]]
         <span th:if="${connection.lastCheckedAt}"
-              th:text="#{nuki.last-checked(${#temporals.format(connection.lastCheckedAt, #messages.msg('format.datetime'))})}">
+              th:text="#{nuki.last-checked(${#temporals.format(connection.lastCheckedAt, #messages.msg('format.datetime-zone'))})}">
             Última comprobación: 17/10/2026 16:40.
         </span>
     </p>

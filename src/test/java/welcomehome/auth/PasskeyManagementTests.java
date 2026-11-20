@@ -5,6 +5,10 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
@@ -60,6 +64,22 @@ class PasskeyManagementTests {
         register(ALICE, phone);
         register(BOB, bobsPhone);
         new TestData(jdbc).passkeyLabel(BOB, "Móvil de Bob");
+    }
+
+    /** Spring Security stores them without a zone, in the JVM's: the page shows the instant they were, in UTC. */
+    @Test
+    void whenAPasskeyWasCreatedAndLastUsedIsShownInUtcWhateverTheServersZone() {
+        TestDatabaseConfiguration.asMigrator(postgres)
+                .sql("UPDATE user_credentials SET created = '2030-07-01 12:00:00', last_used = '2030-07-02 08:30:00'")
+                .update();
+        var format = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm 'UTC'");
+        var created = LocalDateTime.of(2030, 7, 1, 12, 0).atZone(ZoneId.systemDefault())
+                .withZoneSameInstant(ZoneOffset.UTC).format(format);
+        var lastUsed = LocalDateTime.of(2030, 7, 2, 8, 30).atZone(ZoneId.systemDefault())
+                .withZoneSameInstant(ZoneOffset.UTC).format(format);
+
+        assertThat(mvc.get().uri("/settings/passkeys").with(SignedIn.owner(ALICE))).hasStatusOk()
+                .bodyText().contains("Creada el " + created + ".", "Último uso: " + lastUsed + ".");
     }
 
     @Test

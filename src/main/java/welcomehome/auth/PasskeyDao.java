@@ -3,7 +3,8 @@ package welcomehome.auth;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -90,23 +91,24 @@ class PasskeyDao {
                 .update() == 1;
     }
 
-    // Spring Security writes created and last_used as timestamps in the server's time zone.
+    // Spring Security writes created and last_used as timestamps without a zone, in the JVM's: read as it wrote
+    // them they are the instants they were, which are shown in UTC whatever that zone is.
     private static Passkey passkey(ResultSet rs, int row) throws SQLException {
         return new Passkey(rs.getString("credential_id"), rs.getString("label"),
-                localDateTime(rs.getTimestamp("created")), localDateTime(rs.getTimestamp("last_used")));
+                inUtc(rs.getTimestamp("created")), inUtc(rs.getTimestamp("last_used")));
     }
 
-    private static @Nullable LocalDateTime localDateTime(@Nullable Timestamp timestamp) {
-        return timestamp == null ? null : timestamp.toLocalDateTime();
+    private static @Nullable ZonedDateTime inUtc(@Nullable Timestamp timestamp) {
+        return timestamp == null ? null : timestamp.toInstant().atZone(ZoneId.of("UTC"));
     }
 
     /**
      * @param credentialId the passkey's id, base64url
      * @param label        the name the owner gave it
-     * @param created      when it was created, in the server's time zone
-     * @param lastUsed     when it last signed in, in the server's time zone; {@code null} if never
+     * @param created      when it was created, in UTC, which the page says
+     * @param lastUsed     when it last signed in, in UTC; {@code null} if never
      */
-    record Passkey(String credentialId, String label, @Nullable LocalDateTime created,
-                   @Nullable LocalDateTime lastUsed) {
+    record Passkey(String credentialId, String label, @Nullable ZonedDateTime created,
+                   @Nullable ZonedDateTime lastUsed) {
     }
 }

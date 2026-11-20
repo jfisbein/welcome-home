@@ -94,7 +94,7 @@
                         <span th:case="*" th:text="#{admin.pending.kind.owner}">Invitación</span>
                     </td>
                     <td th:data-label="#{admin.pending.column.expires}"
-                        th:text="${#temporals.format(link.expiresAt, #messages.msg('format.datetime'))}">1/1/2026 10:00</td>
+                        th:text="${#temporals.format(link.expiresAt, #messages.msg('format.datetime-zone'))}">1/1/2026 10:00 UTC</td>
                     <td class="actions">
                         <form th:action="@{/admin/invitations/{id}(id=${link.id})}" th:method="delete"
                               th:data-confirm="#{admin.pending.cancel.confirm(${link.recipient})}">

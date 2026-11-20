@@ -275,10 +275,12 @@ class AdminPanelTests {
         invitations.createPasskeyRecovery(adminId, bobId);
         invitations.redeem(tokenOf(invitations.createInvitation(adminId, "Ya usada", false)));
         data.invitation("Ya caducada", adminId, "now() - interval '1 minute'", false);
+        data.invitation("Para dentro de años", adminId, "'2090-07-01 12:00:00+02'", false);
 
         assertThat(pendingSection(mvc.get().uri("/admin/owners").with(admin()).exchange()))
                 .contains("Ana, piso de la playa", "Carlos, otro admin", "Invitación de admin", OWNER_EMAIL,
                         "Nueva passkey", "Anular")
+                .as("when one expires is in UTC, and says so").contains("01/07/2090 10:00 UTC")
                 .doesNotContain("Ya usada", "Ya caducada");
     }
 

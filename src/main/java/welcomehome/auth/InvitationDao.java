@@ -3,13 +3,13 @@ package welcomehome.auth;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
-import org.springframework.jdbc.core.SimplePropertyRowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -77,12 +77,14 @@ class InvitationDao {
     List<PendingInvitation> findPending() {
         return jdbc.sql("""
                         SELECT i.id, coalesce(o.email, i.note, '') AS recipient, i.grants_admin,
-                               i.recovers_owner_id IS NOT NULL AS recovery, i.expires_at::timestamp AS expires_at
+                               i.recovers_owner_id IS NOT NULL AS recovery, i.expires_at
                         FROM invitation i LEFT JOIN owner o ON o.id = i.recovers_owner_id
                         WHERE i.used_at IS NULL AND i.expires_at > now()
                         ORDER BY i.expires_at, i.id
                         """)
-                .query(new SimplePropertyRowMapper<>(PendingInvitation.class))
+                .query((rs, row) -> new PendingInvitation(rs.getObject("id", UUID.class), rs.getString("recipient"),
+                        rs.getBoolean("grants_admin"), rs.getBoolean("recovery"),
+                        rs.getObject("expires_at", OffsetDateTime.class).atZoneSameInstant(ZoneId.of("UTC"))))
                 .list();
     }
 

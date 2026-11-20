@@ -4,8 +4,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,6 +22,9 @@ import org.springframework.stereotype.Repository;
 @Repository
 class NukiConnectionDao {
 
+    /** The zone a time is shown in to an owner, who has none of their own: said, never the database session's. */
+    private static final ZoneId UTC = ZoneId.of("UTC");
+
     private final JdbcClient jdbc;
 
     NukiConnectionDao(JdbcClient jdbc) {
@@ -30,7 +34,7 @@ class NukiConnectionDao {
     Optional<StoredConnection> find(UUID ownerId) {
         return jdbc.sql("""
                         SELECT access_token_encrypted, refresh_token_encrypted,
-                               access_token_expires_at, status, last_checked_at::timestamp AS last_checked_at
+                               access_token_expires_at, status, last_checked_at
                         FROM nuki_connection
                         WHERE owner_id = :ownerId
                         """)
@@ -46,7 +50,7 @@ class NukiConnectionDao {
     Optional<StoredConnection> findDisconnectedWithin(UUID ownerId, Duration time) {
         return jdbc.sql("""
                         SELECT access_token_encrypted, refresh_token_encrypted,
-                               access_token_expires_at, status, last_checked_at::timestamp AS last_checked_at
+                               access_token_expires_at, status, last_checked_at
                         FROM nuki_connection
                         WHERE owner_id = :ownerId AND status = 'DISCONNECTED'
                           AND last_checked_at > now() - make_interval(secs => :seconds)
@@ -185,11 +189,12 @@ class NukiConnectionDao {
     }
 
     private static StoredConnection storedConnection(ResultSet rs, int row) throws SQLException {
+        var lastCheckedAt = rs.getObject("last_checked_at", OffsetDateTime.class);
         return new StoredConnection(rs.getBytes("access_token_encrypted"),
                 rs.getBytes("refresh_token_encrypted"),
                 rs.getObject("access_token_expires_at", OffsetDateTime.class).toInstant(),
                 ConnectionStatus.valueOf(rs.getString("status")),
-                rs.getObject("last_checked_at", LocalDateTime.class));
+                lastCheckedAt == null ? null : lastCheckedAt.atZoneSameInstant(UTC));
     }
 
     /**
@@ -200,6 +205,6 @@ class NukiConnectionDao {
     // Never compared, so the arrays' identity-based equals does not matter.
     @SuppressWarnings("ArrayRecordComponent")
     record StoredConnection(byte[] accessTokenEncrypted, byte[] refreshTokenEncrypted,
-                            Instant accessTokenExpiresAt, ConnectionStatus status, @Nullable LocalDateTime lastCheckedAt) {
+                            Instant accessTokenExpiresAt, ConnectionStatus status, @Nullable ZonedDateTime lastCheckedAt) {
     }
 }
