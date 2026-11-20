@@ -67,8 +67,9 @@ jobs:
 
       - name: Build and test
         if: steps.tested.outputs.already != 'true'
-        # The runner has four processors, and three JVMs of tests leave one for the containers they share.
-        run: ./gradlew build -PtestForks=3
+        # Two JVMs of tests, Gradle's share of the runner's four processors. Three took longer (2026-11-20: 238 s
+        # against 214), as the databases and browsers they start need processors too.
+        run: ./gradlew build
 
       - name: Build what was tested on main
         if: steps.tested.outputs.already == 'true'
