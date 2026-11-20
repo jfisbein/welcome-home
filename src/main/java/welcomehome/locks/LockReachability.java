@@ -12,7 +12,11 @@ import welcomehome.db.OwnerTransactions;
  * Nuki reports the lock online and then offline again.
  *
  * <p>Only what the app saw counts: a report starts when the app first reads it, so an opening that succeeded
- * before that does not disprove it, even if Nuki was already making it.
+ * before that does not disprove it, even if Nuki was already making it. And only the daily check of every lock
+ * ({@link LockProblems}) starts and ends reports: a page shows what Nuki says now against the report as that check
+ * left it and writes nothing, as when a report began must not depend on who looked at a page (review item COR-06).
+ * So for up to a day a lock that went offline since the check is told as offline whatever it has opened, and one
+ * that came back and went offline again keeps what was made of its earlier report.
  */
 @Service
 public class LockReachability {
@@ -36,7 +40,22 @@ public class LockReachability {
     }
 
     /**
-     * Takes note of what Nuki just reported of a lock's connection, and says what to make of it.
+     * Says what to make of what Nuki just reported of a lock's connection, for a page: nothing is written.
+     *
+     * @param online whether Nuki reports the lock online
+     */
+    Connection read(UUID ownerId, UUID lockId, boolean online) {
+        if (online) {
+            return Connection.ONLINE;
+        }
+        return ownerTransactions.execute(ownerId, () -> locks.findOfflineReport(ownerId, lockId))
+                .filter(report -> report.reported() && report.disproved())
+                .map(report -> Connection.OFFLINE_YET_OPENING).orElse(Connection.OFFLINE);
+    }
+
+    /**
+     * Takes note of what Nuki just reported of a lock's connection, and says what to make of it. The daily check's
+     * alone.
      *
      * @param online whether Nuki reports the lock online
      */

@@ -158,7 +158,7 @@ class LocksController {
             try {
                 var snapshot = lockProvider.getSnapshot(owner.id(), lock.nukiSmartlockId());
                 model.addAttribute("snapshot", snapshot);
-                model.addAttribute("connection", reachability.observe(owner.id(), lock.id(), snapshot.online()));
+                model.addAttribute("connection", reachability.read(owner.id(), lock.id(), snapshot.online()));
                 // A lock without a position is offered Nuki's, when Nuki has one, rather than waiting for a sync to
                 // bring it: the owner checks it on the map and saves it. Not over what the owner just typed.
                 var nukis = snapshot.coordinates();

@@ -128,7 +128,10 @@ class LockStateTests {
                  "advancedConfig": {"autoLock": true}}
                 """);
         assertThat(lockPage()).bodyText().contains(OFFLINE);
+        assertThat(migrator.sql("SELECT offline_since IS NULL FROM lock WHERE id = ?").param(lockId)
+                .query(Boolean.class).single()).as("the page started no report").isTrue();
 
+        data.offlineSince("now() - interval '1 hour'");
         reachability.opened(aliceId, lockId);
 
         assertThat(lockPage()).bodyText().contains("pero la cerradura ha abierto la puerta desde entonces")

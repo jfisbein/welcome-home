@@ -60,6 +60,9 @@ class LockWarningsTests {
     @Autowired
     LockReachability reachability;
 
+    @Autowired
+    LockProblems problems;
+
     JdbcClient migrator;
     TestData data;
     UUID aliceId;
@@ -107,6 +110,7 @@ class LockWarningsTests {
         reachability.opened(aliceId, casa);
         assertThat(body("/locks")).as("an opening before Nuki's report was seen tells nothing").contains(OFFLINE);
 
+        problems.check(aliceId);
         reachability.opened(aliceId, casa);
         assertThat(body("/locks")).doesNotContain(OFFLINE);
         assertThat(body("/")).doesNotContain(OFFLINE);
@@ -121,15 +125,40 @@ class LockWarningsTests {
         connectNuki();
         var offline = ALL_WELL.replace("\"serverState\": 0", "\"serverState\": 4");
         nukiLists(offline);
+        problems.check(aliceId);
         assertThat(body("/locks")).contains(OFFLINE);
         reachability.opened(aliceId, casa);
         assertThat(body("/locks")).doesNotContain(OFFLINE);
 
         nukiLists(ALL_WELL);
+        problems.check(aliceId);
         assertThat(body("/locks")).doesNotContain(OFFLINE);
 
         nukiLists(offline);
+        problems.check(aliceId);
         assertThat(body("/locks")).as("Nuki reports it offline anew").contains(OFFLINE);
+    }
+
+    /** When a report began would otherwise depend on who looked at a page. */
+    @Test
+    void pagesNeitherStartNorEndAnOfflineReport() {
+        connectNuki();
+        nukiLists(ALL_WELL.replace("\"serverState\": 0", "\"serverState\": 4"));
+        assertThat(body("/")).contains(OFFLINE);
+        assertThat(body("/locks")).contains(OFFLINE);
+        assertThat(offlineReport()).isEqualTo("none");
+
+        data.offlineSince("now() - interval '1 hour'");
+        var report = offlineReport();
+        nukiLists(ALL_WELL);
+        assertThat(body("/")).doesNotContain(OFFLINE);
+        assertThat(body("/locks")).doesNotContain(OFFLINE);
+        assertThat(offlineReport()).isEqualTo(report);
+    }
+
+    private String offlineReport() {
+        return migrator.sql("SELECT coalesce(offline_since::text, 'none') FROM lock WHERE nuki_smartlock_id = 17")
+                .query(String.class).single();
     }
 
     @Test

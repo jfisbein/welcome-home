@@ -74,7 +74,7 @@ public class LockChecks {
         for (var lock : active) {
             var state = states.get(lock.nukiSmartlockId());
             if (state != null) {
-                var warnings = warningsOf(lock, state, reachability.observe(ownerId, lock.id(), state.online()));
+                var warnings = warningsOf(lock, state, reachability.read(ownerId, lock.id(), state.online()));
                 if (!warnings.isEmpty()) {
                     byLock.put(lock.id(), warnings);
                 }
