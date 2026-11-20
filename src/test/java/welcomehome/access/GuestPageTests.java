@@ -9,7 +9,6 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import java.nio.charset.StandardCharsets;
 import java.time.DayOfWeek;
 import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.UUID;
@@ -80,7 +79,7 @@ class GuestPageTests {
         var ownerId = data.owner("alice@example.com");
         lockId = data.lock(ownerId, 17, "Casa de Alice", "America/New_York");
         // A token that works, so that anything asked of the lock provider would reach Nuki, and be seen below.
-        data.apiToken(ownerId, crypto.encryptAccessToken(ownerId, "alices-nuki-token"));
+        data.connection(ownerId, crypto.encryptAccessToken(ownerId, "alices-nuki-token"));
         nuki.resetAll();
     }
 

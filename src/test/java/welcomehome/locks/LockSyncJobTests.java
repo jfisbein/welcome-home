@@ -131,7 +131,7 @@ class LockSyncJobTests {
 
     private UUID connectedOwner(String name) {
         var ownerId = data.owner(name + "@example.com");
-        data.apiToken(ownerId, crypto.encryptAccessToken(ownerId, "token-" + name));
+        data.connection(ownerId, crypto.encryptAccessToken(ownerId, "token-" + name));
         return ownerId;
     }
 

@@ -60,7 +60,7 @@ class AccessibilityTests extends BrowserTest {
     @Test
     void guestsAndSignedOutPagesHaveNoViolationsInAnyLanguage() {
         var owner = data.owner("alice@example.com");
-        data.apiToken(owner, crypto.encryptAccessToken(owner, "alices-token"));
+        data.connection(owner, crypto.encryptAccessToken(owner, "alices-token"));
         var lock = data.lock(owner, 17, "Casa");
         var open = "/o/" + signer.sign(data.link(lock, "Ana"), 1);
         var revoked = "/o/" + signer.sign(data.link(lock, "Eva", "now() - interval '2 day'",

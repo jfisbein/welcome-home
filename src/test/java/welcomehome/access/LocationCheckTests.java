@@ -9,7 +9,6 @@ import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.status;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.time.Instant;
@@ -79,8 +78,7 @@ class LocationCheckTests {
         lockId = data.lock(aliceId, 17, "Casa");
         nuki.stubFor(get("/smartlock").willReturn(okJson("[]")));
         NukiStandInConfiguration.logIsReadable(nuki);
-        assertThat(mvc.put().uri("/settings/nuki").with(user(ALICE).roles("OWNER")).with(csrf())
-                .param("apiToken", "alices-nuki-token")).hasStatus(HttpStatus.FOUND);
+        NukiStandInConfiguration.connect(mvc, nuki, ALICE, "alices-nuki-token");
         nuki.resetAll();
         nukiOpens(17);
         token = signer.sign(data.link(lockId, "Ana"), 1);

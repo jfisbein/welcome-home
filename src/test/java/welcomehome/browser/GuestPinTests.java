@@ -10,7 +10,6 @@ import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertTha
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
-import java.util.UUID;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.microsoft.playwright.Locator;
@@ -49,7 +48,7 @@ class GuestPinTests extends BrowserTest {
         var data = new TestData(migrator);
         data.deleteOwners();
         var owner = data.owner("alice@example.com");
-        data.apiToken(owner, crypto.encryptAccessToken(owner, "alices-token"));
+        data.connection(owner, crypto.encryptAccessToken(owner, "alices-token"));
         var link = data.link(data.lock(owner, 17, "Casa"), "Ana");
         data.pin(link, crypto.encryptLinkPin(owner, link, "4821"));
         nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));

@@ -12,7 +12,6 @@ import static org.awaitility.Awaitility.await;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Executors;
@@ -95,13 +94,14 @@ class TokenReEncryptionTests {
     @Test
     void whenTheApplicationStartsTokensOfTheEarlierKeyAreEncryptedWithTheNewOne(CapturedOutput output) {
         var ana = data.owner("ana@example.com");
-        data.apiToken(ana, earlierKey.encryptAccessToken(ana, "ana-token"));
+        data.authorization(ana, earlierKey.encryptAccessToken(ana, "ana-token"),
+                earlierKey.encryptRefreshToken(ana, "ana-refresh"), "1 day", "OK");
         var bea = data.owner("bea@example.com");
         data.authorization(bea, earlierKey.encryptAccessToken(bea, "bea-access"),
                 earlierKey.encryptRefreshToken(bea, "bea-refresh"), "1 hour", "DISCONNECTED");
         var cata = data.owner("cata@example.com");
         var cataToken = crypto.encryptAccessToken(cata, "cata-token");
-        data.apiToken(cata, cataToken);
+        data.authorization(cata, cataToken, crypto.encryptRefreshToken(cata, "cata-refresh"), "1 day", "OK");
 
         context.publishEvent(new ApplicationReadyEvent(new SpringApplication(), new String[0], context, Duration.ZERO));
 
@@ -113,8 +113,8 @@ class TokenReEncryptionTests {
         assertThat(status(bea)).isEqualTo("DISCONNECTED");
         assertThat(accessToken(cata)).as("already the new key's").isEqualTo(cataToken);
         assertThat(output.getAll())
-                .contains("Nuki tokens encrypted again with key " + crypto.primaryKeyId() + ": 3")
-                .doesNotContain("ana-token", "bea-access", "bea-refresh");
+                .contains("Nuki tokens encrypted again with key " + crypto.primaryKeyId() + ": 4")
+                .doesNotContain("ana-token", "ana-refresh", "bea-access", "bea-refresh");
     }
 
     @Test
@@ -123,9 +123,10 @@ class TokenReEncryptionTests {
         var otherKey = TestCryptoServices.withAeadKeyset(elsewhere.resolve(KeysetGenerator.AEAD_KEYSET_FILE_NAME));
         var ana = data.owner("ana@example.com");
         var anaToken = otherKey.encryptAccessToken(ana, "ana-token");
-        data.apiToken(ana, anaToken);
+        data.authorization(ana, anaToken, otherKey.encryptRefreshToken(ana, "ana-refresh"), "1 day", "OK");
         var bea = data.owner("bea@example.com");
-        data.apiToken(bea, earlierKey.encryptAccessToken(bea, "bea-token"));
+        data.authorization(bea, earlierKey.encryptAccessToken(bea, "bea-token"),
+                earlierKey.encryptRefreshToken(bea, "bea-refresh"), "1 day", "OK");
 
         reEncryption.reEncryptAll();
 

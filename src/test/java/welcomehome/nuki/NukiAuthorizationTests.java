@@ -133,7 +133,6 @@ class NukiAuthorizationTests {
         assertThat(s256(verifier)).isEqualTo(param(location, "code_challenge"));
         assertThat(location).doesNotContain(verifier);
         var stored = stored(aliceId);
-        assertThat(stored.credential()).isEqualTo("OAUTH2");
         assertThat(stored.status()).isEqualTo("OK");
         assertThat(new String(stored.accessToken(), StandardCharsets.ISO_8859_1)).doesNotContain("access-1");
         assertThat(new String(stored.refreshToken(), StandardCharsets.ISO_8859_1)).doesNotContain("refresh-1");
@@ -142,8 +141,8 @@ class NukiAuthorizationTests {
         assertThat(stored.expiresAt()).isBetween(OffsetDateTime.now(ZoneOffset.UTC).plusSeconds(3599 - 60),
                 OffsetDateTime.now(ZoneOffset.UTC).plusSeconds(3599));
         assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)))
-                .bodyText().contains("Conectado con tu cuenta de Nuki.", "<summary>Usar un API token en su lugar</summary>")
-                .doesNotContain("/settings/nuki/oauth", "Te llevamos a Nuki");
+                .bodyText().contains("Conectado con tu cuenta de Nuki.")
+                .doesNotContain("/settings/nuki/oauth", "Te llevamos a Nuki", "API token");
     }
 
     @Test
@@ -255,35 +254,16 @@ class NukiAuthorizationTests {
     }
 
     @Test
-    void authorizingReplacesAPastedTokenAndKeepsTheConnectionsLocks() {
-        data.apiToken(aliceId, crypto.encryptAccessToken(aliceId, "pasted-token"));
+    void authorizingAgainReplacesTheTokensAndKeepsTheConnectionsLocks() {
+        insertAuthorization(aliceId, "DISCONNECTED");
         var connectionId = migrator.sql("SELECT id FROM nuki_connection").query(UUID.class).single();
-        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)))
-                .bodyText().contains(">Usar tu cuenta de Nuki</a>");
         nukiGrants("the-code", "access-1", "refresh-1", SCOPE);
 
         callback(ALICE, "code=the-code&state=" + state(authorize(ALICE)));
 
         assertThat(migrator.sql("SELECT id FROM nuki_connection").query(UUID.class).single()).isEqualTo(connectionId);
-        assertThat(stored(aliceId).credential()).isEqualTo("OAUTH2");
+        assertThat(stored(aliceId).status()).isEqualTo("OK");
         assertThat(crypto.decryptAccessToken(aliceId, stored(aliceId).accessToken())).isEqualTo("access-1");
-    }
-
-    @Test
-    void pastingATokenReplacesTheAuthorization() {
-        insertAuthorization(aliceId, "OK");
-        nuki.stubFor(get("/smartlock").withHeader("Authorization", equalTo("Bearer pasted-token"))
-                .willReturn(okJson("[]")));
-        NukiStandInConfiguration.logIsReadable(nuki);
-
-        assertThat(mvc.put().uri("/settings/nuki").with(owner(ALICE)).with(csrf()).param("apiToken", "pasted-token"))
-                .hasStatus(HttpStatus.FOUND);
-
-        var stored = stored(aliceId);
-        assertThat(stored.credential()).isEqualTo("API_TOKEN");
-        assertThat(stored.refreshToken()).isNull();
-        assertThat(stored.expiresAt()).isNull();
-        assertThat(crypto.decryptAccessToken(aliceId, stored.accessToken())).isEqualTo("pasted-token");
     }
 
     @Test
@@ -312,7 +292,7 @@ class NukiAuthorizationTests {
         var result = mvc.delete().uri("/settings/nuki").with(owner(ALICE)).with(csrf()).exchange();
 
         assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/settings/nuki");
-        assertThat(result.getMvcResult().getFlashMap().get("disconnected")).isEqualTo("OAUTH2");
+        assertThat(result.getMvcResult().getFlashMap().get("disconnected")).isEqualTo(true);
         assertNoConnection();
         nuki.verify(1, postRequestedFor(urlPathEqualTo("/oauth2/revoke"))
                 .withBasicAuth(new BasicCredentials(NukiStandInConfiguration.CLIENT_ID,
@@ -339,7 +319,7 @@ class NukiAuthorizationTests {
 
     @Test
     void disconnectingAPastedTokenAsksNukiNothing() {
-        data.apiToken(aliceId, crypto.encryptAccessToken(aliceId, "pasted"));
+        data.connection(aliceId, crypto.encryptAccessToken(aliceId, "pasted"));
 
         assertThat(mvc.delete().uri("/settings/nuki").with(owner(ALICE)).with(csrf())).hasStatus(HttpStatus.FOUND);
 
@@ -429,13 +409,12 @@ class NukiAuthorizationTests {
 
     private Stored stored(UUID ownerId) {
         return migrator.sql("""
-                        SELECT credential, status, access_token_encrypted, refresh_token_encrypted,
-                               access_token_expires_at
+                        SELECT status, access_token_encrypted, refresh_token_encrypted, access_token_expires_at
                         FROM nuki_connection WHERE owner_id = ?
                         """)
                 .param(ownerId)
-                .query((rs, row) -> new Stored(rs.getString(1), rs.getString(2), rs.getBytes(3), rs.getBytes(4),
-                        rs.getObject(5, OffsetDateTime.class)))
+                .query((rs, row) -> new Stored(rs.getString(1), rs.getBytes(2), rs.getBytes(3),
+                        rs.getObject(4, OffsetDateTime.class)))
                 .single();
     }
 
@@ -452,7 +431,7 @@ class NukiAuthorizationTests {
     }
 
     @SuppressWarnings("ArrayRecordComponent")
-    record Stored(String credential, String status, byte[] accessToken, byte[] refreshToken,
+    record Stored(String status, byte[] accessToken, byte[] refreshToken,
                   OffsetDateTime expiresAt) {
     }
 }

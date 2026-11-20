@@ -78,7 +78,7 @@ class PagesInEveryLanguageTests {
             migrator.sql("DELETE FROM " + table).update();
         }
         var aliceId = data.admin(ALICE);
-        data.apiToken(aliceId, crypto.encryptAccessToken(aliceId, "alices-token"));
+        data.connection(aliceId, crypto.encryptAccessToken(aliceId, "alices-token"));
         lockId = data.lock(aliceId, 17, "Casa");
         linkId = data.link(lockId, "Ana", "now() - interval '1 day'", TestData.IN_A_DAY);
         for (var day : DayOfWeek.values()) {

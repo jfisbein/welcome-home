@@ -5,14 +5,12 @@ import static com.github.tomakehurst.wiremock.client.WireMock.anyUrl;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
-import static com.github.tomakehurst.wiremock.client.WireMock.status;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 
@@ -25,7 +23,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
-import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import welcomehome.IntegrationTest;
@@ -79,55 +76,42 @@ class NukiConnectionTests {
     }
 
     @Test
-    void ownerWithoutConnectionIsAskedForAToken() {
+    void ownerWithoutConnectionIsOfferedToConnectWithTheirNukiAccountAndNoOtherWay() {
         assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)))
                 .hasStatusOk()
-                .bodyText().contains("Todavía no has conectado", "API token");
+                .bodyText().contains("Todavía no has conectado",
+                        "<a href=\"/settings/nuki/oauth\" role=\"button\"", "Conectar con Nuki", "Te llevamos a Nuki")
+                .doesNotContain("API token", "name=\"apiToken\"", "Desconectar Nuki");
     }
 
     @Test
-    void pastingATokenIsTheFoldedAwayAlternativeToConnectingWithNuki() {
-        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)))
-                .bodyText().contains("<a href=\"/settings/nuki/oauth\" role=\"button\">Conectar con Nuki</a>",
-                        "Te llevamos a Nuki", "Cómo conseguir el API token", "Generar token de API")
-                .containsPattern("<details>\\s*<summary>Usar un API token en su lugar</summary>\\s*"
-                        + "<details open=\"open\">\\s*<summary>Cómo conseguir el API token</summary>");
-    }
-
-    @Test
-    void tokenFormStaysUnfoldedAfterAFailedAttempt() {
-        nuki.stubFor(get("/smartlock").willReturn(status(401)));
-
-        assertThat(connect(ALICE, TOKEN)).bodyText()
-                .containsPattern("<details open=\"open\">\\s*<summary>Usar un API token en su lugar</summary>")
-                .contains("Nuki no ha aceptado este API token");
-    }
-
-    @Test
-    void ownerConnectedWithATokenIsOfferedTheirNukiAccountInstead() {
+    void aConnectedOwnerIsOfferedToDisconnectAndToConnectAgainOnlyOnceNukiRejectsThem() {
         nukiAccepts(TOKEN);
         connect(ALICE, TOKEN);
 
         assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)))
-                .bodyText().contains("Conectado con un API token.", "en lugar del API token",
-                        ">Usar tu cuenta de Nuki</a>", "<summary>Cambiar API token</summary>")
-                .doesNotContain(">Conectar con Nuki</a>");
+                .bodyText().contains("Conectado con tu cuenta de Nuki.", "Última comprobación", "Desconectar Nuki")
+                .doesNotContain("/settings/nuki/oauth");
+
+        data.disconnectNuki();
+
+        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)))
+                .bodyText().contains("Nuki ha rechazado", "Volver a conectar con Nuki", "/settings/nuki/oauth");
+    }
+
+    /** A pasted API token was the other way to connect until 2.18.0. */
+    @Test
+    void thereIsNoWayLeftToPasteAToken() {
+        assertThat(mvc.put().uri("/settings/nuki").with(owner(ALICE)).with(csrf()).param("apiToken", TOKEN))
+                .hasStatus(HttpStatus.METHOD_NOT_ALLOWED);
+        nuki.verify(0, anyRequestedFor(anyUrl()));
+        assertNoConnection();
     }
 
     @Test
-    void tokenThatNukiAcceptsIsStoredEncrypted() {
-        nukiAccepts(TOKEN);
-
-        var result = connect(ALICE, "  " + TOKEN + "\n");
-
-        assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/settings/nuki");
-        assertThat(result.getMvcResult().getFlashMap().get("connectedLocks")).isEqualTo(List.of("Casa"));
-        var stored = storedToken(aliceId);
-        assertThat(new String(stored, StandardCharsets.ISO_8859_1)).doesNotContain(TOKEN);
-        assertThat(crypto.decryptAccessToken(aliceId, stored)).isEqualTo(TOKEN);
-        assertThat(migrator.sql("SELECT status FROM nuki_connection").query(String.class).single()).isEqualTo("OK");
-        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)))
-                .bodyText().contains("Conectado con un API token.", "Última comprobación");
+    void pageConfirmsTheDisconnection() {
+        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)).flashAttr("disconnected", true))
+                .bodyText().contains("Nuki desconectado: hemos borrado los tokens", "Todavía no has conectado");
     }
 
     @Test
@@ -156,81 +140,11 @@ class NukiConnectionTests {
     }
 
     @Test
-    void htmlFormSendsThePutAsAPostWithHiddenMethod() {
-        nukiAccepts(TOKEN);
-
-        assertThat(mvc.post().uri("/settings/nuki").with(owner(ALICE)).with(csrf())
-                .param("_method", "put").param("apiToken", TOKEN))
-                .hasStatus(HttpStatus.FOUND);
-        assertThat(storedToken(aliceId)).isNotNull();
-    }
-
-    @Test
-    void tokenThatNukiRejectsIsNotStored() {
-        nuki.stubFor(get("/smartlock").willReturn(status(401)));
-
-        var result = connect(ALICE, TOKEN);
-
-        assertThat(result).hasStatus(HttpStatus.BAD_REQUEST)
-                .bodyText().contains("Nuki no ha aceptado este API token").doesNotContain(TOKEN);
-        assertNoConnection();
-    }
-
-    @Test
-    void tokenThatMayNotReadTheLogIsNotStored() {
-        nukiAccepts(TOKEN);
-        nuki.stubFor(get(urlPathEqualTo("/smartlock/log")).willReturn(status(403)));
-
-        assertThat(connect(ALICE, TOKEN)).hasStatus(HttpStatus.BAD_REQUEST)
-                .bodyText().contains("le falta alguno de los tres permisos").doesNotContain(TOKEN);
-        assertNoConnection();
-    }
-
-    @Test
-    void nothingIsStoredWhileNukiDoesNotAnswer() {
-        nuki.stubFor(get("/smartlock").willReturn(status(503)));
-
-        assertThat(connect(ALICE, TOKEN))
-                .hasStatus(HttpStatus.SERVICE_UNAVAILABLE)
-                .bodyText().contains("Nuki no responde");
-        assertNoConnection();
-    }
-
-    @Test
-    void inputThatCannotBeATokenIsRejectedWithoutAskingNuki() {
-        for (var input : new String[] {"", "   ", "two words", "x".repeat(1001)}) {
-            assertThat(connect(ALICE, input)).as(input).hasStatus(HttpStatus.BAD_REQUEST);
-        }
-        nuki.verify(0, anyRequestedFor(anyUrl()));
-        assertNoConnection();
-    }
-
-    @Test
-    void newTokenReplacesTheOldOneAndReconnects() {
-        nukiAccepts(TOKEN);
-        connect(ALICE, TOKEN);
-        data.disconnectNuki();
-        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE))).bodyText().contains("Nuki ha rechazado");
-
-        nukiAccepts(NEW_TOKEN);
-        assertThat(connect(ALICE, NEW_TOKEN)).hasStatus(HttpStatus.FOUND);
-
-        assertThat(crypto.decryptAccessToken(aliceId, storedToken(aliceId))).isEqualTo(NEW_TOKEN);
-        assertThat(migrator.sql("SELECT status FROM nuki_connection").query(String.class).list()).containsExactly("OK");
-    }
-
-    @Test
     void ownerDoesNotSeeAnotherOwnersConnection() {
         nukiAccepts(TOKEN);
         connect("bob@example.com", TOKEN);
 
         assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE))).bodyText().contains("Todavía no has conectado");
-    }
-
-    @Test
-    void connectingRequiresTheCsrfToken() {
-        assertThat(mvc.put().uri("/settings/nuki").with(owner(ALICE)).param("apiToken", TOKEN))
-                .hasStatus(HttpStatus.FORBIDDEN);
     }
 
     @Test
@@ -274,15 +188,6 @@ class NukiConnectionTests {
                 .isInstanceOfSatisfying(LockProviderException.class,
                         e -> assertThat(e.reason()).isEqualTo(LockProviderException.Reason.NOT_CONNECTED));
         nuki.verify(0, anyRequestedFor(anyUrl()));
-    }
-
-    @Test
-    void pageConfirmsTheDisconnection() {
-        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)).flashAttr("disconnected", "API_TOKEN"))
-                .bodyText().contains("Nuki desconectado: hemos borrado tu API token", "Todavía no has conectado");
-        assertThat(mvc.get().uri("/settings/nuki").with(owner(ALICE)).flashAttr("disconnected", "OAUTH2"))
-                .bodyText().contains("Nuki desconectado: hemos borrado los tokens", "Todavía no has conectado")
-                .doesNotContain("API token de welcome-home");
     }
 
     /** It stops every link of the owner's: not one tap. */
@@ -334,8 +239,8 @@ class NukiConnectionTests {
                 .single();
     }
 
-    private MvcTestResult connect(String email, String apiToken) {
-        return mvc.put().uri("/settings/nuki").with(owner(email)).with(csrf()).param("apiToken", apiToken).exchange();
+    private void connect(String email, String accessToken) {
+        NukiStandInConfiguration.connect(mvc, nuki, email, accessToken);
     }
 
     private void nukiAccepts(String token) {

@@ -8,7 +8,7 @@ A private web app where a few owners connect their Nuki account and create date-
 
 **Roles**
 
-- **Owner**: connects Nuki by authorizing welcome-home in Nuki (OAuth2) or with an API token, imports locks, creates, edits, pauses, regenerates and revokes links, reads each lock's history.
+- **Owner**: connects Nuki by authorizing welcome-home in Nuki (OAuth2), imports locks, creates, edits, pauses, regenerates and revokes links, reads each lock's history.
 - **Admin**: an owner who can also invite owners, list them, make one of them an admin, create passkey recovery links, list and cancel both kinds of link, and delete owners. Admins never see other owners' locks, links or history.
 - **Guest**: no account; has only a link.
 
@@ -19,7 +19,7 @@ A private web app where a few owners connect their Nuki account and create date-
 Functional:
 
 - Registration only by single-use invitation (72 h); sign-in only with passkeys, no passwords. The first admin comes from a command line invitation (`--bootstrap-admin`).
-- An owner connects Nuki by authorizing welcome-home in Nuki (OAuth2), or by pasting a Nuki Web API token. Either is checked against Nuki before it is stored, encrypted; an OAuth2 access token is refreshed before it expires. A refresh it refuses, or a 401 that it repeats when asked once more, marks the connection `DISCONNECTED`; a daily job checks every connection, and an hourly one tries those disconnected in the last 7 days, connecting them again if Nuki accepts them.
+- An owner connects Nuki by authorizing welcome-home in Nuki (OAuth2), the only way: what Nuki grants is checked against it before it is stored, encrypted, and the access token is refreshed before it expires. Doors are unlatched with Nuki's plain action, and the lock's log tells what came of it. A refresh it refuses, or a 401 that it repeats when asked once more, marks the connection `DISCONNECTED`; a daily job checks every connection, and an hourly one tries those disconnected in the last 7 days, connecting them again if Nuki accepts them.
 - Locks are imported from Nuki on connecting it, when the owner asks and every day, smart locks and Nuki Openers alike; each has a name, a time zone (from Nuki where possible) and can be deactivated when it leaves the Nuki account. A smart lock may have one of the owner's Openers as its building entrance: its links then open both, the entrance first.
 - A link has a label and a validity window entered in the lock's time zone and stored in UTC. Its state (pending, active, paused, expired, revoked) is computed, never stored; its owner may pause it and resume it, with the same URL. It may be limited to certain days of the week with hours for each, one range per day, local to the lock.
 - A link may ask its guest for a PIN (4 to 8 digits, the owner's choice, none by default), typed after the slide and checked on the server before the lock is touched; the owner can read it back, and a link whose wrong PINs are spent refuses everything for a while.

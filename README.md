@@ -2,6 +2,8 @@
 
 A private web app where several owners connect their Nuki account and create unique, date-bound links that open the door without an app or codes. A guest opens the link on their phone and slides to open.
 
+Running your own needs an OAuth2 client of your own at Nuki, which Nuki grants with its Advanced API (Nuki Web → API) and may take days to: it is the only way owners connect their Nuki account.
+
 ```mermaid
 flowchart LR
     guest["Guest's phone"] --> tunnel["Cloudflare Tunnel"]

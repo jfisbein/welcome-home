@@ -57,20 +57,13 @@ class NukiConnectionWithoutAuthorizationTests {
                 .hasStatus(HttpStatus.NOT_FOUND);
     }
 
+    /** An install whose owner has not set welcome-home's client at Nuki: the page says so, and offers no way in. */
     @Test
-    void howToGetATokenIsShownOpenUntilTheOwnerConnects() {
+    void thePageSaysThatThisInstallCannotConnectNukiYet() {
         assertThat(mvc.get().uri("/settings/nuki").with(owner()))
-                .bodyText().contains("<details open", "Cómo conseguir el API token",
-                        "<a href=\"https://web.nuki.io\" target=\"_blank\" rel=\"noopener noreferrer\">",
-                        "Generar token de API", "Ver dispositivos", "Gestionar dispositivos",
-                        "Ver protocolos de cierre y obtener notificaciones de protocolo", "name=\"apiToken\"")
-                .doesNotContain("/settings/nuki/oauth", "Usar un API token en su lugar", "Te llevamos a Nuki");
-
-        data.apiToken(aliceId, crypto.encryptAccessToken(aliceId, "alices-token"));
-
-        assertThat(mvc.get().uri("/settings/nuki").with(owner()))
-                .bodyText().contains("Conectado con un API token.", "Cómo conseguir el API token", "Cambiar API token")
-                .doesNotContain("<details open", "/settings/nuki/oauth", "Usar tu cuenta de Nuki");
+                .bodyText().contains("Todavía no has conectado",
+                        "Esta instalación de welcome-home no tiene configurado su acceso a Nuki")
+                .doesNotContain("/settings/nuki/oauth", "Te llevamos a Nuki", "API token");
     }
 
     private static RequestPostProcessor owner() {

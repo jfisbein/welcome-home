@@ -21,7 +21,7 @@ What the stack needs, and what is up to you. The names in brackets are what this
 | Optional | Without it |
 |---|---|
 | An SMTP server (SMTP2GO) | No emails: remove `SPRING_MAIL_HOST` from `compose.yaml`, and leave the files `smtp_username` and `smtp_password` empty, as it still asks for them. The pages then say that emails are off |
-| Nuki's OAuth2 client, granted with its Advanced API | Owners connect by pasting an API token: the files `nuki-oauth-client-id` and `-secret` stay empty |
+| Nuki's OAuth2 client, granted with its Advanced API | Nobody can connect Nuki: it is the only way to. Ask Nuki for it first (Nuki Web → API → Advanced API), which takes days |
 | An off-site backup tool (Databasus, dumping to Backblaze B2) | Dumps stay only in `backups/` on the server, lost with it |
 
 ## First start
@@ -46,7 +46,7 @@ What the stack needs, and what is up to you. The names in brackets are what this
    install -d -o 999 -g 999 -m 700 backups
    ```
 
-   The client id and secret are on Nuki Web's API page, under Advanced API, which Nuki has to grant first. Both files must exist, as `compose.yaml` asks for them: leave them empty if you have no client, and owners connect Nuki by pasting an API token instead.
+   The client id and secret are on Nuki Web's API page, under Advanced API, which Nuki has to grant first. Both files must exist, as `compose.yaml` asks for them: with them empty the app starts, and its Nuki page says that this install cannot connect Nuki yet.
 
 5. **Start.** Deploy the stack. `db`, `app` and `backup` turn healthy within a minute or two, and `cloudflared` starts once `app` is, and turns healthy once the tunnel connects. `https://welcome-home.example.com/actuator/health` answers `{"status":"UP"}` from outside.
 6. **First admin.** `docker compose run --rm app --bootstrap-admin` prints an invitation link, valid for 72 hours. Open it on your phone or computer, enter your email and create the passkey. Further owners are invited from `/admin/owners`.
@@ -77,13 +77,14 @@ What the stack needs, and what is up to you. The names in brackets are what this
 
    While Databasus is attached, `docker compose down` here reports `Resource is still in use` for `welcome-home_dbbackup`: the network stays, and the next start uses it again.
 
-## Nuki's webhooks, no longer used
+## Nuki's webhooks and pasted API tokens, no longer used
 
 Until 2.18.0, owners connected with OAuth2 unlatched through Nuki's Advanced API, which reported each outcome to `/nuki/webhook`. The app no longer has that route nor asks Nuki for what it needed. On a server that ran it, once:
 
 1. In Nuki Web, API → Advanced API, clear the webhook URL: Nuki sends none without an advanced action, but would otherwise keep the address.
 2. In Cloudflare, delete the IP Access rule that allowed Nuki's address past Bot Fight Mode (Security → WAF → Tools): nothing from Nuki reaches the app any more.
-3. Each owner connected with OAuth2 connects again, at `/settings/nuki`, "Desconectar Nuki" and then "Conectar con Nuki" (their links do not open meanwhile): the tokens they have still carry `smartlock.auth` and `webhook.central`, which the app no longer asks for. Their openings work either way.
+3. An owner who had pasted an API token, which the app took until 2.18.0, is no longer connected: the upgrade deleted that connection, and they connect at `/settings/nuki` with "Conectar con Nuki". The token itself stays valid at Nuki until they delete it in Nuki Web (API → API tokens).
+4. Each owner connected with OAuth2 connects again, at `/settings/nuki`, "Desconectar Nuki" and then "Conectar con Nuki" (their links do not open meanwhile): the tokens they have still carry `smartlock.auth` and `webhook.central`, which the app no longer asks for. Their openings work either way.
 
 ## Release and upgrade
 
@@ -118,7 +119,7 @@ A new major version, such as `v3`, may break compatibility: read its release not
 
 ## Roll back
 
-Pin the previous release, such as `ghcr.io/jfisbein/welcome-home:v2.0.0`, and deploy. Within a major version the older release works with the newer schema, so nothing else is needed; go back to `:v2` once a fixed release is out. **One thing to weigh first:** a release before 2.6.0 knows nothing of links' schedules, and those links open at any time within their dates. Before going back that far, revoke the links that have a schedule, or accept that; `SELECT DISTINCT link_id FROM access_link_schedule` lists them. **Another to weigh:** a release before 2.16.0 knows nothing of links' PINs, and those links open without one. Before going back that far, revoke the links that ask for one, or accept that; `SELECT id FROM access_link WHERE pin_encrypted IS NOT NULL` lists them. A release up to 2.17.0 also ignores `lock.location_required`: a lock set to open only for a guest it can place near the door opens, rolled back, for one who confirms without a position (`SELECT name FROM lock WHERE location_required` lists them). A release up to 2.17.0 has PINs but not their total (`access_link.pin_failures`): rolled back to one, a link locked by wrong PINs opens again with the right one, and wrong PINs are limited only in memory. A release before 2.13.0 ignores the check of where a guest is altogether (`lock.location_check`): rolled back to one, every lock opens from anywhere, those set to refuse too (`SELECT name, location_check FROM lock WHERE location_check <> 'OFF'` lists them). And two purges stop, which matters to what guests are told: a release before 2.11.0 keeps their IP addresses for as long as the attempts, a year, not 90 days, and one before 2.8.0 no longer deletes the links that ended a year ago, with the names in their labels. Neither loses anything, and the next release that knows them catches up on its first night; do not stay that far back for long. Rolling back to an earlier major version means restoring the dump taken before upgrading (next section), and pinning that major's last release, such as `:v1.12.0`. A paused link needs nothing weighed: it is stored as a revoked one, so a release up to 2.17.0 shows it as revoked and never opens with it; back on a later release it is paused again and can be resumed, unless it was deleted meanwhile.
+Pin the previous release, such as `ghcr.io/jfisbein/welcome-home:v2.0.0`, and deploy. Within a major version the older release works with the newer schema, so nothing else is needed; go back to `:v2` once a fixed release is out. **With one exception: no release before 2.19.0 runs against the schema of 2.19.0 or later**, which took `nuki_connection.credential` out (changeset 039, when the owner was the only user): going back past it is restoring a dump from before the upgrade (below), not pinning. **One thing to weigh first:** a release before 2.6.0 knows nothing of links' schedules, and those links open at any time within their dates. Before going back that far, revoke the links that have a schedule, or accept that; `SELECT DISTINCT link_id FROM access_link_schedule` lists them. **Another to weigh:** a release before 2.16.0 knows nothing of links' PINs, and those links open without one. Before going back that far, revoke the links that ask for one, or accept that; `SELECT id FROM access_link WHERE pin_encrypted IS NOT NULL` lists them. A release up to 2.17.0 also ignores `lock.location_required`: a lock set to open only for a guest it can place near the door opens, rolled back, for one who confirms without a position (`SELECT name FROM lock WHERE location_required` lists them). A release up to 2.17.0 has PINs but not their total (`access_link.pin_failures`): rolled back to one, a link locked by wrong PINs opens again with the right one, and wrong PINs are limited only in memory. A release before 2.13.0 ignores the check of where a guest is altogether (`lock.location_check`): rolled back to one, every lock opens from anywhere, those set to refuse too (`SELECT name, location_check FROM lock WHERE location_check <> 'OFF'` lists them). And two purges stop, which matters to what guests are told: a release before 2.11.0 keeps their IP addresses for as long as the attempts, a year, not 90 days, and one before 2.8.0 no longer deletes the links that ended a year ago, with the names in their labels. Neither loses anything, and the next release that knows them catches up on its first night; do not stay that far back for long. Rolling back to an earlier major version means restoring the dump taken before upgrading (next section), and pinning that major's last release, such as `:v1.12.0`. A paused link needs nothing weighed: it is stored as a revoked one, so a release up to 2.17.0 shows it as revoked and never opens with it; back on a later release it is paused again and can be resumed, unless it was deleted meanwhile.
 
 ## Restore a dump
 
@@ -181,7 +182,7 @@ The server's other databases (`postgres`, the templates) stay as they were, whic
 
 ## Rotate the AEAD keyset
 
-The AEAD keyset encrypts the owners' Nuki tokens (pasted API tokens, and OAuth2 access and refresh tokens) and their links' PINs. Rotating it adds a new primary key: what is stored from then on uses it, and the earlier keys stay in the keyset to decrypt what is already stored.
+The AEAD keyset encrypts the owners' Nuki tokens (OAuth2 access and refresh tokens) and their links' PINs. Rotating it adds a new primary key: what is stored from then on uses it, and the earlier keys stay in the keyset to decrypt what is already stored.
 
 1. Copy `aead-keyset.json` from your password manager to a development machine and run `./gradlew rotateAeadKeyset --args=<path to aead-keyset.json>`. It prints the new primary key's id.
 2. Store the rotated file in your password manager, replacing the old one.
@@ -204,7 +205,6 @@ Keep the earlier key for 30 days, as long as the dumps taken before the rotation
 
 **If the AEAD keyset leaked**, together with a dump the owners' tokens are exposed. Rotate the keyset, then ask every owner to replace theirs:
 
-- Connected with an API token: delete it in Nuki Web, and paste a new one.
 - Connected with OAuth2: at `/settings/nuki`, "Desconectar Nuki", which asks Nuki to revoke the authorization (check the log for "Asked Nuki to revoke"), and then "Conectar con Nuki". Using a stolen refresh token also takes the client secret: if that may have leaked too, replace it in Nuki Web and in `secrets/nuki-oauth-client-secret`.
 
 Remove the old key at once, without waiting the 30 days: the app has encrypted every token again on starting, and the dumps that need the old key are the ones whose tokens the owners are replacing.
@@ -213,7 +213,7 @@ Remove the old key at once, without waiting the 30 days: the app has encrypted e
 
 ## An owner leaves
 
-An admin deletes them in `/admin/owners` ("Dar de baja"): their account, passkeys, Nuki connection, locks, links and history go at once. Their data stays in the dumps, locally and in B2, until the dumps expire after 30 days. An OAuth2 authorization is revoked at Nuki as they go (the log says "Asked Nuki to revoke", or "Could not revoke"); an API token is theirs to delete in Nuki Web, so remind them.
+An admin deletes them in `/admin/owners` ("Dar de baja"): their account, passkeys, Nuki connection, locks, links and history go at once. Their data stays in the dumps, locally and in B2, until the dumps expire after 30 days. An OAuth2 authorization is revoked at Nuki as they go (the log says "Asked Nuki to revoke", or "Could not revoke"); if it could not, the owner can remove welcome-home's access in Nuki Web.
 
 ## A leaked access link
 

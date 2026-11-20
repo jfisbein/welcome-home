@@ -251,7 +251,7 @@ class NukiTokenRefreshTests {
 
     @Test
     void pastedApiTokenIsNeverRefreshed() {
-        data.apiToken(aliceId, crypto.encryptAccessToken(aliceId, "api-token"));
+        data.connection(aliceId, crypto.encryptAccessToken(aliceId, "api-token"));
         nukiListsCasaFor("api-token");
 
         assertThat(locks.listLocks(aliceId)).isEqualTo(CASA);

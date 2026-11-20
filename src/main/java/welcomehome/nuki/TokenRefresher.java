@@ -3,7 +3,6 @@ package welcomehome.nuki;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -107,13 +106,12 @@ class TokenRefresher {
             var accessToken = stored.accessTokenEncrypted();
             var refreshToken = stored.refreshTokenEncrypted();
             var reEncryptedAccessToken = crypto.reEncryptAccessToken(ownerId, accessToken);
-            var reEncryptedRefreshToken = refreshToken == null ? Optional.<byte[]>empty()
-                    : crypto.reEncryptRefreshToken(ownerId, refreshToken);
+            var reEncryptedRefreshToken = crypto.reEncryptRefreshToken(ownerId, refreshToken);
             if (reEncryptedAccessToken.isEmpty() && reEncryptedRefreshToken.isEmpty()) {
                 return 0;
             }
             var newAccessToken = reEncryptedAccessToken.orElse(accessToken);
-            var newRefreshToken = reEncryptedRefreshToken.isPresent() ? reEncryptedRefreshToken.get() : refreshToken;
+            var newRefreshToken = reEncryptedRefreshToken.orElse(refreshToken);
             var saved = ownerTransactions.execute(ownerId, () -> connections.saveReEncrypted(ownerId, accessToken,
                     refreshToken, newAccessToken, newRefreshToken));
             if (!saved) {
@@ -124,8 +122,7 @@ class TokenRefresher {
     }
 
     boolean expiresSoon(StoredConnection stored) {
-        var expiresAt = stored.accessTokenExpiresAt();
-        return expiresAt == null || !clock.instant().plus(REFRESH_MARGIN).isBefore(expiresAt);
+        return !clock.instant().plus(REFRESH_MARGIN).isBefore(stored.accessTokenExpiresAt());
     }
 
     /** From when the tokens arrived, by this server's clock, which may differ from Nuki's. */

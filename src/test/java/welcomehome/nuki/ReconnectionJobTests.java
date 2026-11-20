@@ -8,6 +8,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.status;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.net.URI;
 import java.util.UUID;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -158,7 +159,8 @@ class ReconnectionJobTests {
         nuki.stubFor(get("/smartlock").withHeader("Authorization", equalTo("Bearer " + token))
                 .inScenario(name).whenScenarioStateIs("connected").willReturn(response));
         NukiStandInConfiguration.logIsReadable(nuki);
-        connections.connect(ownerId, token);
+        NukiStandInConfiguration.nukiGives(nuki, "code-" + token, token);
+        connections.connectAuthorized(ownerId, "code-" + token, "verifier", URI.create("https://welcome.example/nuki/callback"));
         return ownerId;
     }
 

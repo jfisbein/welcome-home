@@ -81,8 +81,8 @@ services:
         target: /run/secrets/config/spring.mail.username
       - source: smtp_password
         target: /run/secrets/config/spring.mail.password
-      # welcome-home's OAuth2 client, from Nuki Web's API page once Nuki grants the Advanced API. Without them
-      # (remove these two and their entries below), owners connect Nuki only by pasting an API token.
+      # welcome-home's OAuth2 client, from Nuki Web's API page once Nuki grants the Advanced API: the only way
+      # owners connect Nuki. With the two files empty the app starts, and says that it cannot connect Nuki yet.
       - source: nuki_oauth_client_id
         target: /run/secrets/config/welcomehome.nuki.oauth.client-id
       - source: nuki_oauth_client_secret

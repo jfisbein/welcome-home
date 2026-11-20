@@ -66,7 +66,7 @@ class LockProblemEmailTests {
         data = new TestData(migrator);
         data.deleteOwners();
         aliceId = data.owner(ALICE);
-        data.apiToken(aliceId, crypto.encryptAccessToken(aliceId, "alices-token"));
+        data.connection(aliceId, crypto.encryptAccessToken(aliceId, "alices-token"));
         casa = data.lock(aliceId, 17, "Casa");
         mail.purgeEmailFromAllMailboxes();
     }

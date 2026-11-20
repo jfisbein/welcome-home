@@ -303,8 +303,7 @@ class LockSyncTests {
     private void connectNuki(String email, String locksJson) {
         nukiLists(locksJson);
         NukiStandInConfiguration.logIsReadable(nuki);
-        assertThat(mvc.put().uri("/settings/nuki").with(owner(email)).with(csrf()).param("apiToken", "token-" + email))
-                .hasStatus(HttpStatus.FOUND);
+        NukiStandInConfiguration.connect(mvc, nuki, email, "token-" + email);
     }
 
     private void nukiLists(String locksJson) {

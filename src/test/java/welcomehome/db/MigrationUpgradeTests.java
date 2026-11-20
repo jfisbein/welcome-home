@@ -66,7 +66,9 @@ class MigrationUpgradeTests {
                                     (SELECT count(*) FROM lock), (SELECT count(*) FROM access_link),
                                     (SELECT count(*) FROM access_event), (SELECT count(*) FROM notification_preference))
                                 """).query(String.class).single())
-                        .as("the rows there were are there").isEqualTo("2|1|1|1|1|1");
+                        .as("the rows there were are there, but for the connection: it was made with a pasted API token, "
+                                + "which changeset 039 deletes, as owners now connect only with OAuth2")
+                        .isEqualTo("2|0|1|1|1|1");
                 assertThat(migrator.sql("""
                                 SELECT concat_ws('|', device_type, location_check, location_radius_m, location_required::text,
                                                  coalesce(entrance_lock_id::text, '-'), coalesce(latitude::text, '-'))

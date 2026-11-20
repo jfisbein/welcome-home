@@ -14,8 +14,6 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.nio.charset.StandardCharsets;
 import java.time.DayOfWeek;
@@ -102,9 +100,7 @@ class OpenDoorTests {
         lockId = data.lock(aliceId, 17, "Casa");
         nuki.stubFor(get("/smartlock").willReturn(okJson("[]")));
         NukiStandInConfiguration.logIsReadable(nuki);
-        assertThat(mvc.put().uri("/settings/nuki").with(user(ALICE).roles("OWNER")).with(csrf())
-                .param("apiToken", ALICES_NUKI_TOKEN))
-                .hasStatus(HttpStatus.FOUND);
+        NukiStandInConfiguration.connect(mvc, nuki, ALICE, ALICES_NUKI_TOKEN);
         nuki.resetRequests();
         ip = "203.0.113.10";
     }
@@ -121,22 +117,6 @@ class OpenDoorTests {
                 .withHeader("Authorization", equalTo("Bearer " + ALICES_NUKI_TOKEN))
                 .withRequestBody(equalToJson("{\"action\": 3}")));
         assertThat(lastEvent()).isEqualTo("OK|opened|" + ip);
-    }
-
-    /** However the owner connected Nuki, an opening is the same action and the same log. */
-    @Test
-    void anOwnerWhoAuthorizedWelcomeHomeUnlatchesWithTheSameActionAndNoOther() {
-        authorizeWelcomeHome();
-        nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));
-        lockLogShowsUnlatch(0);
-        var link = insertLink("now() - interval '1 hour'", "now() + interval '1 day'");
-
-        assertThat(open(signer.sign(link, 1))).hasStatusOk().bodyJson().extractingPath("$.result").isEqualTo("opened");
-
-        nuki.verify(1, postRequestedFor(urlPathEqualTo("/smartlock/17/action"))
-                .withHeader("Authorization", equalTo("Bearer " + ALICES_NUKI_TOKEN))
-                .withRequestBody(equalToJson("{\"action\": 3}")));
-        nuki.verify(1, postRequestedFor(anyUrl()));
     }
 
     @Test
@@ -931,16 +911,6 @@ class OpenDoorTests {
         assertThat(open(signer.sign(link, 1))).as(result).hasStatus(status)
                 .bodyJson().extractingPath("$.result").isEqualTo(result);
         assertThat(lastEvent()).startsWith("DENIED|" + result + "|");
-    }
-
-    /** Alice's connection becomes an authorization of welcome-home's OAuth2 client, with the same access token. */
-    private void authorizeWelcomeHome() {
-        var aliceId = migrator.sql("SELECT id FROM owner WHERE email = ?").param(ALICE).query(UUID.class).single();
-        migrator.sql("""
-                        UPDATE nuki_connection SET credential = 'OAUTH2', refresh_token_encrypted = ?,
-                                                   access_token_expires_at = now() + interval '1 hour'
-                        """)
-                .param(crypto.encryptRefreshToken(aliceId, "alices-refresh-token")).update();
     }
 
     /** The lock's log shows an unlatch from now, which ended with the given Nuki completion state. */

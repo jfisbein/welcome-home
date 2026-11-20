@@ -311,7 +311,7 @@ class NotificationTests {
 
     @Test
     void nukiRejectingTheTokenIsToldOnce() throws Exception {
-        data.apiToken(aliceId, crypto.encryptAccessToken(aliceId, "rejected-token"));
+        data.connection(aliceId, crypto.encryptAccessToken(aliceId, "rejected-token"));
         nuki.stubFor(get("/smartlock").willReturn(status(401)));
 
         assertThatThrownBy(() -> lockProvider.listLocks(aliceId)).isInstanceOf(LockProviderException.class);
@@ -341,7 +341,7 @@ class NotificationTests {
 
     @Test
     void twoCallsRejectedAtOnceSendOneEmail() throws Exception {
-        data.apiToken(aliceId, crypto.encryptAccessToken(aliceId, "rejected-token"));
+        data.connection(aliceId, crypto.encryptAccessToken(aliceId, "rejected-token"));
         // Slow enough for both calls to find the connection OK before either is rejected.
         nuki.stubFor(get("/smartlock").willReturn(status(401).withFixedDelay(500)));
 

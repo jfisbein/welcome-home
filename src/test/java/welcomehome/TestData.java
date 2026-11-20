@@ -221,14 +221,22 @@ public final class TestData {
                 .params(latitude, longitude, required ? "REFUSE_WHEN_FAR" : check, required, radiusM, lock).update();
     }
 
-        /** A connection with a pasted API token, already encrypted for its owner. */
-    public void apiToken(UUID owner, byte[] accessTokenEncrypted) {
-        apiToken(owner, accessTokenEncrypted, "OK");
+    /**
+     * A connection that works, with its access token already encrypted for its owner. Its refresh token is no token
+     * at all: the access token does not expire for a day, so nothing refreshes it. A test about refreshing uses
+     * {@link #authorization}.
+     */
+    public void connection(UUID owner, byte[] accessTokenEncrypted) {
+        connection(owner, accessTokenEncrypted, "OK");
     }
 
-    public void apiToken(UUID owner, byte[] accessTokenEncrypted, String status) {
-        db.sql("INSERT INTO nuki_connection (owner_id, access_token_encrypted, status) VALUES (?, ?, ?)")
-                .params(owner, accessTokenEncrypted, status).update();
+    public void connection(UUID owner, byte[] accessTokenEncrypted, String status) {
+        db.sql("""
+                        INSERT INTO nuki_connection (owner_id, access_token_encrypted, refresh_token_encrypted,
+                                                     access_token_expires_at, status)
+                        VALUES (?, ?, ?, now() + interval '1 day', ?)
+                        """)
+                .params(owner, accessTokenEncrypted, accessTokenEncrypted, status).update();
     }
 
     /**
@@ -239,9 +247,9 @@ public final class TestData {
     public void authorization(UUID owner, byte[] accessTokenEncrypted, byte[] refreshTokenEncrypted, String expiresIn,
                               String status) {
         db.sql("""
-                        INSERT INTO nuki_connection (owner_id, credential, access_token_encrypted,
+                        INSERT INTO nuki_connection (owner_id, access_token_encrypted,
                                                      refresh_token_encrypted, access_token_expires_at, status)
-                        VALUES (?, 'OAUTH2', ?, ?, now() + ?::interval, ?)
+                        VALUES (?, ?, ?, now() + ?::interval, ?)
                         """)
                 .params(owner, accessTokenEncrypted, refreshTokenEncrypted, expiresIn, status).update();
     }
@@ -282,9 +290,12 @@ public final class TestData {
      * @return the lock and the link
      */
     public OwnerRows aRowInEveryTable(UUID owner, long nukiSmartlockId) {
-        db.sql("INSERT INTO nuki_connection (owner_id, access_token_encrypted, status) VALUES (?, ?, 'OK') "
-                        + "ON CONFLICT (owner_id) DO NOTHING")
-                .params(owner, new byte[] {1}).update();
+        db.sql("""
+                        INSERT INTO nuki_connection (owner_id, access_token_encrypted, refresh_token_encrypted,
+                                                     access_token_expires_at, status)
+                        VALUES (?, ?, ?, now() + interval '1 day', 'OK') ON CONFLICT (owner_id) DO NOTHING
+                        """)
+                .params(owner, new byte[] {1}, new byte[] {2}).update();
         var lock = lock(owner, nukiSmartlockId, "Home");
         var link = link(lock, "Guest");
         schedule(link, DayOfWeek.MONDAY, "09:00", "17:00");

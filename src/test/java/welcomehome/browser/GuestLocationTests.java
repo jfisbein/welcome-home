@@ -65,7 +65,7 @@ class GuestLocationTests extends BrowserTest {
         data = new TestData(migrator);
         data.deleteOwners();
         var owner = data.owner("alice@example.com");
-        data.apiToken(owner, crypto.encryptAccessToken(owner, "alices-token"));
+        data.connection(owner, crypto.encryptAccessToken(owner, "alices-token"));
         lockId = data.lock(owner, 17, "Casa");
         linkId = data.link(lockId, "Ana");
         nuki.stubFor(post("/smartlock/17/action").willReturn(status(204)));

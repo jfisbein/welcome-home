@@ -12,6 +12,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.net.URI;
 import java.util.UUID;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -182,7 +183,8 @@ class NukiWebLockProviderTests {
         nuki.stubFor(get("/smartlock").withHeader("Authorization", equalTo("Bearer " + token))
                 .willReturn(okJson("[{\"smartlockId\": 17, \"type\": 5, \"name\": \"Casa\", \"serverState\": 0}]")));
         NukiStandInConfiguration.logIsReadable(nuki);
-        connections.connect(ownerId, token);
+        NukiStandInConfiguration.nukiGives(nuki, "code-" + token, token);
+        connections.connectAuthorized(ownerId, "code-" + token, "verifier", URI.create("https://welcome.example/nuki/callback"));
     }
 
     private void assertNotConnected(UUID ownerId) {

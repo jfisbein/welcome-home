@@ -61,6 +61,18 @@ class MigrationCompatibilityTests {
      * its why; MigrationUpgradeTests runs them all over a database with rows.
      */
     static final Map<String, String> REVIEWED = Map.ofEntries(
+            Map.entry("039-nuki-connection-oauth2-only.xml: SQL DELETE FROM nuki_connection WHERE credential <> 'OAUTH2'",
+                    "not compatible, by the owner's leave of 2026-11-20, while they are the only user: a release before this one "
+                            + "no longer runs against the schema, and going back is restoring a dump"),
+            Map.entry("039-nuki-connection-oauth2-only.xml: SQL ALTER TABLE nuki_connection DROP CONSTRAINT nuki_connection_",
+                    "not compatible, by the owner's leave of 2026-11-20, while they are the only user: a release before this one "
+                            + "no longer runs against the schema, and going back is restoring a dump"),
+            Map.entry("039-nuki-connection-oauth2-only.xml: <dropColumn>",
+                    "not compatible, by the owner's leave of 2026-11-20, while they are the only user: a release before this one "
+                            + "no longer runs against the schema, and going back is restoring a dump"),
+            Map.entry("039-nuki-connection-oauth2-only.xml: <addNotNullConstraint>",
+                    "not compatible, by the owner's leave of 2026-11-20, while they are the only user: a release before this one "
+                            + "no longer runs against the schema, and going back is restoring a dump"),
             Map.entry("020-lock-device-type-and-entrance.xml: constraint on lock: lock_device_type_check",
                     "on device_type, added with it and its default, which every row and every earlier insert gets"),
             Map.entry("020-lock-device-type-and-entrance.xml: constraint on lock: lock_entrance_not_itself_check",

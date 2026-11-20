@@ -54,7 +54,7 @@ class GuestSlideTests extends BrowserTest {
         data = new TestData(migrator);
         data.deleteOwners();
         var owner = data.owner("alice@example.com");
-        data.apiToken(owner, crypto.encryptAccessToken(owner, "alices-token"));
+        data.connection(owner, crypto.encryptAccessToken(owner, "alices-token"));
         linkId = data.link(data.lock(owner, 17, "Casa"), "Ana");
         nukiOpens();
         page.navigate(url("/o/" + signer.sign(linkId, 1)));

@@ -29,7 +29,7 @@ class NukiConnectionDao {
 
     Optional<StoredConnection> find(UUID ownerId) {
         return jdbc.sql("""
-                        SELECT id, credential, access_token_encrypted, refresh_token_encrypted,
+                        SELECT id, access_token_encrypted, refresh_token_encrypted,
                                access_token_expires_at, status, last_checked_at::timestamp AS last_checked_at
                         FROM nuki_connection
                         WHERE owner_id = :ownerId
@@ -45,7 +45,7 @@ class NukiConnectionDao {
      */
     Optional<StoredConnection> findDisconnectedWithin(UUID ownerId, Duration time) {
         return jdbc.sql("""
-                        SELECT id, credential, access_token_encrypted, refresh_token_encrypted,
+                        SELECT id, access_token_encrypted, refresh_token_encrypted,
                                access_token_expires_at, status, last_checked_at::timestamp AS last_checked_at
                         FROM nuki_connection
                         WHERE owner_id = :ownerId AND status = 'DISCONNECTED'
@@ -58,28 +58,23 @@ class NukiConnectionDao {
     }
 
     /**
-     * Stores a connection whose token Nuki has just accepted, replacing any earlier one.
+     * Stores a connection whose tokens Nuki has just given, replacing any earlier one.
      *
-     * @param refreshTokenEncrypted  the refresh token, for {@link NukiCredential#OAUTH2} only
-     * @param accessTokenExpiresAt   when the access token expires, for {@link NukiCredential#OAUTH2} only
+     * @param accessTokenExpiresAt when the access token expires
      */
-    void save(UUID ownerId, NukiCredential credential, byte[] accessTokenEncrypted,
-              byte @Nullable [] refreshTokenEncrypted, @Nullable Instant accessTokenExpiresAt) {
+    void save(UUID ownerId, byte[] accessTokenEncrypted, byte[] refreshTokenEncrypted, Instant accessTokenExpiresAt) {
         jdbc.sql("""
-                        INSERT INTO nuki_connection (owner_id, credential, access_token_encrypted,
-                                                     refresh_token_encrypted, access_token_expires_at, status,
-                                                     last_checked_at)
-                        VALUES (:ownerId, :credential, :accessTokenEncrypted, :refreshTokenEncrypted,
-                                :accessTokenExpiresAt, 'OK', now())
+                        INSERT INTO nuki_connection (owner_id, access_token_encrypted, refresh_token_encrypted,
+                                                     access_token_expires_at, status, last_checked_at)
+                        VALUES (:ownerId, :accessTokenEncrypted, :refreshTokenEncrypted, :accessTokenExpiresAt, 'OK',
+                                now())
                         ON CONFLICT (owner_id) DO UPDATE
-                        SET credential = excluded.credential,
-                            access_token_encrypted = excluded.access_token_encrypted,
+                        SET access_token_encrypted = excluded.access_token_encrypted,
                             refresh_token_encrypted = excluded.refresh_token_encrypted,
                             access_token_expires_at = excluded.access_token_expires_at,
                             status = 'OK', last_checked_at = now()
                         """)
                 .param("ownerId", ownerId)
-                .param("credential", credential.name())
                 .param("accessTokenEncrypted", accessTokenEncrypted)
                 .param("refreshTokenEncrypted", refreshTokenEncrypted)
                 .param("accessTokenExpiresAt", timestamp(accessTokenExpiresAt))
@@ -103,8 +98,7 @@ class NukiConnectionDao {
                             access_token_expires_at = :accessTokenExpiresAt,
                             status = 'OK',
                             last_checked_at = CASE WHEN status = 'OK' THEN last_checked_at ELSE now() END
-                        WHERE owner_id = :ownerId AND credential = 'OAUTH2'
-                          AND access_token_encrypted = :previous AND status = :status
+                        WHERE owner_id = :ownerId AND access_token_encrypted = :previous AND status = :status
                         """)
                 .param("ownerId", ownerId)
                 .param("status", status.name())
@@ -152,14 +146,14 @@ class NukiConnectionDao {
      *
      * @return whether the tokens were stored
      */
-    boolean saveReEncrypted(UUID ownerId, byte[] accessTokenEncrypted, byte @Nullable [] refreshTokenEncrypted,
-                            byte[] reEncryptedAccessToken, byte @Nullable [] reEncryptedRefreshToken) {
+    boolean saveReEncrypted(UUID ownerId, byte[] accessTokenEncrypted, byte[] refreshTokenEncrypted,
+                            byte[] reEncryptedAccessToken, byte[] reEncryptedRefreshToken) {
         return jdbc.sql("""
                         UPDATE nuki_connection
                         SET access_token_encrypted = :reEncryptedAccessToken,
                             refresh_token_encrypted = :reEncryptedRefreshToken
                         WHERE owner_id = :ownerId AND access_token_encrypted = :accessTokenEncrypted
-                          AND refresh_token_encrypted IS NOT DISTINCT FROM CAST(:refreshTokenEncrypted AS bytea)
+                          AND refresh_token_encrypted = :refreshTokenEncrypted
                         """)
                 .param("ownerId", ownerId)
                 .param("accessTokenEncrypted", accessTokenEncrypted)
@@ -172,13 +166,12 @@ class NukiConnectionDao {
     /**
      * Locks keep their row: their connection_id becomes NULL, and their links do not change.
      *
-     * @return how the deleted connection was made, or empty if the owner had none
+     * @return whether the owner had one
      */
-    Optional<NukiCredential> delete(UUID ownerId) {
-        return jdbc.sql("DELETE FROM nuki_connection WHERE owner_id = :ownerId RETURNING credential")
+    boolean delete(UUID ownerId) {
+        return jdbc.sql("DELETE FROM nuki_connection WHERE owner_id = :ownerId")
                 .param("ownerId", ownerId)
-                .query((rs, row) -> NukiCredential.valueOf(rs.getString("credential")))
-                .optional();
+                .update() == 1;
     }
 
     void markChecked(UUID ownerId) {
@@ -187,17 +180,15 @@ class NukiConnectionDao {
                 .update();
     }
 
-    private static @Nullable OffsetDateTime timestamp(@Nullable Instant instant) {
-        return instant == null ? null : instant.atOffset(ZoneOffset.UTC);
+    private static OffsetDateTime timestamp(Instant instant) {
+        return instant.atOffset(ZoneOffset.UTC);
     }
 
     private static StoredConnection storedConnection(ResultSet rs, int row) throws SQLException {
-        var expiresAt = rs.getObject("access_token_expires_at", OffsetDateTime.class);
         return new StoredConnection(rs.getObject("id", UUID.class),
-                NukiCredential.valueOf(rs.getString("credential")),
                 rs.getBytes("access_token_encrypted"),
                 rs.getBytes("refresh_token_encrypted"),
-                expiresAt == null ? null : expiresAt.toInstant(),
+                rs.getObject("access_token_expires_at", OffsetDateTime.class).toInstant(),
                 ConnectionStatus.valueOf(rs.getString("status")),
                 rs.getObject("last_checked_at", LocalDateTime.class));
     }
@@ -205,12 +196,11 @@ class NukiConnectionDao {
     /**
      * A connection as stored.
      *
-     * @param accessTokenExpiresAt when an OAuth2 access token expires; null for an API token
+     * @param accessTokenExpiresAt when the access token expires
      */
     // Never compared, so the arrays' identity-based equals does not matter.
     @SuppressWarnings("ArrayRecordComponent")
-    record StoredConnection(UUID id, NukiCredential credential, byte[] accessTokenEncrypted,
-                            byte @Nullable [] refreshTokenEncrypted, @Nullable Instant accessTokenExpiresAt,
-                            ConnectionStatus status, @Nullable LocalDateTime lastCheckedAt) {
+    record StoredConnection(UUID id, byte[] accessTokenEncrypted, byte[] refreshTokenEncrypted,
+                            Instant accessTokenExpiresAt, ConnectionStatus status, @Nullable LocalDateTime lastCheckedAt) {
     }
 }

@@ -8,7 +8,6 @@ import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.status;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.nio.charset.StandardCharsets;
@@ -22,7 +21,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
-import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
@@ -233,8 +231,7 @@ class LockWarningsTests {
     private void connectNuki() {
         nuki.stubFor(get("/smartlock").willReturn(okJson("[]")));
         NukiStandInConfiguration.logIsReadable(nuki);
-        assertThat(mvc.put().uri("/settings/nuki").with(owner()).with(csrf()).param("apiToken", "alices-token"))
-                .hasStatus(HttpStatus.FOUND);
+        NukiStandInConfiguration.connect(mvc, nuki, ALICE, "alices-token");
     }
 
     private void nukiLists(String locks) {

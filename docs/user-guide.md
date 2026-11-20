@@ -30,7 +30,7 @@ In **Configuración → Nuki**, press **Conectar con Nuki**, sign in to Nuki and
 - **Nuki asks to let welcome-home manage your devices' authorizations?** It never creates or changes any, but Nuki requires that permission to tell welcome-home at once whether the door opened.
 - **No locks appear?** welcome-home sees only the devices activated for Nuki Web, one by one, in the Nuki app. The page has a guide: **¿Acabas de instalar tu Nuki?**
 - **A lock you added later?** It appears by the next day, or at once if you press **Actualizar desde Nuki** in **Cerraduras**.
-- **"Conectar con Nuki" is not offered?** That installation connects with an API token instead, and the page explains how to get one.
+- **"Conectar con Nuki" is not offered?** The page says that this installation has not been given its access to Nuki: tell whoever runs it.
 
 ## Creating a link
 
@@ -114,4 +114,4 @@ If the door really must open now, you can always use the Nuki app yourself.
 
 Press **Darme de baja** in **Configuración → Cuenta** to delete your account, with your locks, links and history: your links stop opening at once. Whoever runs welcome-home can also do it for you, and the only admin cannot leave until there is another: in **Administración**, **Hacer administrador** makes one of an owner, for good. Copies in backups go within 30 days.
 
-To disconnect Nuki yourself, press **Desconectar Nuki** in **Configuración → Nuki**. Your locks and links stay, but do not open until you connect again. If you pasted an API token, also delete it in Nuki Web.
+To disconnect Nuki yourself, press **Desconectar Nuki** in **Configuración → Nuki**. Your locks and links stay, but do not open until you connect again.

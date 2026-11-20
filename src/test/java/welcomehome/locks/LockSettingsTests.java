@@ -287,7 +287,7 @@ class LockSettingsTests {
     @Test
     void aLockWithoutAPositionIsOfferedNukisAndOneWithItsOwnIsNot() {
         var alice = ownerOf(alicesLock);
-        data.apiToken(alice, crypto.encryptAccessToken(alice, "alices-token"));
+        data.connection(alice, crypto.encryptAccessToken(alice, "alices-token"));
         var stub = nuki.stubFor(get("/smartlock/17").willReturn(okJson("""
                 {"smartlockId": 17, "type": 4, "name": "Casa", "serverState": 0, "state": {"state": 1},
                  "config": {"latitude": 40.41678, "longitude": -3.70379}}

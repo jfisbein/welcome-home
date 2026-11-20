@@ -47,5 +47,6 @@
     <include file="changes/036-access-link-paused.xml" relativeToChangelogFile="true"/>
     <include file="changes/037-owner-activity-recovery.xml" relativeToChangelogFile="true"/>
     <include file="changes/038-owner-previous-email.xml" relativeToChangelogFile="true"/>
+    <include file="changes/039-nuki-connection-oauth2-only.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

@@ -161,8 +161,7 @@ class LockStateTests {
     private void connectNuki() {
         nuki.stubFor(get("/smartlock").willReturn(okJson("[]")));
         NukiStandInConfiguration.logIsReadable(nuki);
-        assertThat(mvc.put().uri("/settings/nuki").with(owner()).with(csrf()).param("apiToken", "alices-token"))
-                .hasStatus(HttpStatus.FOUND);
+        NukiStandInConfiguration.connect(mvc, nuki, ALICE, "alices-token");
     }
 
     private void nukiReportsState(String json) {
