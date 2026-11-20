@@ -28,8 +28,33 @@ jobs:
   # tests' dependencies, the browser. What it hands on is the jar it built and tested.
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # To ask whether this commit's tests have already passed (below).
+      actions: read
     steps:
       - uses: actions/checkout@v7
+
+      # A version tag is put on a commit of main, which this workflow has just tested as a push to main: the same
+      # commit is not tested a second time, only built. If that run is still under way, this one waits for it. Any
+      # other tag, on a commit that did not pass there, is tested here like everything else.
+      - id: tested
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          already=false
+          for attempt in $(seq 1 90); do
+            run=$(gh run list --workflow image.yml --commit "$GITHUB_SHA" --event push --branch main --limit 1 \
+                --json status,conclusion --jq '.[0] | "\(.status) \(.conclusion)"')
+            case "$run" in
+              "completed success") already=true; break ;;
+              "" | "null null" | completed*) break ;;
+              *) echo "The run of this commit on main is $run: waiting"; sleep 20 ;;
+            esac
+          done
+          echo "already=$already" >> "$GITHUB_OUTPUT"
+          echo "This commit's tests had already passed on main: $already"
 
       - uses: actions/setup-java@v6
         with:
@@ -38,14 +63,28 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
+      # The browser is some 150 MB to download each time; its version is Playwright's, in build.gradle.kts.
+      - if: steps.tested.outputs.already != 'true'
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('build.gradle.kts') }}
+
       - name: Install the browser for the JavaScript's tests
+        if: steps.tested.outputs.already != 'true'
         run: ./gradlew installBrowser
 
       - name: Build and test
+        if: steps.tested.outputs.already != 'true'
         run: ./gradlew build
+
+      - name: Build what was tested on main
+        if: steps.tested.outputs.already == 'true'
+        run: ./gradlew bootJar
 
       # Production's own backup.sh and restore.sh, on a copy of its stack, with the jar this run built.
       - name: Try backing up and restoring
+        if: steps.tested.outputs.already != 'true'
         run: |
           docker build --tag welcome-home:restore-test .
           ./gradlew generateKeysets

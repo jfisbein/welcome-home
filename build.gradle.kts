@@ -92,6 +92,11 @@ tasks.withType<JavaCompile>().configureEach {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    // Test classes take turns within a JVM, as they share its database and its application contexts; several JVMs
+    // run side by side, each with a Postgres container, ports and keysets of its own. Half the processors, as each
+    // JVM also keeps a database and, for the browser tests, a Chromium busy; -PtestForks=1 for one at a time.
+    maxParallelForks = (findProperty("testForks") as String?)?.toInt()
+        ?: (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 4)
     jvmArgumentProviders.add(CommandLineArgumentProvider {
         listOf("-javaagent:${mockitoAgent.singleFile}", "-Xshare:off")
     })
