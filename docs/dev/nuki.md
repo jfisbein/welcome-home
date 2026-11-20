@@ -6,7 +6,7 @@ See also: [guest flow](guest-flow.md) (what asks for the unlatch), [status](stat
 
 ## LockProvider
 
-**`LockProvider`** (`findConnection`, `listLocks`, `getSnapshot`, `listSnapshots`, `unlatch`, `getRecentLog`, all by owner id) isolates Nuki: tokens are decrypted inside `nuki` and never leave it. Another way to reach a lock (Nuki Bridge, MQTT) is another implementation or a change inside `nuki`, without touching the rest.
+**`LockProvider`** (`findConnection`, `listLocks`, `getSnapshot`, `listSnapshots`, `unlatch`, `getRecentLog`, all by owner id) is all the other modules may ask of Nuki, and what it is for is the tokens: they are decrypted inside `nuki` and never leave it. It has one implementation and is not there to have another: a local Nuki Bridge or MQTT in place of the Web API was decided against on 2026-11-05 (review item SIM-11, 2026-11-20, as its javadoc and this page gave that as its reason).
 
 ## Decisions
 

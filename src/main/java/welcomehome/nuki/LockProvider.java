@@ -6,8 +6,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * The owners' Nuki smart locks and Openers, whatever the way to reach them: the Nuki Web API first, a Bridge or MQTT
- * later, without changes to the modules that use it.
+ * The owners' Nuki smart locks and Openers, as the other modules reach them: all they may ask of Nuki, by the
+ * owner's id. It is there to keep the owners' Nuki tokens inside this module, not to have Nuki reached some other
+ * way: it has one implementation, over the Nuki Web API, and a local Bridge or MQTT in its place was decided against
+ * on 2026-11-05.
  *
  * <p>Every method takes the owner whose Nuki connection to use: the provider finds that owner's
  * credentials itself, so they never leave this module. It trusts its callers to have checked that the
