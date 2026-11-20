@@ -12,7 +12,7 @@ Helpful to include: what an attacker could do, the steps to reproduce it on a lo
 
 ## What is covered
 
-- The application in this repository, at the latest `v2` release and on `main`.
+- The application in this repository, at the latest `v3` release and on `main`.
 - The production stack in `deploy/` as documented: `compose.yaml`, the database roles, backups and the Cloudflare Tunnel's place in it.
 
 Not covered: Nuki's own app, API and locks, Cloudflare, and installations that do not follow `docs/deployment.md`. Weaknesses in them are better reported to their makers.

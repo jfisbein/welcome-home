@@ -5,7 +5,7 @@ How to run welcome-home in production. It runs as a Dockge stack on a server of 
 | What               | Where                                                                  |
 |--------------------|------------------------------------------------------------------------|
 | Public URL         | yours; `https://welcome-home.example.com` stands for it here           |
-| Image              | `ghcr.io/jfisbein/welcome-home:v2`, the latest 2.x release             |
+| Image              | `ghcr.io/jfisbein/welcome-home:v3`, the latest 3.x release             |
 | Secrets            | `secrets/` in the stack's folder; the keysets also in a password manager |
 | Database dumps     | `backups/` in the stack's folder; off-site, wherever your backup tool puts them |
 | Tunnel             | Cloudflare Zero Trust: its own tunnel, with only this public hostname  |
@@ -77,15 +77,6 @@ What the stack needs, and what is up to you. The names in brackets are what this
 
    While Databasus is attached, `docker compose down` here reports `Resource is still in use` for `welcome-home_dbbackup`: the network stays, and the next start uses it again.
 
-## Nuki's webhooks and pasted API tokens, no longer used
-
-Until 2.18.0, owners connected with OAuth2 unlatched through Nuki's Advanced API, which reported each outcome to `/nuki/webhook`. The app no longer has that route nor asks Nuki for what it needed. On a server that ran it, once:
-
-1. In Nuki Web, API → Advanced API, clear the webhook URL: Nuki sends none without an advanced action, but would otherwise keep the address.
-2. In Cloudflare, delete the IP Access rule that allowed Nuki's address past Bot Fight Mode (Security → WAF → Tools): nothing from Nuki reaches the app any more.
-3. An owner who had pasted an API token, which the app took until 2.18.0, is no longer connected: the upgrade deleted that connection, and they connect at `/settings/nuki` with "Conectar con Nuki". The token itself stays valid at Nuki until they delete it in Nuki Web (API → API tokens).
-4. Each owner connected with OAuth2 connects again, at `/settings/nuki`, "Desconectar Nuki" and then "Conectar con Nuki" (their links do not open meanwhile): the tokens they have still carry `smartlock.auth` and `webhook.central`, which the app no longer asks for. Their openings work either way.
-
 ## Release and upgrade
 
 A release is a version tag on `main`; the workflow tests it, publishes the image `vX.Y.Z` (plus `vX` and `latest`) and creates the GitHub release, whose notes come from the release pull request.
@@ -97,7 +88,7 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 
 Once the workflow has finished, on the server:
 
-1. In Dockge, update the stack: it pulls `:v2` and `cloudflared:latest` again and recreates what changed.
+1. In Dockge, update the stack: it pulls `:v3` and `cloudflared:latest` again and recreates what changed.
 2. Liquibase migrates the database as `app` starts. Check that `app` turns healthy and that `docker compose logs app` shows no errors. The release that runs:
 
    ```sh
@@ -106,7 +97,20 @@ Once the workflow has finished, on the server:
 
 No dump first. Within a major version migrations only add to the schema, and each runs in a transaction: a migration that fails leaves the database as it was, and the previous release keeps working with one that succeeds (`MigrationCompatibilityTests` checks it). The `backup` service's nightly dump is still there, and `docker compose exec backup /backup/backup.sh now` takes one in a few seconds for whoever would rather have it: it costs nothing and is not required.
 
-A new major version, such as `v3`, may break compatibility: read its release notes, take a dump first (`docker compose exec backup /backup/backup.sh now`), and change the `app` image to `:v3`, with whatever else the notes ask for.
+A new major version, such as `v4`, may break compatibility: read its release notes, take a dump first (`docker compose exec backup /backup/backup.sh now`), and change the `app` image to `:v4`, with whatever else the notes ask for.
+
+### From 2.x to 3.0
+
+3.0.0 unlatches one way and connects Nuki one way. Until 2.18.0, owners connected with OAuth2 unlatched through Nuki's Advanced API, which reported each outcome to `/nuki/webhook`, and an owner could connect by pasting an API token instead: both are gone, with `nuki_connection.credential` (changeset 039), which no 2.x release runs without.
+
+1. Take a dump: `docker compose exec backup /backup/backup.sh now`. It is the only way back to 2.x.
+2. In Dockge, edit the stack: the `app` image `:v3`. Nothing else in `compose.yaml` changes. Deploy.
+3. Check that `app` turns healthy and runs 3.0.0 (the command above).
+4. In Nuki Web, API → Advanced API, clear the webhook URL: Nuki sends none without an advanced action, but would otherwise keep the address.
+5. In Cloudflare, delete the IP Access rule that allowed Nuki's address past Bot Fight Mode (Security → WAF → Tools): nothing from Nuki reaches the app any more.
+6. An owner who had pasted an API token, which the app took until 2.18.0, is no longer connected: the upgrade deleted that connection, and they connect at `/settings/nuki` with "Conectar con Nuki". The token itself stays valid at Nuki until they delete it in Nuki Web (API → API tokens).
+7. Each owner connected with OAuth2 connects again, at `/settings/nuki`, "Desconectar Nuki" and then "Conectar con Nuki" (their links do not open meanwhile): the tokens they have still carry `smartlock.auth` and `webhook.central`, which the app no longer asks for. Their openings work either way.
+8. Open a door with a link, in front of it: that Nuki's plain action opens for a token with only the four scopes asked for now was last seen on 2026-11-04.
 
 ### From 1.x to 2.0
 
@@ -119,7 +123,9 @@ A new major version, such as `v3`, may break compatibility: read its release not
 
 ## Roll back
 
-Pin the previous release, such as `ghcr.io/jfisbein/welcome-home:v2.0.0`, and deploy. Within a major version the older release works with the newer schema, so nothing else is needed; go back to `:v2` once a fixed release is out. **With one exception: no release before 2.19.0 runs against the schema of 2.19.0 or later**, which took `nuki_connection.credential` out (changeset 039, when the owner was the only user): going back past it is restoring a dump from before the upgrade (below), not pinning. **One thing to weigh first:** a release before 2.6.0 knows nothing of links' schedules, and those links open at any time within their dates. Before going back that far, revoke the links that have a schedule, or accept that; `SELECT DISTINCT link_id FROM access_link_schedule` lists them. **Another to weigh:** a release before 2.16.0 knows nothing of links' PINs, and those links open without one. Before going back that far, revoke the links that ask for one, or accept that; `SELECT id FROM access_link WHERE pin_encrypted IS NOT NULL` lists them. A release up to 2.17.0 also ignores `lock.location_required`: a lock set to open only for a guest it can place near the door opens, rolled back, for one who confirms without a position (`SELECT name FROM lock WHERE location_required` lists them). A release up to 2.17.0 has PINs but not their total (`access_link.pin_failures`): rolled back to one, a link locked by wrong PINs opens again with the right one, and wrong PINs are limited only in memory. A release before 2.13.0 ignores the check of where a guest is altogether (`lock.location_check`): rolled back to one, every lock opens from anywhere, those set to refuse too (`SELECT name, location_check FROM lock WHERE location_check <> 'OFF'` lists them). And two purges stop, which matters to what guests are told: a release before 2.11.0 keeps their IP addresses for as long as the attempts, a year, not 90 days, and one before 2.8.0 no longer deletes the links that ended a year ago, with the names in their labels. Neither loses anything, and the next release that knows them catches up on its first night; do not stay that far back for long. Rolling back to an earlier major version means restoring the dump taken before upgrading (next section), and pinning that major's last release, such as `:v1.12.0`. A paused link needs nothing weighed: it is stored as a revoked one, so a release up to 2.17.0 shows it as revoked and never opens with it; back on a later release it is paused again and can be resumed, unless it was deleted meanwhile.
+Pin the previous release of the same major version, such as `ghcr.io/jfisbein/welcome-home:v3.0.0`, and deploy. Within a major version the older release works with the newer schema, so nothing else is needed; go back to `:v3` once a fixed release is out. Before pinning a release that is several behind, read the notes of those in between for what it does not know: it ignores the columns added since, and so whatever they turned on.
+
+Rolling back to an earlier major version means restoring the dump taken before upgrading (next section), and pinning that major's last release, `:v2.18.0` or `:v1.12.0`: no 2.x release runs against 3.x's schema.
 
 ## Restore a dump
 

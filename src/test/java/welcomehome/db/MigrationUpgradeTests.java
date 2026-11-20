@@ -66,9 +66,7 @@ class MigrationUpgradeTests {
                                     (SELECT count(*) FROM lock), (SELECT count(*) FROM access_link),
                                     (SELECT count(*) FROM access_event), (SELECT count(*) FROM notification_preference))
                                 """).query(String.class).single())
-                        .as("the rows there were are there, but for the connection: it was made with a pasted API token, "
-                                + "which changeset 039 deletes, as owners now connect only with OAuth2")
-                        .isEqualTo("2|0|1|1|1|1");
+                        .as("the rows there were are there").isEqualTo("2|1|1|1|1|1");
                 assertThat(migrator.sql("""
                                 SELECT concat_ws('|', device_type, location_check, location_radius_m, location_required::text,
                                                  coalesce(entrance_lock_id::text, '-'), coalesce(latitude::text, '-'))
@@ -81,9 +79,6 @@ class MigrationUpgradeTests {
                         .query(String.class).list())
                         .as("passkeys' users are tied to their owner, and one of nobody's is left untied")
                         .containsExactly("alice@example.com|" + alice, "gone@example.com|-");
-                assertThat(migrator.sql("SELECT credential_id FROM user_credentials").query(String.class).list())
-                        .as("a passkey of no user, which could not sign in, is gone").containsExactly("alices-passkey");
-
                 whatAReleaseFromThenWritesIsStillTaken(migrator, alice);
             }
         } finally {
@@ -101,11 +96,13 @@ class MigrationUpgradeTests {
         migrator.sql("""
                         INSERT INTO user_credentials (credential_id, user_entity_user_id, public_key, backup_eligible,
                                                       backup_state, label)
-                        VALUES ('alices-passkey', 'alice', '\\x01', false, false, 'Passkey'),
-                               ('nobodys-passkey', 'nobody', '\\x01', false, false, 'Passkey')
+                        VALUES ('alices-passkey', 'alice', '\\x01', false, false, 'Passkey')
                         """).update();
-        migrator.sql("INSERT INTO nuki_connection (owner_id, access_token_encrypted, status) VALUES (?, '\\x01', 'OK')")
-                .param(alice).update();
+        migrator.sql("""
+                        INSERT INTO nuki_connection (owner_id, access_token_encrypted, refresh_token_encrypted,
+                                                     access_token_expires_at, status)
+                        VALUES (?, '\\x01', '\\x02', now() + interval '1 hour', 'OK')
+                        """).param(alice).update();
         var lock = migrator.sql("""
                         INSERT INTO lock (owner_id, nuki_smartlock_id, name, time_zone)
                         VALUES (?, 17, 'Casa', 'Europe/Madrid') RETURNING id

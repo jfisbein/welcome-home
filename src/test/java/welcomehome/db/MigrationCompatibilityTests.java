@@ -37,7 +37,7 @@ class MigrationCompatibilityTests {
      * The first changeset that must keep the previous release working. Those before it predate the rule; a new
      * major version moves it past the changesets that break, and production to that major's tag.
      */
-    static final int COMPATIBLE_FROM = 20;
+    static final int COMPATIBLE_FROM = 40;
 
     /**
      * What a changeset may do without anyone looking: only what cannot touch what is there. Anything else is found,
@@ -60,49 +60,7 @@ class MigrationCompatibilityTests {
      * still runs against it and real rows do not stop it. A new finding fails the test until it is added here, with
      * its why; MigrationUpgradeTests runs them all over a database with rows.
      */
-    static final Map<String, String> REVIEWED = Map.ofEntries(
-            Map.entry("039-nuki-connection-oauth2-only.xml: SQL DELETE FROM nuki_connection WHERE credential <> 'OAUTH2'",
-                    "not compatible, by the owner's leave of 2026-11-20, while they are the only user: a release before this one "
-                            + "no longer runs against the schema, and going back is restoring a dump"),
-            Map.entry("039-nuki-connection-oauth2-only.xml: SQL ALTER TABLE nuki_connection DROP CONSTRAINT nuki_connection_",
-                    "not compatible, by the owner's leave of 2026-11-20, while they are the only user: a release before this one "
-                            + "no longer runs against the schema, and going back is restoring a dump"),
-            Map.entry("039-nuki-connection-oauth2-only.xml: <dropColumn>",
-                    "not compatible, by the owner's leave of 2026-11-20, while they are the only user: a release before this one "
-                            + "no longer runs against the schema, and going back is restoring a dump"),
-            Map.entry("039-nuki-connection-oauth2-only.xml: <addNotNullConstraint>",
-                    "not compatible, by the owner's leave of 2026-11-20, while they are the only user: a release before this one "
-                            + "no longer runs against the schema, and going back is restoring a dump"),
-            Map.entry("020-lock-device-type-and-entrance.xml: constraint on lock: lock_device_type_check",
-                    "on device_type, added with it and its default, which every row and every earlier insert gets"),
-            Map.entry("020-lock-device-type-and-entrance.xml: constraint on lock: lock_entrance_not_itself_check",
-                    "on entrance_lock_id, added with it and NULL in every row; an earlier release never sets it"),
-            Map.entry("020-lock-device-type-and-entrance.xml: constraint on lock: lock_entrance_fkey",
-                    "on entrance_lock_id, added with it and NULL in every row; an earlier release never sets it"),
-            Map.entry("020-lock-device-type-and-entrance.xml: constraint on access_event: access_event_entrance_fkey",
-                    "on entrance_lock_id, added with it and NULL in every row; an earlier release never sets it"),
-            Map.entry("022-passkeys-owner.xml: <update> of user_entities",
-                    "fills owner_id, added with it, from the email: no row can fail, one without an owner stays NULL"),
-            Map.entry("022-passkeys-owner.xml: <addForeignKeyConstraint> on user_entities",
-                    "on owner_id, just filled from owner itself, so every value it holds is an owner's"),
-            Map.entry("022-passkeys-owner.xml: <delete> from user_credentials",
-                    "only passkeys of no user, which cannot sign in, and which the foreign key after it would refuse"),
-            Map.entry("022-passkeys-owner.xml: <addForeignKeyConstraint> on user_credentials",
-                    "after the delete above, every passkey left has its user; Spring Security inserts the user first"),
-            Map.entry("022-passkeys-owner.xml: SQL CREATE FUNCTION set_passkey_owner() RETURNS trigger LANGUAGE",
-                    "a new function, used only by the trigger below"),
-            Map.entry("022-passkeys-owner.xml: SQL CREATE TRIGGER user_entities_set_owner BEFORE INSERT OR UPDA",
-                    "fills owner_id for a release that does not know it, and never fails: no owner gives NULL"),
-            Map.entry("029-lock-coordinates.xml: constraint on lock: lock_coordinates_check",
-                    "on latitude and longitude, added with it and NULL in every row; an earlier release sets neither"),
-            Map.entry("030-location-check.xml: constraint on lock: lock_location_check_check",
-                    "on location_check, added with it and its default, which every row and earlier insert gets"),
-            Map.entry("030-location-check.xml: constraint on lock: lock_location_radius_check",
-                    "on location_radius_m, added with it and its default, which every row and earlier insert gets"),
-            Map.entry("035-owner-make-admin.xml: SQL CREATE FUNCTION make_admin(requested_owner_id uuid) RETURNS ",
-                    "a new function, which an earlier release never calls and which touches no row until called"),
-            Map.entry("035-owner-make-admin.xml: SQL REVOKE ALL ON FUNCTION make_admin(uuid) FROM PUBLIC",
-                    "on the function the changeset has just created: nobody could run it yet"));
+    static final Map<String, String> REVIEWED = Map.ofEntries();
 
     @Test
     void changesetsWithinTheMajorVersionOnlyExpandTheSchema() throws Exception {

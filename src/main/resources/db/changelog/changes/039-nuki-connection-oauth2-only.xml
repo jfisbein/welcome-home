@@ -9,9 +9,9 @@
         Owners connect Nuki only by authorizing welcome-home's OAuth2 client: a pasted API token is no longer taken,
         so every connection has a refresh token and an expiry, and how it was made needs no column.
 
-        Not backward compatible, by the owner's leave (2026-11-20, while they are the only user): a connection made
-        with a pasted API token is deleted, its owner connects again, and a release before this one, which reads
-        credential, no longer runs against this schema. Going back is restoring a dump from before it.
+        Not backward compatible, and so the first changeset of major version 3: a connection made with a pasted API
+        token is deleted, its owner connects again, and a 2.x release, which reads credential, does not run against
+        this schema. Going back is restoring a dump from before it.
     -->
     <changeSet id="039-nuki-connection-oauth2-only" author="welcome-home">
         <comment>
