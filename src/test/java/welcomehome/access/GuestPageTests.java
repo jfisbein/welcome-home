@@ -3,6 +3,7 @@ package welcomehome.access;
 import static com.github.tomakehurst.wiremock.client.WireMock.anyRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.anyUrl;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import java.nio.charset.StandardCharsets;
@@ -118,6 +119,18 @@ class GuestPageTests {
                 .contains("href=\"?lang=en&amp;preview=1\"");
         assertThat(mvc.get().uri("/o/nonsense?lang=en")).hasStatus(HttpStatus.NOT_FOUND).bodyText()
                 .contains("href=\"?lang=es\">Español</a>");
+    }
+
+    /** An owner trying their link is signed in, with a language of their own: the one they ask for still wins. */
+    @Test
+    void anOwnerPreviewingTheirLinkReadsItInTheLanguageTheyChooseThere() {
+        var token = signer.sign(insertLink("now() - interval '1 day'", "now() + interval '1 day'", false), 1);
+        var alice = user("alice@example.com").roles("OWNER");
+
+        assertThat(body(mvc.get().uri("/o/" + token + "?preview=1").with(alice).exchange()))
+                .as("their own, until they choose").contains("Desliza para abrir");
+        assertThat(body(mvc.get().uri("/o/" + token + "?lang=fr&preview=1").with(alice).exchange()))
+                .contains("<html lang=\"fr\"", "Glissez pour ouvrir", "aria-current=\"true\">Français</strong>");
     }
 
     /** A guest who opens the page early and waits with it open gets the slider when the link can open. */
