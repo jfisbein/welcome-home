@@ -270,7 +270,8 @@ class OwnerActivityTests {
         var edited = theOnlyEmail();
         assertThat(edited.getSubject()).isEqualTo("Casa: enlace «Ana» editado");
         assertThat(text(edited)).containsSubsequence("(hora de España peninsular).", "- Su horario ha cambiado.",
-                        "- Ya no pide PIN.", "Si no has sido tú")
+                        "- Ya no pide PIN.",
+                        "Si has sido tú, está todo bien y no tienes que hacer nada. Si no has sido tú, anúlalo en")
                 .doesNotContain("Sus fechas abarcan", "Su PIN ha cambiado");
     }
 
