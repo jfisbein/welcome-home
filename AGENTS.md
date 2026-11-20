@@ -73,7 +73,7 @@ Out of scope so far: geofencing, push notifications, exceptions to a link's sche
 A modular monolith: one Spring Boot app, its modules the packages under `welcomehome`, each used by the others only through its public types. [Architecture](docs/dev/architecture.md) says what each one does.
 
 - `auth`, `admin`: owners' accounts, passkeys, invitations, recovery, sessions, the admin panel: [owners](docs/dev/owners.md)
-- `nuki`: the only module that talks to Nuki: [nuki](docs/dev/nuki.md)
+- `nuki`: the only module that talks to Nuki: [nuki](docs/dev/nuki.md), and how Nuki itself behaves, as found by hand: [what was learned about Nuki](docs/dev/nuki-learned.md)
 - `access`: the guest page and `POST /api/open`: [guest flow](docs/dev/guest-flow.md)
 - `links`: access links, their schedules and PINs: [links](docs/dev/links.md)
 - `audit`: attempts, history and owners' activity: [privacy](docs/dev/privacy.md)
@@ -115,7 +115,7 @@ Releasing, the image and its workflow: [release](docs/dev/release.md).
 | `.claude/skills/` | skills for Claude Code: `review-docs`, the periodic review of these docs |
 | `docs/runbook.md` | production operations |
 | `docs/design/` | designs of what is not built yet |
-| `docs/archive/` | earlier reviews and plans, for their reasoning only |
+| `docs/archive/` | earlier reviews and plans, for their reasoning only: the review of 2026-11-19 has what became of each of the "review item" codes the pages cite (SEC-04, COR-06 and the like) |
 | `docs/features.md` | each feature in detail, its properties |
 | `docs/user-guide.md` | for owners: how to use it, what to do when a guest cannot get in |
 | `docs/security.md`, `docs/deployment.md` | roles, keysets and web security; the image, the stack and backups |

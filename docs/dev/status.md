@@ -2,7 +2,7 @@
 
 Read when: choosing what to do next, or after trying for real something listed here: write down what it found.
 
-See also: [nuki](nuki.md#what-was-learned-about-nuki) for what is known and still unknown about Nuki.
+See also: [what was learned about Nuki](nuki-learned.md) for what is known and still unknown about it.
 
 ## Where things stand
 
@@ -11,10 +11,10 @@ See also: [nuki](nuki.md#what-was-learned-about-nuki) for what is known and stil
 - **A phone.** Nothing has been tried on one. Chromium's touch emulation covers `open.js`'s logic, not Safari on iOS or a real finger: sliding to open with touch and with screen readers (VoiceOver, TalkBack), the thumb sliding back after an opening, a lock's links as cards below 1024 px, the configuration's tabs in two rows. They were checked in Chrome, on rendered copies of the pages, from 320 to 1280 px.
 - **A link's schedule, refused for real.** A slide with the page left open past its hours (`outside-schedule`) is covered only by tests, as a failure there would open a real door. The rest was gone through in production with a test link.
 - **Languages.** French and Italian have not been read by a native speaker; they were read whole against the Spanish on 2026-11-20, with English, and corrected.
-- **Accessibility, by a person.** axe-core (`AccessibilityTests`) covers what the HTML shows, since 2.15.0; three things need real devices and people: the slide to open with VoiceOver and TalkBack (is "opening", "open" or the failure announced, and can it be done with one finger or a tremor; see also A phone), whether screen readers announce the notices (`<article aria-live="assertive">`, set on a page already loaded, which some do not), and French, German and Italian read by a native speaker (see Languages). Write down here what they find.
-- **The Nuki Opener.** Tried only against WireMock and in screenshots of the guest page. The first real check is an owner who has one sliding at their building's entrance with a link of their own. How an Opener logs an opening through the Web API is the open question (see [Nuki's decisions](nuki.md#decisions)): if those openings come out "not confirmed", the app's log has the Opener's entries with Nuki's codes.
+- **Accessibility, by a person.** axe-core (`AccessibilityTests`) covers what the HTML shows, since 2.15.0; three things need real devices and people: the slide to open with VoiceOver and TalkBack (is "opening", "open" or the failure announced, and can it be done with one finger or a tremor; see also A phone), whether screen readers announce the notices (`<article aria-live="assertive">`, set on a page already loaded, which some do not), and French and Italian read by a native speaker (see Languages). Write down here what they find.
+- **The Nuki Opener.** Tried only against WireMock and in screenshots of the guest page. The first real check is an owner who has one sliding at their building's entrance with a link of their own. How an Opener logs an opening through the Web API is the open question (see [Nuki's decisions](nuki.md#decisions)): if those openings come out "not confirmed", the app's log has the Opener's entries with Nuki's codes. Two items of the review of 2026-11-19 wait for that check and are not to be worked on before it ([the review](../archive/review-2026-11-19.md), the owner's decision, 2026-11-20): SIM-05, whether the Opener and the entrance stay in the app as they are, and UX-15, a PIN asked at the entrance and again at the door.
 - **The Nuki app's labels** in the guide on `/settings/nuki`, Spanish "Características y configuración" and "Nuki Web" first: its steps follow Nuki's help center as read on 2026-10-27 (articles 360016485718 and 4402921104145, which `help.nuki.io` serves to scripts only through Zendesk's API, `/api/v2/help_center/<locale>/articles/<id>.json`), not the Nuki app itself.
-- **How long a refresh token lasts** (see [Nuki's OAuth2](nuki.md#what-was-learned-about-nuki)): a connection made on 2026-10-26 and still `OK` after 2027-01-24 means that Nuki's 90 days do not count from the authorization.
+- **How long a refresh token lasts** (see [Nuki's OAuth2](nuki-learned.md#by-hand)): a connection made on 2026-10-26 and still `OK` after 2027-01-24 means that Nuki's 90 days do not count from the authorization.
 
 ## Other ideas
 

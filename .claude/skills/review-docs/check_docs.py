@@ -16,7 +16,9 @@ DOCS = ["AGENTS.md", "README.md"] + sorted(glob.glob("docs/*.md")) + sorted(glob
 DEV = sorted(glob.glob("docs/dev/*.md"))
 # Named in the docs on purpose though the code has no such type or path: names that Nuki or
 # Spring use, git-ignored folders, time zones. Add to these rather than living with the noise.
-KNOWN_NAMES = {"LockAction", "SmartlockAction", "SessionRegistry", "WebAuthnConfigurer"}
+# Nuki's and Spring's own names, a cookie attribute, a browser API, and a Gradle property as its flag is written.
+KNOWN_NAMES = {"LockAction", "SmartlockAction", "SessionRegistry", "WebAuthnConfigurer", "SameSite", "WebAuthn",
+               "PtestForks"}
 KNOWN_PATHS = re.compile(r"^(secrets/|backups/|origin/|ghcr\.io/|Java/|[A-Z][a-z]+/[A-Z]|\w+\.\w+/)")
 found = defaultdict(list)
 
