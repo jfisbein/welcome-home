@@ -10,7 +10,6 @@ flowchart LR
     app --> db[("PostgreSQL")]
     app --> nuki["Nuki Web API"]
     nuki --> lock["Smart Lock or Opener"]
-    nuki -- "webhook" --> tunnel
 ```
 
 ## Where to read next

@@ -55,14 +55,13 @@ public interface LockProvider {
      * Asks the lock to unlatch, that is, to unlock and pull the latch so that the door opens with a push; an
      * Opener instead actuates the electric strike, so that the entrance opens with a push for a few seconds.
      * Nuki runs the action asynchronously: a normal return only means that it was accepted, and the
-     * lock's log confirms it later, or Nuki reports it sooner where it can.
+     * lock's log confirms it later.
      *
      * @param ownerId     the owner whose Nuki connection to use
      * @param smartlockId the lock's Nuki id
-     * @return the accepted action, whose outcome may be reported
      * @throws LockProviderException if the action is not accepted
      */
-    PendingAction unlatch(UUID ownerId, long smartlockId);
+    void unlatch(UUID ownerId, long smartlockId);
 
     /**
      * Gets the lock's latest log entries.

@@ -5,7 +5,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import org.jspecify.annotations.Nullable;
@@ -175,14 +174,6 @@ class NukiConnections {
      *                               {@link Reason#NUKI_ERROR} at most, as the call was not made
      */
     <T extends @Nullable Object> T callNuki(UUID ownerId, Function<String, T> call) {
-        return callNukiWithCredential(ownerId, (_, accessToken) -> call.apply(accessToken));
-    }
-
-    /**
-     * Calls Nuki as {@link #callNuki} does, telling the call how the owner connected Nuki: only an OAuth2
-     * authorization is welcome-home's own client's, whose Advanced API Nuki grants.
-     */
-    <T extends @Nullable Object> T callNukiWithCredential(UUID ownerId, BiFunction<NukiCredential, String, T> call) {
         var stored = connected(ownerId);
         if (stored.credential() == NukiCredential.OAUTH2 && refresher.expiresSoon(stored)) {
             stored = refresh(ownerId);
@@ -190,7 +181,7 @@ class NukiConnections {
         var accessTokenEncrypted = stored.accessTokenEncrypted();
         var accessToken = TokenRefresher.decrypted(() -> crypto.decryptAccessToken(ownerId, accessTokenEncrypted));
         try {
-            return call.apply(stored.credential(), accessToken);
+            return call.apply(accessToken);
         } catch (LockProviderException e) {
             if (e.reason() == Reason.ACCESS_DENIED && stillRejected(accessToken)) {
                 disconnect(ownerId, accessTokenEncrypted);

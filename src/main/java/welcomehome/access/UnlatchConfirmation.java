@@ -19,13 +19,10 @@ import welcomehome.nuki.ActionResult;
 import welcomehome.nuki.LockLogEntry;
 import welcomehome.nuki.LockProvider;
 import welcomehome.nuki.LockProviderException;
-import welcomehome.nuki.PendingAction;
 
 /**
- * Waits for a lock to confirm an unlatch that Nuki accepted: Nuki's report of its outcome, where it sends one,
- * or the lock's log, read until an unlatch entry from after the request shows up, whichever comes first. The log
- * stays as the way that always works: Nuki reports only to owners connected with OAuth2, and only once its
- * webhook URL is set; it documents no retries, and turns the webhooks off after too many failures. An unlatch by
+ * Waits for a lock to confirm an unlatch that Nuki accepted: the lock's log is read until an unlatch entry from
+ * after the request shows up. An unlatch by
  * hand, with the lock's button or by an accessory in the same few seconds is someone else's, not the guest's, so
  * it does not count. An Opener's electric strike actuation is taken to show up the same way, as Nuki's action 3;
  * Nuki does not document its log, so an opening that the log does not confirm is logged with the entries the log
@@ -52,19 +49,16 @@ class UnlatchConfirmation {
 
     /**
      * @param requestedAt when the unlatch was sent to Nuki
-     * @param unlatch     the unlatch Nuki accepted, which it may report
      * @return {@link AccessOutcome#OPENED}, {@link AccessOutcome#LOCK_FAILED}, {@link AccessOutcome#NIGHT_MODE}, or
-     * {@link AccessOutcome#NOT_CONFIRMED} if neither a report nor the log told in time
+     * {@link AccessOutcome#NOT_CONFIRMED} if the log did not tell in time
      */
-    AccessOutcome await(UUID ownerId, long nukiSmartlockId, Instant requestedAt, PendingAction unlatch) {
+    AccessOutcome await(UUID ownerId, long nukiSmartlockId, Instant requestedAt) {
         // How long to wait, not what time it is: the real clock, whatever the app's says.
         var deadline = Instant.now().plus(settings.timeout());
         List<LockLogEntry> since = List.of();
         while (true) {
-            // Between two reads of the log, a report ends the wait at once.
-            var reported = unlatch.awaitOutcome(settings.interval());
-            if (reported.isPresent()) {
-                return result(reported.get());
+            if (!pause(settings.interval())) {
+                return AccessOutcome.NOT_CONFIRMED;
             }
             try {
                 since = readLog(ownerId, nukiSmartlockId, deadline).stream()
@@ -113,6 +107,17 @@ class UnlatchConfirmation {
                 throw failure;
             }
             throw new LockProviderException(LockProviderException.Reason.NUKI_ERROR, e);
+        }
+    }
+
+    /** @return false if the wait was interrupted, as when the app is stopping: nothing more will be learned */
+    private static boolean pause(Duration time) {
+        try {
+            Thread.sleep(time);
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
         }
     }
 

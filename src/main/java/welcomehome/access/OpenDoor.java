@@ -21,7 +21,6 @@ import welcomehome.nuki.Coordinates;
 import welcomehome.nuki.LockProvider;
 import welcomehome.nuki.LockProviderException;
 import welcomehome.nuki.LockProviderException.Reason;
-import welcomehome.nuki.PendingAction;
 
 /**
  * Opens a door for a guest. The checks run in this order, cheapest and least revealing first:
@@ -43,7 +42,7 @@ import welcomehome.nuki.PendingAction;
  * unlatched, or the entrance's electric strike actuated, in the context of the owner that resolve_link returned,
  * which the verified MAC vouches for, and once per lock at a time: concurrent guests share one action and its
  * result.
- * The result waits for Nuki to report the unlatch or the lock's log to confirm it, also when Nuki did not answer
+ * The result waits for the lock's log to confirm the unlatch, also when Nuki did not answer
  * the unlatch, as it may have run it. Every attempt with a valid link is recorded in the owner's history; once the
  * lock may have been asked, nothing that fails afterwards, recording included, changes what the guest is told.
  */
@@ -260,16 +259,15 @@ class OpenDoor {
     private AccessOutcome unlatchAndAwait(UUID ownerId, long nukiSmartlockId) {
         // By the real clock, as the lock's log, which this is compared with, tells the real time.
         var requestedAt = Instant.now();
-        var unlatch = PendingAction.UNREPORTED;
         try {
-            unlatch = lockProvider.unlatch(ownerId, nukiSmartlockId);
+            lockProvider.unlatch(ownerId, nukiSmartlockId);
         } catch (LockProviderException e) {
             var failure = failure(e.reason());
             if (failure.isPresent()) {
                 return failure.get();
             }
         }
-        return confirmation.await(ownerId, nukiSmartlockId, requestedAt, unlatch);
+        return confirmation.await(ownerId, nukiSmartlockId, requestedAt);
     }
 
     /** What a failed unlatch comes to, or empty when only the lock's log can tell. */

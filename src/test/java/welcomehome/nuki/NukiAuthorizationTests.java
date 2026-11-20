@@ -17,7 +17,6 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Base64;
@@ -60,7 +59,7 @@ class NukiAuthorizationTests {
     static final String ALICE = "alice@example.com";
     static final String BOB = "bob@example.com";
     static final String CALLBACK = IntegrationTest.BASE_URL + "/nuki/callback";
-    static final String SCOPE = "smartlock.readOnly smartlock.action smartlock.log smartlock.auth offline_access";
+    static final String SCOPE = "smartlock.readOnly smartlock.action smartlock.log offline_access";
 
     @Autowired
     MockMvcTester mvc;
@@ -104,8 +103,7 @@ class NukiAuthorizationTests {
         assertThat(location).startsWith(nuki.baseUrl() + "/oauth/authorize?response_type=code"
                 + "&client_id=" + NukiStandInConfiguration.CLIENT_ID
                 + "&redirect_uri=https%3A%2F%2Fwelcome.example%2Fnuki%2Fcallback"
-                + "&scope=smartlock.readOnly%20smartlock.action%20smartlock.log%20smartlock.auth%20offline_access"
-                + "%20webhook.central"
+                + "&scope=smartlock.readOnly%20smartlock.action%20smartlock.log%20offline_access"
                 + "&state=");
         assertThat(state(location)).matches("[A-Za-z0-9_-]{43}");
         assertThat(param(location, "code_challenge")).matches("[A-Za-z0-9_-]{43}");
@@ -150,14 +148,14 @@ class NukiAuthorizationTests {
 
     @Test
     void scopesThatNukiGrantsAreLoggedWhetherOrNotTheyAreEnough(CapturedOutput output) {
-        nukiGrants("everything", "access-1", "refresh-1", SCOPE + " webhook.central");
+        nukiGrants("everything", "access-1", "refresh-1", SCOPE + " smartlock.auth");
         callback(ALICE, "code=everything&state=" + state(authorize(ALICE)));
         nuki.resetAll();
         nukiGrants("no-action", "access-2", "refresh-2", "smartlock.readOnly\\nsmartlock.log offline_access");
         assertFailed(callback(ALICE, "code=no-action&state=" + state(authorize(ALICE))), "missing-permission");
 
         assertThat(output.getAll())
-                .contains("Nuki granted owner " + aliceId + " the scopes " + SCOPE + " webhook.central")
+                .contains("Nuki granted owner " + aliceId + " the scopes " + SCOPE + " smartlock.auth")
                 .contains("Nuki granted owner " + aliceId + " the scopes smartlock.readOnly smartlock.log offline_access")
                 .doesNotContain("access-1", "refresh-1", "access-2", "refresh-2");
     }
@@ -211,32 +209,6 @@ class NukiAuthorizationTests {
     }
 
     @Test
-    void clientThatMayNotAskForWebhooksSendsTheOwnerToNukiAgainWithoutThemOnce() {
-        var first = authorize(ALICE);
-
-        var again = askedAgain(callback(ALICE, "error=invalid_scope&state=" + state(first)));
-
-        assertThat(param(again, "scope")).isEqualTo(SCOPE.replace(" ", "%20"));
-        assertThat(state(again)).isNotEqualTo(state(first));
-        assertThat(param(again, "code_challenge")).isNotEqualTo(param(first, "code_challenge"));
-        assertFailed(callback(ALICE, "error=invalid_scope&state=" + state(again)), "failed");
-        nuki.verify(0, anyRequestedFor(anyUrl()));
-        assertNoConnection();
-    }
-
-    @Test
-    void ownerOfAClientThatMayNotAskForWebhooksIsConnectedWithoutThem() throws Exception {
-        nukiGrants("the-code", "access-1", "refresh-1", SCOPE);
-        var again = askedAgain(callback(ALICE, "error=invalid_scope&state=" + state(authorize(ALICE))));
-
-        var result = callback(ALICE, "code=the-code&state=" + state(again));
-
-        assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/settings/nuki");
-        assertThat(s256(sentVerifier())).isEqualTo(param(again, "code_challenge"));
-        assertThat(stored(aliceId).status()).isEqualTo("OK");
-    }
-
-    @Test
     void codeThatNukiRefusesChangesNothing() {
         nuki.stubFor(post("/oauth/token").willReturn(status(400).withHeader("Content-Type", "application/json")
                 .withBody("{\"error\": \"invalid_grant\"}")));
@@ -267,9 +239,8 @@ class NukiAuthorizationTests {
         assertFailed(callback(ALICE, "code=no-action&state=" + state(authorize(ALICE))), "missing-permission");
 
         nuki.resetAll();
-        // What welcome-home asked for before Nuki was found to require smartlock.auth to unlatch with its Advanced API.
-        nukiGrants("no-auth", "access-1", "refresh-1", "smartlock.readOnly smartlock.action smartlock.log offline_access");
-        assertFailed(callback(ALICE, "code=no-auth&state=" + state(authorize(ALICE))), "missing-permission");
+        nukiGrants("no-log-scope", "access-1", "refresh-1", "smartlock.readOnly smartlock.action offline_access");
+        assertFailed(callback(ALICE, "code=no-log-scope&state=" + state(authorize(ALICE))), "missing-permission");
 
         nuki.resetAll();
         nukiGrants("no-refresh", "access-1", null, "smartlock.readOnly smartlock.action smartlock.log");
@@ -395,14 +366,6 @@ class NukiAuthorizationTests {
         assertThat(result).hasStatus(HttpStatus.FOUND);
         var location = result.getMvcResult().getResponse().getRedirectedUrl();
         assertThat(location).isNotNull();
-        return location;
-    }
-
-    /** Where the callback sent the owner back to Nuki. */
-    private String askedAgain(MvcTestResult result) {
-        assertThat(result).hasStatus(HttpStatus.FOUND);
-        var location = result.getMvcResult().getResponse().getRedirectedUrl();
-        assertThat(location).startsWith(nuki.baseUrl() + "/oauth/authorize?");
         return location;
     }
 
