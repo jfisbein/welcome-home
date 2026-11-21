@@ -9,6 +9,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.info.BuildProperties;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
@@ -32,6 +33,9 @@ class HomePageTests {
 
     @Autowired
     PostgreSQLContainer postgres;
+
+    @Autowired
+    BuildProperties buildProperties;
 
     JdbcClient migrator;
     TestData data;
@@ -156,6 +160,13 @@ class HomePageTests {
                             "href=\"/settings/nuki\"", "href=\"/settings/preferences\"", "href=\"/settings/notifications\"",
                             "href=\"/settings/passkeys\"");
         }
+    }
+
+    @Test
+    void menuShowsTheRunningVersionBesideTheAppsName() {
+        assertThat(buildProperties.getVersion()).as("from build.gradle.kts").matches("\\d+\\.\\d+\\.\\d+.*");
+        assertThat(home()).contains("<strong>welcome-home</strong></a><small class=\"version\">"
+                + buildProperties.getVersion() + "</small>");
     }
 
     @Test

@@ -152,6 +152,14 @@ tasks.check {
 }
 
 // One jar, under a fixed name, which the Dockerfile copies: the image does not compile again.
+// META-INF/build-info.properties, for the version shown in the menu. Without the build's time, which would change
+// the file, and so the jar's application layer and Gradle's cache, at every build.
+springBoot {
+    buildInfo {
+        excludes = setOf("time")
+    }
+}
+
 tasks.bootJar {
     archiveFileName = "welcome-home.jar"
 }

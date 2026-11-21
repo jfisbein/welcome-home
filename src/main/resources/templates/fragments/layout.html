@@ -19,7 +19,7 @@
      selector also matches elements by name, and this file has two navs. -->
 <nav th:fragment="menu(section)" class="menu">
     <a href="#main" class="skip-link" th:text="#{nav.skip}">Saltar al contenido</a>
-    <ul><li><a th:href="@{/}" th:attr="aria-current=${section == 'home'} ? 'page' : null"><strong>welcome-home</strong></a></li></ul>
+    <ul><li><a th:href="@{/}" th:attr="aria-current=${section == 'home'} ? 'page' : null"><strong>welcome-home</strong></a><small class="version" th:if="${appVersion}" th:text="${appVersion}">4.2.0</small></li></ul>
     <ul>
         <li><a th:href="@{/locks}" th:attr="aria-current=${section == 'locks'} ? 'page' : null"
                th:text="#{nav.locks}">Cerraduras</a></li>

@@ -11,6 +11,8 @@ Signed-in owners have a menu at the top of every page:
 - **Configuración** (`/settings`, which leads to its first section): one page per section, linked to each other by a row under the menu: Nuki (`/settings/nuki`), Preferencias (`/settings/preferences`: language and color theme), Avisos (`/settings/notifications`), Passkeys (`/settings/passkeys`), Actividad (`/settings/activity`: the account's sign-ins and changes to links) and Cuenta (`/settings/account`: the owner's email, and closing their account). Their former addresses (`/nuki/connection`, `/notifications`, `/passkeys`, which emails sent before the move link to, and `/settings/language`) redirect there permanently.
 - **Administración** (`/admin/owners`): admins only.
 
+Beside the name, in small, the release that runs (4.2.0): `version` in `build.gradle.kts`, which Gradle writes into the jar's `META-INF/build-info.properties` (`VersionModel`). Only signed-in owners see it: neither the guest's page nor the sign-in page shows it.
+
 The menu marks the section a page belongs to (`aria-current="page"`): each page passes it to the `menu` fragment of `fragments/layout.html`, and configuration's pages also pass theirs to the `settings` fragment.
 
 ## Color theme

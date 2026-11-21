@@ -104,6 +104,8 @@ Once the workflow has finished, on the server:
    docker inspect welcome-home-app-1 --format '{{ index .Config.Labels "org.opencontainers.image.version" }}'
    ```
 
+   The menu of the owners' pages shows it too, beside the app's name.
+
 No dump first. Within a major version migrations only add to the schema, and each runs in a transaction: a migration that fails leaves the database as it was, and the previous release keeps working with one that succeeds (`MigrationCompatibilityTests` checks it). The `backup` service's nightly dump is still there, and `docker compose exec backup /backup/backup.sh now` takes one in a few seconds for whoever would rather have it: it costs nothing and is not required.
 
 A new major version, such as `v5`, may break compatibility: read its release notes, take a dump first (`docker compose exec backup /backup/backup.sh now`), and change the `app` image to `:v5`, with whatever else the notes ask for.

@@ -205,6 +205,13 @@ nav [aria-current="page"] {
     font-weight: bold;
 }
 
+/* The running release beside the app's name, small and muted. */
+nav.menu .version {
+    margin-left: 0.5rem;
+    color: var(--pico-muted-color);
+    font-size: 0.75em;
+}
+
 /* Pico's bottom margin for a form's submit button would lift the sign-out button above the menu's links. */
 nav.menu button {
     margin: 0;
