@@ -8,7 +8,7 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A link as its lock's links page shows it.
+ * A link as its lock's links page and its own page show it.
  *
  * @param id         the link's id
  * @param label      who the link is for

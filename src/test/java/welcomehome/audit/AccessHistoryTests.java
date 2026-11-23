@@ -97,8 +97,14 @@ class AccessHistoryTests {
         insertEvent(ana, "2030-07-01T10:00:00Z", "OK", "opened", "198.51.100.1");
         insertEvent(bea, "2030-07-02T10:00:00Z", "OK", "opened", "198.51.100.2");
 
-        assertThat(body(history(casa, "?link=" + ana))).contains("Solo el enlace «Ana»", "198.51.100.1")
+        assertThat(body(history(casa, "?link=" + ana))).contains("198.51.100.1")
+                .as("the form says which link is shown, among the lock's")
+                .contains("<option value=\"" + ana + "\" selected=\"selected\">Ana</option>",
+                        "<option value=\"" + bea + "\">Bea</option>")
                 .doesNotContain("198.51.100.2");
+        assertThat(body(history(casa, "?link="))).as("all of them").contains("198.51.100.1", "198.51.100.2");
+        assertThat(body(history(casa, "?link=" + bea + "&result=DENIED"))).as("a link without such attempts")
+                .contains("Ningún intento con ese filtro.");
     }
 
     /**
@@ -240,7 +246,7 @@ class AccessHistoryTests {
         assertThat(body(history(casa, "?result="))).as("all of them")
                 .contains("198.51.100.1", "198.51.100.2", "198.51.100.3").doesNotContain("selected=");
         assertThat(body(history(casa, "?result=OK&link=" + ana))).as("a link's, narrowed, keeps its link in the form")
-                .contains("Ningún intento con ese filtro.", "name=\"link\" value=\"" + ana + "\"")
+                .contains("Ningún intento con ese filtro.", "<option value=\"" + ana + "\" selected=\"selected\">")
                 .doesNotContain("198.51.100.", "Todavía no hay intentos de abrir");
     }
 
@@ -292,13 +298,15 @@ class AccessHistoryTests {
 
     @Test
     void lockAndLinkPagesLeadToTheHistory() {
-        var lockHistory = "href=\"/locks/" + casa + "/history\"";
-        assertThat(body(mvc.get().uri("/locks").with(SignedIn.owner(ALICE)).exchange())).as("the list of locks")
-                .contains(lockHistory);
-        assertThat(body(mvc.get().uri("/locks/" + casa).with(SignedIn.owner(ALICE)).exchange())).as("the lock")
-                .contains(lockHistory);
-        assertThat(body(mvc.get().uri("/locks/" + casa + "/links").with(SignedIn.owner(ALICE)).exchange())).as("its links")
-                .contains(lockHistory, "href=\"/locks/" + casa + "/history?link=" + ana + "\"");
+        var lockHistory = "<a href=\"/locks/" + casa + "/history\">Historial</a>";
+        assertThat(body(mvc.get().uri("/locks/" + casa + "/settings").with(SignedIn.owner(ALICE)).exchange()))
+                .as("the lock's settings, by its tab").contains(lockHistory);
+        assertThat(body(mvc.get().uri("/locks/" + casa + "/links").with(SignedIn.owner(ALICE)).exchange()))
+                .as("its links, by its tab").contains(lockHistory);
+        assertThat(body(history(casa, ""))).as("the history itself, its tab marked")
+                .contains("<a href=\"/locks/" + casa + "/history\" aria-current=\"page\">Historial</a>");
+        assertThat(body(mvc.get().uri("/links/" + ana).with(SignedIn.owner(ALICE)).exchange())).as("a link's page")
+                .contains("href=\"/locks/" + casa + "/history?link=" + ana + "\"");
     }
 
     private MvcTestResult history(UUID lockId, String query) {

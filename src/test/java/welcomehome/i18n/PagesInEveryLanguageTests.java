@@ -97,7 +97,7 @@ class PagesInEveryLanguageTests {
     void everyPageIsInTheLanguageAskedForWithEveryText() {
         var guestPages = List.of("/login", invitationPath, recoveryPath, "/invite/nonsense", "/email/verify/nonsense",
                 "/o/" + signer.sign(linkId, 1), "/o/nonsense");
-        var ownerPages = List.of("/", "/locks", "/locks/" + lockId, "/locks/" + lockId + "/links", "/links/" + linkId,
+        var ownerPages = List.of("/", "/locks/" + lockId + "/settings", "/locks/" + lockId + "/links", "/links/" + linkId,
                 "/locks/" + lockId + "/history", "/settings/nuki", "/settings/preferences", "/settings/notifications",
                 "/settings/passkeys", "/settings/activity", "/settings/account", "/admin/owners", "/admin/invitations");
 

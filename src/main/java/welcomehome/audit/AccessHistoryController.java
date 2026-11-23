@@ -22,7 +22,8 @@ import welcomehome.auth.CurrentOwner;
 import welcomehome.locks.Locks;
 
 /**
- * A lock's history, or one of its links' with {@code ?link=}, in the lock's time zone. An Opener's also shows the
+ * A lock's history, one of the lock's tabs, in the lock's time zone. It can be narrowed to one of its links
+ * ({@code ?link=}), which is how a link's page leads to its own attempts. An Opener's also shows the
  * attempts at the entrance it opens for other locks' links. It can be narrowed to what the attempts came to
  * ({@code ?result=}) and started at a day ({@code ?until=}), so that "who opened on Saturday night?" is not paging.
  */
@@ -48,10 +49,11 @@ class AccessHistoryController {
                    @RequestParam(required = false) @Nullable Instant before,
                    @RequestParam(required = false) @Nullable UUID beforeId, Locale locale, Model model) {
         var lock = locks.find(owner.id(), lockId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        if (link != null) {
-            model.addAttribute("linkLabel", history.linkLabel(owner.id(), lockId, link)
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND)));
+        var links = history.links(owner.id(), lockId);
+        if (link != null && links.stream().noneMatch(choice -> choice.id().equals(link))) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
+        model.addAttribute("links", links);
         var zone = ZoneId.of(lock.timeZone());
         // A page asked for by its cursor is that page; otherwise the day asked for is the first one shown, whole.
         var from = before != null ? new Cursor(before, beforeId)
@@ -61,11 +63,10 @@ class AccessHistoryController {
         model.addAttribute("events", page.events().stream()
                 .map(event -> rows.row(event, zone, locale))
                 .toList());
-        model.addAttribute("filtered", link != null);
         model.addAttribute("link", link);
         model.addAttribute("result", result);
         model.addAttribute("until", until);
-        model.addAttribute("narrowed", result != null || until != null);
+        model.addAttribute("narrowed", link != null || result != null || until != null);
         model.addAttribute("paged", before != null || until != null);
         model.addAttribute("newerUrl", url(lockId, link, result, null));
         if (page.olderBefore() != null) {

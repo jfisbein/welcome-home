@@ -15,13 +15,13 @@
     <link rel="stylesheet" th:href="@{/css/app.css}">
 </head>
 <body>
-<!-- section: home, locks, settings or admin, the one the page belongs to. Not named "nav": a fragment
+<!-- section: locks, settings or admin, the one the page belongs to; the home page is the list of locks. Not named "nav": a fragment
      selector also matches elements by name, and this file has two navs. -->
 <nav th:fragment="menu(section)" class="menu">
     <a href="#main" class="skip-link" th:text="#{nav.skip}">Saltar al contenido</a>
-    <ul><li><a th:href="@{/}" th:attr="aria-current=${section == 'home'} ? 'page' : null"><strong>welcome-home</strong></a><small class="version" th:if="${appVersion}" th:text="${appVersion}">4.2.0</small></li></ul>
+    <ul><li><a th:href="@{/}"><strong>welcome-home</strong></a><small class="version" th:if="${appVersion}" th:text="${appVersion}">4.2.0</small></li></ul>
     <ul>
-        <li><a th:href="@{/locks}" th:attr="aria-current=${section == 'locks'} ? 'page' : null"
+        <li><a th:href="@{/}" th:attr="aria-current=${section == 'locks'} ? 'page' : null"
                th:text="#{nav.locks}">Cerraduras</a></li>
         <li><a th:href="@{/settings}" th:attr="aria-current=${section == 'settings'} ? 'page' : null"
                th:text="#{nav.settings}">Configuración</a></li>
@@ -50,6 +50,17 @@
                th:text="#{nav.activity}">Actividad</a></li>
         <li><a th:href="@{/settings/account}" th:attr="aria-current=${current == 'account'} ? 'page' : null"
                th:text="#{nav.account}">Cuenta</a></li>
+    </ul>
+</nav>
+<!-- A lock's pages, each a tab of the lock; current: links, history or settings. -->
+<nav th:fragment="lock(lock, current)" class="sections" th:aria-label="${lock.name}">
+    <ul>
+        <li><a th:href="@{/locks/{id}/links(id=${lock.id})}" th:attr="aria-current=${current == 'links'} ? 'page' : null"
+               th:text="#{locks.links}">Enlaces</a></li>
+        <li><a th:href="@{/locks/{id}/history(id=${lock.id})}" th:attr="aria-current=${current == 'history'} ? 'page' : null"
+               th:text="#{common.history}">Historial</a></li>
+        <li><a th:href="@{/locks/{id}/settings(id=${lock.id})}" th:attr="aria-current=${current == 'settings'} ? 'page' : null"
+               th:text="#{locks.details}">Estado y ajustes</a></li>
     </ul>
 </nav>
 </body>

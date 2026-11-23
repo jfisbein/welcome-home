@@ -79,7 +79,7 @@ class LockProblemEmailTests {
         var email = emails(1)[0];
         assertThat(email.getSubject()).isEqualTo("Casa: la cerradura necesita que hagas algo");
         assertThat((String) email.getContent()).contains("La batería está crítica",
-                IntegrationTest.BASE_URL + "/locks/" + casa, IntegrationTest.BASE_URL + "/settings/notifications")
+                IntegrationTest.BASE_URL + "/locks/" + casa + "/settings", IntegrationTest.BASE_URL + "/settings/notifications")
                 .doesNotContain("no puede comunicarse con ella");
 
         job.syncAll();

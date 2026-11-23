@@ -15,8 +15,8 @@ import welcomehome.db.OwnerTransactions;
 import welcomehome.nuki.Coordinates;
 
 /**
- * What an owner configures on a lock: its name, its time zone, whether the door is relocked some other way than
- * Auto Lock, for a smart lock the Opener at its building's entrance, what its guests should know, where it is, and
+ * What an owner configures on a lock: its name, its time zone,
+ * for a smart lock the Opener at its building's entrance, what its guests should know, where it is, and
  * whether a guest's distance to it is checked before opening. Links store their start and end in UTC,
  * so changing the time zone changes how they are shown, not when they are valid.
  */
@@ -67,11 +67,11 @@ class LockSettings {
      * @param locationRadiusM a radius already checked with {@link #parseRadius}
      * @return whether the owner has that lock
      */
-    boolean update(UUID ownerId, UUID lockId, String name, String timeZone, boolean relockingHandledElsewhere,
+    boolean update(UUID ownerId, UUID lockId, String name, String timeZone,
                    @Nullable UUID entranceLockId, @Nullable String guestInstructions,
                    @Nullable Coordinates coordinates, LocationCheck locationCheck, int locationRadiusM) {
         return ownerTransactions.execute(ownerId, () -> locks.updateSettings(ownerId, lockId, name, timeZone,
-                relockingHandledElsewhere, entranceLockId, guestInstructions, coordinates, locationCheck,
+                entranceLockId, guestInstructions, coordinates, locationCheck,
                 locationRadiusM));
     }
 

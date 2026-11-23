@@ -57,7 +57,7 @@ class TimeZoneNamesTests {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"/locks", "/locks/{lock}/links", "/links/{link}", "/locks/{lock}/history"})
+    @ValueSource(strings = {"/locks/{lock}/links", "/links/{link}", "/locks/{lock}/history"})
     void everyPageNamesTheZoneAsGuestsReadIt(String page) {
         var uri = page.replace("{lock}", lockId.toString()).replace("{link}", linkId.toString());
 
@@ -89,7 +89,7 @@ class TimeZoneNamesTests {
 
     @Test
     void theSettingsTellZonesThatShareANameApartByTheirIds() {
-        assertThat(mvc.get().uri("/locks/" + lockId).with(owner())).hasStatusOk().bodyText()
+        assertThat(mvc.get().uri("/locks/" + lockId + "/settings").with(owner())).hasStatusOk().bodyText()
                 .contains(">America/New_York (hora oriental)</option>",
                         ">Europe/Berlin (hora de Europa central)</option>",
                         ">Europe/Paris (hora de Europa central)</option>",

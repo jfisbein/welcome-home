@@ -105,7 +105,8 @@ class AccessibilityTests extends BrowserTest {
         var link = data.link(lock, "Ana");
         data.schedule(link, DayOfWeek.MONDAY, "09:00", "17:00");
         data.attempt(link, TestData.AN_HOUR_AGO, "OK", "opened", "203.0.113.5");
-        var paths = List.of("/", "/locks", "/locks/" + lock + "/links", "/locks/" + lock + "/history", "/settings",
+        var paths = List.of("/", "/locks/" + lock + "/links", "/links/" + link, "/locks/" + lock + "/history",
+                "/locks/" + lock + "/settings", "/settings",
                 "/settings/nuki", "/settings/preferences", "/settings/notifications", "/settings/passkeys",
                 "/settings/activity", "/settings/account", "/no-such-page");
         var found = new ArrayList<String>();

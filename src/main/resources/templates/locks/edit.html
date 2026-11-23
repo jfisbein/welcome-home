@@ -5,15 +5,10 @@
 <main id="main" tabindex="-1" class="container">
     <nav th:replace="~{fragments/layout :: menu('locks')}"></nav>
     <h1 th:text="${lock.name}">Casa</h1>
+    <nav th:replace="~{fragments/layout :: lock(${lock}, 'settings')}"></nav>
     <article th:if="${updated}">
         <p th:text="#{locks.updated(${updated})}">Guardados los cambios de Casa.</p>
     </article>
-    <p class="actions">
-        <a th:href="@{/locks/{id}/links(id=${lock.id})}" role="button" th:text="#{lock.links}">Enlaces</a>
-        <a th:href="@{/locks/{id}/history(id=${lock.id})}" role="button" class="secondary"
-           th:text="#{common.history}">Historial</a>
-    </p>
-
     <section>
         <h2 th:text="#{lock.state}">Estado</h2>
         <p th:if="${lock.opener}" th:text="#{lock.opener-intro}">Es un Nuki Opener: abre el portal unos segundos.</p>
@@ -24,7 +19,7 @@
         <p th:if="${stateError == 'rejected'}" role="alert"
            th:utext="#{lock.state-error.rejected(@{/settings/nuki})}">Nuki ha rechazado la conexión.</p>
         <p th:if="${stateError == 'not-found'}" role="alert"
-           th:utext="#{lock.state-error.not-found(@{/locks})}">Nuki no encuentra esta cerradura.</p>
+           th:utext="#{lock.state-error.not-found(@{/})}">Nuki no encuentra esta cerradura.</p>
         <p th:if="${stateError == 'unavailable'}" role="alert" th:text="#{lock.state-error.unavailable}">
             Nuki no responde ahora mismo.</p>
 
@@ -57,23 +52,15 @@
                 <th:block th:unless="${lock.opener}">
                     <dt th:text="#{lock.auto-lock}">Auto Lock</dt>
                     <dd th:if="${snapshot.autoLockEnabled}" th:text="#{lock.auto-lock.on}">Activado</dd>
-                    <dd th:if="${!snapshot.autoLockEnabled and lock.relockingHandledElsewhere}"
-                        th:text="#{lock.auto-lock.off-elsewhere}">Desactivado: el bloqueo lo gestionas de otra forma.</dd>
-                    <dd th:if="${!snapshot.autoLockEnabled and !lock.relockingHandledElsewhere}"
-                        th:text="#{lock.auto-lock.off}">Desactivado</dd>
+                    <dd th:unless="${snapshot.autoLockEnabled}" th:text="#{lock.auto-lock.off}">Desactivado</dd>
                 </th:block>
             </dl>
-
-            <article th:if="${!lock.opener and !snapshot.autoLockEnabled and !lock.relockingHandledElsewhere}" aria-live="assertive" aria-atomic="true">
-                <p th:utext="#{lock.auto-lock.warning}"><strong>Auto Lock está desactivado.</strong></p>
-                <p th:text="#{lock.auto-lock.advice}">Actívalo en la app de Nuki.</p>
-            </article>
         </th:block>
     </section>
 
     <section>
         <h2 th:text="#{lock.settings}">Ajustes</h2>
-        <form th:action="@{/locks/{id}(id=${lock.id})}" th:method="patch">
+        <form th:action="@{/locks/{id}/settings(id=${lock.id})}" th:method="patch">
             <label>
                 [[#{lock.name}]]
                 <input type="text" name="name" maxlength="100" required th:value="${name}"
@@ -154,15 +141,9 @@
                 <small th:unless="${entranceError}" th:text="#{lock.entrance.hint}">
                     Los enlaces de esta cerradura abrirán también el portal.</small>
             </label>
-            <label th:unless="${lock.opener}">
-                <input type="checkbox" name="relockingHandledElsewhere" value="true"
-                       th:checked="${relockingHandledElsewhere}">
-                [[#{lock.relocking-elsewhere}]]
-            </label>
             <button type="submit" th:text="#{common.save}">Guardar</button>
         </form>
     </section>
-    <p><a th:href="@{/locks}" th:text="#{lock.back}">Volver a cerraduras</a></p>
 </main>
 <script th:src="@{/js/location.js}"></script>
 </body>

@@ -98,9 +98,6 @@ public class LockChecks {
         if (state.position() == LockPosition.MOTOR_BLOCKED) {
             warnings.add(LockWarning.MOTOR_BLOCKED);
         }
-        if (!lock.opener() && !state.autoLockEnabled() && !lock.relockingHandledElsewhere()) {
-            warnings.add(LockWarning.AUTO_LOCK_OFF);
-        }
         return warnings;
     }
 

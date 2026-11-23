@@ -135,6 +135,21 @@ class AccessLinks {
         return ownerTransactions.execute(ownerId, () -> links.exists(ownerId, linkId));
     }
 
+    /**
+     * One of the owner's links as its page shows it, whatever its state.
+     *
+     * @param lock the link's lock, as {@link #lockOf} gives it
+     * @return the link, or empty if the lock has no such link
+     */
+    Optional<LinkView> find(UUID ownerId, OwnerLock lock, UUID linkId, Locale locale) {
+        return list(ownerId, lock, locale).stream().filter(link -> link.id().equals(linkId)).findFirst();
+    }
+
+    /** @return the lock of the owner's link, whatever its state, or empty if the owner has no such link */
+    Optional<UUID> lockOf(UUID ownerId, UUID linkId) {
+        return ownerTransactions.execute(ownerId, () -> links.findLockId(ownerId, linkId));
+    }
+
     /** @return the link's PIN for its owner to read, or empty if it has none */
     Optional<String> pinOf(UUID ownerId, UUID linkId) {
         return pins.of(ownerId, linkId);

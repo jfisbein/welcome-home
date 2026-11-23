@@ -24,7 +24,7 @@ import welcomehome.locks.Locks;
 import welcomehome.locks.OwnerLock;
 
 /**
- * A lock's links: their list and new links. Dates are entered in the lock's time zone and stored as instants.
+ * A lock's links, the first of the lock's tabs: their list and new links. Dates are entered in the lock's time zone and stored as instants.
  */
 @Controller
 @RequestMapping("/locks/{lockId}/links")
@@ -94,9 +94,8 @@ class LockLinksController {
     private String view(CurrentOwner owner, OwnerLock lock, Locale locale, Model model) {
         var links = accessLinks.list(owner.id(), lock, locale);
         model.addAttribute("lock", lock);
-        // The link just created or given a new URL, which the page offers to copy or share as its row does.
-        var sentUrl = model.getAttribute("createdUrl") != null ? model.getAttribute("createdUrl")
-                : model.getAttribute("regeneratedUrl");
+        // The link just created, which the page offers to copy or share as its row does.
+        var sentUrl = model.getAttribute("createdUrl");
         model.addAttribute("sentLink", links.stream().filter(link -> link.url().equals(sentUrl)).findFirst()
                 .orElse(null));
         // A paused link stays among those that can open: resuming it is one press away.

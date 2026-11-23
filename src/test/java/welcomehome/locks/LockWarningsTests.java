@@ -15,8 +15,6 @@ import java.util.UUID;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
@@ -40,7 +38,6 @@ class LockWarningsTests {
     static final String OFFLINE = "Nuki indica que la cerradura no tiene conexión";
     static final String BATTERY = "Batería crítica";
     static final String MOTOR = "Motor bloqueado";
-    static final String AUTO_LOCK = "Auto Lock desactivado";
     static final String UNKNOWN = "no podemos avisarte";
     static final String ALL_WELL = """
             {"smartlockId": 17, "type": 5, "name": "Casa", "serverState": 0,
@@ -79,9 +76,8 @@ class LockWarningsTests {
         insertLock(17, "Casa", "SMART_LOCK");
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"/", "/locks"})
-    void listsSayWhatIsWrongWithALock(String page) {
+    @Test
+    void listsSayWhatIsWrongWithALock() {
         connectNuki();
         nukiLists("""
                 {"smartlockId": 17, "type": 5, "name": "Casa", "serverState": 4,
@@ -89,16 +85,15 @@ class LockWarningsTests {
                  "advancedConfig": {"autoLock": false}}
                 """);
 
-        assertThat(body(page)).contains(OFFLINE, BATTERY, MOTOR, AUTO_LOCK).doesNotContain(UNKNOWN);
+        assertThat(body("/")).contains(OFFLINE, BATTERY, MOTOR).doesNotContain(UNKNOWN);
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"/", "/locks"})
-    void aLockWithoutProblemsHasNoWarnings(String page) {
+    @Test
+    void aLockWithoutProblemsHasNoWarnings() {
         connectNuki();
         nukiLists(ALL_WELL);
 
-        assertThat(body(page)).doesNotContain(OFFLINE, BATTERY, MOTOR, AUTO_LOCK, UNKNOWN);
+        assertThat(body("/")).doesNotContain(OFFLINE, BATTERY, MOTOR, UNKNOWN);
     }
 
     @Test
@@ -108,15 +103,15 @@ class LockWarningsTests {
         nukiLists(ALL_WELL.replace("\"serverState\": 0", "\"serverState\": 4"));
 
         reachability.opened(aliceId, casa);
-        assertThat(body("/locks")).as("an opening before Nuki's report was seen tells nothing").contains(OFFLINE);
+        assertThat(body("/")).as("an opening before Nuki's report was seen tells nothing").contains(OFFLINE);
 
         problems.check(aliceId);
         reachability.opened(aliceId, casa);
-        assertThat(body("/locks")).doesNotContain(OFFLINE);
+        assertThat(body("/")).doesNotContain(OFFLINE);
         assertThat(body("/")).doesNotContain(OFFLINE);
 
         reachability.failedToOpen(aliceId, casa);
-        assertThat(body("/locks")).contains(OFFLINE);
+        assertThat(body("/")).contains(OFFLINE);
     }
 
     @Test
@@ -126,17 +121,17 @@ class LockWarningsTests {
         var offline = ALL_WELL.replace("\"serverState\": 0", "\"serverState\": 4");
         nukiLists(offline);
         problems.check(aliceId);
-        assertThat(body("/locks")).contains(OFFLINE);
+        assertThat(body("/")).contains(OFFLINE);
         reachability.opened(aliceId, casa);
-        assertThat(body("/locks")).doesNotContain(OFFLINE);
+        assertThat(body("/")).doesNotContain(OFFLINE);
 
         nukiLists(ALL_WELL);
         problems.check(aliceId);
-        assertThat(body("/locks")).doesNotContain(OFFLINE);
+        assertThat(body("/")).doesNotContain(OFFLINE);
 
         nukiLists(offline);
         problems.check(aliceId);
-        assertThat(body("/locks")).as("Nuki reports it offline anew").contains(OFFLINE);
+        assertThat(body("/")).as("Nuki reports it offline anew").contains(OFFLINE);
     }
 
     /** When a report began would otherwise depend on who looked at a page. */
@@ -145,14 +140,14 @@ class LockWarningsTests {
         connectNuki();
         nukiLists(ALL_WELL.replace("\"serverState\": 0", "\"serverState\": 4"));
         assertThat(body("/")).contains(OFFLINE);
-        assertThat(body("/locks")).contains(OFFLINE);
+        assertThat(body("/")).contains(OFFLINE);
         assertThat(offlineReport()).isEqualTo("none");
 
         data.offlineSince("now() - interval '1 hour'");
         var report = offlineReport();
         nukiLists(ALL_WELL);
         assertThat(body("/")).doesNotContain(OFFLINE);
-        assertThat(body("/locks")).doesNotContain(OFFLINE);
+        assertThat(body("/")).doesNotContain(OFFLINE);
         assertThat(offlineReport()).isEqualTo(report);
     }
 
@@ -175,38 +170,26 @@ class LockWarningsTests {
         nuki.verify(1, getRequestedFor(urlEqualTo("/smartlock")));
     }
 
+    /** Whether a lock locks itself again is its owner's choice in Nuki, and no problem of the lock. */
     @Test
-    void autoLockOffIsNoWarningForAnOwnerWhoRelocksSomeOtherWay() {
-        data.relockingHandledElsewhere();
+    void autoLockOffIsNoWarning() {
         connectNuki();
         nukiLists(ALL_WELL.replace("\"autoLock\": true", "\"autoLock\": false"));
 
-        assertThat(body("/locks")).doesNotContain(AUTO_LOCK);
-    }
-
-    @Test
-    void autoLockIsNoWarningForAnOpener() {
-        data.makeOpeners();
-        connectNuki();
-        nukiLists("""
-                {"smartlockId": 17, "type": 2, "name": "Portal", "serverState": 0, "state": {"state": 1}}
-                """);
-
-        assertThat(body("/locks")).doesNotContain(AUTO_LOCK);
+        assertThat(body("/")).doesNotContain("Auto Lock");
     }
 
     /** Not Nuki's to tell, so it is said with or without a connection: this lock's links open from anywhere. */
-    @ParameterizedTest
-    @ValueSource(strings = {"/", "/locks"})
-    void aLockThatDoesNotCheckWhereItsGuestsAreSaysSoUntilItDoes(String page) {
+    @Test
+    void aLockThatDoesNotCheckWhereItsGuestsAreSaysSoUntilItDoes() {
         var lockId = migrator.sql("SELECT id FROM lock").query(UUID.class).single();
-        assertThat(body(page)).contains(UNCHECKED, ">Activar la comprobación</a>");
+        assertThat(body("/")).contains(UNCHECKED, ">Activar la comprobación</a>");
 
         data.locationCheck(lockId, 40.416775, -3.703790, "OFF", 150);
-        assertThat(body(page)).as("a position alone checks nothing").contains(UNCHECKED);
+        assertThat(body("/")).as("a position alone checks nothing").contains(UNCHECKED);
 
         data.locationCheck(lockId, 40.416775, -3.703790, "CONFIRM_WHEN_FAR", 150);
-        assertThat(body(page)).doesNotContain(UNCHECKED);
+        assertThat(body("/")).doesNotContain(UNCHECKED);
     }
 
     @Test
@@ -216,7 +199,7 @@ class LockWarningsTests {
         nuki.resetRequests();
 
         assertThat(body("/")).doesNotContain(UNKNOWN, UNCHECKED);
-        assertThat(body("/locks")).doesNotContain(UNCHECKED);
+        assertThat(body("/")).doesNotContain(UNCHECKED);
         nuki.resetRequests();
         assertThat(body("/")).doesNotContain(UNKNOWN);
         nuki.verify(0, anyRequestedFor(anyUrl()));
@@ -228,13 +211,12 @@ class LockWarningsTests {
         nuki.verify(0, anyRequestedFor(anyUrl()));
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"/", "/locks"})
-    void pagesStillWorkWhenNukiFailsAndSaySoInsteadOfLookingAllWell(String page) {
+    @Test
+    void pagesStillWorkWhenNukiFailsAndSaySoInsteadOfLookingAllWell() {
         connectNuki();
         nuki.stubFor(get("/smartlock").willReturn(status(503)));
 
-        assertThat(body(page)).contains("Casa", UNKNOWN);
+        assertThat(body("/")).contains("Casa", UNKNOWN);
     }
 
     @Test

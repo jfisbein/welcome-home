@@ -246,7 +246,7 @@ An admin deletes them in `/admin/owners` ("Dar de baja"): their account, passkey
 
 ## A leaked access link
 
-The owner, on the lock's links page:
+The owner, on the link's page, which its name in the lock's links leads to:
 
 - **Sustituir enlace**, to keep the link for the same guest: the leaked URL stops working at once and the page shows a new one, with the same dates.
 - **Anular**, to end it: from then on it opens nothing.

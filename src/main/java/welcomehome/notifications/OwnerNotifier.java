@@ -158,7 +158,7 @@ class OwnerNotifier {
                     .collect(Collectors.joining("\n"));
             send(to.email(), message(to, "notification.lock-problems.subject", found.lockName()),
                     message(to, "notification.lock-problems.body", found.lockName(), problems,
-                            app.link("/locks/" + found.lockId())) + footer(to));
+                            app.link("/locks/" + found.lockId() + "/settings")) + footer(to));
         });
     }
 

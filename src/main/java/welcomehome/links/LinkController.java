@@ -2,6 +2,7 @@ package welcomehome.links;
 
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -22,50 +23,55 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import welcomehome.auth.CurrentOwner;
 import welcomehome.links.LinkDao.EditableLink;
+import welcomehome.locks.Locks;
 
 /**
- * One link: its edit page and the actions on it. Each action returns to its lock's links page; another
- * owner's link, or a revoked or paused one for editing and regenerating, is not found. Only a link that ended can
- * be deleted, and only one that could open can be paused.
+ * One link: its page, with what it is now, the form that edits it and the actions on it. Each action returns to
+ * the link's page, and deleting it to its lock's links; another owner's link, or a revoked or paused one for
+ * editing and regenerating, is not found. Only a link that ended can be deleted, and only one that could open can
+ * be paused.
  */
 @Controller
 @RequestMapping("/links/{linkId}")
 class LinkController {
 
+    private static final String VIEW = "links/link";
+
     private final AccessLinks accessLinks;
+    private final Locks locks;
     private final Clock clock;
     private final LinkSchedules schedules;
 
-    LinkController(AccessLinks accessLinks, LinkSchedules schedules, Clock clock) {
+    LinkController(AccessLinks accessLinks, Locks locks, LinkSchedules schedules, Clock clock) {
         this.clock = clock;
+        this.locks = locks;
         this.accessLinks = accessLinks;
         this.schedules = schedules;
     }
 
     @GetMapping
-    String edit(CurrentOwner owner, @PathVariable UUID linkId, Model model) {
-        var link = findEditable(owner, linkId);
-        LinkForm.of(link.label(), link.validFrom().toInstant(), link.validUntil().toInstant(),
-                        schedules.of(owner.id(), linkId), ZoneId.of(link.timeZone()),
-                        accessLinks.pinOf(owner.id(), linkId).orElse(""))
-                .addTo(model, null);
-        model.addAttribute("link", link);
-        return "links/edit";
+    String link(CurrentOwner owner, @PathVariable UUID linkId, Locale locale, Model model) {
+        // A revoked or paused link has a page too, without the form: it is where it is resumed or deleted.
+        accessLinks.findEditable(owner.id(), linkId).ifPresent(link ->
+                LinkForm.of(link.label(), link.validFrom().toInstant(), link.validUntil().toInstant(),
+                                schedules.of(owner.id(), linkId), ZoneId.of(link.timeZone()),
+                                accessLinks.pinOf(owner.id(), linkId).orElse(""))
+                        .addTo(model, null));
+        return view(owner, linkId, locale, model);
     }
 
     @PatchMapping
     String update(CurrentOwner owner, @PathVariable UUID linkId, @RequestParam(defaultValue = "") String label,
                   @RequestParam(defaultValue = "") String validFrom, @RequestParam(defaultValue = "") String validUntil,
-                  @RequestParam(defaultValue = "") String pin, @RequestParam Map<String, String> params, Model model, HttpServletResponse response,
-                  RedirectAttributes redirect) {
+                  @RequestParam(defaultValue = "") String pin, @RequestParam Map<String, String> params, Locale locale, Model model,
+                  HttpServletResponse response, RedirectAttributes redirect) {
         var link = findEditable(owner, linkId);
         var form = new LinkForm(label, validFrom, validUntil, ScheduleForm.of(params), pin);
         var validation = form.validate(ZoneId.of(link.timeZone()), clock.instant());
         if (!validation.isValid()) {
             response.setStatus(HttpStatus.BAD_REQUEST.value());
             form.addTo(model, validation);
-            model.addAttribute("link", link);
-            return "links/edit";
+            return view(owner, linkId, locale, model);
         }
         if (!accessLinks.update(owner.id(), linkId, validation.label(),
                 Objects.requireNonNull(validation.validFrom()), Objects.requireNonNull(validation.validUntil()),
@@ -77,28 +83,28 @@ class LinkController {
         if (days != null) {
             redirect.addFlashAttribute("updatedDays", days);
         }
-        return "redirect:/locks/" + link.lockId() + "/links";
+        return "redirect:/links/" + linkId;
     }
 
     @PostMapping("/revoke")
     String revoke(CurrentOwner owner, @PathVariable UUID linkId, RedirectAttributes redirect) {
         var revoked = accessLinks.revoke(owner.id(), linkId).orElseThrow(LinkController::notFound);
         redirect.addFlashAttribute("revokedLabel", revoked.label());
-        return "redirect:/locks/" + revoked.lockId() + "/links";
+        return "redirect:/links/" + linkId;
     }
 
     @PostMapping("/pause")
     String pause(CurrentOwner owner, @PathVariable UUID linkId, RedirectAttributes redirect) {
         var paused = accessLinks.pause(owner.id(), linkId).orElseThrow(LinkController::notFound);
         redirect.addFlashAttribute("pausedLabel", paused.label());
-        return "redirect:/locks/" + paused.lockId() + "/links";
+        return "redirect:/links/" + linkId;
     }
 
     @PostMapping("/resume")
     String resume(CurrentOwner owner, @PathVariable UUID linkId, RedirectAttributes redirect) {
         var resumed = accessLinks.resume(owner.id(), linkId).orElseThrow(LinkController::notFound);
         redirect.addFlashAttribute("resumedLabel", resumed.label());
-        return "redirect:/locks/" + resumed.lockId() + "/links";
+        return "redirect:/links/" + linkId;
     }
 
     @DeleteMapping
@@ -116,9 +122,20 @@ class LinkController {
     @PostMapping("/regenerate")
     String regenerate(CurrentOwner owner, @PathVariable UUID linkId, RedirectAttributes redirect) {
         var regenerated = accessLinks.regenerate(owner.id(), linkId).orElseThrow(LinkController::notFound);
-        redirect.addFlashAttribute("regeneratedUrl", regenerated.url());
+        // The new URL is the one the link's page shows from now on.
         redirect.addFlashAttribute("regeneratedLabel", regenerated.label());
-        return "redirect:/locks/" + regenerated.lockId() + "/links";
+        return "redirect:/links/" + linkId;
+    }
+
+    /** The link's page: the form's values are in the model already when the link can be edited. */
+    private String view(CurrentOwner owner, UUID linkId, Locale locale, Model model) {
+        var lock = accessLinks.lockOf(owner.id(), linkId).flatMap(lockId -> locks.find(owner.id(), lockId))
+                .orElseThrow(LinkController::notFound);
+        model.addAttribute("lock", lock);
+        model.addAttribute("link", accessLinks.find(owner.id(), lock, linkId, locale)
+                .orElseThrow(LinkController::notFound));
+        model.addAttribute("editable", model.containsAttribute("label"));
+        return VIEW;
     }
 
     private EditableLink findEditable(CurrentOwner owner, UUID linkId) {

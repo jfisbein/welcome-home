@@ -9,7 +9,5 @@ public enum LockWarning {
     /** Its battery needs replacing or charging now. */
     BATTERY_CRITICAL,
     /** Its motor is blocked. */
-    MOTOR_BLOCKED,
-    /** It does not lock itself again, and its owner has not said that they relock some other way. */
-    AUTO_LOCK_OFF
+    MOTOR_BLOCKED
 }

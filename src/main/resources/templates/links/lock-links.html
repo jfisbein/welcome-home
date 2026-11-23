@@ -4,11 +4,8 @@
 <body>
 <main id="main" tabindex="-1" class="container">
     <nav th:replace="~{fragments/layout :: menu('locks')}"></nav>
-    <h1 th:text="#{links.title(${lock.name})}">Enlaces de Casa</h1>
-    <p class="actions">
-        <a th:href="@{/locks/{id}/history(id=${lock.id})}" role="button" class="secondary"
-           th:text="#{links.lock-history}">Historial de la cerradura</a>
-    </p>
+    <h1 th:text="${lock.name}">Casa</h1>
+    <nav th:replace="~{fragments/layout :: lock(${lock}, 'links')}"></nav>
 
     <article th:if="${createdUrl}">
         <header><strong th:text="#{links.created(${createdLabel})}">Enlace creado para Ana</strong></header>
@@ -28,36 +25,6 @@
                 <th:block th:replace="~{links/table :: send(${sentLink}, ${lock}, false)}"></th:block>
             </th:block>
         </fieldset>
-    </article>
-
-    <article th:if="${regeneratedUrl}">
-        <header><strong th:text="#{links.regenerated(${regeneratedLabel})}">Nuevo enlace para Ana</strong></header>
-        <p th:text="#{links.regenerated.text}">El enlace anterior ya no abre la puerta.</p>
-        <fieldset role="group">
-            <input id="regenerated-url" type="text" readonly th:value="${regeneratedUrl}"
-                   th:aria-label="#{links.regenerated.url}">
-            <th:block th:if="${sentLink}">
-                <th:block th:replace="~{links/table :: send(${sentLink}, ${lock}, false)}"></th:block>
-            </th:block>
-        </fieldset>
-    </article>
-
-    <article th:if="${updatedLabel}">
-        <p th:text="#{links.updated(${updatedLabel})}">Guardados los cambios del enlace de Ana.</p>
-        <p th:if="${updatedDays}"><small th:text="#{links.long(${updatedDays})}">Este enlace abre la puerta durante
-            90 días. Anúlalo cuando deje de hacer falta.</small></p>
-    </article>
-
-    <article th:if="${pausedLabel}">
-        <p th:text="#{links.paused(${pausedLabel})}">Enlace de Ana en pausa: no abre la puerta hasta que lo reanudes.</p>
-    </article>
-
-    <article th:if="${resumedLabel}">
-        <p th:text="#{links.resumed(${resumedLabel})}">Enlace de Ana reanudado: vuelve a abrir la puerta.</p>
-    </article>
-
-    <article th:if="${revokedLabel}">
-        <p th:text="#{links.revoked(${revokedLabel})}">Enlace de Ana anulado: ya no abre la puerta.</p>
     </article>
 
     <article th:if="${deletedLabel}">
@@ -83,8 +50,6 @@
             Ningún enlace de esta cerradura está pendiente ni activo.</p>
         <th:block th:unless="${links.isEmpty()}">
             <div th:replace="~{links/table :: linkTable(${links})}"></div>
-            <p><small th:text="#{links.actions.hint}">
-                «Sustituir enlace» crea un enlace nuevo. «Anular» hace que deje de abrir la puerta.</small></p>
         </th:block>
         <!-- Those that ended, folded away so that the list does not keep growing: open after deleting one. -->
         <details th:unless="${endedLinks.isEmpty()}" th:open="${deletedLabel != null}">
@@ -94,11 +59,9 @@
         </details>
     </section>
 
-    <p><a th:href="@{/locks/{id}(id=${lock.id})}" th:text="#{links.back(${lock.name})}">Volver a Casa</a></p>
 </main>
 <script th:src="@{/js/copy.js}"></script>
 <script th:src="@{/js/share.js}"></script>
-<script th:src="@{/js/confirm.js}"></script>
 <script th:src="@{/js/schedule.js}"></script>
 <script th:src="@{/js/reveal.js}"></script>
 </body>

@@ -128,7 +128,7 @@ class LockDao {
 
     List<OwnerLock> findAll(UUID ownerId) {
         return jdbc.sql("""
-                        SELECT id, nuki_smartlock_id, name, time_zone, active, relocking_handled_elsewhere,
+                        SELECT id, nuki_smartlock_id, name, time_zone, active,
                                """ + DEVICE_TYPE + """
                                , entrance_lock_id, guest_instructions, latitude, longitude,
                                """ + LOCATION_CHECK + """
@@ -144,7 +144,7 @@ class LockDao {
 
     Optional<OwnerLock> find(UUID ownerId, UUID lockId) {
         return jdbc.sql("""
-                        SELECT id, nuki_smartlock_id, name, time_zone, active, relocking_handled_elsewhere,
+                        SELECT id, nuki_smartlock_id, name, time_zone, active,
                                """ + DEVICE_TYPE + """
                                , entrance_lock_id, guest_instructions, latitude, longitude,
                                """ + LOCATION_CHECK + """
@@ -159,12 +159,11 @@ class LockDao {
     }
 
     /** @return whether the owner has that lock */
-    boolean updateSettings(UUID ownerId, UUID lockId, String name, String timeZone, boolean relockingHandledElsewhere,
+    boolean updateSettings(UUID ownerId, UUID lockId, String name, String timeZone,
                            @Nullable UUID entranceLockId, @Nullable String guestInstructions,
                            @Nullable Coordinates coordinates, LocationCheck locationCheck, int locationRadiusM) {
         return jdbc.sql("""
                         UPDATE lock SET name = :name, time_zone = :timeZone,
-                                        relocking_handled_elsewhere = :relockingHandledElsewhere,
                                         entrance_lock_id = :entranceLockId,
                                         guest_instructions = :guestInstructions,
                                         latitude = :latitude, longitude = :longitude,
@@ -174,7 +173,6 @@ class LockDao {
                         """)
                 .param("name", name)
                 .param("timeZone", timeZone)
-                .param("relockingHandledElsewhere", relockingHandledElsewhere)
                 .param("entranceLockId", entranceLockId)
                 .param("latitude", coordinates == null ? null : coordinates.latitude())
                 .param("longitude", coordinates == null ? null : coordinates.longitude())

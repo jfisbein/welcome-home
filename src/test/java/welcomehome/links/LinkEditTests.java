@@ -86,7 +86,7 @@ class LinkEditTests {
     void ownerChangesLabelAndDatesAndTheUrlStaysTheSame() {
         var result = update(ALICE, linkId, " Ana y Luis ", "2030-11-02T10:00", "2030-11-05T12:00");
 
-        assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/locks/" + lockId + "/links");
+        assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/links/" + linkId);
         assertThat(result.getMvcResult().getFlashMap().get("updatedLabel")).isEqualTo("Ana y Luis");
         assertThat(migrator.sql("""
                         SELECT label || '|' || to_char(valid_from AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI') || '|'
@@ -107,7 +107,7 @@ class LinkEditTests {
         var flash = update(ALICE, linkId, "Ana", "2030-11-02T10:00", "2031-03-02T10:00").getMvcResult().getFlashMap();
 
         assertThat(flash.get("updatedDays")).isEqualTo("120");
-        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(SignedIn.owner(ALICE)).flashAttrs(flash))
+        assertThat(mvc.get().uri("/links/" + linkId).with(SignedIn.owner(ALICE)).flashAttrs(flash))
                 .bodyText().contains("Este enlace puede abrir la puerta durante 120 días.");
     }
 
@@ -144,7 +144,8 @@ class LinkEditTests {
         data.revoke(linkId);
         var before = row(linkId);
 
-        assertThat(mvc.get().uri("/links/" + linkId).with(SignedIn.owner(ALICE))).hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(mvc.get().uri("/links/" + linkId).with(SignedIn.owner(ALICE))).as("its page, without the form")
+                .hasStatusOk().bodyText().contains("Anulado").doesNotContain("Guardar", "name=\"label\"");
         assertThat(update(ALICE, linkId, "Ana", "2030-11-02T10:00", "2030-11-05T12:00")).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(row(linkId)).isEqualTo(before);
     }

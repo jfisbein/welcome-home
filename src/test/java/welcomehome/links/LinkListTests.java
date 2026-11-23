@@ -76,15 +76,36 @@ class LinkListTests {
         var body = page();
 
         var url = IntegrationTest.BASE_URL + "/o/" + signer.sign(active, 3);
-        assertThat(body).contains("data-copy-url=\"" + url + "\"", "data-share-url=\"" + url + "\"",
-                        "href=\"" + url + "?preview=1\"")
+        assertThat(body).contains("data-copy-url=\"" + url + "\"", "data-share-url=\"" + url + "\"")
                 .doesNotContain(signer.sign(active, 1))
-                .as("an expired link can be edited, to extend it, but not copied")
-                .doesNotContain("/o/" + expired)
-                .contains("/links/" + expired + "\"")
-                .as("a revoked link is offered for nothing but its history and deleting")
-                .doesNotContain("href=\"/links/" + revoked, "/links/" + revoked + "/", signer.sign(revoked, 1))
-                .contains("/history?link=" + revoked + "\"", "action=\"/links/" + revoked + "\"");
+                .as("a link that ended is not copied")
+                .doesNotContain("/o/" + expired, signer.sign(revoked, 1))
+                .as("every link's name leads to its page, where the rest is done with it")
+                .contains("<a href=\"/links/" + active + "\">Bea</a>", "<a href=\"/links/" + expired + "\">Carlos</a>",
+                        "<a href=\"/links/" + revoked + "\">Dani</a>")
+                .as("a row only sends its link").doesNotContain("action=\"/links/", "?preview=1", "/history?link=");
+    }
+
+    @Test
+    void aLinksPageOffersWhatItsStateAllows() {
+        var active = insertLink(lockId, "Bea", "now() - interval '1 day'", "now() + interval '1 day'", false);
+        data.tokenVersion(active, 3);
+        var expired = insertLink(lockId, "Carlos", "now() - interval '2 days'", "now() - interval '1 day'", false);
+        var revoked = insertLink(lockId, "Dani", "now() - interval '1 day'", "now() + interval '1 day'", true);
+
+        var url = IntegrationTest.BASE_URL + "/o/" + signer.sign(active, 3);
+        assertThat(linkPage(active)).contains("Enlace «Bea»", "<strong>Activo</strong>", "value=\"" + url + "\"",
+                        "data-copy-url=\"" + url + "\"", "href=\"" + url + "?preview=1\"",
+                        "/links/" + active + "/pause", "/links/" + active + "/regenerate", "/links/" + active + "/revoke",
+                        "/history?link=" + active + "\"", "Guardar",
+                        "href=\"/locks/" + lockId + "/links\"")
+                .doesNotContain(signer.sign(active, 1), "Borrar");
+        assertThat(linkPage(expired)).as("an expired link can be edited, to extend it, but not copied")
+                .contains("Caducado", "Guardar", "/history?link=" + expired + "\"", "Borrar")
+                .doesNotContain("/o/" + expired, "/links/" + expired + "/");
+        assertThat(linkPage(revoked)).as("a revoked link is offered for nothing but its history and deleting")
+                .contains("Anulado", "/history?link=" + revoked + "\"", "action=\"/links/" + revoked + "\"")
+                .doesNotContain("Guardar", "/links/" + revoked + "/", signer.sign(revoked, 1));
     }
 
     /** A bare link says nothing of what it does: its guest is told where to open it, and not to try it before. */
@@ -120,9 +141,9 @@ class LinkListTests {
 
     @Test
     void regeneratingOrRevokingAsksFirstWhatItDoes() {
-        insertLink(lockId, "Bea", "now() - interval '1 day'", "now() + interval '1 day'", false);
+        var bea = insertLink(lockId, "Bea", "now() - interval '1 day'", "now() + interval '1 day'", false);
 
-        assertThat(page()).contains(
+        assertThat(linkPage(bea)).contains(
                 "data-confirm=\"El enlace actual «Bea» dejará de funcionar ahora mismo",
                 "data-confirm=\"El enlace «Bea» dejará de abrir la puerta para siempre",
                 "/js/confirm.js");
@@ -131,11 +152,12 @@ class LinkListTests {
     @Test
     void whatTheActionsDoIsSaidOnThePageOnlyWhileALinkHasThem() {
         var hint = "«Anular» hace que deje de abrir la puerta para siempre";
-        insertLink(lockId, "Ana", "now() - interval '2 days'", "now() - interval '1 day'", false);
-        assertThat(page()).doesNotContain(hint);
+        var ana = insertLink(lockId, "Ana", "now() - interval '2 days'", "now() - interval '1 day'", false);
+        assertThat(linkPage(ana)).doesNotContain(hint);
 
-        insertLink(lockId, "Bea", "now()", "now() + interval '1 day'", false);
-        assertThat(page()).contains(hint);
+        var bea = insertLink(lockId, "Bea", "now()", "now() + interval '1 day'", false);
+        assertThat(linkPage(bea)).contains(hint);
+        assertThat(page()).as("not in the list, whose rows have no such actions").doesNotContain(hint);
     }
 
     @Test
@@ -177,13 +199,14 @@ class LinkListTests {
         var expired = insertLink(lockId, "Carlos", "now() - interval '2 days'", "now() - interval '1 day'", false);
         var revoked = insertLink(lockId, "Dani", "now() - interval '1 day'", "now() + interval '1 day'", true);
 
-        assertThat(page())
+        assertThat(linkPage(expired))
                 .containsPattern("action=\"/links/" + expired + "\"\\s+method=\"post\" data-confirm=\"Se borrarán el enlace "
                         + "«Carlos» y sus intentos del historial. ¿Borrarlo\\?\">.*<input type=\"hidden\" name=\"_method\" "
-                        + "value=\"delete\"")
+                        + "value=\"delete\"");
+        assertThat(linkPage(revoked))
                 .containsPattern("action=\"/links/" + revoked + "\"\\s+method=\"post\" data-confirm=\"Se borrarán el enlace "
-                        + "«Dani»")
-                .doesNotContain("action=\"/links/" + active + "\"");
+                        + "«Dani»");
+        assertThat(linkPage(active)).doesNotContain("value=\"delete\"", "Borrar");
     }
 
     @Test
@@ -200,6 +223,12 @@ class LinkListTests {
         insertLink(otherLock, "Enlace del garaje", "now()", "now() + interval '1 day'", false);
 
         assertThat(page()).contains("Esta cerradura todavía no tiene enlaces").doesNotContain("Enlace del garaje");
+    }
+
+    private String linkPage(UUID link) {
+        var result = mvc.get().uri("/links/" + link).with(owner()).exchange();
+        assertThat(result).hasStatusOk();
+        return new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8);
     }
 
     private String page() {

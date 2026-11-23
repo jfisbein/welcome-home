@@ -4,18 +4,22 @@
 <body>
 <main id="main" tabindex="-1" class="container">
     <nav th:replace="~{fragments/layout :: menu('locks')}"></nav>
-    <h1 th:text="#{history.title(${lock.name})}">Historial de Casa</h1>
-    <p th:if="${filtered}">
-        <span th:text="#{history.only-link(${linkLabel})}">Solo el enlace de Ana.</span>
-        <a th:href="@{/locks/{id}/history(id=${lock.id})}" th:text="#{history.whole-lock}">Ver toda la cerradura</a>
-    </p>
+    <h1 th:text="${lock.name}">Casa</h1>
+    <nav th:replace="~{fragments/layout :: lock(${lock}, 'history')}"></nav>
     <p th:text="#{history.time-zone(${@timeZoneNames.of(lock.timeZone, #locale)})}">Horas en la zona horaria de la cerradura: hora de Europa central.</p>
 
-    <!-- Narrows the history: to what the attempts came to, and from a day back. A GET, so that the page it gives
+    <!-- Narrows the history: to one of the lock's links, to what the attempts came to, and from a day back. A GET, so that the page it gives
          can be reloaded and sent. -->
     <form class="history-filter" th:action="@{/locks/{id}/history(id=${lock.id})}" method="get">
-        <input th:if="${link != null}" type="hidden" name="link" th:value="${link}">
         <fieldset class="grid">
+            <label>
+                [[#{history.column.link}]]
+                <select name="link">
+                    <option value="" th:text="#{history.filter.all}">Todos</option>
+                    <option th:each="choice : ${links}" th:value="${choice.id}" th:text="${choice.label}"
+                            th:selected="${choice.id == link}">Ana</option>
+                </select>
+            </label>
             <label>
                 [[#{history.column.outcome}]]
                 <select name="result">
@@ -46,7 +50,6 @@
         <a th:if="${paged}" th:href="${newerUrl}" th:text="#{history.newer}">Más recientes</a>
         <a th:if="${olderUrl}" th:href="${olderUrl}" th:text="#{history.older}">Anteriores</a>
     </p>
-    <p><a th:href="@{/locks/{id}(id=${lock.id})}" th:text="#{history.back(${lock.name})}">Volver a Casa</a></p>
 </main>
 </body>
 </html>

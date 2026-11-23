@@ -14,7 +14,8 @@ import welcomehome.locks.Locks;
 import welcomehome.nuki.LockProvider;
 
 /**
- * The owner's home page: their locks, what is wrong with them, and the latest attempts with their links. It also
+ * The owner's home page, which is the list of their locks: what is wrong with each, how many of its links can open,
+ * and the latest attempts with their links. It also
  * warns when their email is not verified, and when Nuki is not connected or has rejected their connection.
  */
 @Controller

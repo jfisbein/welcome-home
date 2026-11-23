@@ -48,7 +48,7 @@ class SignedInErrorPageTests {
 
         assertThat(result).hasStatus(404);
         assertThat(body(result)).contains("<html lang=\"en\">", "This page does not exist", "Error 404",
-                "href=\"/locks\"", "href=\"/settings\"", "Go to the home page");
+                "<a href=\"/\">Locks</a>", "href=\"/settings\"", "Go to the home page");
     }
 
     @Test

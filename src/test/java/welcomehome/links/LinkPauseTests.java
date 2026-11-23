@@ -75,7 +75,7 @@ class LinkPauseTests {
 
         var result = post(ALICE, linkId, "pause");
 
-        assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/locks/" + lockId + "/links");
+        assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/links/" + linkId);
         assertThat(result.getMvcResult().getFlashMap().get("pausedLabel")).isEqualTo("Ana");
         assertThat(state(linkId)).isEqualTo("revoked|paused");
         assertThat(jdbc.sql("SELECT revoked_at IS NOT NULL FROM resolve_link(?)").param(linkId).query(Boolean.class)
@@ -90,7 +90,7 @@ class LinkPauseTests {
 
         var result = post(ALICE, linkId, "resume");
 
-        assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/locks/" + lockId + "/links");
+        assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/links/" + linkId);
         assertThat(result.getMvcResult().getFlashMap().get("resumedLabel")).isEqualTo("Ana");
         assertThat(state(linkId)).isEqualTo("open|-");
         assertThat(tokenVersion(linkId)).as("the URL its guest has still works").isEqualTo(version);
@@ -107,19 +107,23 @@ class LinkPauseTests {
                         "<strong>En pausa</strong>", "/links/" + linkId + "/resume", "Reanudar",
                         "El enlace «Ana» volverá a abrir la puerta en sus fechas. ¿Reanudarlo?",
                         "/links/" + linkId + "/revoke", "/history?link=" + linkId)
-                .as("among the links that can open, not folded away with those that ended")
-                .doesNotContain("Caducados y anulados", "Ningún enlace de esta cerradura")
                 .as("nothing that gives the link away, edits it or deletes it")
-                .doesNotContain("Copiar", "href=\"/links/" + linkId + "\"", "/links/" + linkId + "/regenerate",
+                .doesNotContain("Copiar", "Guardar", "/links/" + linkId + "/regenerate",
                         "/links/" + linkId + "/pause", "Borrar");
         assertThat(page("resumedLabel")).contains("Enlace «Ana» reanudado: vuelve a abrir la puerta en sus fechas.");
+        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(SignedIn.owner(ALICE))).hasStatusOk().bodyText()
+                .contains("<strong>En pausa</strong>")
+                .as("among the links that can open, not folded away with those that ended")
+                .doesNotContain("Caducados y anulados", "Ningún enlace de esta cerradura", "Copiar");
     }
 
     @Test
     void aPausedLinkIsNeitherEditedNorReplacedNorDeleted() {
         post(ALICE, linkId, "pause");
 
-        assertThat(mvc.get().uri("/links/" + linkId).with(SignedIn.owner(ALICE))).hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(mvc.patch().uri("/links/" + linkId).with(SignedIn.owner(ALICE)).with(csrf()).param("label", "Ana")
+                .param("validFrom", "2030-11-02T10:00").param("validUntil", "2030-11-05T12:00"))
+                .hasStatus(HttpStatus.NOT_FOUND);
         assertThat(post(ALICE, linkId, "regenerate")).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(mvc.delete().uri("/links/" + linkId).with(SignedIn.owner(ALICE)).with(csrf())).hasStatus(HttpStatus.CONFLICT);
         assertThat(state(linkId)).isEqualTo("revoked|paused");
@@ -158,7 +162,8 @@ class LinkPauseTests {
         var link = data.link(lockId, "Dani", "now() - interval '2 days'", TestData.AN_HOUR_AGO);
         data.pause(link);
 
-        assertThat(page(null)).contains("Dani", "Caducado");
+        assertThat(mvc.get().uri("/links/" + link).with(SignedIn.owner(ALICE))).hasStatusOk().bodyText()
+                .contains("Dani", "Caducado", "Borrar");
         assertThat(mvc.delete().uri("/links/" + link).with(SignedIn.owner(ALICE)).with(csrf())).hasStatus(HttpStatus.FOUND);
     }
 
@@ -187,7 +192,7 @@ class LinkPauseTests {
     }
 
     private String page(String flash) {
-        var request = mvc.get().uri("/locks/" + lockId + "/links").with(SignedIn.owner(ALICE));
+        var request = mvc.get().uri("/links/" + linkId).with(SignedIn.owner(ALICE));
         var result = (flash == null ? request : request.flashAttr(flash, "Ana")).exchange();
         assertThat(result).hasStatusOk();
         return new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8);

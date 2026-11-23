@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es" th:lang="${#locale.language}" th:attr="data-theme=${theme}" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head(#{link-edit.heading(${link.label})})}"></head>
+<body>
+<main id="main" tabindex="-1" class="container">
+    <nav th:replace="~{fragments/layout :: menu('locks')}"></nav>
+    <p><a th:href="@{/locks/{id}/links(id=${lock.id})}" th:text="#{link-edit.back(${lock.name})}">
+        Volver a los enlaces de Casa</a></p>
+    <h1 th:text="#{link-edit.heading(${link.label})}">Enlace «Ana»</h1>
+
+    <article th:if="${regeneratedLabel}">
+        <header><strong th:text="#{links.regenerated(${regeneratedLabel})}">Nuevo enlace para Ana</strong></header>
+        <p th:text="#{links.regenerated.text}">El enlace anterior ya no abre la puerta.</p>
+    </article>
+    <article th:if="${updatedLabel}">
+        <p th:text="#{links.updated(${updatedLabel})}">Guardados los cambios del enlace de Ana.</p>
+        <p th:if="${updatedDays}"><small th:text="#{links.long(${updatedDays})}">Este enlace abre la puerta durante
+            90 días. Anúlalo cuando deje de hacer falta.</small></p>
+    </article>
+    <article th:if="${pausedLabel}">
+        <p th:text="#{links.paused(${pausedLabel})}">Enlace de Ana en pausa: no abre la puerta hasta que lo reanudes.</p>
+    </article>
+    <article th:if="${resumedLabel}">
+        <p th:text="#{links.resumed(${resumedLabel})}">Enlace de Ana reanudado: vuelve a abrir la puerta.</p>
+    </article>
+    <article th:if="${revokedLabel}">
+        <p th:text="#{links.revoked(${revokedLabel})}">Enlace de Ana anulado: ya no abre la puerta.</p>
+    </article>
+
+    <!-- What the link is now, and the link itself to send while it can open. -->
+    <section>
+        <p class="link-state"><th:block th:replace="~{links/table :: state(${link})}"></th:block></p>
+        <p class="validity"><th:block th:replace="~{links/table :: validity(${link})}"></th:block></p>
+        <fieldset role="group" th:if="${link.status.usable}">
+            <input id="link-url" type="text" readonly th:value="${link.url}" th:aria-label="#{links.url}">
+            <th:block th:replace="~{links/table :: send(${link}, ${lock}, false)}"></th:block>
+        </fieldset>
+        <!-- What the owner does most with a link comes first; what ends it or changes its URL, apart and last. -->
+        <div class="actions">
+            <form th:if="${link.status.usable}" th:action="@{/links/{id}/pause(id=${link.id})}" method="post">
+                <button type="submit" th:title="#{links.pause.title}" th:text="#{links.pause}">Pausar</button>
+            </form>
+            <!-- A paused link opens nothing and keeps everything: resuming it is the only way on. -->
+            <form th:if="${link.status.name() == 'PAUSED'}" th:action="@{/links/{id}/resume(id=${link.id})}"
+                  method="post" th:data-confirm="#{links.resume.confirm(${link.label})}">
+                <button type="submit" th:text="#{links.resume}">Reanudar</button>
+            </form>
+            <a th:href="@{/locks/{lockId}/history(lockId=${lock.id},link=${link.id})}"
+               role="button" class="outline secondary" th:text="#{common.history}">Historial</a>
+            <a th:if="${link.status.usable}" th:href="${link.url + '?preview=1'}" target="_blank" rel="noopener"
+               role="button" class="outline secondary" th:title="#{links.preview.title}"
+               th:text="#{links.preview}">Ver como invitado</a>
+        </div>
+    </section>
+
+    <section th:if="${editable}">
+        <h2 th:text="#{common.edit}">Editar</h2>
+        <p th:text="#{link-edit.text(${lock.name})}">Abre Casa. Si cambias las fechas o para quién es, el enlace sigue siendo el mismo.</p>
+        <form th:action="@{/links/{id}(id=${link.id})}" th:method="patch">
+            <th:block th:replace="~{links/fields :: fields(${lock.timeZone})}"></th:block>
+            <button type="submit" th:text="#{common.save}">Guardar</button>
+        </form>
+    </section>
+
+    <section>
+        <div class="actions">
+            <form th:if="${link.status.usable}" th:action="@{/links/{id}/regenerate(id=${link.id})}" method="post"
+                  th:data-confirm="#{links.regenerate.confirm(${link.label})}">
+                <button type="submit" class="outline secondary" th:title="#{links.regenerate.title}"
+                        th:text="#{links.regenerate}">Sustituir enlace</button>
+            </form>
+            <form th:unless="${link.status.ended}" th:action="@{/links/{id}/revoke(id=${link.id})}" method="post"
+                  th:data-confirm="#{links.revoke.confirm(${link.label})}">
+                <button type="submit" class="outline contrast" th:text="#{links.revoke}">Anular</button>
+            </form>
+            <form th:if="${link.status.ended}" th:action="@{/links/{id}(id=${link.id})}"
+                  th:method="delete" th:data-confirm="#{links.delete.confirm(${link.label})}">
+                <button type="submit" class="outline contrast"
+                        th:text="#{links.delete}">Borrar</button>
+            </form>
+        </div>
+        <p th:if="${link.status.usable}"><small th:text="#{links.actions.hint}">
+            «Sustituir enlace» crea un enlace nuevo. «Anular» hace que deje de abrir la puerta.</small></p>
+    </section>
+</main>
+<script th:src="@{/js/copy.js}"></script>
+<script th:src="@{/js/share.js}"></script>
+<script th:src="@{/js/confirm.js}"></script>
+<script th:src="@{/js/schedule.js}"></script>
+<script th:src="@{/js/reveal.js}"></script>
+</body>
+</html>

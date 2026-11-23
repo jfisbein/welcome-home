@@ -96,7 +96,10 @@ class OwnerIsolationTests {
     private List<Attempt> attemptsOnBobsResources() {
         return List.of(
                 new Attempt("GET /locks/{lockId}", as -> mvc.get().uri("/locks/" + bobsLock).with(as).exchange()),
-                new Attempt("PATCH /locks/{lockId}", as -> mvc.patch().uri("/locks/" + bobsLock).with(as).with(csrf())
+                new Attempt("GET /locks/{lockId}/settings", as -> mvc.get().uri("/locks/" + bobsLock + "/settings")
+                        .with(as).exchange()),
+                new Attempt("PATCH /locks/{lockId}/settings", as -> mvc.patch().uri("/locks/" + bobsLock + "/settings")
+                        .with(as).with(csrf())
                         .param("name", "Renombrada").param("timeZone", "Europe/Madrid").exchange()),
                 new Attempt("GET /locks/{lockId}/links", as -> mvc.get().uri("/locks/" + bobsLock + "/links").with(as)
                         .exchange()),

@@ -3,7 +3,6 @@ package welcomehome.links;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
-import java.net.URI;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -66,8 +65,8 @@ class LinkRegenerationTests {
 
         var result = regenerate(ALICE, linkId);
 
-        assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/locks/" + lockId + "/links");
-        var newToken = ((URI) result.getMvcResult().getFlashMap().get("regeneratedUrl")).getPath().substring("/o/".length());
+        assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/links/" + linkId);
+        var newToken = signer.sign(linkId, 2);
         var currentVersion = jdbc.sql("SELECT token_version FROM resolve_link(?)").param(linkId)
                 .query(Integer.class).single();
         assertThat(currentVersion).isEqualTo(2);
@@ -88,11 +87,12 @@ class LinkRegenerationTests {
     @Test
     void pageOffersTheNewUrlOnly() {
         var oldUrl = IntegrationTest.BASE_URL + "/o/" + signer.sign(linkId, 1);
-        var newUrl = (URI) regenerate(ALICE, linkId).getMvcResult().getFlashMap().get("regeneratedUrl");
+        regenerate(ALICE, linkId);
+        var newUrl = IntegrationTest.BASE_URL + "/o/" + signer.sign(linkId, 2);
 
-        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(SignedIn.owner(ALICE))
-                .flashAttr("regeneratedUrl", newUrl).flashAttr("regeneratedLabel", "Ana"))
-                .bodyText().contains("Nuevo enlace «Ana»", "El enlace anterior ya no abre la puerta", newUrl.toString())
+        assertThat(mvc.get().uri("/links/" + linkId).with(SignedIn.owner(ALICE)).flashAttr("regeneratedLabel", "Ana"))
+                .bodyText().contains("Nuevo enlace «Ana»", "El enlace anterior ya no abre la puerta",
+                        "value=\"" + newUrl + "\"")
                 .doesNotContain(oldUrl);
     }
 

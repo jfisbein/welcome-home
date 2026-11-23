@@ -126,7 +126,7 @@ class NukiConnectionTests {
     @Test
     void pageNamesTheLocksJustFound() {
         assertThat(mvc.get().uri("/settings/nuki").with(SignedIn.owner(ALICE)).flashAttr("connectedLocks", List.of("Casa")))
-                .bodyText().contains("Tus cerraduras ya están aquí", "Casa", "href=\"/locks\"", "<details id=\"nuki-web\">");
+                .bodyText().contains("Tus cerraduras ya están aquí", "Casa", "href=\"/\"", "<details id=\"nuki-web\">");
     }
 
     @Test
@@ -138,7 +138,7 @@ class NukiConnectionTests {
                 .contains("<strong>Características y configuración</strong>",
                         "href=\"https://help.nuki.io/hc/es/articles/4402921104145\"",
                         "href=\"https://help.nuki.io/hc/es/articles/360016485718\"",
-                        "<a href=\"/locks\">Cerraduras</a>");
+                        "<a href=\"/\">Cerraduras</a>");
     }
 
     @Test

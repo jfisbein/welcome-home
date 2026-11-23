@@ -4,7 +4,6 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
@@ -94,16 +93,25 @@ class AccessEventDao {
                 .list();
     }
 
-    /** @return the label of the lock's link, or empty if the lock has no such link */
-    Optional<String> findLinkLabel(UUID ownerId, UUID lockId, UUID linkId) {
+    /** The lock's links, the latest start first, for its history to be narrowed to one of them. */
+    List<LinkChoice> findLinks(UUID ownerId, UUID lockId) {
         return jdbc.sql("""
-                        SELECT label FROM access_link WHERE owner_id = :ownerId AND lock_id = :lockId AND id = :linkId
+                        SELECT id, label FROM access_link WHERE owner_id = :ownerId AND lock_id = :lockId
+                        ORDER BY valid_from DESC, id
                         """)
                 .param("ownerId", ownerId)
                 .param("lockId", lockId)
-                .param("linkId", linkId)
-                .query(String.class)
-                .optional();
+                .query(new SimplePropertyRowMapper<>(LinkChoice.class))
+                .list();
+    }
+
+    /**
+     * A link a lock's history can be narrowed to.
+     *
+     * @param id    the link's id
+     * @param label who the link is for
+     */
+    record LinkChoice(UUID id, String label) {
     }
 
     /** The owner's latest events across all their locks, newest first. */

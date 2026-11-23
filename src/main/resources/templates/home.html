@@ -3,7 +3,7 @@
 <head th:replace="~{fragments/layout :: head(#{home.title})}"></head>
 <body>
 <main id="main" tabindex="-1" class="container">
-    <nav th:replace="~{fragments/layout :: menu('home')}"></nav>
+    <nav th:replace="~{fragments/layout :: menu('locks')}"></nav>
     <h1 th:text="#{home.greeting}">Hola</h1>
     <p th:utext="#{home.signed-in-as(${#strings.escapeXml(email)})}">
         Has entrado como <strong>propietario@example.com</strong>.
@@ -30,39 +30,58 @@
         <a th:href="@{/settings/nuki}" role="button" th:text="#{home.disconnected.button}">Volver a conectar Nuki</a>
     </article>
 
+    <article th:if="${synced}">
+        <p>
+            [[#{locks.synced}]]
+            <span th:if="${synced.added > 0}" th:text="#{locks.synced.added(${synced.added})}">Nuevas: 1.</span>
+            <span th:if="${synced.deactivated > 0}"
+                  th:text="#{locks.synced.deactivated(${synced.deactivated})}">Ya no están: 1.</span>
+            <span th:if="${synced.added == 0 and synced.deactivated == 0}" th:text="#{locks.synced.unchanged}">
+                No hay cambios.</span>
+        </p>
+    </article>
+    <article th:if="${syncError}" aria-live="assertive" aria-atomic="true">
+        <p th:if="${syncError == 'not-connected'}" th:utext="#{locks.sync-error.not-connected(@{/settings/nuki})}">
+            Para actualizar, primero conecta tu cuenta de Nuki.</p>
+        <p th:if="${syncError == 'rejected'}" th:utext="#{locks.sync-error.rejected(@{/settings/nuki})}">
+            Nuki ha rechazado la conexión.</p>
+        <p th:if="${syncError == 'unavailable'}" th:text="#{locks.sync-error.unavailable}">Nuki no responde.</p>
+    </article>
+
+    <!-- The owner's locks: the page of each is one press away, and so is a new link for it. -->
     <section>
         <h2 th:text="#{home.locks}">Tus cerraduras</h2>
-        <p th:if="${locks.isEmpty()}" th:utext="#{home.locks.empty(@{/locks})}">Todavía no tienes cerraduras.</p>
+        <p th:if="${locks.isEmpty()}" th:utext="#{locks.empty(@{/settings/nuki#nuki-web})}">
+            Todavía no tienes cerraduras.</p>
         <p th:if="${lockWarnings.unknown}"><small th:text="#{locks.warnings.unknown}">Nuki no responde ahora mismo.</small></p>
         <table th:unless="${locks.isEmpty()}">
             <tbody>
             <tr th:each="lock : ${locks}">
                 <td>
-                    <strong><a th:href="@{/locks/{id}(id=${lock.id})}" th:text="${lock.name}">Casa</a></strong>
+                    <strong><a th:href="@{/locks/{id}/links(id=${lock.id})}" th:text="${lock.name}">Casa</a></strong>
+                    <small th:if="${lock.opener}"><br><span th:text="#{locks.opener}">Nuki Opener</span></small>
                     <small th:unless="${lock.active}"><br><span th:text="#{locks.inactive}">Ya no está en tu cuenta de
                         Nuki</span></small>
                     <th:block th:replace="~{fragments/lock-warnings :: warnings(${lockWarnings.of(lock.id)})}"></th:block>
                     <th:block th:replace="~{fragments/lock-warnings :: unchecked(${lock})}"></th:block>
                     <!-- A link made for a guest long gone still opens the door: how many do, by their dates. -->
                     <th:block th:with="open=${openLinks[lock.id]}">
-                        <small class="links-open" th:if="${open != null}">
-                            <a th:href="@{/locks/{id}/links(id=${lock.id})}"
+                        <small class="links-open" th:if="${open != null}"
                                th:text="${open == 1} ? #{home.links-open.one} : #{home.links-open.many(${open})}">2
-                                enlaces pueden abrir ahora</a>
-                        </small>
+                            enlaces pueden abrir ahora</small>
                     </th:block>
                 </td>
                 <td>
-                    <p th:if="${lock.active}">
-                        <a th:href="@{/locks/{id}/links(id=${lock.id})} + '#new'" role="button"
-                           th:text="#{links.create}">Crear enlace</a>
-                    </p>
-                    <a th:href="@{/locks/{id}/links(id=${lock.id})}" th:text="#{locks.links}">Enlaces</a> ·
-                    <a th:href="@{/locks/{id}/history(id=${lock.id})}" th:text="#{common.history}">Historial</a>
+                    <a th:if="${lock.active}" th:href="@{/locks/{id}/links(id=${lock.id})} + '#new'" role="button"
+                       th:text="#{links.create}">Crear enlace</a>
                 </td>
             </tr>
             </tbody>
         </table>
+        <form th:action="@{/locks/sync}" method="post">
+            <button type="submit" class="secondary" th:text="#{locks.sync}">Actualizar desde Nuki</button>
+            <small th:text="#{locks.sync.hint}">Trae de tu cuenta de Nuki las cerraduras nuevas.</small>
+        </form>
     </section>
 
     <section>

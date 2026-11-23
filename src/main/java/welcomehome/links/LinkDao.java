@@ -259,6 +259,15 @@ class LinkDao {
                 .single();
     }
 
+    /** @return the lock of the owner's link, whatever its state, or empty if the owner has no such link */
+    Optional<UUID> findLockId(UUID ownerId, UUID linkId) {
+        return jdbc.sql("SELECT lock_id FROM access_link WHERE owner_id = :ownerId AND id = :linkId")
+                .param("ownerId", ownerId)
+                .param("linkId", linkId)
+                .query(UUID.class)
+                .optional();
+    }
+
     /** Invalidates every earlier URL of a link that is not revoked. */
     Optional<SignableLink> incrementTokenVersion(UUID ownerId, UUID linkId) {
         return jdbc.sql("""

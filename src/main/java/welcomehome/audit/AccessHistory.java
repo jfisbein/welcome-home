@@ -2,11 +2,11 @@ package welcomehome.audit;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
+import welcomehome.audit.AccessEventDao.LinkChoice;
 import welcomehome.db.OwnerTransactions;
 
 /**
@@ -45,9 +45,9 @@ class AccessHistory {
         return new HistoryPage(shown, new Cursor(last.occurredAt().toInstant(), last.id()));
     }
 
-    /** @return the label of the lock's link, or empty if the lock has no such link */
-    Optional<String> linkLabel(UUID ownerId, UUID lockId, UUID linkId) {
-        return ownerTransactions.execute(ownerId, () -> accessEvents.findLinkLabel(ownerId, lockId, linkId));
+    /** @return the lock's links, the latest start first, which its history can be narrowed to */
+    List<LinkChoice> links(UUID ownerId, UUID lockId) {
+        return ownerTransactions.execute(ownerId, () -> accessEvents.findLinks(ownerId, lockId));
     }
 
     /**

@@ -27,7 +27,7 @@ class ErrorPagesTests {
         assertThat(notFound.statusCode()).isEqualTo(404);
         assertThat(notFound.body()).contains("<html lang=\"es\">", "<title>Esta página no existe · welcome-home</title>",
                         "Error 404")
-                .as("no menu for whoever is not signed in").doesNotContain("href=\"/locks\"", "_csrf");
+                .as("no menu for whoever is not signed in").doesNotContain("href=\"/settings\"", "_csrf");
         assertThat(notFound.headers().allValues("Set-Cookie")).as("no session for a guest").isEmpty();
 
         var notAllowed = get("/api/open", "text/html", "en");

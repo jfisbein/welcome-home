@@ -102,6 +102,8 @@ class OwnerPagesTests extends BrowserTest {
         register();
         openTheLocksLinks();
         createALink();
+        // What is done with a link is on its page, which its name in the list leads to.
+        page.locator("table.links td.label a").click();
         var cancel = page.locator("button", new Page.LocatorOptions().setHasText("Anular"));
 
         page.onceDialog(Dialog::dismiss);
@@ -112,7 +114,7 @@ class OwnerPagesTests extends BrowserTest {
 
         page.onceDialog(Dialog::accept);
         cancel.click();
-        assertThat(page.locator("table.links")).containsText("Anulado");
+        assertThat(page.locator(".link-state")).containsText("Anulado");
     }
 
     @Test
@@ -160,7 +162,7 @@ class OwnerPagesTests extends BrowserTest {
         register();
         var owner = migrator.sql("SELECT id FROM owner WHERE email = ?").param(ALICE).query(UUID.class).single();
         var lock = data.lock(owner, 17, "Casa");
-        page.navigate(url("/locks/" + lock));
+        page.navigate(url("/locks/" + lock + "/settings"));
 
         page.locator("#use-my-location").click();
         assertThat(page.locator("#location-status")).containsText("No se ha podido obtener tu ubicación");

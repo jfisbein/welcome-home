@@ -59,13 +59,13 @@ class HomePageTests {
     }
 
     @Test
-    void listsTheOwnersLocksWithTheirLinksAndHistory() {
+    void listsTheOwnersLocksEachLeadingToItsPage() {
         data.deactivate(garaje);
 
         assertThat(home()).containsSubsequence("Casa", "Garaje", "Ya no está en tu cuenta de Nuki")
-                .as("a lock's name leads to it").contains("<a href=\"/locks/" + casa + "\">Casa</a>")
-                .contains("href=\"/locks/" + casa + "/links\"", "href=\"/locks/" + casa + "/history\"",
-                        "href=\"/locks/" + garaje + "/links\"")
+                .as("a lock's name leads to it").contains("<a href=\"/locks/" + casa + "/links\">Casa</a>",
+                        "<a href=\"/locks/" + garaje + "/links\">Garaje</a>")
+                .as("what else is done with a lock is on its page").doesNotContain("/history\">Historial")
                 .doesNotContain("Casa de Bob");
     }
 
@@ -73,7 +73,7 @@ class HomePageTests {
     @Test
     void eachLockSaysHowManyOfItsLinksCanOpenNow() {
         assertThat(home()).as("Ana's and Carlos's, one per lock").containsSubsequence(
-                "Casa", ">1 enlace puede abrir ahora</a>", "Garaje", ">1 enlace puede abrir ahora</a>");
+                "Casa", ">1 enlace puede abrir ahora</small>", "Garaje", ">1 enlace puede abrir ahora</small>");
 
         data.link(casa, "Bea", "now() - interval '90 days'", "now() + interval '90 days'");
         data.link(casa, "Dani", "now() + interval '1 day'", "now() + interval '2 days'");
@@ -82,7 +82,7 @@ class HomePageTests {
         data.deleteLink(carlos);
 
         assertThat(home()).as("not the pending, the expired or the revoked one, nor Bob's")
-                .containsSubsequence("Casa", ">2 enlaces pueden abrir ahora</a>", "Garaje")
+                .containsSubsequence("Casa", ">2 enlaces pueden abrir ahora</small>", "Garaje")
                 .doesNotContain("1 enlace puede abrir ahora");
     }
 
@@ -98,7 +98,7 @@ class HomePageTests {
     void ownerWithoutLocksIsToldWhereToImportThem() {
         data.deleteLocks();
 
-        assertThat(home()).contains("Todavía no tienes cerraduras", "href=\"/locks\"");
+        assertThat(home()).contains("Todavía no tienes cerraduras", "Actualizar desde Nuki");
     }
 
     @Test
@@ -147,10 +147,13 @@ class HomePageTests {
 
     @Test
     void menuMarksTheCurrentSectionAndConfigurationLeadsToItsSections() {
-        assertThat(home()).contains("href=\"/locks\"", "href=\"/settings\"").doesNotContain("href=\"/settings/passkeys\"");
+        assertThat(home()).as("the home page is the list of locks")
+                .contains("<a href=\"/\" aria-current=\"page\">Cerraduras</a>", "href=\"/settings\"")
+                .doesNotContain("href=\"/settings/passkeys\"");
         assertThat(mvc.get().uri("/settings").with(SignedIn.owner(ALICE))).hasRedirectedUrl("/settings/nuki");
-        assertThat(body(mvc.get().uri("/locks").with(SignedIn.owner(ALICE)).exchange()))
-                .contains("<a href=\"/locks\" aria-current=\"page\">Cerraduras</a>");
+        assertThat(mvc.get().uri("/locks").with(SignedIn.owner(ALICE))).hasRedirectedUrl("/");
+        assertThat(body(mvc.get().uri("/locks/" + casa + "/links").with(SignedIn.owner(ALICE)).exchange()))
+                .contains("<a href=\"/\" aria-current=\"page\">Cerraduras</a>");
         for (var section : new String[] {"/settings/nuki", "/settings/preferences", "/settings/notifications",
                 "/settings/passkeys", "/settings/activity"}) {
             assertThat(body(mvc.get().uri(section).with(SignedIn.owner(ALICE)).exchange()))

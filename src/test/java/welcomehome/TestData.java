@@ -395,11 +395,6 @@ public final class TestData {
         db.sql("UPDATE lock SET offline_since = " + since).update();
     }
 
-    /** Says of every lock that something else locks its door again, so that Auto Lock off is no problem. */
-    public void relockingHandledElsewhere() {
-        db.sql("UPDATE lock SET relocking_handled_elsewhere = true").update();
-    }
-
     /** Makes every lock an Opener. */
     public void makeOpeners() {
         db.sql("UPDATE lock SET device_type = 'OPENER'").update();

@@ -107,7 +107,7 @@
 }
 
 /* A link's schedule among its dates, a line per run of days. */
-table.links td.validity small {
+.validity small {
     display: block;
 }
 

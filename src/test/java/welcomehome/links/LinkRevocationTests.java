@@ -61,7 +61,7 @@ class LinkRevocationTests {
     void revokedLinkOpensNothingFromNowOn() {
         var result = revoke(ALICE, linkId);
 
-        assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/locks/" + lockId + "/links");
+        assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/links/" + linkId);
         assertThat(result.getMvcResult().getFlashMap().get("revokedLabel")).isEqualTo("Ana");
         var resolved = jdbc.sql("SELECT valid_from, valid_until, revoked_at FROM resolve_link(?)")
                 .param(linkId).query(ResolvedDates.class).single();
@@ -75,7 +75,7 @@ class LinkRevocationTests {
     void pageShowsTheRevocationAndNoLongerOffersTheLink() {
         revoke(ALICE, linkId);
 
-        assertThat(mvc.get().uri("/locks/" + lockId + "/links").with(SignedIn.owner(ALICE)).flashAttr("revokedLabel", "Ana"))
+        assertThat(mvc.get().uri("/links/" + linkId).with(SignedIn.owner(ALICE)).flashAttr("revokedLabel", "Ana"))
                 .bodyText().contains("Enlace «Ana» anulado", "Anulado")
                 .doesNotContain("Copiar", "/links/" + linkId + "/revoke", "Sustituir enlace");
     }

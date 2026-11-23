@@ -22,8 +22,9 @@ import welcomehome.nuki.LockProvider;
 import welcomehome.nuki.LockProviderException;
 
 /**
- * The owner's locks: their list with what is wrong with them, their sync with Nuki, and each lock's page with its live state and its
- * settings. Another owner's lock is not found, nor offered or accepted as an entrance.
+ * The owner's locks: their sync with Nuki, and each lock's settings page with its live state. Their list is the
+ * home page, and a lock's own address leads to its links, the first of its tabs. Another owner's lock is not found,
+ * nor offered or accepted as an entrance.
  */
 @Controller
 @RequestMapping("/locks")
@@ -35,25 +36,21 @@ class LocksController {
     private final LockSync lockSync;
     private final LockSettings lockSettings;
     private final LockProvider lockProvider;
-    private final LockChecks lockChecks;
     private final LockReachability reachability;
 
     LocksController(Locks locks, LockSync lockSync, LockSettings lockSettings, LockProvider lockProvider,
-                    LockChecks lockChecks, LockReachability reachability) {
+                    LockReachability reachability) {
         this.locks = locks;
         this.lockSync = lockSync;
         this.lockSettings = lockSettings;
         this.lockProvider = lockProvider;
-        this.lockChecks = lockChecks;
         this.reachability = reachability;
     }
 
+    /** The list of locks is the home page. */
     @GetMapping
-    String locks(CurrentOwner owner, Model model) {
-        var ownerLocks = locks.findAll(owner.id());
-        model.addAttribute("locks", ownerLocks);
-        model.addAttribute("lockWarnings", lockChecks.warnings(owner.id(), ownerLocks));
-        return "locks/locks";
+    String locks() {
+        return "redirect:/";
     }
 
     @PostMapping("/sync")
@@ -67,15 +64,21 @@ class LocksController {
                 case LOCK_NOT_FOUND, NUKI_ERROR, NO_ANSWER -> "unavailable";
             });
         }
-        return "redirect:/locks";
+        return "redirect:/";
     }
 
+    /** A lock's pages are its tabs; its links come first. */
     @GetMapping("/{lockId}")
+    String lock(CurrentOwner owner, @PathVariable UUID lockId) {
+        var lock = locks.find(owner.id(), lockId).orElseThrow(LocksController::notFound);
+        return "redirect:/locks/" + lock.id() + "/links";
+    }
+
+    @GetMapping("/{lockId}/settings")
     String edit(CurrentOwner owner, @PathVariable UUID lockId, Model model) {
         var lock = locks.find(owner.id(), lockId).orElseThrow(LocksController::notFound);
         model.addAttribute("name", lock.name());
         model.addAttribute("timeZone", lock.timeZone());
-        model.addAttribute("relockingHandledElsewhere", lock.relockingHandledElsewhere());
         model.addAttribute("entranceLockId", lock.entranceLockId());
         model.addAttribute("guestInstructions", lock.guestInstructions());
         model.addAttribute("coordinates", LockSettings.format(lock.coordinates()));
@@ -84,10 +87,9 @@ class LocksController {
         return editView(owner, lock, model);
     }
 
-    @PatchMapping("/{lockId}")
+    @PatchMapping("/{lockId}/settings")
     String update(CurrentOwner owner, @PathVariable UUID lockId, @RequestParam(defaultValue = "") String name,
                   @RequestParam(defaultValue = "") String timeZone,
-                  @RequestParam(defaultValue = "false") boolean relockingHandledElsewhere,
                   @RequestParam(required = false) @Nullable UUID entranceLockId,
                   @RequestParam(defaultValue = "") String guestInstructions,
                   @RequestParam(required = false) @Nullable String coordinates,
@@ -116,7 +118,6 @@ class LocksController {
             response.setStatus(HttpStatus.BAD_REQUEST.value());
             model.addAttribute("name", name);
             model.addAttribute("timeZone", timeZone);
-            model.addAttribute("relockingHandledElsewhere", relockingHandledElsewhere);
             model.addAttribute("entranceLockId", entranceLockId);
             model.addAttribute("guestInstructions", guestInstructions);
             model.addAttribute("coordinates", coordinates == null ? LockSettings.format(lock.coordinates()) : coordinates);
@@ -133,14 +134,14 @@ class LocksController {
             return editView(owner, lock, model);
         }
         var instructions = normalizedInstructions.get();
-        if (!lockSettings.update(owner.id(), lockId, normalizedName.get(), timeZone, relockingHandledElsewhere,
+        if (!lockSettings.update(owner.id(), lockId, normalizedName.get(), timeZone,
                 entranceLockId, instructions.isEmpty() ? null : instructions, typedCoordinates.coordinates(),
                 check.get(), radius.getAsInt())) {
             throw notFound();
         }
         // Back on the lock's page, where what was saved shows, and its state with it.
         redirect.addFlashAttribute("updated", normalizedName.get());
-        return "redirect:/locks/" + lockId;
+        return "redirect:/locks/" + lockId + "/settings";
     }
 
     /** The lock's page, with its live state from Nuki when it can be read: Nuki failing never hides the settings. */

@@ -36,7 +36,6 @@ class LockStateTests {
 
     static final String ALICE = "alice@example.com";
     static final String OFFLINE = "Nuki indica que la cerradura no tiene conexión";
-    static final String AUTO_LOCK_WARNING = "Auto Lock está desactivado.";
 
     @Autowired
     MockMvcTester mvc;
@@ -74,39 +73,19 @@ class LockStateTests {
                 """);
 
         assertThat(lockPage()).hasStatusOk().bodyText()
-                .contains("Bloqueada", "En línea", "80 %", "Activado")
-                .doesNotContain(AUTO_LOCK_WARNING);
+                .contains("Bloqueada", "En línea", "80 %", "Activado");
     }
 
+    /** Auto Lock is part of the lock's state, said as it is: whether it is on is the owner's choice in Nuki. */
     @Test
-    void warnsThatAutoLockIsOff() {
+    void saysThatAutoLockIsOffWithoutWarning() {
         connectNuki();
         nukiReportsState("""
                 {"serverState": 0, "state": {"state": 3, "batteryCritical": false}, "advancedConfig": {"autoLock": false}}
                 """);
 
-        assertThat(lockPage()).bodyText().contains("Desbloqueada", "Correcta", AUTO_LOCK_WARNING);
-    }
-
-    @Test
-    void ownerWhoRelocksSomeOtherWayIsNotWarned() {
-        connectNuki();
-        nukiReportsState("""
-                {"serverState": 0, "state": {"state": 3, "batteryCritical": false}, "advancedConfig": {"autoLock": false}}
-                """);
-
-        assertThat(mvc.patch().uri("/locks/" + lockId).with(owner()).with(csrf())
-                .param("name", "Casa").param("timeZone", "Europe/Madrid").param("relockingHandledElsewhere", "true"))
-                .hasStatus(HttpStatus.FOUND);
-
-        assertThat(lockPage()).bodyText()
-                .contains("el bloqueo lo gestionas de otra forma")
-                .doesNotContain(AUTO_LOCK_WARNING);
-        assertThat(mvc.patch().uri("/locks/" + lockId).with(owner()).with(csrf())
-                .param("name", "Casa").param("timeZone", "Europe/Madrid"))
-                .as("an unticked checkbox is not sent")
-                .hasStatus(HttpStatus.FOUND);
-        assertThat(lockPage()).bodyText().contains(AUTO_LOCK_WARNING);
+        assertThat(lockPage()).hasStatusOk().bodyText().contains("Desbloqueada", "Correcta", "Desactivado")
+                .doesNotContain("role=\"alert\"", "aria-live");
     }
 
     @Test
@@ -173,7 +152,7 @@ class LockStateTests {
     }
 
     private MvcTestResult lockPage() {
-        return mvc.get().uri("/locks/" + lockId).with(owner()).exchange();
+        return mvc.get().uri("/locks/" + lockId + "/settings").with(owner()).exchange();
     }
 
     private static RequestPostProcessor owner() {

@@ -1,13 +1,12 @@
 <!DOCTYPE html>
 <html lang="es" th:lang="${#locale.language}" th:attr="data-theme=${theme}" xmlns:th="http://www.thymeleaf.org">
 <body>
-<!-- What is wrong with a lock, as locks.LockWarning says it, alike on the home page and in the list of locks. -->
+<!-- What is wrong with a lock, as locks.LockWarning says it, in the list of locks on the home page. -->
 <th:block th:fragment="warnings(warnings)">
     <small class="lock-warning" th:each="warning : ${warnings}" th:switch="${warning.name()}">
         <span th:case="'OFFLINE'" th:text="#{lock.offline}">Sin conexión con Nuki</span>
         <span th:case="'BATTERY_CRITICAL'" th:utext="#{lock.battery.critical}">Batería crítica</span>
         <span th:case="'MOTOR_BLOCKED'" th:text="#{lock.status.motor-blocked}">Motor bloqueado</span>
-        <span th:case="'AUTO_LOCK_OFF'" th:text="#{locks.warning.auto-lock-off}">Auto Lock desactivado</span>
     </small>
 </th:block>
 <!-- A lock whose links open from anywhere: it does not check where its guests are, or has no position to check
@@ -15,7 +14,7 @@
 <th:block th:fragment="unchecked(lock)">
     <small class="lock-warning" th:if="${lock.active and !lock.checksLocation}">
         <span th:text="#{locks.warning.location-unchecked}">No comprueba dónde están los invitados.</span>
-        <a th:href="@{/locks/{id}(id=${lock.id})}" th:text="#{locks.warning.location-unchecked.fix}">Activar la
+        <a th:href="@{/locks/{id}/settings(id=${lock.id})}" th:text="#{locks.warning.location-unchecked.fix}">Activar la
             comprobación</a>
     </small>
 </th:block>

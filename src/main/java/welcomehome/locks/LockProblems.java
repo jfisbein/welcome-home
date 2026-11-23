@@ -20,8 +20,7 @@ import welcomehome.nuki.LockSnapshot;
 
 /**
  * Finds the problems that need the owner's hands at a lock, a battery to change, a lock Nuki cannot reach, unless it
- * has opened it since ({@link LockReachability}), or a blocked motor, and tells of each when it starts, not every day it lasts. Auto Lock off is not one: it is a setting
- * the owner chose.
+ * has opened it since ({@link LockReachability}), or a blocked motor, and tells of each when it starts, not every day it lasts.
  */
 @Service
 class LockProblems {
@@ -87,7 +86,7 @@ class LockProblems {
         }
     }
 
-    /** Those of a lock's warnings that its owner is emailed about: not that Auto Lock is off, which is a setting. */
+    /** Those of a lock's warnings that its owner is emailed about. */
     private static Set<LockWarning> problemsOf(OwnerLock lock, LockSnapshot snapshot, Connection connection) {
         var problems = EnumSet.noneOf(LockWarning.class);
         LockChecks.warningsOf(lock, snapshot, connection).stream().filter(PROBLEMS::contains).forEach(problems::add);

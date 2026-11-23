@@ -78,12 +78,12 @@ class LockSyncTests {
 
         var result = sync(ALICE);
 
-        assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/locks");
+        assertThat(result).hasStatus(HttpStatus.FOUND).redirectedUrl().isEqualTo("/");
         assertThat(result.getMvcResult().getFlashMap().get("synced")).as("already there").isEqualTo(new SyncResult(0, 0));
         assertThat(locks()).as("Garaje reports no time zone, so it gets the server's").containsExactly(
                 "17|Casa|Europe/London|true",
                 "18|Garaje|Europe/Madrid|true");
-        assertThat(mvc.get().uri("/locks").with(SignedIn.owner(ALICE))).bodyText().contains("Casa", "Garaje");
+        assertThat(mvc.get().uri("/").with(SignedIn.owner(ALICE))).bodyText().contains("Casa", "Garaje");
     }
 
     @Test
@@ -160,7 +160,7 @@ class LockSyncTests {
         assertThat(positions()).containsExactly("17|40.41678|-3.70379", "18|-|-");
 
         var casa = migrator.sql("SELECT id FROM lock WHERE nuki_smartlock_id = 17").query(UUID.class).single();
-        assertThat(mvc.patch().uri("/locks/" + casa).with(SignedIn.owner(ALICE)).with(csrf()).param("name", "Casa")
+        assertThat(mvc.patch().uri("/locks/" + casa + "/settings").with(SignedIn.owner(ALICE)).with(csrf()).param("name", "Casa")
                 .param("timeZone", "Europe/Madrid").param("coordinates", "40.5, -3.6")).hasStatus(HttpStatus.FOUND);
         nukiLists("""
                 [
@@ -205,7 +205,7 @@ class LockSyncTests {
 
         assertThat(migrator.sql("SELECT nuki_smartlock_id || '|' || device_type FROM lock ORDER BY nuki_smartlock_id")
                 .query(String.class).list()).containsExactly("17|SMART_LOCK", "19|OPENER");
-        assertThat(mvc.get().uri("/locks").with(SignedIn.owner(ALICE))).bodyText().contains("Portal", "Nuki Opener");
+        assertThat(mvc.get().uri("/").with(SignedIn.owner(ALICE))).bodyText().contains("Portal", "Nuki Opener");
     }
 
     @Test
@@ -223,7 +223,7 @@ class LockSyncTests {
                 "17|Mi casa|Atlantic/Canary|true",
                 "18|Garaje|" + ZoneId.systemDefault().getId() + "|false");
         assertThat(migrator.sql("SELECT count(*) FROM access_link").query(Long.class).single()).isEqualTo(1);
-        assertThat(mvc.get().uri("/locks").with(SignedIn.owner(ALICE))).bodyText().contains("Ya no está en tu cuenta de Nuki");
+        assertThat(mvc.get().uri("/").with(SignedIn.owner(ALICE))).bodyText().contains("Ya no está en tu cuenta de Nuki");
     }
 
     @Test
@@ -246,7 +246,7 @@ class LockSyncTests {
 
         assertThat(result.getMvcResult().getFlashMap().get("syncError")).isEqualTo("not-connected");
         nuki.verify(0, anyRequestedFor(anyUrl()));
-        assertThat(mvc.get().uri("/locks").with(SignedIn.owner(ALICE)).flashAttr("syncError", "not-connected"))
+        assertThat(mvc.get().uri("/").with(SignedIn.owner(ALICE)).flashAttr("syncError", "not-connected"))
                 .bodyText().contains("conecta tu cuenta de Nuki");
     }
 
@@ -270,7 +270,7 @@ class LockSyncTests {
         connectNuki(BOB, ONLY_CASA);
         sync(BOB);
 
-        assertThat(mvc.get().uri("/locks").with(SignedIn.owner(ALICE))).bodyText()
+        assertThat(mvc.get().uri("/").with(SignedIn.owner(ALICE))).bodyText()
                 .contains("Todavía no tienes cerraduras", "<a href=\"/settings/nuki#nuki-web\">actívalas en Nuki Web</a>")
                 .doesNotContain("Casa (Nuki)");
         connectNuki(ALICE, CASA_AND_GARAJE);
