@@ -73,7 +73,7 @@ class HomePageTests {
     @Test
     void eachLockSaysHowManyOfItsLinksCanOpenNow() {
         assertThat(home()).as("Ana's and Carlos's, one per lock").containsSubsequence(
-                "Casa", ">1 enlace puede abrir ahora</small>", "Garaje", ">1 enlace puede abrir ahora</small>");
+                "Casa", ">1 enlace activo</small>", "Garaje", ">1 enlace activo</small>");
 
         data.link(casa, "Bea", "now() - interval '90 days'", "now() + interval '90 days'");
         data.link(casa, "Dani", "now() + interval '1 day'", "now() + interval '2 days'");
@@ -82,8 +82,8 @@ class HomePageTests {
         data.deleteLink(carlos);
 
         assertThat(home()).as("not the pending, the expired or the revoked one, nor Bob's")
-                .containsSubsequence("Casa", ">2 enlaces pueden abrir ahora</small>", "Garaje")
-                .doesNotContain("1 enlace puede abrir ahora");
+                .containsSubsequence("Casa", ">2 enlaces activos</small>", "Garaje")
+                .doesNotContain("1 enlace activo");
     }
 
     @Test

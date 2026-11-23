@@ -43,7 +43,7 @@ On the home page, press **Crear enlace** next to the lock. Fill in:
 
 Press **Crear enlace**, and then **Copiar** or **Compartir** to send it. Both give your guest a few words with the link: when it opens, to open it in front of the door, and not to try it before, as it really opens the door; and, if the link has a PIN, that you will send it apart. WhatsApp or Telegram showing a preview of it opens nothing: only sliding does. To see what your guest will, open the link's page, by its name in the list, and press **Ver como invitado**: it opens their page, marked as a preview, where sliding says what it would do and opens nothing. Do not try the link itself: it opens your door.
 
-A link that can open for more than 30 days tells you so when you save it, so that you remember to cancel it when it is no longer needed; and the home page says under each lock how many of its links can open now.
+A link that can open for more than 30 days tells you so when you save it, so that you remember to cancel it when it is no longer needed; and the home page says under each lock how many of its links are active.
 
 A link can be copied again from the list for as long as it is pending or active.
 

@@ -68,7 +68,7 @@
                     <th:block th:with="open=${openLinks[lock.id]}">
                         <small class="links-open" th:if="${open != null}"
                                th:text="${open == 1} ? #{home.links-open.one} : #{home.links-open.many(${open})}">2
-                            enlaces pueden abrir ahora</small>
+                            enlaces activos</small>
                     </th:block>
                 </td>
                 <td>
