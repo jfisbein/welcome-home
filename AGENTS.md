@@ -48,7 +48,7 @@ Out of scope so far: geofencing, push notifications, exceptions to a link's sche
 | Piece                | Choice                                                                             |
 |----------------------|------------------------------------------------------------------------------------|
 | Language, build      | Java 25, Gradle 9 (Kotlin DSL, wrapper)                                             |
-| Framework            | Spring Boot 4.1, Spring Security 7.1 (WebAuthn passkeys), Spring Modulith 2.1       |
+| Framework            | Spring Boot 4.2, Spring Security 7.2 (WebAuthn passkeys), Spring Modulith 2.2       |
 | Web                  | Spring MVC, Thymeleaf, Pico CSS, a few small vanilla JS files (no build step)        |
 | Data                 | PostgreSQL 18 (Alpine image), `JdbcClient` with records, Liquibase (XML changelogs) |
 | Crypto               | Google Tink: AEAD AES-256-GCM (Nuki tokens, PINs), MAC HMAC-SHA256/128 (links)            |

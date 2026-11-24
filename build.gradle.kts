@@ -4,7 +4,7 @@ import net.ltgt.gradle.errorprone.errorprone
 plugins {
     java
     jacoco
-    id("org.springframework.boot") version "4.1.2"
+    id("org.springframework.boot") version "4.2.0"
     id("io.spring.dependency-management") version "1.1.7"
     id("net.ltgt.errorprone") version "5.2.0"
 }
@@ -22,7 +22,7 @@ repositories {
     mavenCentral()
 }
 
-extra["springModulithVersion"] = "2.1.1"
+extra["springModulithVersion"] = "2.2.0"
 
 dependencyManagement {
     imports {
@@ -51,9 +51,15 @@ dependencies {
 
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
     testImplementation("org.springframework.boot:spring-boot-starter-security-test")
-    // Passkey authenticator emulator; same version as the webauthn4j-core used by Spring Security
-    // (./gradlew dependencyInsight --dependency webauthn4j-core), so Dependabot leaves it alone.
+    // Passkey authenticator emulator. Spring Security decides webauthn4j's version, with the webauthn4j-core it brings:
+    // the rule below takes every module of webauthn4j to the highest version among them, so this one is only a
+    // minimum, which nobody raises (Dependabot ignores it) and which must never be above Spring Security's.
     testImplementation("com.webauthn4j:webauthn4j-test:0.31.9.RELEASE")
+    components.all {
+        if (id.group == "com.webauthn4j") {
+            belongsTo("com.webauthn4j:webauthn4j-platform:${id.version}")
+        }
+    }
     // Nuki Web API stand-in; the standalone jar shades its Jetty, so it does not clash with Spring's.
     testImplementation("org.wiremock:wiremock-standalone:3.13.2")
     // SMTP server stand-in for the owners' notifications.

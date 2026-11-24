@@ -12,7 +12,7 @@ updates:
       day: monday
       timezone: Europe/Madrid
     ignore:
-      # Must stay the version of the webauthn4j-core that Spring Security brings (see build.gradle.kts).
+      # Spring Security decides its version, with the webauthn4j-core it brings (see build.gradle.kts).
       - dependency-name: com.webauthn4j:webauthn4j-test
 
   - package-ecosystem: github-actions
